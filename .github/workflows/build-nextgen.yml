@@ -1,4 +1,4 @@
-name: Build Project Superhuman NextGen
+name: Build Project Superhuman 11
 
 on:
   push:
@@ -32,13 +32,13 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Compile native release candidate
+      - name: Compile Project Superhuman 11.0.0 validation APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload installable Step 19 APK
+      - name: Upload Project Superhuman 11.0.0 APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectSuperhuman-Step19-RC1
+          name: ProjectSuperhuman-11.0.0-Validation
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
