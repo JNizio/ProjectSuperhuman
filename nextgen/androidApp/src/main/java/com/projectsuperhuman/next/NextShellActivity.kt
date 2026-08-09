@@ -56,26 +56,19 @@ class NextShellActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MaterialTheme {
-                SuperhumanShell(
-                    openLegacy = { startActivity(Intent(this, HealthBridge::class.java)) }
-                )
+                SuperhumanShell(openLegacy = { startActivity(Intent(this, HealthBridge::class.java)) })
             }
         }
     }
 }
 
-private enum class ShellPage { HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, NUTRITION }
+private enum class ShellPage { HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, NUTRITION, EXERCISE, MINDFULNESS }
 
 @Composable
 private fun SuperhumanShell(openLegacy: () -> Unit) {
     var page by remember { mutableStateOf(ShellPage.HOME) }
     Surface(color = Bg, modifier = Modifier.fillMaxSize()) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-        ) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             if (page == ShellPage.HOME || page == ShellPage.SETTINGS) {
                 NativeTopBar(
                     title = if (page == ShellPage.HOME) "PROJECT SUPERHUMAN" else "SETTINGS",
@@ -89,14 +82,18 @@ private fun SuperhumanShell(openLegacy: () -> Unit) {
                     openBody = { page = ShellPage.BODY },
                     openSleep = { page = ShellPage.SLEEP },
                     openBloodPressure = { page = ShellPage.BLOOD_PRESSURE },
-                    openNutrition = { page = ShellPage.NUTRITION }
+                    openNutrition = { page = ShellPage.NUTRITION },
+                    openExercise = { page = ShellPage.EXERCISE },
+                    openMindfulness = { page = ShellPage.MINDFULNESS }
                 )
                 ShellPage.SETTINGS -> NativeSettings(openLegacy)
-                ShellPage.CLINICAL -> NativeClinicalPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
-                ShellPage.BODY -> NativeBodyPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
-                ShellPage.SLEEP -> NativeSleepPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
-                ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
-                ShellPage.NUTRITION -> NativeNutritionPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
+                ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openLegacy)
+                ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openLegacy)
+                ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, openLegacy)
+                ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openLegacy)
+                ShellPage.NUTRITION -> NativeNutritionPage({ page = ShellPage.HOME }, openLegacy)
+                ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openLegacy)
+                ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openLegacy)
             }
         }
     }
@@ -105,19 +102,15 @@ private fun SuperhumanShell(openLegacy: () -> Unit) {
 @Composable
 private fun NativeTopBar(title: String, onSettings: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 18.dp),
+        Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 18.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier.width(42.dp).height(42.dp).background(
-                    Brush.linearGradient(listOf(Navy, Blue)), RoundedCornerShape(13.dp)
-                ),
+                Modifier.width(42.dp).height(42.dp).background(Brush.linearGradient(listOf(Navy, Blue)), RoundedCornerShape(13.dp)),
                 contentAlignment = Alignment.Center
-            ) {
-                Text("PS", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
-            }
+            ) { Text("PS", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp) }
             Spacer(Modifier.width(11.dp))
             Column {
                 Text(title, color = Navy, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, letterSpacing = 1.25.sp)
@@ -125,11 +118,9 @@ private fun NativeTopBar(title: String, onSettings: () -> Unit) {
             }
         }
         Box(
-            modifier = Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onSettings),
+            Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onSettings),
             contentAlignment = Alignment.Center
-        ) {
-            Text(if (title == "SETTINGS") "×" else "⚙", color = Navy, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-        }
+        ) { Text(if (title == "SETTINGS") "×" else "⚙", color = Navy, fontSize = 19.sp, fontWeight = FontWeight.Bold) }
     }
 }
 
@@ -140,14 +131,15 @@ private fun NativeHome(
     openBody: () -> Unit,
     openSleep: () -> Unit,
     openBloodPressure: () -> Unit,
-    openNutrition: () -> Unit
+    openNutrition: () -> Unit,
+    openExercise: () -> Unit,
+    openMindfulness: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         HealthSnapshot(openClinical)
-
         Text("TODAY", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(start = 2.dp, top = 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard("Sleep", "—", "Wearable & recovery", SoftPurple, Color(0xFF6547C9), Modifier.weight(1f), openSleep)
@@ -155,21 +147,17 @@ private fun NativeHome(
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             MetricCard("Nutrition", "— kcal", "Food & barcode", SoftGreen, Color(0xFF168A78), Modifier.weight(1f), openNutrition)
-            MetricCard("Training", "Ready", "Open workout", SoftOrange, Color(0xFFD97706), Modifier.weight(1f), openLegacy)
+            MetricCard("Training", "Ready", "Native workout", SoftOrange, Color(0xFFD97706), Modifier.weight(1f), openExercise)
         }
-
         Text("HEALTH HUB", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(start = 2.dp, top = 5.dp))
         HubRow("Clinical", "Labs, markers & body map", "CL", Color(0xFFEAF3FF), Blue, openClinical)
         HubRow("Body & Progress", "Weight, composition & measurements", "BP", Color(0xFFEDF8F5), Color(0xFF168A78), openBody)
         HubRow("Blood Pressure", "Readings, trends & camera import", "HR", Color(0xFFFFF0F0), Color(0xFFCA3A3A), openBloodPressure)
-        HubRow("Mindfulness", "Stress, breathing & recovery", "MN", Color(0xFFF4F1FC), Color(0xFF6547C9), openLegacy)
-
-        Column(
-            modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).clickable(onClick = openLegacy).padding(17.dp)
-        ) {
+        HubRow("Mindfulness", "Stress, breathing & recovery", "MN", Color(0xFFF4F1FC), Color(0xFF6547C9), openMindfulness)
+        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).clickable(onClick = openLegacy).padding(17.dp)) {
             Text("Migration bridge", color = Navy, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(4.dp))
-            Text("Clinical, Body, Sleep, Blood Pressure and Nutrition now have native destinations. Proven import, scanner and storage backends remain available through the legacy bridge while adapters move behind the new UI.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Step 7 completes native destinations for Exercise and Mindfulness. Mature history, libraries and specialized tools remain available while their storage adapters move behind the native UI.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
         }
         Spacer(Modifier.height(18.dp))
     }
@@ -178,9 +166,7 @@ private fun NativeHome(
 @Composable
 private fun HealthSnapshot(openClinical: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(Color(0xFFE7F2FF), Color.White)), RoundedCornerShape(26.dp)
-        ).clickable(onClick = openClinical).padding(20.dp)
+        Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFFE7F2FF), Color.White)), RoundedCornerShape(26.dp)).clickable(onClick = openClinical).padding(20.dp)
     ) {
         Text("SUPERHUMAN OVERVIEW", color = Blue, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
         Spacer(Modifier.height(7.dp))
@@ -189,10 +175,7 @@ private fun HealthSnapshot(openClinical: () -> Unit) {
                 Text("Health overview", color = Ink, fontSize = 25.sp, fontWeight = FontWeight.Black)
                 Text("Your core signals in one place", color = Muted, fontSize = 11.sp)
             }
-            Box(
-                modifier = Modifier.width(64.dp).height(64.dp).background(Color.White, RoundedCornerShape(20.dp)),
-                contentAlignment = Alignment.Center
-            ) {
+            Box(Modifier.width(64.dp).height(64.dp).background(Color.White, RoundedCornerShape(20.dp)), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("—", color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     Text("SCORE", color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
@@ -229,10 +212,10 @@ private fun MetricCard(title: String, value: String, subtitle: String, backgroun
 @Composable
 private fun HubRow(title: String, subtitle: String, initials: String, background: Color, accent: Color, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(19.dp)).clickable(onClick = onClick).padding(14.dp),
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(19.dp)).clickable(onClick = onClick).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.width(42.dp).height(42.dp).background(background, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
+        Box(Modifier.width(42.dp).height(42.dp).background(background, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
             Text(initials, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.width(12.dp))
@@ -247,7 +230,7 @@ private fun HubRow(title: String, subtitle: String, initials: String, background
 @Composable
 private fun NativeSettings(openLegacy: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text("Native settings", color = Ink, fontSize = 25.sp, fontWeight = FontWeight.Black)
@@ -265,7 +248,7 @@ private fun NativeSettings(openLegacy: () -> Unit) {
 @Composable
 private fun SettingsRow(title: String, subtitle: String, onClick: () -> Unit = {}) {
     Row(
-        modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp)).clickable(onClick = onClick).padding(16.dp),
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp)).clickable(onClick = onClick).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
