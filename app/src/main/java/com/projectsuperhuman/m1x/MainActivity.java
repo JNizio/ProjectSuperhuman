@@ -13,18 +13,15 @@ import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.graphics.Insets;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.widget.FrameLayout;
 import org.json.JSONObject;
 import java.util.Locale;
 
@@ -40,35 +37,8 @@ public class MainActivity extends Activity {
         else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
         if (Build.VERSION.SDK_INT >= 23) getWindow().getDecorView().setSystemUiVisibility(0x2000);
 
-        FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.rgb(248,250,252));
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(248,250,252));
-        FrameLayout.LayoutParams webLp = new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT);
-        root.addView(webView, webLp);
-
-        // A WebView's CSS safe-area can report zero on some Android devices even while
-        // the 3-button navigation bar overlays the bottom of the page. Shrink the native
-        // WebView viewport itself instead of adding CSS/WebView padding.
-        root.setOnApplyWindowInsetsListener((v, insets) -> {
-            int bottom;
-            if (Build.VERSION.SDK_INT >= 30) {
-                Insets nav = insets.getInsets(WindowInsets.Type.navigationBars());
-                bottom = nav.bottom;
-            } else {
-                bottom = insets.getSystemWindowInsetBottom();
-            }
-            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) webView.getLayoutParams();
-            if (lp.bottomMargin != bottom) {
-                lp.bottomMargin = bottom;
-                webView.setLayoutParams(lp);
-            }
-            return insets;
-        });
-        root.requestApplyInsets();
-
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
@@ -87,7 +57,7 @@ public class MainActivity extends Activity {
         scaleBridge = new ScaleBridge(this);
         webView.addJavascriptInterface(scaleBridge, "SuperhumanBLE");
         webView.addJavascriptInterface(new AppBridge(), "SuperhumanApp");
-        setContentView(root);
+        setContentView(webView);
         webView.loadUrl("file:///android_asset/index.html");
     }
 
