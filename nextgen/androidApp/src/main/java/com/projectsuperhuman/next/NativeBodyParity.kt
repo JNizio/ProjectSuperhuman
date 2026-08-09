@@ -32,8 +32,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.next.core.HealthDomain
+import com.projectsuperhuman.next.core.HealthValue
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
+import kotlin.math.abs
 
 private val BodyGreen = Color(0xFF168A78)
 private val BodyBlue = Color(0xFF0D6CB4)
@@ -52,6 +53,7 @@ private data class BodySnapshot(
 internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) {
     val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf(BodySnapshot()) }
+    var weightHistory by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var weight by remember { mutableStateOf("") }
     var bodyFat by remember { mutableStateOf("") }
     var waist by remember { mutableStateOf("") }
@@ -67,6 +69,10 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
             waistCm = metric("body_waist_cm"),
             goalKg = metric("body_goal_weight_kg")
         )
+        val now = System.currentTimeMillis()
+        weightHistory = NativeDataHub.between("body_weight_kg", now - 365L * 24L * 60L * 60L * 1000L, now)
+            .sortedBy { it.timestampEpochMs }
+            .takeLast(10)
     }
 
     LaunchedEffect(Unit) { refresh() }
@@ -77,7 +83,8 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
             bodyFat.toDoubleOrNull()?.let { NativeDataHub.saveMetric(HealthDomain.BODY, "body_fat_pct", it, "%") }
             waist.toDoubleOrNull()?.let { NativeDataHub.saveMetric(HealthDomain.BODY, "body_waist_cm", it, "cm") }
             goal.toDoubleOrNull()?.let { NativeDataHub.saveMetric(HealthDomain.BODY, "body_goal_weight_kg", it, "kg") }
-            status = "Saved to shared database"
+            status = "Progress saved"
+            weight = ""; bodyFat = ""; waist = ""; goal = ""
             refresh()
         }
     }
@@ -87,10 +94,9 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onBack),
-                contentAlignment = Alignment.Center
-            ) { Text("‹", color = BodyBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+            Box(Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
+                Text("‹", color = BodyBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Body & Progress", color = BodyInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
@@ -102,6 +108,10 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
             BodyStat("WEIGHT", snapshot.weightKg?.let { "%.1f kg".format(it) } ?: "—", BodyGreen, Modifier.weight(1f))
             BodyStat("BODY FAT", snapshot.bodyFatPct?.let { "%.1f%%".format(it) } ?: "—", BodyBlue, Modifier.weight(1f))
             BodyStat("WAIST", snapshot.waistCm?.let { "%.0f cm".format(it) } ?: "—", Color(0xFF6547C9), Modifier.weight(1f))
+        }
+
+        if (weightHistory.size >= 2) {
+            WeightTrendCard(weightHistory, snapshot.goalKg)
         }
 
         Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
@@ -126,12 +136,12 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
         }
 
         Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(16.dp)) {
-            Text("Progress summary", color = BodyInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Goal", color = BodyInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             val delta = if (snapshot.weightKg != null && snapshot.goalKg != null) snapshot.weightKg - snapshot.goalKg else null
             Text(
                 when {
                     delta == null -> "Set a goal weight to see distance-to-goal context."
-                    kotlin.math.abs(delta) < 0.05 -> "At goal weight."
+                    abs(delta) < 0.05 -> "At goal weight."
                     delta > 0 -> "${"%.1f".format(delta)} kg above goal."
                     else -> "${"%.1f".format(-delta)} kg below goal."
                 },
@@ -140,15 +150,48 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
             )
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(16.dp)) {
-            Text("Existing body tools", color = BodyBlue, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-            Text("Older history and any still-unmigrated smart-scale tools remain available during the transition.", color = BodyMuted, fontSize = 9.sp, lineHeight = 14.sp)
-            Spacer(Modifier.height(9.dp))
-            Box(Modifier.fillMaxWidth().background(BodyBlue, RoundedCornerShape(15.dp)).clickable(onClick = openLegacy).padding(13.dp), contentAlignment = Alignment.Center) {
-                Text("OPEN EXISTING BODY TOOLS", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(18.dp))
+    }
+}
+
+@Composable
+private fun WeightTrendCard(history: List<HealthValue>, goalKg: Double?) {
+    val values = history.map { it.value }
+    val min = values.minOrNull() ?: return
+    val max = values.maxOrNull() ?: return
+    val span = (max - min).coerceAtLeast(0.5)
+    val change = values.last() - values.first()
+
+    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Weight trend", color = BodyInk, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                Text("Last ${history.size} entries", color = BodyMuted, fontSize = 9.sp)
+            }
+            Text(
+                (if (change > 0) "+" else "") + "%.1f kg".format(change),
+                color = if (abs(change) < 0.1) BodyMuted else if (change < 0) BodyGreen else BodyBlue,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(
+            Modifier.fillMaxWidth().height(74.dp),
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            history.forEach { item ->
+                val fraction = ((item.value - min) / span).coerceIn(0.0, 1.0)
+                Box(
+                    Modifier.weight(1f).height((18 + 52 * fraction).dp).background(BodyBlue.copy(alpha = .22f), RoundedCornerShape(6.dp))
+                )
             }
         }
-        Spacer(Modifier.height(18.dp))
+        if (goalKg != null) {
+            Spacer(Modifier.height(8.dp))
+            Text("Goal %.1f kg · latest %.1f kg".format(goalKg, values.last()), color = BodyMuted, fontSize = 9.sp)
+        }
     }
 }
 
