@@ -46,6 +46,12 @@ class SqlHealthRepository(
     override suspend fun latestForDomain(domain: HealthDomain): List<HealthValue> =
         q.latestForDomain(domain.name, domain.name, ::mapHealthValue).executeAsList()
 
+    fun allValues(): List<HealthValue> = q.allHealthValues(::mapHealthValue).executeAsList()
+
+    fun clearValues() {
+        q.clearHealthValues()
+    }
+
     fun count(): Long = q.countValues().executeAsOne()
 
     private fun mapHealthValue(
