@@ -46,11 +46,11 @@ public class MainActivity extends Activity {
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(248,250,252));
         webView.setFitsSystemWindows(true);
+        webView.setClipToPadding(false);
         if (Build.VERSION.SDK_INT >= 30) {
             webView.setOnApplyWindowInsetsListener((v, insets) -> {
                 Insets nav = insets.getInsets(WindowInsets.Type.navigationBars());
                 v.setPadding(v.getPaddingLeft(), v.getPaddingTop(), v.getPaddingRight(), nav.bottom);
-                v.setClipToPadding(false);
                 return insets;
             });
         }
