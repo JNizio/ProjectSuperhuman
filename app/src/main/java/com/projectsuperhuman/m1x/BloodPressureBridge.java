@@ -8,6 +8,7 @@ import android.provider.MediaStore;
 import android.webkit.JavascriptInterface;
 import androidx.core.content.FileProvider;
 import org.json.JSONObject;
+import org.opencv.android.OpenCVLoader;
 import java.io.File;
 
 public final class BloodPressureBridge {
@@ -16,7 +17,7 @@ public final class BloodPressureBridge {
     private Uri captureUri; private File captureFile;
     BloodPressureBridge(MainActivitx a){activity=a;}
 
-    @JavascriptInterface public String capability(){return "native_camera_seven_segment";}
+    @JavascriptInterface public String capability(){return "native_camera_opencv_7seg_consensus";}
     @JavascriptInterface public void capture(){activity.runOnUiThread(this::launchCamera);}
 
     private void launchCamera(){
@@ -27,23 +28,36 @@ public final class BloodPressureBridge {
             Intent i=new Intent(MediaStore.ACTION_IMAGE_CAPTURE);i.putExtra(MediaStore.EXTRA_OUTPUT,captureUri);
             i.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION|Intent.FLAG_GRANT_READ_URI_PERMISSION);
             activity.startActivityForResult(i,REQ_BP_CAMERA);
-            emitStatus("camera_opened","Fill the frame with the LCD display and keep it straight.");
+            emitStatus("camera_opened","Fill most of the frame with the monitor display. A slight angle is OK.");
         }catch(Exception e){emitError("Could not open the camera.");}
     }
 
     boolean onActivityResult(int requestCode,int resultCode,Intent data){
         if(requestCode!=REQ_BP_CAMERA)return false;
         if(resultCode!=android.app.Activity.RESULT_OK||captureFile==null){emitStatus("cancelled","Camera capture cancelled.");return true;}
-        emitStatus("reading","Reading the seven-segment LCD…");
+        emitStatus("reading","Locating the LCD, correcting the image and reading SYS / DIA / pulse…");
         new Thread(()->{
+            Bitmap b=null;
             try{
-                Bitmap b=decodeSampled(captureFile,2200);
-                SevenSegmentDecoder.Result r=SevenSegmentDecoder.decode(b);
-                if(b!=null&&!b.isRecycled())b.recycle();
-                emitResult(resultJson(r));
+                b=decodeSampled(captureFile,2400);
+                if(b==null){emitError("Could not decode the captured photo.");return;}
+
+                HybridBloodPressureDecoder.Result hr=null;
+                try{
+                    if(OpenCVLoader.initLocal()) hr=HybridBloodPressureDecoder.decode(b);
+                }catch(Throwable ignored){}
+
+                if(hr!=null&&hr.valid()){
+                    emitResult(resultJson(hr));
+                }else{
+                    // Last-resort deterministic fallback keeps older devices working even
+                    // if OpenCV cannot initialise for a particular ABI.
+                    SevenSegmentDecoder.Result sr=SevenSegmentDecoder.decode(b);
+                    emitResult(resultJson(sr));
+                }
             }catch(Exception e){emitError("Could not analyse the LCD display.");}
-            finally{cleanup();}
-        },"psh-bp-7seg").start();
+            finally{if(b!=null&&!b.isRecycled())b.recycle();cleanup();}
+        },"psh-bp-hybrid-reader").start();
         return true;
     }
 
@@ -54,11 +68,19 @@ public final class BloodPressureBridge {
         return BitmapFactory.decodeFile(f.getAbsolutePath(),o);
     }
 
+    private JSONObject resultJson(HybridBloodPressureDecoder.Result r){
+        JSONObject j=new JSONObject();try{
+            boolean ok=r!=null&&r.valid();j.put("ok",ok);j.put("method",ok?r.method:"opencv_7seg_consensus");
+            j.put("systolic",ok?r.sys:JSONObject.NULL);j.put("diastolic",ok?r.dia:JSONObject.NULL);j.put("pulse",ok?r.pulse:JSONObject.NULL);
+            j.put("confidence",ok?r.confidence:.10);j.put("debug",r==null?"no consensus found":r.debug);
+        }catch(Exception ignored){}return j;
+    }
+
     private JSONObject resultJson(SevenSegmentDecoder.Result r){
         JSONObject j=new JSONObject();try{
-            boolean ok=r!=null&&r.valid();j.put("ok",ok);j.put("method","seven_segment_lcd");
+            boolean ok=r!=null&&r.valid();j.put("ok",ok);j.put("method","seven_segment_fallback");
             j.put("systolic",ok?r.sys:JSONObject.NULL);j.put("diastolic",ok?r.dia:JSONObject.NULL);j.put("pulse",ok?r.pulse:JSONObject.NULL);
-            j.put("confidence",ok?Math.min(.98,.72+r.score/500.0):.15);j.put("debug",r==null?"no segment pattern found":r.debug);
+            j.put("confidence",ok?Math.min(.92,.58+r.score/650.0):.08);j.put("debug",r==null?"no segment pattern found":r.debug);
         }catch(Exception ignored){}return j;
     }
 
