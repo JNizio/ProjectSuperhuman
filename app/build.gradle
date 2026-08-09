@@ -1,0 +1,30 @@
+plugins { id 'com.android.application' }
+
+android {
+    signingConfigs {
+        release {
+            storeFile file('../signing/project-superhuman-v97.keystore')
+            storePassword 'PSH970-LocalFirst-2026-KeepSafe'
+            keyAlias 'project-superhuman'
+            keyPassword 'PSH970-LocalFirst-2026-KeepSafe'
+        }
+    }
+    namespace 'com.projectsuperhuman.m1x'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.projectsuperhuman.m1x'
+        minSdk 23
+        targetSdk 35
+        versionCode 10026
+        versionName '9.9.6'
+    }
+    buildTypes { release { signingConfig signingConfigs.release; minifyEnabled false } }
+}
+
+dependencies {
+    implementation 'com.google.zxing:core:3.5.4'
+    implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+    implementation 'com.google.mlkit:barcode-scanning:17.3.0'
+    implementation 'androidx.core:core:1.15.0'
+}
