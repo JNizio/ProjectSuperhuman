@@ -3,20 +3,11 @@
   var style=document.createElement('style');
   style.id='psh-safe-area-fix';
   style.textContent=`
-    html,body{min-height:100%;}
-    #app{
-      min-height:100dvh;
-      padding-bottom:180px !important;
-    }
-    .screen{
-      padding-bottom:120px !important;
-    }
-    .screen::after{
-      content:"";
-      display:block;
-      height:96px;
-      width:100%;
-      pointer-events:none;
+    /* Data Vault used to occupy the final dashboard-secondary slot and gave the
+       home screen trailing scroll clearance. Now that Vault lives in Settings,
+       reserve that clearance explicitly on the dashboard footer itself. */
+    .dashboard-secondary{
+      padding-bottom:90px !important;
     }
   `;
   document.head.appendChild(style);
