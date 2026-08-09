@@ -47,7 +47,7 @@ public class MainActivity extends Activity {
         webView.setWebViewClient(new WebViewClient(){
             @Override public void onPageFinished(WebView view, String url){
                 super.onPageFinished(view,url);
-                view.evaluateJavascript("(function(){[['psh-clinical-body-upgrade-script','clinical_body_upgrade.js'],['psh-bp-native-upgrade-script','bp_native_upgrade.js'],['psh-settings-upgrade-script','settings_upgrade.js']].forEach(function(x){if(document.getElementById(x[0]))return;var s=document.createElement('script');s.id=x[0];s.src=x[1];document.head.appendChild(s);});})()",null);
+                view.evaluateJavascript("(function(){[['psh-clinical-body-upgrade-script','clinical_body_upgrade.js'],['psh-bp-native-upgrade-script','bp_native_upgrade.js'],['psh-settings-upgrade-script','settings_upgrade.js'],['psh-safe-area-fix-script','safe_area_fix.js']].forEach(function(x){if(document.getElementById(x[0]))return;var s=document.createElement('script');s.id=x[0];s.src=x[1];document.head.appendChild(s);});})()",null);
             }
         });
         scaleBridge = new ScaleBridge(this);
