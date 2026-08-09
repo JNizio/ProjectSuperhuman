@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -137,7 +136,9 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
 
         Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(16.dp)) {
             Text("Goal", color = BodyInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            val delta = if (snapshot.weightKg != null && snapshot.goalKg != null) snapshot.weightKg - snapshot.goalKg else null
+            val currentWeight = snapshot.weightKg
+            val targetWeight = snapshot.goalKg
+            val delta = if (currentWeight != null && targetWeight != null) currentWeight - targetWeight else null
             Text(
                 when {
                     delta == null -> "Set a goal weight to see distance-to-goal context."
