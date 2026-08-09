@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../ScientificCore/ScientificCore.fsproj" /></ItemGroup>
+  <ItemGroup><Compile Include="Program.fs" /></ItemGroup>
+</Project>
