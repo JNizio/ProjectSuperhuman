@@ -1,10 +1,11 @@
 package com.projectsuperhuman.m1x;
 
 import android.content.pm.PackageManager;
+import android.health.connect.HealthConnectException;
 import android.health.connect.HealthConnectManager;
 import android.health.connect.ReadRecordsRequestUsingFilters;
 import android.health.connect.ReadRecordsResponse;
-import android.health.connect.TimeRangeFilter;
+import android.health.connect.TimeInstantRangeFilter;
 import android.health.connect.datatypes.SleepSessionRecord;
 import android.os.Build;
 import android.os.Bundle;
@@ -44,10 +45,11 @@ public class HealthBridge extends MainActivitx {
             if(m==null){emit("onHealthError","Health Connect service unavailable.");return;}
             emitNoArg("beginSync");
             Instant end=Instant.now(), start=end.minus(30,ChronoUnit.DAYS);
+            TimeInstantRangeFilter timeRange = new TimeInstantRangeFilter.Builder().setStartTime(start).setEndTime(end).build();
             ReadRecordsRequestUsingFilters<SleepSessionRecord> req=new ReadRecordsRequestUsingFilters.Builder<>(SleepSessionRecord.class)
-                    .setTimeRangeFilter(TimeRangeFilter.between(start,end)).setPageSize(200).build();
+                    .setTimeRangeFilter(timeRange).setPageSize(200).build();
             Executor ex=getMainExecutor();
-            m.readRecords(req,ex,new OutcomeReceiver<ReadRecordsResponse<SleepSessionRecord>,Exception>(){
+            m.readRecords(req,ex,new OutcomeReceiver<ReadRecordsResponse<SleepSessionRecord>,HealthConnectException>(){
                 @Override public void onResult(ReadRecordsResponse<SleepSessionRecord> response){
                     for(SleepSessionRecord r:response.getRecords()){
                         emitRaw("onSleepRecord", r.getStartTime().toEpochMilli()+","+r.getEndTime().toEpochMilli());
@@ -55,7 +57,7 @@ public class HealthBridge extends MainActivitx {
                     }
                     emitNoArg("endSync");
                 }
-                @Override public void onError(Exception error){emit("onHealthError","Health Connect sleep read failed.");emitNoArg("endSync");}
+                @Override public void onError(HealthConnectException error){emit("onHealthError","Health Connect sleep read failed.");emitNoArg("endSync");}
             });
         }
     }
