@@ -24,8 +24,8 @@ android {
         applicationId 'com.projectsuperhuman.m1x'
         minSdk 23
         targetSdk 35
-        versionCode 10027
-        versionName '9.9.7'
+        versionCode 10028
+        versionName '9.9.8'
     }
     buildTypes { release { signingConfig signingConfigs.release; minifyEnabled false } }
 }
