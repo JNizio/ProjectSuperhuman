@@ -125,7 +125,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
         Modifier.fillMaxSize().background(SettingsBg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Native settings", color = SettingsInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
+        Text("Settings", color = SettingsInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
         Text("Backup, restore, integrations and app controls.", color = SettingsMuted, fontSize = 11.sp)
 
         Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
@@ -176,7 +176,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
         SettingsSection("Health integrations", "Health Connect sleep is native. Device-specific integrations can be added behind the same repository.")
         SettingsSection("Permissions", "Camera, barcode/OCR, Bluetooth and health permissions are requested only when the related feature needs them.")
         SettingsSection("Scientific engine", "Health scores and statuses use stored native metrics and explicit reference ranges; missing clinical ranges are not invented.")
-        SettingsSection("Compatibility status", "Core modules are native-first. The HTML bridge is reserved only for deferred Blood Pressure and the remaining barcode-camera handoff.")
+        SettingsSection("11.0 compatibility", "Core workflows are native-first. Selected advanced legacy tools remain available from their module as a safety fallback during the 11.0 validation cycle.")
         Spacer(Modifier.height(18.dp))
     }
 }
