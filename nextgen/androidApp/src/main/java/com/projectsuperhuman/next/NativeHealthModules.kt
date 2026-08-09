@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.projectsuperhuman.next.core.HealthDomain
 
 private val ModuleNavy = Color(0xFF082D66)
 private val ModuleBlue = Color(0xFF0D6CB4)
@@ -36,89 +37,65 @@ private val ModuleBad = Color(0xFFCA3A3A)
 
 @Composable
 internal fun NativeClinicalPage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    ModuleScaffold(
-        title = "Clinical",
-        subtitle = "Labs, markers and body map",
-        accent = ModuleBlue,
-        onBack = onBack
-    ) {
-        OverviewStrip(
-            listOf(
-                Triple("STATUS", "Ready", ModuleGood),
-                Triple("MARKERS", "—", ModuleBlue),
-                Triple("ALERTS", "—", ModuleBad)
-            )
-        )
+    ModuleScaffold("Clinical", "Labs, markers and body map", ModuleBlue, onBack) {
+        SharedDomainStatus(HealthDomain.CLINICAL)
+        OverviewStrip(listOf(
+            Triple("STATUS", "Live DB", ModuleGood),
+            Triple("MARKERS", "Shared", ModuleBlue),
+            Triple("ALERTS", "Engine", ModuleBad)
+        ))
         ModuleCard("Clinical overview", "Native marker summaries, reference-range state and trend entry point.", ModuleBlue)
         ModuleCard("Blood results", "FBC, liver, bone, iron and other imported panels.", ModuleGood)
         ModuleCard("Body map", "Segmented body view for linking abnormal or healthy data to regions.", Color(0xFF6547C9))
-        LegacyAction("Open existing clinical data", "Use the complete current OCR/import and graphs while native data wiring is migrated.", openLegacy)
+        LegacyAction("Open existing clinical tools", "OCR/import stays available here until Step 10 migrates the capture flow itself.", openLegacy)
     }
 }
 
 @Composable
 internal fun NativeBodyPage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    ModuleScaffold(
-        title = "Body & Progress",
-        subtitle = "Weight, composition and measurements",
-        accent = ModuleGood,
-        onBack = onBack
-    ) {
-        OverviewStrip(
-            listOf(
-                Triple("WEIGHT", "—", ModuleGood),
-                Triple("TREND", "—", ModuleBlue),
-                Triple("GOAL", "—", ModuleWarn)
-            )
-        )
-        ModuleCard("Weight history", "Native trend surface for body-weight measurements and goal direction.", ModuleGood)
+    ModuleScaffold("Body & Progress", "Weight, composition and measurements", ModuleGood, onBack) {
+        SharedDomainStatus(HealthDomain.BODY)
+        OverviewStrip(listOf(
+            Triple("WEIGHT", "Live DB", ModuleGood),
+            Triple("TREND", "Shared", ModuleBlue),
+            Triple("GOAL", "Stored", ModuleWarn)
+        ))
+        ModuleCard("Weight history", "Native trend surface backed by the shared repository.", ModuleGood)
         ModuleCard("Body composition", "Body fat, muscle, water and smart-scale metrics when available.", ModuleBlue)
         ModuleCard("Measurements", "Waist, chest, arms, hips, thighs and other optional measurements.", Color(0xFF6547C9))
-        LegacyAction("Open existing body data", "Use the complete current history and smart-scale tools during migration.", openLegacy)
+        LegacyAction("Open existing body tools", "Legacy history remains available while Step 12 completes native entry and chart parity.", openLegacy)
     }
 }
 
 @Composable
 internal fun NativeSleepPage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    ModuleScaffold(
-        title = "Sleep",
-        subtitle = "Wearable sleep and recovery",
-        accent = Color(0xFF6547C9),
-        onBack = onBack
-    ) {
-        OverviewStrip(
-            listOf(
-                Triple("SCORE", "—", Color(0xFF6547C9)),
-                Triple("TOTAL", "—", ModuleBlue),
-                Triple("DEBT", "—", ModuleWarn)
-            )
-        )
-        ModuleCard("Last sleep", "Native summary surface for duration, sleep score and recovery status.", Color(0xFF6547C9))
-        ModuleCard("Sleep stages", "Awake, light, deep and REM totals from Health Connect.", ModuleBlue)
-        ModuleCard("Sleep debt", "Rolling context to show whether recent sleep is catching up or falling behind.", ModuleWarn)
-        LegacyAction("Open current sleep sync", "Health Connect import remains available while the native adapter is connected to this screen.", openLegacy)
+    ModuleScaffold("Sleep", "Wearable sleep and recovery", Color(0xFF6547C9), onBack) {
+        SharedDomainStatus(HealthDomain.SLEEP)
+        OverviewStrip(listOf(
+            Triple("SCORE", "Live DB", Color(0xFF6547C9)),
+            Triple("TOTAL", "Shared", ModuleBlue),
+            Triple("DEBT", "Stored", ModuleWarn)
+        ))
+        ModuleCard("Last sleep", "Duration, score and recovery values now have a direct shared-data path.", Color(0xFF6547C9))
+        ModuleCard("Sleep stages", "Awake, light, deep and REM values can be read from the repository.", ModuleBlue)
+        ModuleCard("Sleep debt", "Rolling context will be calculated natively during Step 11.", ModuleWarn)
+        LegacyAction("Open current sleep sync", "Health Connect capture remains available until its adapter is moved fully behind this screen.", openLegacy)
     }
 }
 
 @Composable
 internal fun NativeBloodPressurePage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    ModuleScaffold(
-        title = "Blood Pressure",
-        subtitle = "Readings, trends and pulse",
-        accent = ModuleBad,
-        onBack = onBack
-    ) {
-        OverviewStrip(
-            listOf(
-                Triple("SYS", "—", ModuleBad),
-                Triple("DIA", "—", ModuleBlue),
-                Triple("PULSE", "—", ModuleGood)
-            )
-        )
-        ModuleCard("Latest reading", "Native summary for systolic, diastolic and heart-rate values.", ModuleBad)
-        ModuleCard("Trend", "History surface for spotting changes across repeated measurements.", ModuleBlue)
-        ModuleCard("Capture", "Camera/BP-device import entry point will move behind this native screen.", ModuleGood)
-        LegacyAction("Open existing BP tools", "Use the current camera import and saved readings while native capture is migrated.", openLegacy)
+    ModuleScaffold("Blood Pressure", "Readings, trends and pulse", ModuleBad, onBack) {
+        SharedDomainStatus(HealthDomain.BLOOD_PRESSURE)
+        OverviewStrip(listOf(
+            Triple("SYS", "Live DB", ModuleBad),
+            Triple("DIA", "Shared", ModuleBlue),
+            Triple("PULSE", "Stored", ModuleGood)
+        ))
+        ModuleCard("Latest reading", "Systolic, diastolic and pulse values now have a direct shared-data path.", ModuleBad)
+        ModuleCard("Trend", "History data can now be read without going through WebView storage.", ModuleBlue)
+        ModuleCard("Capture", "Camera/BP-device capture will write into this same repository in Step 12.", ModuleGood)
+        LegacyAction("Open existing BP capture", "Use the mature capture path while the native adapter migration is completed.", openLegacy)
     }
 }
 
@@ -131,23 +108,14 @@ private fun ModuleScaffold(
     content: @Composable () -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                modifier = Modifier
-                    .width(42.dp)
-                    .height(42.dp)
-                    .background(Color.White, RoundedCornerShape(14.dp))
-                    .clickable(onClick = onBack),
+                modifier = Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center
-            ) {
-                Text("‹", color = ModuleNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            }
+            ) { Text("‹", color = ModuleNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, color = ModuleInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
@@ -156,18 +124,15 @@ private fun ModuleScaffold(
         }
 
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(listOf(accent.copy(alpha = .13f), Color.White)),
-                    RoundedCornerShape(24.dp)
-                )
-                .padding(18.dp)
+            modifier = Modifier.fillMaxWidth().background(
+                Brush.linearGradient(listOf(accent.copy(alpha = .13f), Color.White)),
+                RoundedCornerShape(24.dp)
+            ).padding(18.dp)
         ) {
-            Text("STEP 5 · NATIVE MODULE", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+            Text("STEP 8 · SHARED DATA", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
             Spacer(Modifier.height(6.dp))
-            Text("Native experience layer", color = ModuleInk, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Text("The module now has a native destination. Existing data tools remain reachable until their storage/import adapters are moved behind it.", color = ModuleMuted, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Native + real repository", color = ModuleInk, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text("This screen now reads through the shared HealthRepository instead of depending on WebView/localStorage. Feature-specific capture tools are migrated in the parity steps that follow.", color = ModuleMuted, fontSize = 10.sp, lineHeight = 15.sp)
         }
 
         content()
@@ -180,10 +145,7 @@ private fun OverviewStrip(items: List<Triple<String, String, Color>>) {
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         items.forEach { item ->
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .background(Color.White, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 10.dp, vertical = 12.dp)
+                modifier = Modifier.weight(1f).background(Color.White, RoundedCornerShape(16.dp)).padding(horizontal = 10.dp, vertical = 12.dp)
             ) {
                 Text(item.first, color = ModuleMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(3.dp))
@@ -196,10 +158,7 @@ private fun OverviewStrip(items: List<Triple<String, String, Color>>) {
 @Composable
 private fun ModuleCard(title: String, subtitle: String, accent: Color) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(19.dp))
-            .padding(15.dp),
+        modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(19.dp)).padding(15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.width(5.dp).height(42.dp).background(accent, RoundedCornerShape(99.dp)))
@@ -214,11 +173,7 @@ private fun ModuleCard(title: String, subtitle: String, accent: Color) {
 @Composable
 private fun LegacyAction(title: String, subtitle: String, onClick: () -> Unit) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(ModuleNavy, RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
-            .padding(17.dp)
+        modifier = Modifier.fillMaxWidth().background(ModuleNavy, RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(17.dp)
     ) {
         Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(4.dp))
