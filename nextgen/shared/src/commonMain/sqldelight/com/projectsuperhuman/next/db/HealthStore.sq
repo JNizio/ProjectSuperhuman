@@ -1,0 +1,137 @@
+CREATE TABLE health_value (
+  id TEXT NOT NULL PRIMARY KEY,
+  domain TEXT NOT NULL,
+  metric TEXT NOT NULL,
+  numeric_value REAL NOT NULL,
+  unit TEXT NOT NULL,
+  timestamp_epoch_ms INTEGER NOT NULL,
+  source TEXT NOT NULL,
+  source_record_id TEXT,
+  metadata_json TEXT,
+  created_epoch_ms INTEGER NOT NULL,
+  updated_epoch_ms INTEGER NOT NULL
+);
+
+CREATE INDEX health_value_metric_time_idx ON health_value(metric, timestamp_epoch_ms DESC);
+CREATE INDEX health_value_domain_time_idx ON health_value(domain, timestamp_epoch_ms DESC);
+CREATE UNIQUE INDEX health_value_source_record_idx ON health_value(source, source_record_id) WHERE source_record_id IS NOT NULL;
+
+CREATE TABLE clinical_range (
+  metric TEXT NOT NULL,
+  unit TEXT NOT NULL,
+  low REAL,
+  high REAL,
+  source TEXT NOT NULL,
+  observed_epoch_ms INTEGER NOT NULL,
+  PRIMARY KEY(metric, unit)
+);
+
+CREATE TABLE scientific_insight (
+  id TEXT NOT NULL PRIMARY KEY,
+  domain TEXT NOT NULL,
+  state TEXT NOT NULL,
+  title TEXT NOT NULL,
+  explanation TEXT NOT NULL,
+  evidence_metric_ids_json TEXT NOT NULL,
+  confidence REAL,
+  engine_version TEXT NOT NULL,
+  generated_epoch_ms INTEGER NOT NULL
+);
+
+CREATE INDEX scientific_insight_domain_time_idx ON scientific_insight(domain, generated_epoch_ms DESC);
+
+CREATE TABLE daily_aggregate (
+  day_epoch INTEGER NOT NULL,
+  domain TEXT NOT NULL,
+  metric TEXT NOT NULL,
+  count INTEGER NOT NULL,
+  min_value REAL,
+  max_value REAL,
+  avg_value REAL,
+  sum_value REAL,
+  first_value REAL,
+  last_value REAL,
+  updated_epoch_ms INTEGER NOT NULL,
+  PRIMARY KEY(day_epoch, domain, metric)
+);
+
+CREATE INDEX daily_aggregate_metric_day_idx ON daily_aggregate(metric, day_epoch DESC);
+
+CREATE TABLE import_checkpoint (
+  source TEXT NOT NULL PRIMARY KEY,
+  last_success_epoch_ms INTEGER NOT NULL,
+  cursor TEXT,
+  schema_version INTEGER NOT NULL,
+  notes TEXT
+);
+
+CREATE TABLE legacy_import_log (
+  legacy_key TEXT NOT NULL PRIMARY KEY,
+  imported_epoch_ms INTEGER NOT NULL,
+  item_count INTEGER NOT NULL,
+  checksum TEXT,
+  status TEXT NOT NULL
+);
+
+upsertHealthValue:
+INSERT OR REPLACE INTO health_value(
+  id, domain, metric, numeric_value, unit, timestamp_epoch_ms, source,
+  source_record_id, metadata_json, created_epoch_ms, updated_epoch_ms
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+latestByMetric:
+SELECT * FROM health_value
+WHERE metric = ?
+ORDER BY timestamp_epoch_ms DESC
+LIMIT 1;
+
+betweenByMetric:
+SELECT * FROM health_value
+WHERE metric = ? AND timestamp_epoch_ms BETWEEN ? AND ?
+ORDER BY timestamp_epoch_ms ASC;
+
+latestForDomain:
+SELECT hv.* FROM health_value hv
+JOIN (
+  SELECT metric, MAX(timestamp_epoch_ms) AS max_ts
+  FROM health_value
+  WHERE domain = ?
+  GROUP BY metric
+) latest ON latest.metric = hv.metric AND latest.max_ts = hv.timestamp_epoch_ms
+WHERE hv.domain = ?
+ORDER BY hv.metric;
+
+countValues:
+SELECT COUNT(*) FROM health_value;
+
+upsertRange:
+INSERT OR REPLACE INTO clinical_range(metric, unit, low, high, source, observed_epoch_ms)
+VALUES (?, ?, ?, ?, ?, ?);
+
+rangeForMetric:
+SELECT * FROM clinical_range WHERE metric = ? AND unit = ? LIMIT 1;
+
+upsertAggregate:
+INSERT OR REPLACE INTO daily_aggregate(
+  day_epoch, domain, metric, count, min_value, max_value, avg_value, sum_value,
+  first_value, last_value, updated_epoch_ms
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+aggregatesBetween:
+SELECT * FROM daily_aggregate
+WHERE metric = ? AND day_epoch BETWEEN ? AND ?
+ORDER BY day_epoch ASC;
+
+upsertCheckpoint:
+INSERT OR REPLACE INTO import_checkpoint(source, last_success_epoch_ms, cursor, schema_version, notes)
+VALUES (?, ?, ?, ?, ?);
+
+checkpointForSource:
+SELECT * FROM import_checkpoint WHERE source = ? LIMIT 1;
+
+logLegacyImport:
+INSERT OR REPLACE INTO legacy_import_log(legacy_key, imported_epoch_ms, item_count, checksum, status)
+VALUES (?, ?, ?, ?, ?);
+
+legacyImportStatus:
+SELECT * FROM legacy_import_log WHERE legacy_key = ? LIMIT 1;
