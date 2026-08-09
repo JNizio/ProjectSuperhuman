@@ -16,20 +16,12 @@
         android:allowBackup="true"
         android:hardwareAccelerated="true"
         android:icon="@drawable/icon"
-        android:label="Project Superhuman Next"
+        android:label="Project Superhuman"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.fileprovider"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
-
+        <!-- Compatibility activity is retained only for the deliberately deferred BP flow
+             and the current mature nutrition scanner handoff. It is not part of normal navigation. -->
         <activity
             android:name="com.projectsuperhuman.m1x.HealthBridge"
             android:screenOrientation="portrait"
