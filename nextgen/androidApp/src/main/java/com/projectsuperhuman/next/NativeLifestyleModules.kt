@@ -32,19 +32,7 @@ private val LifestyleMuted = Color(0xFF64748B)
 
 @Composable
 fun NativeExercisePage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    NativeModuleFrame("Exercise", "Training, progression & recovery", onBack) {
-        Hero("TRAINING", "Build strength with less friction", "Native workout flow is now the primary destination. Your existing exercise library, history and full-bodied icon set remain available through the legacy engine while data adapters are migrated.", Color(0xFFFFF4E8), Color(0xFFD97706))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            StatCard("Today", "Ready", "Start session", Modifier.weight(1f))
-            StatCard("Volume", "—", "This week", Modifier.weight(1f))
-        }
-        SectionLabel("TRAINING")
-        ActionRow("Start workout", "Create sets, reps and load", "GO", Color(0xFFFFF4E8), Color(0xFFD97706), openLegacy)
-        ActionRow("Exercise library", "Body-part library with Project Superhuman icons", "EX", Color(0xFFEAF3FF), LifestyleBlue, openLegacy)
-        ActionRow("Progress", "History, volume and progression", "PR", Color(0xFFEDF8F5), Color(0xFF168A78), openLegacy)
-        ActionRow("Recovery", "Rest, readiness and training context", "RC", Color(0xFFF4F1FC), Color(0xFF6547C9), openLegacy)
-        BridgeNote("The mature exercise database and tracking logic are preserved. Step 7 changes navigation and presentation first, without deleting your existing workout data or icon assets.", openLegacy)
-    }
+    NativeExerciseParityScreen(onBack, openLegacy)
 }
 
 @Composable
