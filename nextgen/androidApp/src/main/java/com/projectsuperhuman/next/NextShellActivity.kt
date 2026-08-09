@@ -64,7 +64,7 @@ private enum class ShellPage {
 @Composable
 private fun SuperhumanShell(openCompatibility: () -> Unit) {
     var page by remember { mutableStateOf(ShellPage.HOME) }
-    val nativeOnly: () -> Unit = {}
+    val noCompatibility: () -> Unit = {}
 
     Surface(color = ShellBg, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -84,14 +84,17 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                     openExercise = { page = ShellPage.EXERCISE },
                     openMindfulness = { page = ShellPage.MINDFULNESS }
                 )
-                ShellPage.SETTINGS -> NativeSettingsParity(nativeOnly)
-                ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, nativeOnly)
-                ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, nativeOnly)
-                ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, nativeOnly)
+                ShellPage.SETTINGS -> NativeSettingsParity(noCompatibility)
+                // Keep explicit legacy fallback actions alive during the 11.0.0 validation cycle.
+                // Native flows remain primary; compatibility is only entered when a screen exposes
+                // a deliberate fallback for a feature that has not reached exact legacy parity.
+                ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
+                ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openCompatibility)
+                ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, openCompatibility)
                 ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openCompatibility)
                 ShellPage.NUTRITION -> NativeNutritionPage({ page = ShellPage.HOME }, openCompatibility)
-                ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, nativeOnly)
-                ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, nativeOnly)
+                ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openCompatibility)
+                ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openCompatibility)
             }
         }
     }
