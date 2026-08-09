@@ -101,8 +101,15 @@ JOIN (
 WHERE hv.domain = ?
 ORDER BY hv.metric;
 
+allHealthValues:
+SELECT * FROM health_value
+ORDER BY timestamp_epoch_ms ASC;
+
 countValues:
 SELECT COUNT(*) FROM health_value;
+
+clearHealthValues:
+DELETE FROM health_value;
 
 upsertRange:
 INSERT OR REPLACE INTO clinical_range(metric, unit, low, high, source, observed_epoch_ms)
