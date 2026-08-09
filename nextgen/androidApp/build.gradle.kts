@@ -13,8 +13,8 @@ android {
         applicationId = "com.projectsuperhuman.next"
         minSdk = 23
         targetSdk = 35
-        versionCode = 318
-        versionName = "nextgen-step18"
+        versionCode = 319
+        versionName = "nextgen-step19-rc1"
     }
 
     compileOptions {
@@ -30,6 +30,15 @@ android {
         java.srcDir("../../app/src/main/java")
         res.srcDir("../../app/src/main/res")
         assets.srcDir("../../app/src/main/assets")
+    }
+
+    // Keep the first native release candidate conservative: no R8/resource shrinking yet.
+    // This avoids reflection/ML/OpenCV regressions while we validate parity on-device.
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
     }
 }
 
