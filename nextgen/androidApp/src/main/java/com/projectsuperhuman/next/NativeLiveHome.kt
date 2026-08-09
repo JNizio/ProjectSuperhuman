@@ -1,6 +1,7 @@
 package com.projectsuperhuman.next
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -24,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -32,17 +35,19 @@ import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.next.core.HealthDomain
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlin.math.roundToInt
 
-private val HomeNavy = Color(0xFF082D66)
+private val HomeNavy = Color(0xFF123D70)
 private val HomeBlue = Color(0xFF0D6CB4)
-private val HomeInk = Color(0xFF0B1F35)
-private val HomeMuted = Color(0xFF64748B)
-private val HomeGreen = Color(0xFF168A78)
-private val HomePurple = Color(0xFF6547C9)
-private val HomeOrange = Color(0xFFD97706)
-private val HomeRed = Color(0xFFCA3A3A)
-private val HomeBg = Color(0xFFF6F9FC)
+private val HomeCyan = Color(0xFF20A7C4)
+private val HomeInk = Color(0xFF16334E)
+private val HomeMuted = Color(0xFF748294)
+private val HomeGreen = Color(0xFF5CB79E)
+private val HomeRed = Color(0xFFD96767)
+private val HomeCard = Color(0xFFFCFDFE)
+private val HomeBg = Color(0xFFF8FBFD)
 
 data class NativeHomeSnapshot(
     val sleepScore: Int? = null,
@@ -71,80 +76,226 @@ internal fun NativeLiveHome(
     openMindfulness: () -> Unit
 ) {
     var snapshot by remember { mutableStateOf(NativeHomeSnapshot()) }
-    var refreshKey by remember { mutableStateOf(0) }
 
-    LaunchedEffect(refreshKey) {
-        snapshot = loadNativeHomeSnapshot()
+    LaunchedEffect(Unit) { snapshot = loadNativeHomeSnapshot() }
+
+    Column(
+        Modifier.fillMaxSize().background(HomeBg).verticalScroll(rememberScrollState()).padding(horizontal = 17.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        LegacyHero(snapshot)
+        HydrationCard(snapshot, openNutrition)
+        ClinicalCard(snapshot, openClinical)
+        TrainingCard(snapshot, openExercise)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CompactCard(
+                modifier = Modifier.fillMaxWidth(.49f),
+                eyebrow = "BODY",
+                value = snapshot.bodyWeightKg?.let { "%.1f kg".format(it) } ?: "—",
+                subtitle = "Progress & measurements",
+                accent = Color(0xFF7B6AC9),
+                onClick = openBody
+            )
+            CompactCard(
+                modifier = Modifier.fillMaxWidth(),
+                eyebrow = "SLEEP",
+                value = snapshot.sleepMinutes?.let { formatMinutesHome(it) } ?: "—",
+                subtitle = snapshot.sleepScore?.let { "Sleep score $it" } ?: "Sync sleep data",
+                accent = HomeBlue,
+                onClick = openSleep
+            )
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            CompactCard(
+                modifier = Modifier.fillMaxWidth(.49f),
+                eyebrow = "NUTRITION",
+                value = "${snapshot.caloriesToday} kcal",
+                subtitle = "${snapshot.proteinToday} g protein",
+                accent = HomeGreen,
+                onClick = openNutrition
+            )
+            CompactCard(
+                modifier = Modifier.fillMaxWidth(),
+                eyebrow = "MINDFULNESS",
+                value = if (snapshot.mindfulnessMinutesToday > 0) "${snapshot.mindfulnessMinutesToday} min" else "Ready",
+                subtitle = "Breathing & meditation",
+                accent = Color(0xFF8C72C9),
+                onClick = openMindfulness
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            "Blood pressure tools",
+            color = HomeMuted,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.clickable(onClick = openBloodPressure).padding(vertical = 12.dp)
+        )
+        Spacer(Modifier.height(18.dp))
+    }
+}
+
+@Composable
+private fun LegacyHero(snapshot: NativeHomeSnapshot) {
+    val today = LocalDate.now().format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.ENGLISH)).uppercase()
+    val hydrationPct = ((snapshot.waterLitres / 3.6) * 100).roundToInt().coerceIn(0, 100)
+    val target = when {
+        hydrationPct < 50 -> "Today’s clearest live\ntarget"
+        snapshot.sleepMinutes == null -> "Connect last night’s\nsleep"
+        snapshot.workoutsToday == 0 -> "Ready for today’s\ntraining"
+        else -> "Keep the day\nmoving"
+    }
+    val guidance = when {
+        hydrationPct < 50 -> "Hydration is at $hydrationPct%. Small, regular top-ups will move this first."
+        snapshot.sleepMinutes == null -> "Sleep data is missing. Sync your wearable to complete today’s recovery picture."
+        snapshot.workoutsToday == 0 -> "Recovery data looks ready. Training is the clearest next performance signal."
+        else -> "Your core signals are moving. Keep logging the things that change today."
     }
 
     Column(
-        Modifier.fillMaxSize().background(HomeBg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(27.dp)).background(
+            Brush.linearGradient(listOf(Color(0xFF0864A7), Color(0xFF10A4C2)))
+        ).padding(horizontal = 20.dp, vertical = 19.dp)
     ) {
-        HomeOverview(snapshot, openClinical)
-
-        Text("TODAY", color = HomeMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            LiveMetricCard(
-                "Sleep",
-                snapshot.sleepScore?.let { "$it / 100" } ?: "—",
-                snapshot.sleepMinutes?.let { formatMinutesHome(it) } ?: "No synced sleep",
-                Color(0xFFF3F0FB), HomePurple, Modifier.weight(1f), openSleep
-            )
-            LiveMetricCard(
-                "Water",
-                "%.2f L".format(snapshot.waterLitres),
-                "Logged today",
-                Color(0xFFEAF4FC), HomeBlue, Modifier.weight(1f), openNutrition
-            )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            LiveMetricCard(
-                "Nutrition",
-                "${snapshot.caloriesToday} kcal",
-                "${snapshot.proteinToday} g protein",
-                Color(0xFFECF8F1), HomeGreen, Modifier.weight(1f), openNutrition
-            )
-            LiveMetricCard(
-                "Training",
-                if (snapshot.workoutsToday > 0) "${snapshot.workoutsToday} workout${if (snapshot.workoutsToday == 1) "" else "s"}" else "Ready",
-                if (snapshot.workoutVolumeToday > 0) "${snapshot.workoutVolumeToday} kg-reps" else "No workout today",
-                Color(0xFFFFF4E8), HomeOrange, Modifier.weight(1f), openExercise
-            )
-        }
-
-        Text("HEALTH HUB", color = HomeMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-        LiveHubRow(
-            "Clinical",
-            if (snapshot.clinicalMarkers == 0) "No native markers yet" else "${snapshot.clinicalMarkers} markers · ${snapshot.clinicalAlerts} alert${if (snapshot.clinicalAlerts == 1) "" else "s"}",
-            "CL", Color(0xFFEAF3FF), if (snapshot.clinicalAlerts > 0) HomeRed else HomeBlue, openClinical
-        )
-        LiveHubRow(
-            "Body & Progress",
-            snapshot.bodyWeightKg?.let { "Latest weight %.1f kg".format(it) } ?: "Add weight & measurements",
-            "BP", Color(0xFFEDF8F5), HomeGreen, openBody
-        )
-        LiveHubRow(
-            "Blood Pressure",
-            "Deferred · existing tools remain available",
-            "HR", Color(0xFFFFF0F0), HomeRed, openBloodPressure
-        )
-        LiveHubRow(
-            "Mindfulness",
-            if (snapshot.mindfulnessMinutesToday > 0) "${snapshot.mindfulnessMinutesToday} min today" else "Breathing, meditation & stress",
-            "MN", Color(0xFFF4F1FC), HomePurple, openMindfulness
-        )
-
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Live dashboard", color = HomeNavy, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
-                    Text("All values above are calculated from the shared native database, not placeholder counters.", color = HomeMuted, fontSize = 9.sp, lineHeight = 14.sp)
-                }
-                Text("REFRESH", color = HomeBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable { refreshKey++ }.padding(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("TODAY • $today", color = Color.White.copy(alpha = .78f), fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Box(Modifier.width(42.dp).height(42.dp).background(Color.White.copy(alpha = .12f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+                Text("PS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
         }
+        Spacer(Modifier.height(9.dp))
+        Text(target, color = Color.White, fontSize = 25.sp, lineHeight = 28.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(18.dp))
+        Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(Color.White.copy(alpha = .18f))) {
+            Box(Modifier.fillMaxWidth((hydrationPct / 100f).coerceAtLeast(.01f)).height(5.dp).background(Color.White))
+        }
+        Spacer(Modifier.height(15.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            HeroSignal("HYDRATION", "$hydrationPct%")
+            HeroSignal("SLEEP", snapshot.sleepMinutes?.let { formatMinutesHome(it) } ?: "—")
+            HeroSignal("TRAINING", if (snapshot.workoutsToday > 0) "Done" else "Ready")
+            HeroSignal("CLINICAL", "${snapshot.clinicalMarkers} markers")
+        }
+        Spacer(Modifier.height(17.dp))
+        Text(guidance, color = Color.White.copy(alpha = .88f), fontSize = 11.sp, lineHeight = 16.sp)
+    }
+}
+
+@Composable
+private fun HeroSignal(label: String, value: String) {
+    Column(Modifier.width(72.dp)) {
+        Text(label, color = Color.White.copy(alpha = .64f), fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp, maxLines = 1)
+        Text(value, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun HydrationCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
+    val ml = (snapshot.waterLitres * 1000).roundToInt()
+    val pct = ((snapshot.waterLitres / 3.6) * 100).roundToInt().coerceIn(0, 100)
+    Row(
+        Modifier.fillMaxWidth().background(HomeCard, RoundedCornerShape(25.dp)).border(1.dp, Color(0xFFE4EBF0), RoundedCornerShape(25.dp)).clickable(onClick = onClick).padding(18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.width(104.dp)) {
+            Text("HYDRATION", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Spacer(Modifier.height(12.dp))
+            Box(Modifier.width(84.dp).height(84.dp).border(9.dp, Color(0xFFDDECF3), CircleShape), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("$pct%", color = HomeNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text("today", color = HomeMuted, fontSize = 8.sp)
+                }
+            }
+        }
+        Spacer(Modifier.width(14.dp))
+        Column {
+            Text("$ml ml", color = HomeNavy, fontSize = 23.sp, fontWeight = FontWeight.Black)
+            Text("3,600 ml daily target", color = HomeMuted, fontSize = 10.sp)
+            Spacer(Modifier.height(12.dp))
+            Box(Modifier.background(Color(0xFFE5F3FA), RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 9.dp)) {
+                Text("Open tracker", color = HomeBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClinicalCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
+    val normal = (snapshot.clinicalMarkers - snapshot.clinicalAlerts).coerceAtLeast(0)
+    Column(
+        Modifier.fillMaxWidth().background(HomeCard, RoundedCornerShape(25.dp)).border(1.dp, Color(0xFFE4EBF0), RoundedCornerShape(25.dp)).clickable(onClick = onClick).padding(18.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("CLINICAL", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Text("›", color = Color(0xFF8CA6B5), fontSize = 23.sp)
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(13.dp).height(13.dp).background(if (snapshot.clinicalAlerts > 0) HomeRed else HomeGreen, CircleShape))
+            Spacer(Modifier.width(8.dp))
+            Text("${snapshot.clinicalMarkers} markers", color = HomeNavy, fontSize = 21.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.height(15.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            repeat(14) { index ->
+                val accent = when {
+                    snapshot.clinicalMarkers == 0 -> Color(0xFFC6D4DE)
+                    index < snapshot.clinicalAlerts.coerceAtMost(4) -> HomeRed
+                    index % 5 == 0 -> HomeGreen
+                    else -> Color(0xFFC6D4DE)
+                }
+                Box(Modifier.width(11.dp).height(if (accent == Color(0xFFC6D4DE)) 11.dp else 22.dp).background(accent, RoundedCornerShape(7.dp)))
+            }
+        }
+        Spacer(Modifier.height(13.dp))
+        Text("$normal normal · ${snapshot.clinicalAlerts} outside range", color = HomeMuted, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun TrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().background(
+            Brush.linearGradient(listOf(Color(0xFFFFF7F1), Color(0xFFF7F5F0))), RoundedCornerShape(25.dp)
+        ).border(1.dp, Color(0xFFE9E5DF), RoundedCornerShape(25.dp)).clickable(onClick = onClick).padding(18.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("TRAINING", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Text("›", color = Color(0xFF8CA6B5), fontSize = 23.sp)
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(if (snapshot.workoutsToday > 0) "Training logged" else "Ready when you are", color = Color(0xFF6C4132), fontSize = 20.sp, fontWeight = FontWeight.Black)
+        Text(if (snapshot.workoutsToday > 0) "${snapshot.workoutsToday} workout today" else "No workout logged today", color = HomeMuted, fontSize = 10.sp)
+        Spacer(Modifier.height(17.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(29.dp)) {
+            TrainingStat(snapshot.workoutsToday.toString(), "workouts")
+            TrainingStat(if (snapshot.workoutsToday > 0) "•" else "0", "sets")
+            TrainingStat(snapshot.workoutVolumeToday.toString(), "volume")
+        }
+    }
+}
+
+@Composable
+private fun TrainingStat(value: String, label: String) {
+    Column {
+        Text(value, color = Color(0xFF704431), fontSize = 17.sp, fontWeight = FontWeight.Black)
+        Text(label, color = HomeMuted, fontSize = 9.sp)
+    }
+}
+
+@Composable
+private fun CompactCard(modifier: Modifier, eyebrow: String, value: String, subtitle: String, accent: Color, onClick: () -> Unit) {
+    Column(
+        modifier.height(138.dp).background(HomeCard, RoundedCornerShape(23.dp)).border(1.dp, Color(0xFFE4EBF0), RoundedCornerShape(23.dp)).clickable(onClick = onClick).padding(16.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(eyebrow, color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+            Text("›", color = Color(0xFF9AAEBB), fontSize = 18.sp)
+        }
+        Spacer(Modifier.height(14.dp))
+        Text(value, color = accent, fontSize = 18.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(3.dp))
+        Text(subtitle, color = HomeMuted, fontSize = 9.sp, lineHeight = 12.sp)
     }
 }
 
@@ -152,39 +303,28 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val zone = ZoneId.systemDefault()
     val start = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
     val now = System.currentTimeMillis()
-
     val sleep = NativeDataHub.latestForDomain(HealthDomain.SLEEP)
     val body = NativeDataHub.latestForDomain(HealthDomain.BODY)
     val clinical = NativeDataHub.latestForDomain(HealthDomain.CLINICAL)
-
     val kcal = NativeDataHub.between("food_kcal", start, now).sumOf { it.value }.roundToInt()
     val protein = NativeDataHub.between("food_protein", start, now).sumOf { it.value }.roundToInt()
     val water = NativeDataHub.between("water_total_l", start, now).maxByOrNull { it.timestampEpochMs }?.value
-        ?: NativeDataHub.latest("water_total_l")?.takeIf { it.timestampEpochMs >= start }?.value
-        ?: 0.0
+        ?: NativeDataHub.latest("water_total_l")?.takeIf { it.timestampEpochMs >= start }?.value ?: 0.0
     val workouts = NativeDataHub.between("workout_session", start, now)
     val volumes = NativeDataHub.between("workout_volume", start, now)
     val mindfulness = NativeDataHub.latestForDomain(HealthDomain.MINDFULNESS)
-
     fun sleepMetric(name: String) = sleep.firstOrNull { it.metric == name }?.value
     fun bodyMetric(name: String) = body.firstOrNull { it.metric == name }?.value
-
     val sleepScore = sleepMetric("sleep_score")?.roundToInt()
     val sleepMinutes = sleepMetric("sleep_total_minutes")?.roundToInt()
     val clinicalAlerts = clinical.count { it.metadata["status"] == "LOW" || it.metadata["status"] == "HIGH" }
-    val clinicalWithRange = clinical.count { it.metadata["status"] == "LOW" || it.metadata["status"] == "HIGH" || it.metadata["status"] == "NORMAL" }
-
-    val mindfulnessToday = mindfulness
-        .filter { it.timestampEpochMs >= start }
-        .filter { it.metric.contains("minute", ignoreCase = true) || it.unit == "min" }
-        .sumOf { it.value }.roundToInt()
-
+    val clinicalWithRange = clinical.count { it.metadata["status"] in listOf("LOW", "HIGH", "NORMAL") }
+    val mindfulnessToday = mindfulness.filter { it.timestampEpochMs >= start }.filter { it.metric.contains("minute", true) || it.unit == "min" }.sumOf { it.value }.roundToInt()
     val signals = mutableListOf<Int>()
     sleepScore?.let { signals += it.coerceIn(0, 100) }
-    if (water > 0) signals += ((water / 2.5) * 100.0).roundToInt().coerceIn(0, 100)
-    if (clinicalWithRange > 0) signals += (((clinicalWithRange - clinicalAlerts).toDouble() / clinicalWithRange) * 100.0).roundToInt().coerceIn(0, 100)
+    if (water > 0) signals += ((water / 3.6) * 100).roundToInt().coerceIn(0, 100)
+    if (clinicalWithRange > 0) signals += (((clinicalWithRange - clinicalAlerts).toDouble() / clinicalWithRange) * 100).roundToInt().coerceIn(0, 100)
     if (workouts.isNotEmpty()) signals += 100
-
     return NativeHomeSnapshot(
         sleepScore = sleepScore,
         sleepMinutes = sleepMinutes,
@@ -200,75 +340,6 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         overviewScore = signals.takeIf { it.size >= 2 }?.average()?.roundToInt(),
         signalsUsed = signals.size
     )
-}
-
-@Composable
-private fun HomeOverview(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(Color(0xFFE7F2FF), Color.White)), RoundedCornerShape(26.dp)
-        ).clickable(onClick = onClick).padding(20.dp)
-    ) {
-        Text("SUPERHUMAN OVERVIEW", color = HomeBlue, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-        Spacer(Modifier.height(7.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Health overview", color = HomeInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                Text(
-                    snapshot.overviewScore?.let { "Live score from ${snapshot.signalsUsed} available signals" } ?: "Add more data to calculate a daily score",
-                    color = HomeMuted, fontSize = 11.sp
-                )
-            }
-            Box(Modifier.width(70.dp).height(64.dp).background(Color.White, RoundedCornerShape(20.dp)), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(snapshot.overviewScore?.toString() ?: "—", color = HomeNavy, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                    Text("SCORE", color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            HomePill("Clinical", if (snapshot.clinicalAlerts > 0) "${snapshot.clinicalAlerts} alert" else if (snapshot.clinicalMarkers > 0) "Clear" else "No data", Modifier.weight(1f))
-            HomePill("Sleep", snapshot.sleepScore?.let { "$it/100" } ?: "No data", Modifier.weight(1f))
-            HomePill("Body", snapshot.bodyWeightKg?.let { "%.1f kg".format(it) } ?: "No data", Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun HomePill(label: String, value: String, modifier: Modifier) {
-    Column(modifier.background(Color.White, RoundedCornerShape(14.dp)).padding(horizontal = 10.dp, vertical = 10.dp)) {
-        Text(label, color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-        Text(value, color = HomeInk, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
-    }
-}
-
-@Composable
-private fun LiveMetricCard(title: String, value: String, subtitle: String, background: Color, accent: Color, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.background(background, RoundedCornerShape(20.dp)).clickable(onClick = onClick).padding(15.dp)) {
-        Text(title.uppercase(), color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .7.sp)
-        Spacer(Modifier.height(9.dp))
-        Text(value, color = HomeInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
-        Text(subtitle, color = HomeMuted, fontSize = 9.sp)
-    }
-}
-
-@Composable
-private fun LiveHubRow(title: String, subtitle: String, initials: String, background: Color, accent: Color, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(19.dp)).clickable(onClick = onClick).padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.width(42.dp).height(42.dp).background(background, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) {
-            Text(initials, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, color = HomeInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text(subtitle, color = HomeMuted, fontSize = 9.sp)
-        }
-        Text("›", color = accent, fontSize = 24.sp)
-    }
 }
 
 private fun formatMinutesHome(minutes: Int): String {
