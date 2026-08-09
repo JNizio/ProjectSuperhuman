@@ -29,6 +29,17 @@ internal object NativeDataHub {
         repository.save(values)
     }
 
+    fun allValues(): List<HealthValue> = repository.allValues()
+
+    fun clearValues() {
+        repository.clearValues()
+    }
+
+    suspend fun restoreValues(values: List<HealthValue>, replace: Boolean = false) {
+        if (replace) repository.clearValues()
+        repository.save(values)
+    }
+
     suspend fun saveMetric(
         domain: HealthDomain,
         metric: String,
