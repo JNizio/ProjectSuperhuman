@@ -10,11 +10,13 @@ android {
     compileSdk = 35
 
     defaultConfig {
+        // Keep a separate package for the first 11.0.0 validation APK so it cannot overwrite
+        // the mature signed app or its private data by accident.
         applicationId = "com.projectsuperhuman.next"
         minSdk = 23
         targetSdk = 35
-        versionCode = 319
-        versionName = "nextgen-step19-rc1"
+        versionCode = 11000
+        versionName = "11.0.0"
     }
 
     compileOptions {
@@ -27,13 +29,14 @@ android {
     }
 
     sourceSets["main"].apply {
+        // Compatibility resources/assets remain packaged for deliberate fallback routes during
+        // the 11.0.0 validation cycle. Native Compose is still the launcher and primary UI.
         java.srcDir("../../app/src/main/java")
         res.srcDir("../../app/src/main/res")
         assets.srcDir("../../app/src/main/assets")
     }
 
-    // Keep the first native release candidate conservative: no R8/resource shrinking yet.
-    // This avoids reflection/ML/OpenCV regressions while we validate parity on-device.
+    // Conservative release candidate: no R8/resource shrinking until on-device parity is signed off.
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
@@ -51,6 +54,7 @@ dependencies {
     implementation(compose.components.resources)
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.google.zxing:core:3.5.4")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
