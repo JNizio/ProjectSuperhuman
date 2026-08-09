@@ -6,10 +6,17 @@
     html,body{min-height:100%;}
     #app{
       min-height:100dvh;
-      padding-bottom:max(96px, calc(42px + env(safe-area-inset-bottom, 0px))) !important;
+      padding-bottom:180px !important;
     }
     .screen{
-      padding-bottom:max(54px, env(safe-area-inset-bottom, 0px));
+      padding-bottom:120px !important;
+    }
+    .screen::after{
+      content:"";
+      display:block;
+      height:96px;
+      width:100%;
+      pointer-events:none;
     }
   `;
   document.head.appendChild(style);
