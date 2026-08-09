@@ -15,6 +15,20 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Set up .NET 8 for F# science engine
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Validate F# scientific core
+        run: dotnet run --project science/fsharp/ScientificCore.Tests/ScientificCore.Tests.fsproj --configuration Release
+
+      - name: Validate Python research model
+        run: python3 science/python/validate_engine.py
+
+      - name: Validate Rust scientific primitives
+        run: cargo test --manifest-path science/rust/Cargo.toml --release
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
