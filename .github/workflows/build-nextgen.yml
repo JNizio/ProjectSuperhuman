@@ -32,13 +32,13 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Compile next-gen native shell
-        run: gradle --no-daemon -p nextgen :androidApp:assembleDebug
+      - name: Compile native release candidate
+        run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload next-gen APK
+      - name: Upload installable Step 19 APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectSuperhuman-NextGen-Step3
+          name: ProjectSuperhuman-Step19-RC1
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
