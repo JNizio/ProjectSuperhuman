@@ -64,7 +64,7 @@ class NextShellActivity : ComponentActivity() {
     }
 }
 
-private enum class ShellPage { HOME, SETTINGS }
+private enum class ShellPage { HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE }
 
 @Composable
 private fun SuperhumanShell(openLegacy: () -> Unit) {
@@ -76,13 +76,25 @@ private fun SuperhumanShell(openLegacy: () -> Unit) {
                 .statusBarsPadding()
                 .navigationBarsPadding()
         ) {
-            NativeTopBar(
-                title = if (page == ShellPage.HOME) "PROJECT SUPERHUMAN" else "SETTINGS",
-                onSettings = { page = if (page == ShellPage.SETTINGS) ShellPage.HOME else ShellPage.SETTINGS }
-            )
+            if (page == ShellPage.HOME || page == ShellPage.SETTINGS) {
+                NativeTopBar(
+                    title = if (page == ShellPage.HOME) "PROJECT SUPERHUMAN" else "SETTINGS",
+                    onSettings = { page = if (page == ShellPage.SETTINGS) ShellPage.HOME else ShellPage.SETTINGS }
+                )
+            }
             when (page) {
-                ShellPage.HOME -> NativeHome(openLegacy)
+                ShellPage.HOME -> NativeHome(
+                    openLegacy = openLegacy,
+                    openClinical = { page = ShellPage.CLINICAL },
+                    openBody = { page = ShellPage.BODY },
+                    openSleep = { page = ShellPage.SLEEP },
+                    openBloodPressure = { page = ShellPage.BLOOD_PRESSURE }
+                )
                 ShellPage.SETTINGS -> NativeSettings(openLegacy)
+                ShellPage.CLINICAL -> NativeClinicalPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
+                ShellPage.BODY -> NativeBodyPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
+                ShellPage.SLEEP -> NativeSleepPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
+                ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
             }
         }
     }
@@ -120,16 +132,22 @@ private fun NativeTopBar(title: String, onSettings: () -> Unit) {
 }
 
 @Composable
-private fun NativeHome(openLegacy: () -> Unit) {
+private fun NativeHome(
+    openLegacy: () -> Unit,
+    openClinical: () -> Unit,
+    openBody: () -> Unit,
+    openSleep: () -> Unit,
+    openBloodPressure: () -> Unit
+) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        HealthSnapshot(openLegacy)
+        HealthSnapshot(openClinical)
 
         Text("TODAY", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(start = 2.dp, top = 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("Sleep", "—", "Sync wearable", SoftPurple, Color(0xFF6547C9), Modifier.weight(1f), openLegacy)
+            MetricCard("Sleep", "—", "Wearable & recovery", SoftPurple, Color(0xFF6547C9), Modifier.weight(1f), openSleep)
             MetricCard("Water", "0.0 L", "Tap to log", SoftBlue, Blue, Modifier.weight(1f), openLegacy)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
@@ -138,9 +156,9 @@ private fun NativeHome(openLegacy: () -> Unit) {
         }
 
         Text("HEALTH HUB", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(start = 2.dp, top = 5.dp))
-        HubRow("Clinical", "Labs, markers & body map", "CL", Color(0xFFEAF3FF), Blue, openLegacy)
-        HubRow("Body & Progress", "Weight, composition & measurements", "BP", Color(0xFFEDF8F5), Color(0xFF168A78), openLegacy)
-        HubRow("Blood Pressure", "Readings, trends & camera import", "HR", Color(0xFFFFF0F0), Color(0xFFCA3A3A), openLegacy)
+        HubRow("Clinical", "Labs, markers & body map", "CL", Color(0xFFEAF3FF), Blue, openClinical)
+        HubRow("Body & Progress", "Weight, composition & measurements", "BP", Color(0xFFEDF8F5), Color(0xFF168A78), openBody)
+        HubRow("Blood Pressure", "Readings, trends & camera import", "HR", Color(0xFFFFF0F0), Color(0xFFCA3A3A), openBloodPressure)
         HubRow("Mindfulness", "Stress, breathing & recovery", "MN", Color(0xFFF4F1FC), Color(0xFF6547C9), openLegacy)
 
         Column(
@@ -148,18 +166,18 @@ private fun NativeHome(openLegacy: () -> Unit) {
         ) {
             Text("Migration bridge", color = Navy, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(4.dp))
-            Text("Step 4 is now native. Tap any module to use its complete existing version while each screen is migrated next.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Clinical, Body, Sleep and Blood Pressure now have native Step 5 destinations. Their mature import/storage tools remain available through the legacy bridge while the adapters are migrated behind the new UI.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
         }
         Spacer(Modifier.height(18.dp))
     }
 }
 
 @Composable
-private fun HealthSnapshot(openLegacy: () -> Unit) {
+private fun HealthSnapshot(openClinical: () -> Unit) {
     Column(
         modifier = Modifier.fillMaxWidth().background(
             Brush.linearGradient(listOf(Color(0xFFE7F2FF), Color.White)), RoundedCornerShape(26.dp)
-        ).clickable(onClick = openLegacy).padding(20.dp)
+        ).clickable(onClick = openClinical).padding(20.dp)
     ) {
         Text("SUPERHUMAN OVERVIEW", color = Blue, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
         Spacer(Modifier.height(7.dp))
@@ -180,9 +198,9 @@ private fun HealthSnapshot(openLegacy: () -> Unit) {
         }
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            SnapshotPill("Clinical", "No alerts", Modifier.weight(1f))
-            SnapshotPill("Sleep", "Not synced", Modifier.weight(1f))
-            SnapshotPill("Body", "Open", Modifier.weight(1f))
+            SnapshotPill("Clinical", "Native", Modifier.weight(1f))
+            SnapshotPill("Sleep", "Native", Modifier.weight(1f))
+            SnapshotPill("Body", "Native", Modifier.weight(1f))
         }
     }
 }
