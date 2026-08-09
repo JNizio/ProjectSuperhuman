@@ -58,18 +58,7 @@ internal fun NativeBodyPage(onBack: () -> Unit, openLegacy: () -> Unit) {
 
 @Composable
 internal fun NativeSleepPage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    ModuleScaffold("Sleep", "Wearable sleep and recovery", Color(0xFF6547C9), onBack) {
-        SharedDomainStatus(HealthDomain.SLEEP)
-        OverviewStrip(listOf(
-            Triple("SCORE", "Live DB", Color(0xFF6547C9)),
-            Triple("TOTAL", "Shared", ModuleBlue),
-            Triple("DEBT", "Stored", ModuleWarn)
-        ))
-        ModuleCard("Last sleep", "Duration, score and recovery values now have a direct shared-data path.", Color(0xFF6547C9))
-        ModuleCard("Sleep stages", "Awake, light, deep and REM values can be read from the repository.", ModuleBlue)
-        ModuleCard("Sleep debt", "Rolling context will be calculated natively during Step 11.", ModuleWarn)
-        LegacyAction("Open current sleep sync", "Health Connect capture remains available until its adapter is moved fully behind this screen.", openLegacy)
-    }
+    NativeSleepParityScreen(onBack, openLegacy)
 }
 
 @Composable
