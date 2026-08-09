@@ -44,7 +44,12 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient(){
+            @Override public void onPageFinished(WebView view, String url){
+                super.onPageFinished(view,url);
+                view.evaluateJavascript("(function(){if(document.getElementById('psh-clinical-body-upgrade-script'))return;var s=document.createElement('script');s.id='psh-clinical-body-upgrade-script';s.src='clinical_body_upgrade.js';document.head.appendChild(s);})()",null);
+            }
+        });
         scaleBridge = new ScaleBridge(this);
         webView.addJavascriptInterface(scaleBridge, "SuperhumanBLE");
         webView.addJavascriptInterface(new AppBridge(), "SuperhumanApp");
