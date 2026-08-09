@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "ProjectSuperhumanNext"
 include(":shared")
+include(":androidApp")
