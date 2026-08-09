@@ -13,12 +13,15 @@ public class MainActivitx extends MainActivity {
     private static final int FILE_PICKER = 7210;
     private ValueCallback<Uri[]> filePathCallback;
     protected BarcodeBridge barcodeBridge;
+    protected BloodPressureBridge bloodPressureBridge;
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
         webView.setWebChromeClient(new PickerChrome());
         barcodeBridge = new BarcodeBridge(this);
+        bloodPressureBridge = new BloodPressureBridge(this);
         webView.addJavascriptInterface(barcodeBridge,"NativeBarcode");
+        webView.addJavascriptInterface(bloodPressureBridge,"NativeBP");
     }
 
     @Override protected void onDestroy(){
@@ -28,6 +31,7 @@ public class MainActivitx extends MainActivity {
 
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
         if(barcodeBridge!=null && barcodeBridge.onActivityResult(requestCode,resultCode,data)) return;
+        if(bloodPressureBridge!=null && bloodPressureBridge.onActivityResult(requestCode,resultCode,data)) return;
         super.onActivityResult(requestCode,resultCode,data);
         if(requestCode==FILE_PICKER){
             Uri[] out=null;
