@@ -27,6 +27,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.m1x.HealthBridge
+import com.projectsuperhuman.next.core.HealthDomain
+import kotlin.math.roundToInt
 
 private val Navy = Color(0xFF082D66)
 private val Blue = Color(0xFF0D6CB4)
@@ -53,6 +56,7 @@ private val SoftOrange = Color(0xFFFFF4E8)
 class NextShellActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        NativeDataHub.initialize(this)
         enableEdgeToEdge()
         setContent {
             MaterialTheme {
@@ -135,36 +139,80 @@ private fun NativeHome(
     openExercise: () -> Unit,
     openMindfulness: () -> Unit
 ) {
+    var sleepScore by remember { mutableStateOf<Double?>(null) }
+    var waterLitres by remember { mutableStateOf(0.0) }
+    var calories by remember { mutableStateOf<Double?>(null) }
+    var trainingSessions by remember { mutableStateOf<Double?>(null) }
+    var databaseCount by remember { mutableStateOf(0L) }
+
+    LaunchedEffect(Unit) {
+        sleepScore = NativeDataHub.latest("sleep_score")?.value
+        waterLitres = NativeDataHub.latest("water_total_l")?.value ?: 0.0
+        calories = NativeDataHub.latest("calories_today")?.value
+        trainingSessions = NativeDataHub.latest("training_sessions_today")?.value
+        databaseCount = NativeDataHub.storedValueCount()
+    }
+
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        HealthSnapshot(openClinical)
+        HealthSnapshot(openClinical, databaseCount)
         Text("TODAY", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(start = 2.dp, top = 4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("Sleep", "—", "Wearable & recovery", SoftPurple, Color(0xFF6547C9), Modifier.weight(1f), openSleep)
-            MetricCard("Water", "0.0 L", "Tap to log", SoftBlue, Blue, Modifier.weight(1f), openLegacy)
+            MetricCard("Sleep", sleepScore?.roundToInt()?.toString() ?: "—", "Live shared data", SoftPurple, Color(0xFF6547C9), Modifier.weight(1f), openSleep)
+            MetricCard(
+                "Water",
+                String.format("%.2f L", waterLitres),
+                "+250 ml direct save",
+                SoftBlue,
+                Blue,
+                Modifier.weight(1f)
+            ) {
+                val next = waterLitres + 0.25
+                waterLitres = next
+                // Persisted by a tiny writer composable below.
+            }
         }
+        WaterPersistence(value = waterLitres)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("Nutrition", "— kcal", "Food & barcode", SoftGreen, Color(0xFF168A78), Modifier.weight(1f), openNutrition)
-            MetricCard("Training", "Ready", "Native workout", SoftOrange, Color(0xFFD97706), Modifier.weight(1f), openExercise)
+            MetricCard("Nutrition", calories?.roundToInt()?.let { "$it kcal" } ?: "— kcal", "Live shared data", SoftGreen, Color(0xFF168A78), Modifier.weight(1f), openNutrition)
+            MetricCard("Training", trainingSessions?.roundToInt()?.let { "$it sessions" } ?: "Ready", "Live shared data", SoftOrange, Color(0xFFD97706), Modifier.weight(1f), openExercise)
         }
         Text("HEALTH HUB", color = Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp, modifier = Modifier.padding(start = 2.dp, top = 5.dp))
         HubRow("Clinical", "Labs, markers & body map", "CL", Color(0xFFEAF3FF), Blue, openClinical)
         HubRow("Body & Progress", "Weight, composition & measurements", "BP", Color(0xFFEDF8F5), Color(0xFF168A78), openBody)
         HubRow("Blood Pressure", "Readings, trends & camera import", "HR", Color(0xFFFFF0F0), Color(0xFFCA3A3A), openBloodPressure)
         HubRow("Mindfulness", "Stress, breathing & recovery", "MN", Color(0xFFF4F1FC), Color(0xFF6547C9), openMindfulness)
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).clickable(onClick = openLegacy).padding(17.dp)) {
-            Text("Migration bridge", color = Navy, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(17.dp)) {
+            Text("Shared data layer connected", color = Navy, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(4.dp))
-            Text("Step 7 completes native destinations for Exercise and Mindfulness. Mature history, libraries and specialized tools remain available while their storage adapters move behind the native UI.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Step 8 connects Compose directly to the SQLDelight HealthRepository. Dashboard metrics now read from the shared store and water writes directly to it; legacy tools remain only for features not migrated yet.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+            Spacer(Modifier.height(8.dp))
+            Text("$databaseCount health values stored", color = Blue, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).clickable(onClick = openLegacy).padding(17.dp)) {
+            Text("Legacy bridge", color = Navy, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Open only for functionality that has not yet been migrated.", color = Muted, fontSize = 9.sp)
         }
         Spacer(Modifier.height(18.dp))
     }
 }
 
 @Composable
-private fun HealthSnapshot(openClinical: () -> Unit) {
+private fun WaterPersistence(value: Double) {
+    var initialised by remember { mutableStateOf(false) }
+    LaunchedEffect(value) {
+        if (!initialised) {
+            initialised = true
+        } else {
+            NativeDataHub.saveMetric(HealthDomain.NUTRITION, "water_total_l", value, "L")
+        }
+    }
+}
+
+@Composable
+private fun HealthSnapshot(openClinical: () -> Unit, databaseCount: Long) {
     Column(
         Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFFE7F2FF), Color.White)), RoundedCornerShape(26.dp)).clickable(onClick = openClinical).padding(20.dp)
     ) {
@@ -173,20 +221,20 @@ private fun HealthSnapshot(openClinical: () -> Unit) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Health overview", color = Ink, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                Text("Your core signals in one place", color = Muted, fontSize = 11.sp)
+                Text("Shared repository is now the source of truth", color = Muted, fontSize = 11.sp)
             }
             Box(Modifier.width(64.dp).height(64.dp).background(Color.White, RoundedCornerShape(20.dp)), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("—", color = Navy, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                    Text("SCORE", color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text(databaseCount.toString(), color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text("VALUES", color = Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            SnapshotPill("Clinical", "Native", Modifier.weight(1f))
-            SnapshotPill("Sleep", "Native", Modifier.weight(1f))
-            SnapshotPill("Body", "Native", Modifier.weight(1f))
+            SnapshotPill("Clinical", "DB wired", Modifier.weight(1f))
+            SnapshotPill("Sleep", "DB wired", Modifier.weight(1f))
+            SnapshotPill("Body", "DB wired", Modifier.weight(1f))
         }
     }
 }
@@ -236,7 +284,7 @@ private fun NativeSettings(openLegacy: () -> Unit) {
         Text("Native settings", color = Ink, fontSize = 25.sp, fontWeight = FontWeight.Black)
         Text("Platform-level controls now live outside the WebView.", color = Muted, fontSize = 12.sp)
         Spacer(Modifier.height(4.dp))
-        SettingsRow("Data Vault", "Database, backup and migration controls")
+        SettingsRow("Data Vault", "Shared SQLDelight repository active")
         SettingsRow("Health integrations", "Health Connect now · HealthKit later")
         SettingsRow("Permissions", "Camera, Bluetooth and health access")
         SettingsRow("Scientific engine", "Rules, provenance and engine version")
