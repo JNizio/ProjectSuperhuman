@@ -64,7 +64,7 @@ class NextShellActivity : ComponentActivity() {
     }
 }
 
-private enum class ShellPage { HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE }
+private enum class ShellPage { HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, NUTRITION }
 
 @Composable
 private fun SuperhumanShell(openLegacy: () -> Unit) {
@@ -88,13 +88,15 @@ private fun SuperhumanShell(openLegacy: () -> Unit) {
                     openClinical = { page = ShellPage.CLINICAL },
                     openBody = { page = ShellPage.BODY },
                     openSleep = { page = ShellPage.SLEEP },
-                    openBloodPressure = { page = ShellPage.BLOOD_PRESSURE }
+                    openBloodPressure = { page = ShellPage.BLOOD_PRESSURE },
+                    openNutrition = { page = ShellPage.NUTRITION }
                 )
                 ShellPage.SETTINGS -> NativeSettings(openLegacy)
                 ShellPage.CLINICAL -> NativeClinicalPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
                 ShellPage.BODY -> NativeBodyPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
                 ShellPage.SLEEP -> NativeSleepPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
                 ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
+                ShellPage.NUTRITION -> NativeNutritionPage(onBack = { page = ShellPage.HOME }, openLegacy = openLegacy)
             }
         }
     }
@@ -137,7 +139,8 @@ private fun NativeHome(
     openClinical: () -> Unit,
     openBody: () -> Unit,
     openSleep: () -> Unit,
-    openBloodPressure: () -> Unit
+    openBloodPressure: () -> Unit,
+    openNutrition: () -> Unit
 ) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 6.dp),
@@ -151,7 +154,7 @@ private fun NativeHome(
             MetricCard("Water", "0.0 L", "Tap to log", SoftBlue, Blue, Modifier.weight(1f), openLegacy)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            MetricCard("Nutrition", "— kcal", "Daily intake", SoftGreen, Color(0xFF168A78), Modifier.weight(1f), openLegacy)
+            MetricCard("Nutrition", "— kcal", "Food & barcode", SoftGreen, Color(0xFF168A78), Modifier.weight(1f), openNutrition)
             MetricCard("Training", "Ready", "Open workout", SoftOrange, Color(0xFFD97706), Modifier.weight(1f), openLegacy)
         }
 
@@ -166,7 +169,7 @@ private fun NativeHome(
         ) {
             Text("Migration bridge", color = Navy, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(4.dp))
-            Text("Clinical, Body, Sleep and Blood Pressure now have native Step 5 destinations. Their mature import/storage tools remain available through the legacy bridge while the adapters are migrated behind the new UI.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Clinical, Body, Sleep, Blood Pressure and Nutrition now have native destinations. Proven import, scanner and storage backends remain available through the legacy bridge while adapters move behind the new UI.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
         }
         Spacer(Modifier.height(18.dp))
     }
