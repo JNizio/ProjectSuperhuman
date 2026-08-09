@@ -166,13 +166,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
         SettingsSection("Health integrations", "Health Connect sleep is native. Device-specific integrations can be added behind the same repository.")
         SettingsSection("Permissions", "Camera, barcode/OCR, Bluetooth and health permissions are requested only when the related feature needs them.")
         SettingsSection("Scientific engine", "Health scores and statuses use stored native metrics and explicit reference ranges; missing clinical ranges are not invented.")
-
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(16.dp)) {
-            Text("Legacy compatibility", color = SettingsNavy, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text("Open the HTML app only for functionality that is still being migrated or for comparison during final parity testing.", color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
-            Spacer(Modifier.height(9.dp))
-            VaultButton("Open existing app", "Compatibility bridge", SettingsNavy, openLegacy)
-        }
+        SettingsSection("Compatibility status", "Core modules are native-first. The HTML bridge is reserved only for deferred Blood Pressure and the remaining barcode-camera handoff.")
         Spacer(Modifier.height(18.dp))
     }
 }
