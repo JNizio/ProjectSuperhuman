@@ -1,0 +1,50 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android") version "2.2.20"
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.compose")
+}
+
+android {
+    namespace = "com.projectsuperhuman.next"
+    compileSdk = 35
+
+    defaultConfig {
+        applicationId = "com.projectsuperhuman.next"
+        minSdk = 23
+        targetSdk = 35
+        versionCode = 300
+        versionName = "nextgen-step3"
+    }
+
+    buildFeatures {
+        compose = true
+    }
+
+    sourceSets["main"].apply {
+        // Temporary bridge: package the proven legacy implementation alongside the
+        // native shell so users can still open every old screen during migration.
+        java.srcDir("../../app/src/main/java")
+        res.srcDir("../../app/src/main/res")
+        assets.srcDir("../../app/src/main/assets")
+    }
+}
+
+dependencies {
+    implementation(project(":shared"))
+
+    implementation(compose.runtime)
+    implementation(compose.foundation)
+    implementation(compose.material3)
+    implementation(compose.ui)
+    implementation(compose.components.resources)
+
+    implementation("androidx.activity:activity-compose:1.10.1")
+    implementation("androidx.core:core-ktx:1.15.0")
+
+    // Dependencies still needed by the temporary legacy Activity.
+    implementation("com.google.zxing:core:3.5.4")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("org.opencv:opencv:4.13.0")
+}
