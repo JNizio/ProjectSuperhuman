@@ -42,18 +42,7 @@ internal fun NativeClinicalPage(onBack: () -> Unit, openLegacy: () -> Unit) {
 
 @Composable
 internal fun NativeBodyPage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    ModuleScaffold("Body & Progress", "Weight, composition and measurements", ModuleGood, onBack) {
-        SharedDomainStatus(HealthDomain.BODY)
-        OverviewStrip(listOf(
-            Triple("WEIGHT", "Live DB", ModuleGood),
-            Triple("TREND", "Shared", ModuleBlue),
-            Triple("GOAL", "Stored", ModuleWarn)
-        ))
-        ModuleCard("Weight history", "Native trend surface backed by the shared repository.", ModuleGood)
-        ModuleCard("Body composition", "Body fat, muscle, water and smart-scale metrics when available.", ModuleBlue)
-        ModuleCard("Measurements", "Waist, chest, arms, hips, thighs and other optional measurements.", Color(0xFF6547C9))
-        LegacyAction("Open existing body tools", "Legacy history remains available while Step 12 completes native entry and chart parity.", openLegacy)
-    }
+    NativeBodyParityScreen(onBack, openLegacy)
 }
 
 @Composable
@@ -66,14 +55,12 @@ internal fun NativeBloodPressurePage(onBack: () -> Unit, openLegacy: () -> Unit)
     ModuleScaffold("Blood Pressure", "Readings, trends and pulse", ModuleBad, onBack) {
         SharedDomainStatus(HealthDomain.BLOOD_PRESSURE)
         OverviewStrip(listOf(
-            Triple("SYS", "Live DB", ModuleBad),
-            Triple("DIA", "Shared", ModuleBlue),
-            Triple("PULSE", "Stored", ModuleGood)
+            Triple("SYS", "Deferred", ModuleBad),
+            Triple("DIA", "Deferred", ModuleBlue),
+            Triple("PULSE", "Deferred", ModuleGood)
         ))
-        ModuleCard("Latest reading", "Systolic, diastolic and pulse values now have a direct shared-data path.", ModuleBad)
-        ModuleCard("Trend", "History data can now be read without going through WebView storage.", ModuleBlue)
-        ModuleCard("Capture", "Camera/BP-device capture will write into this same repository in Step 12.", ModuleGood)
-        LegacyAction("Open existing BP capture", "Use the mature capture path while the native adapter migration is completed.", openLegacy)
+        ModuleCard("Blood Pressure remains unfinished", "Step 12 intentionally prioritises Body & Progress. BP data storage and the legacy capture path are preserved for a later pass.", ModuleBad)
+        LegacyAction("Open existing BP capture", "Use the existing BP tools until native BP parity is resumed.", openLegacy)
     }
 }
 
@@ -107,10 +94,10 @@ private fun ModuleScaffold(
                 RoundedCornerShape(24.dp)
             ).padding(18.dp)
         ) {
-            Text("STEP 8 · SHARED DATA", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+            Text("NATIVE MODULE", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
             Spacer(Modifier.height(6.dp))
-            Text("Native + real repository", color = ModuleInk, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Text("This screen now reads through the shared HealthRepository instead of depending on WebView/localStorage. Feature-specific capture tools are migrated in the parity steps that follow.", color = ModuleMuted, fontSize = 10.sp, lineHeight = 15.sp)
+            Text("Shared data foundation", color = ModuleInk, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text("This module reads through the shared repository. Feature-specific parity is completed module by module.", color = ModuleMuted, fontSize = 10.sp, lineHeight = 15.sp)
         }
 
         content()
