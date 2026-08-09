@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -30,17 +32,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.m1x.HealthBridge
 
-private val ShellNavy = Color(0xFF082D66)
+private val ShellNavy = Color(0xFF123D70)
 private val ShellBlue = Color(0xFF0D6CB4)
-private val ShellBg = Color(0xFFF6F9FC)
-private val ShellMuted = Color(0xFF64748B)
+private val ShellBg = Color(0xFFF8FBFD)
+private val ShellMuted = Color(0xFF748294)
 
 class NextShellActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,9 +86,6 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                     openMindfulness = { page = ShellPage.MINDFULNESS }
                 )
                 ShellPage.SETTINGS -> NativeSettingsParity(noCompatibility)
-                // Keep explicit legacy fallback actions alive during the 11.0.0 validation cycle.
-                // Native flows remain primary; compatibility is only entered when a screen exposes
-                // a deliberate fallback for a feature that has not reached exact legacy parity.
                 ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
                 ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openCompatibility)
                 ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, openCompatibility)
@@ -103,34 +101,37 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
 @Composable
 private fun NativeTopBar(title: String, onSettings: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().height(72.dp).padding(horizontal = 18.dp),
+        Modifier.fillMaxWidth().height(92.dp).padding(horizontal = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.width(42.dp).height(42.dp).background(
-                    Brush.linearGradient(listOf(ShellNavy, ShellBlue)), RoundedCornerShape(13.dp)
-                ),
+                Modifier.width(48.dp).height(48.dp)
+                    .background(Color.White, CircleShape)
+                    .border(1.dp, Color(0xFFDDE6ED), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("PS", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                Text("PS", color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = .5.sp)
             }
-            Spacer(Modifier.width(11.dp))
+            Spacer(Modifier.width(14.dp))
             Column {
-                Text(title, color = ShellNavy, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, letterSpacing = 1.25.sp)
+                Text(title, color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 14.sp, letterSpacing = 1.8.sp)
                 Text(
-                    if (title == "PROJECT SUPERHUMAN") "Your health, unified" else "App & data controls",
+                    if (title == "PROJECT SUPERHUMAN") "Human performance system" else "App & data controls",
                     color = ShellMuted,
-                    fontSize = 10.sp
+                    fontSize = 11.sp
                 )
             }
         }
         Box(
-            Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onSettings),
+            Modifier.width(48.dp).height(48.dp)
+                .background(Color.White, RoundedCornerShape(17.dp))
+                .border(1.dp, Color(0xFFE1E8EE), RoundedCornerShape(17.dp))
+                .clickable(onClick = onSettings),
             contentAlignment = Alignment.Center
         ) {
-            Text(if (title == "SETTINGS") "×" else "⚙", color = ShellNavy, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+            Text(if (title == "SETTINGS") "×" else "⚙", color = ShellNavy, fontSize = 21.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
