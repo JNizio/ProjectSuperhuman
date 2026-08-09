@@ -1,5 +1,6 @@
 (function(){
   'use strict';
+  if(!document.getElementById('psh-scientific-engine-script')){const s=document.createElement('script');s.id='psh-scientific-engine-script';s.src='scientific_engine.js';document.head.appendChild(s)}
   function status(text){const el=document.getElementById('bpScanStatus');if(el)el.textContent=text}
   function setField(id,v){const el=document.getElementById(id);if(el&&v!==null&&v!==undefined&&v!=='')el.value=String(v)}
   window.ProjectSuperhumanBP={
