@@ -18,11 +18,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -43,7 +40,6 @@ import com.projectsuperhuman.m1x.HealthBridge
 private val ShellNavy = Color(0xFF082D66)
 private val ShellBlue = Color(0xFF0D6CB4)
 private val ShellBg = Color(0xFFF6F9FC)
-private val ShellInk = Color(0xFF0B1F35)
 private val ShellMuted = Color(0xFF64748B)
 
 class NextShellActivity : ComponentActivity() {
@@ -84,7 +80,7 @@ private fun SuperhumanShell(openLegacy: () -> Unit) {
                     openExercise = { page = ShellPage.EXERCISE },
                     openMindfulness = { page = ShellPage.MINDFULNESS }
                 )
-                ShellPage.SETTINGS -> NativeSettings(openLegacy)
+                ShellPage.SETTINGS -> NativeSettingsParity(openLegacy)
                 ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openLegacy)
                 ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openLegacy)
                 ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, openLegacy)
@@ -129,37 +125,5 @@ private fun NativeTopBar(title: String, onSettings: () -> Unit) {
         ) {
             Text(if (title == "SETTINGS") "×" else "⚙", color = ShellNavy, fontSize = 19.sp, fontWeight = FontWeight.Bold)
         }
-    }
-}
-
-@Composable
-private fun NativeSettings(openLegacy: () -> Unit) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Text("Native settings", color = ShellInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
-        Text("Platform-level controls now live outside the WebView.", color = ShellMuted, fontSize = 12.sp)
-        Spacer(Modifier.height(4.dp))
-        SettingsRow("Data Vault", "Shared SQLDelight repository active")
-        SettingsRow("Health integrations", "Health Connect now · HealthKit later")
-        SettingsRow("Permissions", "Camera, Bluetooth and health access")
-        SettingsRow("Scientific engine", "Rules, provenance and engine version")
-        SettingsRow("Legacy app", "Open remaining unmigrated features", onClick = openLegacy)
-        Spacer(Modifier.height(18.dp))
-    }
-}
-
-@Composable
-private fun SettingsRow(title: String, subtitle: String, onClick: () -> Unit = {}) {
-    Row(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp)).clickable(onClick = onClick).padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(Modifier.weight(1f)) {
-            Text(title, color = ShellInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Text(subtitle, color = ShellMuted, fontSize = 10.sp, lineHeight = 14.sp)
-        }
-        Text("›", color = Color(0xFF8AA1B4), fontSize = 23.sp)
     }
 }
