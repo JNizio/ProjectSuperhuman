@@ -13,8 +13,8 @@ android {
         applicationId = "com.projectsuperhuman.next"
         minSdk = 23
         targetSdk = 35
-        versionCode = 312
-        versionName = "nextgen-step12"
+        versionCode = 313
+        versionName = "nextgen-step13"
     }
 
     compileOptions {
