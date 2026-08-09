@@ -49,7 +49,9 @@ class NextShellActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             MaterialTheme {
-                SuperhumanShell(openLegacy = { startActivity(Intent(this, HealthBridge::class.java)) })
+                SuperhumanShell(
+                    openCompatibility = { startActivity(Intent(this, HealthBridge::class.java)) }
+                )
             }
         }
     }
@@ -60,8 +62,10 @@ private enum class ShellPage {
 }
 
 @Composable
-private fun SuperhumanShell(openLegacy: () -> Unit) {
+private fun SuperhumanShell(openCompatibility: () -> Unit) {
     var page by remember { mutableStateOf(ShellPage.HOME) }
+    val nativeOnly: () -> Unit = {}
+
     Surface(color = ShellBg, modifier = Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             if (page == ShellPage.HOME || page == ShellPage.SETTINGS) {
@@ -80,14 +84,14 @@ private fun SuperhumanShell(openLegacy: () -> Unit) {
                     openExercise = { page = ShellPage.EXERCISE },
                     openMindfulness = { page = ShellPage.MINDFULNESS }
                 )
-                ShellPage.SETTINGS -> NativeSettingsParity(openLegacy)
-                ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openLegacy)
-                ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openLegacy)
-                ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, openLegacy)
-                ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openLegacy)
-                ShellPage.NUTRITION -> NativeNutritionPage({ page = ShellPage.HOME }, openLegacy)
-                ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openLegacy)
-                ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openLegacy)
+                ShellPage.SETTINGS -> NativeSettingsParity(nativeOnly)
+                ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, nativeOnly)
+                ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, nativeOnly)
+                ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, nativeOnly)
+                ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openCompatibility)
+                ShellPage.NUTRITION -> NativeNutritionPage({ page = ShellPage.HOME }, openCompatibility)
+                ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, nativeOnly)
+                ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, nativeOnly)
             }
         }
     }
