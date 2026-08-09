@@ -13,15 +13,18 @@ import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.graphics.Insets;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
 import org.json.JSONObject;
 import java.util.Locale;
 
@@ -33,12 +36,30 @@ public class MainActivity extends Activity {
         super.onCreate(state);
         getWindow().setStatusBarColor(Color.rgb(248,250,252));
         getWindow().setNavigationBarColor(Color.rgb(248,250,252));
-        if (Build.VERSION.SDK_INT >= 30) getWindow().setDecorFitsSystemWindows(true);
-        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS);
         if (Build.VERSION.SDK_INT >= 23) getWindow().getDecorView().setSystemUiVisibility(0x2000);
 
+        // Android 15 / targetSdk 35 enforces edge-to-edge. Keep the page below the
+        // real status-bar inset while deliberately leaving the bottom untouched.
+        FrameLayout root = new FrameLayout(this);
+        root.setBackgroundColor(Color.rgb(248,250,252));
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(248,250,252));
+        root.addView(webView, new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT));
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            int top;
+            if (Build.VERSION.SDK_INT >= 30) {
+                Insets bars = insets.getInsets(WindowInsets.Type.statusBars() | WindowInsets.Type.displayCutout());
+                top = bars.top;
+            } else {
+                top = insets.getSystemWindowInsetTop();
+            }
+            root.setPadding(0, top, 0, 0);
+            return insets;
+        });
+        root.requestApplyInsets();
+
         WebSettings s = webView.getSettings();
         s.setJavaScriptEnabled(true);
         s.setDomStorageEnabled(true);
@@ -57,7 +78,7 @@ public class MainActivity extends Activity {
         scaleBridge = new ScaleBridge(this);
         webView.addJavascriptInterface(scaleBridge, "SuperhumanBLE");
         webView.addJavascriptInterface(new AppBridge(), "SuperhumanApp");
-        setContentView(webView);
+        setContentView(root);
         webView.loadUrl("file:///android_asset/index.html");
     }
 
