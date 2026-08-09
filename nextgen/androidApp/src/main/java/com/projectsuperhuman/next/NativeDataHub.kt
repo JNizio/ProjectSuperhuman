@@ -25,6 +25,10 @@ internal object NativeDataHub {
     suspend fun latestForDomain(domain: HealthDomain): List<HealthValue> =
         repository.latestForDomain(domain)
 
+    suspend fun saveValues(values: List<HealthValue>) {
+        repository.save(values)
+    }
+
     suspend fun saveMetric(
         domain: HealthDomain,
         metric: String,
