@@ -37,19 +37,7 @@ fun NativeExercisePage(onBack: () -> Unit, openLegacy: () -> Unit) {
 
 @Composable
 fun NativeMindfulnessPage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    NativeModuleFrame("Mindfulness", "Stress, breathing & nervous-system training", onBack) {
-        Hero("RECOVERY", "Train calm like a skill", "A native recovery hub now groups breathing, meditation, stress regulation and session history. Existing guided tools remain accessible while they are moved behind the native shell.", Color(0xFFF3F0FB), Color(0xFF6547C9))
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            StatCard("Today", "0 min", "Practice", Modifier.weight(1f))
-            StatCard("Streak", "—", "Consistency", Modifier.weight(1f))
-        }
-        SectionLabel("PRACTICE")
-        ActionRow("Breathing", "Slow breathing and regulation sessions", "BR", Color(0xFFEAF3FF), LifestyleBlue, openLegacy)
-        ActionRow("Meditation", "Non-reactivity and body-awareness practice", "MD", Color(0xFFF4F1FC), Color(0xFF6547C9), openLegacy)
-        ActionRow("Stress check-in", "Track stress before and after practice", "ST", Color(0xFFFFF4E8), Color(0xFFD97706), openLegacy)
-        ActionRow("History", "Minutes, sessions and trends", "HI", Color(0xFFEDF8F5), Color(0xFF168A78), openLegacy)
-        BridgeNote("The native screen is ready for direct local persistence in the next architecture pass. Existing mindfulness functionality remains intact through the migration bridge.", openLegacy)
-    }
+    NativeMindfulnessParityScreen(onBack, openLegacy)
 }
 
 @Composable
