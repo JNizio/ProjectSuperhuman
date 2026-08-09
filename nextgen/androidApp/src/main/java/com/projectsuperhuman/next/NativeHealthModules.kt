@@ -37,18 +37,7 @@ private val ModuleBad = Color(0xFFCA3A3A)
 
 @Composable
 internal fun NativeClinicalPage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    ModuleScaffold("Clinical", "Labs, markers and body map", ModuleBlue, onBack) {
-        SharedDomainStatus(HealthDomain.CLINICAL)
-        OverviewStrip(listOf(
-            Triple("STATUS", "Live DB", ModuleGood),
-            Triple("MARKERS", "Shared", ModuleBlue),
-            Triple("ALERTS", "Engine", ModuleBad)
-        ))
-        ModuleCard("Clinical overview", "Native marker summaries, reference-range state and trend entry point.", ModuleBlue)
-        ModuleCard("Blood results", "FBC, liver, bone, iron and other imported panels.", ModuleGood)
-        ModuleCard("Body map", "Segmented body view for linking abnormal or healthy data to regions.", Color(0xFF6547C9))
-        LegacyAction("Open existing clinical tools", "OCR/import stays available here until Step 10 migrates the capture flow itself.", openLegacy)
-    }
+    NativeClinicalParityScreen(onBack, openLegacy)
 }
 
 @Composable
