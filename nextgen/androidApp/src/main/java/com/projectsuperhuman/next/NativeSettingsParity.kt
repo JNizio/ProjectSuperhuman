@@ -35,7 +35,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
@@ -57,8 +59,8 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
     var pendingExport by remember { mutableStateOf<String?>(null) }
     var confirmReset by remember { mutableStateOf(false) }
 
-    fun refreshCount() {
-        storedCount = NativeDataHub.storedValueCount()
+    suspend fun refreshCount() {
+        storedCount = NativeDataHub.storedValueCountAsync()
     }
 
     LaunchedEffect(Unit) { refreshCount() }
@@ -74,16 +76,20 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             if (payload == null) {
                 status = "Nothing queued for export"
             } else {
-                runCatching {
-                    context.contentResolver.openOutputStream(uri, "w")?.bufferedWriter()?.use { it.write(payload) }
-                        ?: error("Could not open selected file")
-                }.onSuccess {
-                    status = "Backup saved successfully"
-                }.onFailure {
-                    status = "Backup export failed: ${it.message ?: "unknown error"}"
+                scope.launch {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            context.contentResolver.openOutputStream(uri, "w")?.bufferedWriter()?.use { it.write(payload) }
+                                ?: error("Could not open selected file")
+                        }
+                    }.onSuccess {
+                        status = "Backup saved successfully"
+                    }.onFailure {
+                        status = "Backup export failed: ${it.message ?: "unknown error"}"
+                    }
+                    pendingExport = null
                 }
             }
-            pendingExport = null
         }
     }
 
@@ -95,9 +101,11 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
         } else {
             scope.launch {
                 runCatching {
-                    val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
-                        ?: error("Could not read selected backup")
-                    decodeBackup(text)
+                    withContext(Dispatchers.IO) {
+                        val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                            ?: error("Could not read selected backup")
+                        decodeBackup(text)
+                    }
                 }.onSuccess { values ->
                     if (values.isEmpty()) {
                         status = "Backup contained no health values"
@@ -131,7 +139,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             VaultButton("Export backup", "Save a portable Project Superhuman JSON backup", SettingsBlue) {
                 scope.launch {
-                    runCatching { encodeBackup(NativeDataHub.allValues()) }
+                    runCatching { encodeBackup(NativeDataHub.allValuesAsync()) }
                         .onSuccess { json ->
                             pendingExport = json
                             exportLauncher.launch("ProjectSuperhuman_backup_${LocalDate.now()}.json")
@@ -153,10 +161,12 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                     confirmReset = true
                     status = "Reset armed. Tap the red button once more to confirm."
                 } else {
-                    NativeDataHub.clearValues()
-                    confirmReset = false
-                    refreshCount()
-                    status = "Native database cleared"
+                    scope.launch {
+                        NativeDataHub.clearValuesAsync()
+                        confirmReset = false
+                        refreshCount()
+                        status = "Native database cleared"
+                    }
                 }
             }
             Spacer(Modifier.height(10.dp))
