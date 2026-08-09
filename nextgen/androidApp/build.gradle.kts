@@ -13,8 +13,8 @@ android {
         applicationId = "com.projectsuperhuman.next"
         minSdk = 23
         targetSdk = 35
-        versionCode = 300
-        versionName = "nextgen-step3"
+        versionCode = 310
+        versionName = "nextgen-step10"
     }
 
     compileOptions {
@@ -45,5 +45,6 @@ dependencies {
     implementation("com.google.zxing:core:3.5.4")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("org.opencv:opencv:4.13.0")
 }
