@@ -82,6 +82,11 @@ internal fun SleepArchitectureDiagram(
 
             fun row(type: String) = when (type) { "awake" -> 0; "rem" -> 1; "deep" -> 3; else -> 2 }
             segments.forEach { s ->
+                // Gaps between distinct Health Connect sleep records represent an
+                // interruption/out-of-bed period. Leaving them blank mirrors the source
+                // data more faithfully than colouring the entire gap as an Awake stage.
+                if (s.type == "gap") return@forEach
+
                 val x1 = left + ((s.startMs - startMs) / duration) * (right - left)
                 val x2 = left + ((s.endMs - startMs) / duration) * (right - left)
                 val r = row(s.type)
