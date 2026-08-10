@@ -8,11 +8,6 @@ on:
       - 'app/src/main/java/**'
       - 'app/src/main/res/**'
       - 'app/src/main/assets/**'
-      - '.github/scripts/unify_sleep_dashboard.py'
-      - '.github/scripts/integrate_okok_scale.py'
-      - '.github/scripts/lock_okok_scale.py'
-      - '.github/scripts/refine_body_dashboard.py'
-      - '.github/scripts/polish_body_experience.py'
       - '.github/workflows/build-nextgen.yml'
   workflow_dispatch:
 
@@ -26,70 +21,10 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Apply unified sleep dashboard migration
-        shell: bash
-        run: |
-          python3 .github/scripts/unify_sleep_dashboard.py
-          if ! git diff --quiet -- nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt nextgen/androidApp/build.gradle.kts; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt nextgen/androidApp/build.gradle.kts
-            git commit -m "Unify selected-night sleep dashboard [skip ci]"
-            git push origin HEAD:main
-          fi
-
-      - name: Integrate native OKOK smart scale
-        shell: bash
-        run: |
-          python3 .github/scripts/integrate_okok_scale.py
-          if ! git diff --quiet -- nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/build.gradle.kts; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/build.gradle.kts
-            git commit -m "Integrate native OKOK smart scale [skip ci]"
-            git push origin HEAD:main
-          fi
-
-      - name: Keep exact OKOK device lock
-        shell: bash
-        run: |
-          python3 .github/scripts/lock_okok_scale.py
-
-      - name: Apply user-ready Body dashboard
-        shell: bash
-        run: |
-          python3 .github/scripts/refine_body_dashboard.py
-          if ! git diff --quiet -- nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/build.gradle.kts; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/build.gradle.kts
-            git commit -m "Refine Body dashboard [skip ci]"
-            git push origin HEAD:main
-          fi
-
-      - name: Polish Body profile, scale and trends
-        shell: bash
-        run: |
-          python3 .github/scripts/polish_body_experience.py
-          if ! git diff --quiet -- nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/OkokScaleNative.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/BodyDashboardAdvanced.kt nextgen/androidApp/build.gradle.kts; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/OkokScaleNative.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/BodyDashboardAdvanced.kt nextgen/androidApp/build.gradle.kts
-            git commit -m "Polish Body experience and bump 11.0.18 [skip ci]"
-            git push origin HEAD:main
-          fi
-
       - name: Normalise Compose scoped APIs
         shell: bash
         run: |
           find nextgen/androidApp/src/main/java -name '*.kt' -type f -print0 | xargs -0 sed -i '/^import androidx\.compose\.foundation\.layout\.weight$/d'
-          if ! git diff --quiet -- nextgen/androidApp/src/main/java; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add nextgen/androidApp/src/main/java
-            git commit -m "Fix Compose scoped weight imports [skip ci]"
-            git push origin HEAD:main
-          fi
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -102,13 +37,13 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Compile Project Superhuman 11.0.18 APK
+      - name: Compile Project Superhuman 11.0.19 APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload Project Superhuman 11.0.18 APK
+      - name: Upload Project Superhuman 11.0.19 APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectSuperhuman-11.0.18-BodyPolish
+          name: ProjectSuperhuman-11.0.19-NewLogo
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
