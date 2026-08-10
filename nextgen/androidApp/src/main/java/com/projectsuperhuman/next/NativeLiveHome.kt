@@ -68,26 +68,29 @@ internal fun NativeLiveHome(
         Modifier.fillMaxSize()
             .background(Color(0xFFF8FBFD))
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 17.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         topContent()
-        LegacyHomeHero(snapshot)
-        PremiumHomeHydrationTile(snapshot, openHydration)
-        LegacyClinicalCard(snapshot, openClinical)
-        LegacyTrainingCard(snapshot, openExercise)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LegacyBodyCard(snapshot, Modifier.weight(1f), openBody)
-            LegacySleepCard(snapshot, Modifier.weight(1f), openSleep)
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 17.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            LegacyHomeHero(snapshot)
+            PremiumHomeHydrationTile(snapshot, openHydration)
+            LegacyClinicalCard(snapshot, openClinical)
+            LegacyTrainingCard(snapshot, openExercise)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                LegacyBodyCard(snapshot, Modifier.weight(1f), openBody)
+                LegacySleepCard(snapshot, Modifier.weight(1f), openSleep)
+            }
+            LegacyNutritionCard(snapshot, openNutrition)
+            LegacyHomeLinks(
+                openMindfulness = openMindfulness,
+                openExercise = openExercise,
+                openInsights = openClinical
+            )
+            LegacyBloodPressureLink(openBloodPressure)
+            Spacer(Modifier.height(24.dp))
         }
-        LegacyNutritionCard(snapshot, openNutrition)
-        LegacyHomeLinks(
-            openMindfulness = openMindfulness,
-            openExercise = openExercise,
-            openInsights = openClinical
-        )
-        LegacyBloodPressureLink(openBloodPressure)
-        Spacer(Modifier.height(24.dp))
     }
 }
 
