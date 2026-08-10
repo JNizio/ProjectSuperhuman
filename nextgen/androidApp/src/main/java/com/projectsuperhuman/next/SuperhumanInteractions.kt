@@ -3,6 +3,7 @@ package com.projectsuperhuman.next
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -45,13 +46,18 @@ internal fun Modifier.superhumanClickable(
 
 /**
  * Global top-of-screen control style used for back, profile, settings and equivalent header actions.
- * Keeps every module visually consistent: 44dp white rounded tile, no grey ripple, subtle press scale.
+ * Keeps every module visually consistent: 44dp white rounded tile, subtle outline, no grey ripple,
+ * and a light press-scale animation.
  */
 internal fun Modifier.superhumanTopButton(
     enabled: Boolean = true,
     onClick: () -> Unit
-): Modifier = this
-    .width(44.dp)
-    .height(44.dp)
-    .background(Color.White, RoundedCornerShape(15.dp))
-    .superhumanClickable(enabled = enabled, onClick = onClick)
+): Modifier {
+    val shape = RoundedCornerShape(15.dp)
+    return this
+        .width(44.dp)
+        .height(44.dp)
+        .background(Color.White, shape)
+        .border(1.dp, Color(0xFFE1E8EE), shape)
+        .superhumanClickable(enabled = enabled, onClick = onClick)
+}
