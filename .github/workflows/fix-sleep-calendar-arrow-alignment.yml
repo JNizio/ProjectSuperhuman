@@ -1,0 +1,37 @@
+name: Fix sleep calendar arrow alignment
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/fix-sleep-calendar-arrow-alignment.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix calendar arrows
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt')
+          s = p.read_text()
+          s = s.replace('CalendarArrow("‹", onPrevious)', 'CalendarArrow("←", onPrevious)')
+          s = s.replace('CalendarArrow("›", onNext)', 'CalendarArrow("→", onNext)')
+          old = '''        Text(\n            symbol,\n            modifier = Modifier.width(24.dp),\n            color = HistoryPurple,\n            fontSize = 24.sp,\n            lineHeight = 24.sp,\n            fontWeight = FontWeight.Bold,\n            textAlign = TextAlign.Center\n        )'''
+          new = '''        Text(\n            symbol,\n            modifier = Modifier.width(28.dp),\n            color = HistoryPurple,\n            fontSize = 22.sp,\n            lineHeight = 22.sp,\n            fontWeight = FontWeight.Bold,\n            textAlign = TextAlign.Center\n        )'''
+          if old not in s:
+              raise SystemExit('CalendarArrow text block not found')
+          s = s.replace(old, new)
+          p.write_text(s)
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt
+          git commit -m "Fix sleep calendar arrow alignment"
+          git push origin HEAD:main
