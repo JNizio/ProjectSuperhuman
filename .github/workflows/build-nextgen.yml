@@ -2,7 +2,7 @@ name: Build Project Superhuman 11
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, '11.2' ]
     paths:
       - 'nextgen/**'
       - 'app/src/main/java/**'
@@ -30,8 +30,8 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add nextgen/androidApp/src/main/java nextgen/androidApp/build.gradle.kts
-            git commit -m "Standardise native top controls 11.1.3 [skip ci]"
-            git push origin HEAD:main
+            git commit -m "Standardise native top controls 11.2.0 [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
           fi
 
       - name: Normalise Compose scoped APIs
@@ -50,13 +50,13 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Compile Project Superhuman 11.1.3 APK
+      - name: Compile Project Superhuman 11.2.0 APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload Project Superhuman 11.1.3 APK
+      - name: Upload Project Superhuman 11.2.0 APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectSuperhuman-11.1.3-GlobalTopControls
+          name: ProjectSuperhuman-11.2.0-ClinicalOCR
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
