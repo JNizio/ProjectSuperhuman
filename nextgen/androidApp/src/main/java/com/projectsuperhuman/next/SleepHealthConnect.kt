@@ -10,14 +10,20 @@ import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 
 internal object SleepHealthConnect {
     val permission: String = HealthPermission.getReadPermission(SleepSessionRecord::class)
 
-    private val maxInterruptionGap: Duration = Duration.ofHours(3)
-    private val maxNightSpan: Duration = Duration.ofHours(16)
+    // A real night can be split into multiple records when the user wakes for a while.
+    // We allow a generous interruption window, but only while the blocks still resolve
+    // to the same overnight wake-date and the complete episode remains realistic.
+    private val maxInterruptionGap: Duration = Duration.ofHours(6)
+    private val maxNightSpan: Duration = Duration.ofHours(18)
+    private const val morningContinuationCutoffHour = 12
 
     fun availability(context: Context): Int = HealthConnectClient.getSdkStatus(context)
 
@@ -60,17 +66,22 @@ internal object SleepHealthConnect {
                     nights.forEach { night ->
                         val summary = summariseNight(night)
                         val analysis = SleepAnalysisEngine.analyse(
-                            summary.asleepMinutes,
-                            summary.awakeMinutes,
-                            summary.deepMinutes,
-                            summary.remMinutes,
-                            summary.lightMinutes
+                            totalMinutes = summary.asleepMinutes,
+                            awakeMinutes = summary.awakeMinutes,
+                            deepMinutes = summary.deepMinutes,
+                            remMinutes = summary.remMinutes,
+                            lightMinutes = summary.lightMinutes,
+                            interruptionCount = summary.interruptionCount
                         )
-                        val timestamp = summary.end.toEpochMilli()
+
+                        // +1 ms intentionally wins over records produced by the older per-session
+                        // importer that used the exact same end timestamp. This keeps the latest
+                        // UI read deterministic without deleting the user's historical data.
+                        val timestamp = summary.end.toEpochMilli() + 1L
                         val nightId = "night:${summary.start.toEpochMilli()}:${summary.end.toEpochMilli()}"
                         val baseMeta = mapOf(
                             "nightStart" to summary.start.toEpochMilli().toString(),
-                            "nightEnd" to timestamp.toString(),
+                            "nightEnd" to summary.end.toEpochMilli().toString(),
                             "sleepBlocks" to night.size.toString(),
                             "interruptions" to summary.interruptionCount.toString(),
                             "longestInterruptionMinutes" to summary.longestInterruptionMinutes.toString(),
@@ -102,7 +113,7 @@ internal object SleepHealthConnect {
                         addMetric("sleep_continuity_score", analysis.continuityScore.toDouble(), "score")
                         addMetric("sleep_stage_balance_score", analysis.stageBalanceScore.toDouble(), "score")
                         addMetric("sleep_start_epoch_ms", summary.start.toEpochMilli().toDouble(), "ms")
-                        addMetric("sleep_end_epoch_ms", timestamp.toDouble(), "ms")
+                        addMetric("sleep_end_epoch_ms", summary.end.toEpochMilli().toDouble(), "ms")
                         addMetric("sleep_interruption_count", summary.interruptionCount.toDouble(), "count")
                         addMetric("sleep_longest_interruption_minutes", summary.longestInterruptionMinutes.toDouble(), "min")
                         addMetric("sleep_block_count", night.size.toDouble(), "count")
@@ -151,9 +162,10 @@ internal object SleepHealthConnect {
     }
 
     /**
-     * Health Connect may represent one interrupted night as multiple SleepSessionRecords.
-     * Blocks separated by up to three hours are treated as one night, provided the full
-     * episode remains within a realistic overnight window.
+     * Convert Health Connect's record-level view into human nights. A block that starts
+     * after 18:00 belongs to the following wake-date; morning continuation blocks belong
+     * to the date they end. This lets 22:30–02:00 and 06:00–07:30 resolve to one night,
+     * while keeping a midday nap separate.
      */
     private fun groupIntoNights(sessions: List<SleepSessionRecord>): List<List<SleepSessionRecord>> {
         if (sessions.isEmpty()) return emptyList()
@@ -168,11 +180,28 @@ internal object SleepHealthConnect {
             val previous = current.last()
             val gap = Duration.between(previous.endTime, session.startTime)
             val candidateSpan = Duration.between(current.first().startTime, session.endTime)
-            val belongsToCurrent = !gap.isNegative && gap <= maxInterruptionGap && candidateSpan <= maxNightSpan
+            val sameWakeDate = sleepWakeDate(current.first()) == sleepWakeDate(session)
+            val nextStartsInMorning = session.startTime.atZone(ZoneId.systemDefault()).hour < morningContinuationCutoffHour
+            val belongsToCurrent = !gap.isNegative &&
+                gap <= maxInterruptionGap &&
+                candidateSpan <= maxNightSpan &&
+                sameWakeDate &&
+                nextStartsInMorning
 
             if (belongsToCurrent) current += session else groups += mutableListOf(session)
         }
         return groups
+    }
+
+    private fun sleepWakeDate(session: SleepSessionRecord): LocalDate {
+        val zone = ZoneId.systemDefault()
+        val start = session.startTime.atZone(zone)
+        val end = session.endTime.atZone(zone)
+        return if (start.hour >= 18 && end.toLocalDate() == start.toLocalDate()) {
+            start.toLocalDate().plusDays(1)
+        } else {
+            end.toLocalDate()
+        }
     }
 
     private data class Breakdown(val awake: Int, val light: Int, val deep: Int, val rem: Int) {
