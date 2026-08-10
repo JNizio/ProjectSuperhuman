@@ -388,67 +388,11 @@ private fun ClinicalButton(title: String, accent: Color, onClick: () -> Unit) {
     }
 }
 
-private data class LabDef(val id: String, val name: String, val unit: String = "", val aliases: List<String>)
 private data class OcrLine(val text: String, val block: Int, val top: Int, val left: Int)
 private data class RangeHit(val low: String = "", val high: String = "")
 private data class ValueHit(val value: String, val lineIndex: Int, val confidence: Double, val comparator: String = "")
 
-private val LAB_DEFS = listOf(
-    LabDef("wbc", "White blood cells", "10^9/L", listOf("white blood cell count", "white blood cells", "total white cell count", "wbc")),
-    LabDef("rbc", "Red blood cells", "10^12/L", listOf("red blood cell count", "red blood cells", "rbc count", "rbc")),
-    LabDef("haemoglobin", "Haemoglobin", "g/L", listOf("haemoglobin estimation", "haemoglobin concentration", "hemoglobin concentration", "haemoglobin", "hemoglobin", "hb")),
-    LabDef("haematocrit", "Haematocrit", "L/L", listOf("haematocrit", "hematocrit", "packed cell volume", "hct")),
-    LabDef("mcv", "Mean cell volume", "fL", listOf("mean cell volume", "mean corpuscular volume", "mcv")),
-    LabDef("mch", "Mean cell haemoglobin", "pg", listOf("mean cell haemoglobin", "mean corpuscular haemoglobin", "mch")),
-    LabDef("mchc", "Mean cell haemoglobin concentration", "g/L", listOf("mean cell haemoglobin concentration", "mean corpuscular haemoglobin concentration", "mchc")),
-    LabDef("rdw", "Red cell distribution width", "%", listOf("red cell distribution width", "rdw")),
-    LabDef("platelets", "Platelets", "10^9/L", listOf("platelet count", "platelets", "plt")),
-    LabDef("neutrophils", "Neutrophils", "10^9/L", listOf("neutrophil count", "neutrophils")),
-    LabDef("lymphocytes", "Lymphocytes", "10^9/L", listOf("lymphocyte count", "lymphocytes")),
-    LabDef("monocytes", "Monocytes", "10^9/L", listOf("monocyte count", "monocytes")),
-    LabDef("eosinophils", "Eosinophils", "10^9/L", listOf("eosinophil count", "eosinophils")),
-    LabDef("basophils", "Basophils", "10^9/L", listOf("basophil count", "basophils")),
-    LabDef("ferritin", "Ferritin", "ug/L", listOf("serum ferritin", "ferritin")),
-    LabDef("iron", "Iron", "umol/L", listOf("serum iron", "iron")),
-    LabDef("transferrin", "Transferrin", "g/L", listOf("serum transferrin", "transferrin")),
-    LabDef("transferrin_saturation", "Transferrin saturation", "%", listOf("transferrin saturation", "transferrin sat")),
-    LabDef("bilirubin", "Bilirubin", "umol/L", listOf("serum total bilirubin", "total bilirubin", "bilirubin")),
-    LabDef("alt", "ALT", "U/L", listOf("alanine transaminase", "alanine aminotransferase", "serum alt", "alt")),
-    LabDef("ast", "AST", "U/L", listOf("aspartate transaminase", "aspartate aminotransferase", "serum ast", "ast")),
-    LabDef("alp", "Alkaline phosphatase", "U/L", listOf("alkaline phosphatase", "serum alkaline phosphatase", "alp")),
-    LabDef("ggt", "Gamma GT", "U/L", listOf("gamma glutamyl transferase", "gamma gt", "ggt")),
-    LabDef("albumin", "Albumin", "g/L", listOf("serum albumin", "albumin")),
-    LabDef("total_protein", "Total protein", "g/L", listOf("serum total protein", "total protein")),
-    LabDef("globulin", "Globulin", "g/L", listOf("serum globulin", "globulin")),
-    LabDef("sodium", "Sodium", "mmol/L", listOf("serum sodium", "sodium")),
-    LabDef("potassium", "Potassium", "mmol/L", listOf("serum potassium", "potassium")),
-    LabDef("urea", "Urea", "mmol/L", listOf("serum urea", "urea")),
-    LabDef("creatinine", "Creatinine", "umol/L", listOf("serum creatinine", "creatinine")),
-    LabDef("egfr", "eGFR", "mL/min/1.73m2", listOf("estimated gfr", "egfr", "e gfr")),
-    LabDef("calcium", "Calcium", "mmol/L", listOf("serum calcium", "calcium")),
-    LabDef("adjusted_calcium", "Adjusted calcium", "mmol/L", listOf("adjusted calcium", "corrected calcium")),
-    LabDef("phosphate", "Phosphate", "mmol/L", listOf("serum phosphate", "phosphate")),
-    LabDef("magnesium", "Magnesium", "mmol/L", listOf("serum magnesium", "magnesium")),
-    LabDef("tsh", "TSH", "mU/L", listOf("thyroid stimulating hormone", "serum tsh", "tsh")),
-    LabDef("free_t4", "Free T4", "pmol/L", listOf("serum free t4 level", "serum free t4", "free thyroxine", "free t4", "ft4")),
-    LabDef("free_t3", "Free T3", "pmol/L", listOf("free triiodothyronine", "free t3", "ft3")),
-    LabDef("b12", "Vitamin B12", "ng/L", listOf("serum vitamin b12", "vitamin b12", "b12")),
-    LabDef("folate", "Folate", "ug/L", listOf("serum folate", "folate")),
-    LabDef("vitamin_d", "Vitamin D", "nmol/L", listOf("25 hydroxy vitamin d", "25-oh vitamin d", "vitamin d")),
-    LabDef("crp", "CRP", "mg/L", listOf("c reactive protein", "c-reactive protein", "crp")),
-    LabDef("esr", "ESR", "mm/h", listOf("erythrocyte sedimentation rate", "esr")),
-    LabDef("hba1c", "HbA1c", "mmol/mol", listOf("glycated haemoglobin", "glycosylated haemoglobin", "hba1c")),
-    LabDef("glucose", "Glucose", "mmol/L", listOf("plasma glucose", "serum glucose", "glucose")),
-    LabDef("cholesterol", "Total cholesterol", "mmol/L", listOf("total cholesterol", "serum cholesterol", "cholesterol")),
-    LabDef("hdl", "HDL cholesterol", "mmol/L", listOf("hdl cholesterol", "hdl")),
-    LabDef("ldl", "LDL cholesterol", "mmol/L", listOf("ldl cholesterol", "ldl")),
-    LabDef("triglycerides", "Triglycerides", "mmol/L", listOf("serum triglycerides", "triglycerides")),
-    LabDef("aptt", "APTT", "sec", listOf("activated partial thromboplastin time", "aptt seconds", "aptt")),
-    LabDef("aptt_ratio", "APTT ratio", "Ratio", listOf("activated partial thromboplastin time ratio", "aptt ratio")),
-    LabDef("prothrombin_time", "Prothrombin time", "sec", listOf("prothrombin time", "pt seconds")),
-    LabDef("inr", "INR", "Ratio", listOf("international normalised ratio", "international normalized ratio", "inr")),
-    LabDef("rheumatoid_factor", "Rheumatoid factor", "IU/mL", listOf("rheumatoid factor", "rf"))
-)
+private val LAB_DEFS = CLINICAL_MARKER_REGISTRY
 
 private fun parseClinicalText(ocr: MlText): List<ClinicalDraft> {
     val lines = extractOcrLines(ocr)
@@ -512,7 +456,7 @@ private fun extractOcrLines(ocr: MlText): List<OcrLine> {
     return all.sortedWith(compareBy<OcrLine> { it.top }.thenBy { it.left })
 }
 
-private fun findResult(window: List<OcrLine>, def: LabDef): ValueHit? {
+private fun findResult(window: List<OcrLine>, def: ClinicalMarkerDef): ValueHit? {
     val numberRx = Regex("(?<![A-Za-z])([<>]=?\\s*)?(-?\\d+(?:[.,]\\d+)?)(?![A-Za-z])")
     for (offset in window.indices) {
         val raw = window[offset].text
@@ -666,7 +610,7 @@ private fun markerDef(text: String): LabDef? {
     return best?.takeIf { it.second >= .82 }?.first
 }
 
-private fun markerConfidence(text: String, def: LabDef): Double {
+private fun markerConfidence(text: String, def: ClinicalMarkerDef): Double {
     val q = labNorm(text)
     var best = .0
     def.aliases.forEach { a0 ->
@@ -681,7 +625,7 @@ private fun markerConfidence(text: String, def: LabDef): Double {
     return best
 }
 
-private fun headingLooksReal(text: String, def: LabDef): Boolean {
+private fun headingLooksReal(text: String, def: ClinicalMarkerDef): Boolean {
     val s = text.trim()
     if (s.isBlank() || s.length > 110 || clinicalBoilerplate(s)) return false
     val q = labNorm(s)
