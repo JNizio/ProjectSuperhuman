@@ -1,0 +1,43 @@
+name: Normalize navigation arrows
+
+on:
+  push:
+    paths:
+      - '.github/workflows/normalize-navigation-arrows.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Normalize arrow glyphs across native app
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          root = Path('nextgen/androidApp/src/main/java')
+          changed = []
+          for p in root.rglob('*.kt'):
+              s = p.read_text(encoding='utf-8')
+              n = s.replace('Text("‹"', 'Text("←"').replace('Text("›"', 'Text("→"')
+              if n != s:
+                  p.write_text(n, encoding='utf-8')
+                  changed.append(str(p))
+          print('Changed:', *changed, sep='\n')
+          PY
+      - name: Commit normalized navigation arrows
+        shell: bash
+        run: |
+          rm .github/workflows/normalize-navigation-arrows.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java .github/workflows/normalize-navigation-arrows.yml
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+          else
+            git commit -m "Normalize navigation arrows across native app"
+            git push origin HEAD:main
+          fi
