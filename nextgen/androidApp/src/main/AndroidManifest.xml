@@ -9,6 +9,10 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.health.READ_SLEEP" />
 
+    <queries>
+        <package android:name="com.google.android.apps.healthdata" />
+    </queries>
+
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
@@ -20,8 +24,6 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
-        <!-- Compatibility activity is retained only for the deliberately deferred BP flow
-             and the current mature nutrition scanner handoff. It is not part of normal navigation. -->
         <activity
             android:name="com.projectsuperhuman.m1x.HealthBridge"
             android:screenOrientation="portrait"
