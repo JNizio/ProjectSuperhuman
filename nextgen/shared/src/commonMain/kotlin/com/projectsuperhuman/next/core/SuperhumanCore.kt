@@ -8,7 +8,7 @@ package com.projectsuperhuman.next.core
  */
 
 enum class HealthDomain {
-    CLINICAL, BLOOD_PRESSURE, BODY, SLEEP, NUTRITION, EXERCISE, MINDFULNESS
+    CLINICAL, BLOOD_PRESSURE, BODY, SLEEP, NUTRITION, HYDRATION, EXERCISE, MINDFULNESS
 }
 
 data class HealthValue(
