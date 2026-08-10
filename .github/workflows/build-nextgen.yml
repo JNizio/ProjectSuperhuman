@@ -9,6 +9,7 @@ on:
       - 'app/src/main/res/**'
       - 'app/src/main/assets/**'
       - '.github/scripts/body_profile_scale_polish.py'
+      - '.github/scripts/release_11_1_cleanup.py'
       - '.github/workflows/build-nextgen.yml'
   workflow_dispatch:
 
@@ -30,7 +31,18 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/BodyDashboardAdvanced.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/OkokScaleNative.kt nextgen/androidApp/build.gradle.kts
-            git commit -m "Polish Body profile and full smart-scale scan 11.0.20 [skip ci]"
+            git commit -m "Polish Body profile and full smart-scale scan [skip ci]"
+          fi
+
+      - name: Apply 11.1 cleanup and branding
+        shell: bash
+        run: |
+          python3 .github/scripts/release_11_1_cleanup.py
+          if ! git diff --quiet -- nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/build.gradle.kts nextgen/androidApp/src/main/AndroidManifest.xml; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/build.gradle.kts nextgen/androidApp/src/main/AndroidManifest.xml
+            git commit -m "Release Project Superhuman 11.1 [skip ci]"
             git push origin HEAD:main
           fi
 
@@ -50,13 +62,13 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Compile Project Superhuman 11.0.20 APK
+      - name: Compile Project Superhuman 11.1 APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload Project Superhuman 11.0.20 APK
+      - name: Upload Project Superhuman 11.1 APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectSuperhuman-11.0.20-BodyProfileFullScan
+          name: ProjectSuperhuman-11.1-BodyCleanBranding
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
