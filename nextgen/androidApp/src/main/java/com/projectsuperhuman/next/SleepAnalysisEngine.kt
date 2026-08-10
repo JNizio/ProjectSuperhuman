@@ -16,23 +16,22 @@ internal data class SleepAnalysis(
     val insight: String,
     val priority: String
 ) {
-    // UI-facing alias retained so recovery cards can describe stage quality as restoration.
     val restorationScore: Int get() = stageBalanceScore
 }
 
 /**
  * Deterministic sleep interpretation layer used by the UI and sync pipeline.
- * Keeps product copy separate from raw Health Connect parsing and leaves a clear
- * replacement point for a future shared ScientificEngine implementation.
+ * totalMinutes represents estimated sleep time. awakeMinutes includes both awake
+ * stages and detected gaps between fragmented sleep blocks belonging to one night.
  */
 internal object SleepAnalysisEngine {
-    /** Convenience adapter for Compose/UI consumers. */
     fun analyse(snapshot: NativeSleepSnapshot): SleepAnalysis = analyse(
         totalMinutes = snapshot.totalMinutes ?: 0,
         awakeMinutes = snapshot.awakeMinutes ?: 0,
         deepMinutes = snapshot.deepMinutes ?: 0,
         remMinutes = snapshot.remMinutes ?: 0,
-        lightMinutes = snapshot.lightMinutes ?: 0
+        lightMinutes = snapshot.lightMinutes ?: 0,
+        interruptionCount = snapshot.interruptionCount
     )
 
     fun analyse(
@@ -40,7 +39,8 @@ internal object SleepAnalysisEngine {
         awakeMinutes: Int,
         deepMinutes: Int,
         remMinutes: Int,
-        lightMinutes: Int
+        lightMinutes: Int,
+        interruptionCount: Int = 0
     ): SleepAnalysis {
         if (totalMinutes <= 0) {
             return SleepAnalysis(
@@ -51,16 +51,18 @@ internal object SleepAnalysisEngine {
             )
         }
 
-        val asleep = (totalMinutes - awakeMinutes).coerceAtLeast(0)
-        val efficiency = ((asleep.toDouble() / totalMinutes) * 100.0).roundToInt().coerceIn(0, 100)
-        fun pct(v: Int) = if (asleep > 0) ((v.toDouble() / asleep) * 100.0).roundToInt().coerceIn(0, 100) else 0
+        val sleepMinutes = totalMinutes.coerceAtLeast(0)
+        val opportunityMinutes = (sleepMinutes + awakeMinutes).coerceAtLeast(1)
+        val efficiency = ((sleepMinutes.toDouble() / opportunityMinutes) * 100.0).roundToInt().coerceIn(0, 100)
+        fun pct(v: Int) = ((v.toDouble() / sleepMinutes) * 100.0).roundToInt().coerceIn(0, 100)
         val deepPct = pct(deepMinutes)
         val remPct = pct(remMinutes)
-        val awakePct = ((awakeMinutes.toDouble() / totalMinutes) * 100.0).roundToInt().coerceIn(0, 100)
+        val awakePct = ((awakeMinutes.toDouble() / opportunityMinutes) * 100.0).roundToInt().coerceIn(0, 100)
 
-        val durationHours = asleep / 60.0
+        val durationHours = sleepMinutes / 60.0
         val durationScore = (100.0 - abs(durationHours - 8.0) * 18.0).roundToInt().coerceIn(0, 100)
-        val continuityScore = efficiency
+        val fragmentationPenalty = (interruptionCount * 4).coerceAtMost(18)
+        val continuityScore = (efficiency - fragmentationPenalty).coerceIn(0, 100)
         val deepScore = (100.0 - abs(deepPct - 18.0) * 4.0).roundToInt().coerceIn(0, 100)
         val remScore = (100.0 - abs(remPct - 22.0) * 3.5).roundToInt().coerceIn(0, 100)
         val stageBalance = ((deepScore + remScore) / 2.0).roundToInt()
@@ -86,10 +88,15 @@ internal object SleepAnalysisEngine {
             else -> "Support a steadier sleep architecture"
         }
 
+        val interruptionContext = when {
+            interruptionCount >= 2 -> " The night was split into several sleep blocks, which lowered continuity."
+            interruptionCount == 1 -> " One clear interruption split the night into separate sleep blocks."
+            else -> ""
+        }
         val insight = when (weakest) {
-            "duration" -> "Your stage balance was only part of the picture. Total sleep time was the main limiter, so extending the sleep window is likely to improve recovery most."
-            "continuity" -> "You spent a larger share of the night awake or disrupted. A more continuous night would improve recovery even if total time in bed stayed similar."
-            else -> "Your total sleep and continuity were stronger than the stage mix. Deep and REM balance are the clearest areas to watch across several nights rather than a single session."
+            "duration" -> "Total sleep time was the main limiter, so extending the sleep window is likely to improve recovery most.$interruptionContext"
+            "continuity" -> "Your sleep was more fragmented than ideal. A more continuous night would improve recovery even if total sleep time stayed similar.$interruptionContext"
+            else -> "Your duration and continuity were stronger than the stage mix. Deep and REM balance are more useful to watch across several nights than in isolation.$interruptionContext"
         }
 
         return SleepAnalysis(
