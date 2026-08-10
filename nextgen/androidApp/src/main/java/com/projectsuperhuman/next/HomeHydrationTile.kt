@@ -94,7 +94,7 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
         )
 
         Row(
-            Modifier.align(Alignment.CenterStart).padding(start = 19.dp, end = 132.dp, top = 20.dp),
+            Modifier.align(Alignment.CenterStart).padding(start = 19.dp, end = 132.dp, top = 17.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
@@ -115,32 +115,37 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("$pct%", color = Color(0xFF123D70), fontSize = 20.sp, fontWeight = FontWeight.Black, lineHeight = 20.sp)
-                    Text("today", color = Color(0xFF748294), fontSize = 8.sp, fontWeight = FontWeight.Medium, lineHeight = 9.sp)
+                    Text("today", color = Color(0xFF748294), fontSize = 8.sp, fontWeight = FontWeight.Medium, lineHeight = 8.sp)
                 }
             }
 
-            Spacer(Modifier.width(17.dp))
+            Spacer(Modifier.width(15.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.Start
+            ) {
                 Text(
                     if (shownMl >= 1000) "%.1f L".format(shownMl / 1000.0) else "$shownMl ml",
                     color = Color(0xFF123D70),
                     fontSize = 27.sp,
                     fontWeight = FontWeight.Black,
-                    lineHeight = 29.sp
+                    lineHeight = 28.sp
                 )
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(4.dp))
                 Text(
                     "${if (goalMl >= 1000) "%.1f L".format(goalMl / 1000.0) else "$goalMl ml"} daily goal",
                     color = Color(0xFF748294),
-                    fontSize = 9.sp
+                    fontSize = 9.sp,
+                    lineHeight = 11.sp
                 )
-                Spacer(Modifier.height(7.dp))
+                Spacer(Modifier.height(6.dp))
                 Text(
                     if (remaining == 0) "Goal reached" else "${if (remaining >= 1000) "%.1f L".format(remaining / 1000.0) else "$remaining ml"} remaining",
                     color = if (remaining == 0) Color(0xFF4AAE91) else Color(0xFF0D6CB4),
                     fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 11.sp
                 )
             }
         }
