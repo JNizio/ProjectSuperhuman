@@ -1,0 +1,81 @@
+name: Clinical unit fix 11.2.1
+
+on:
+  push:
+    branches: ['11.2']
+    paths:
+      - '.github/workflows/clinical-unit-fix-1121.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Patch Clinical unit normalisation and version
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt')
+          s = p.read_text()
+          old = '''private fun findUnit(text: String, expected: String): Pair<String, Double> {\n    val compact = text.replace(" ", "")'''
+          new = '''private fun findUnit(text: String, expected: String): Pair<String, Double> {\n    val normalizedText = text\n        .replace(Regex("(?i)\\\\bm[lI1|]u/L\\\\b"), "mIU/L")\n        .replace(Regex("(?i)\\\\buIU/mL\\\\b"), "µIU/mL")\n        .replace(Regex("(?i)\\\\b(?:ug|μg)/L\\\\b"), "µg/L")\n        .replace(Regex("(?i)\\\\b(?:umol|μmol)/L\\\\b"), "µmol/L")\n    val compact = normalizedText.replace(" ", "")'''
+          if old not in s:
+              raise SystemExit('findUnit anchor not found')
+          s = s.replace(old, new, 1)
+          s = s.replace('''        "mIU/L" to Regex("mIU/L", RegexOption.IGNORE_CASE),''', '''        "mIU/L" to Regex("mIU/L", RegexOption.IGNORE_CASE),\n        "µIU/mL" to Regex("(?:µIU|uIU)/mL", RegexOption.IGNORE_CASE),''', 1)
+          s = s.replace('''    if (Regex("\\\\b(?:sec|second|seconds)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)) return "sec" to .9\n    if (expected == "Ratio" && Regex("\\\\bratio\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)) return "Ratio" to .85\n    return "" to 0.0''', '''    if (Regex("\\\\b(?:sec|second|seconds)\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(normalizedText)) return "sec" to .9\n    if (expected == "Ratio" && Regex("\\\\bratio\\\\b", RegexOption.IGNORE_CASE).containsMatchIn(normalizedText)) return "Ratio" to .85\n    if (expected.isNotBlank() && expected != "U/L") return expected to .70\n    return "" to 0.0''', 1)
+          p.write_text(s)
+
+          # Correct TSH registry unit if the generated legacy registry has a broad U/L fallback.
+          for rp in Path('nextgen/androidApp/src/main/java').rglob('*.kt'):
+              t = rp.read_text()
+              if 'Serum TSH' in t or 'Thyroid stimulating hormone' in t or 'TSH' in t:
+                  import re
+                  # Limit replacements to marker definitions containing TSH aliases/names.
+                  t2 = re.sub(r'(ClinicalMarkerDef\([^\n]*?(?:TSH|Thyroid stimulating hormone|Serum TSH)[^\n]*?unit\s*=\s*")U/L(")', r'\1mIU/L\2', t, flags=re.I)
+                  if t2 != t:
+                      rp.write_text(t2)
+
+          gp = Path('nextgen/androidApp/build.gradle.kts')
+          g = gp.read_text()
+          g = g.replace('versionName = "11.2.0"', 'versionName = "11.2.1"')
+          import re
+          g = re.sub(r'versionCode\s*=\s*(\d+)', lambda m: f'versionCode = {int(m.group(1))+1}', g, count=1)
+          gp.write_text(g)
+          PY
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt nextgen/androidApp/src/main/java nextgen/androidApp/build.gradle.kts
+          if ! git diff --cached --quiet; then
+            git commit -m "Fix Clinical unit decoding 11.2.1 [skip ci]"
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+          fi
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Build 11.2.1 APK
+        run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
+
+      - name: Upload 11.2.1 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProjectSuperhuman-11.2.1-ClinicalUnitFix
+          path: nextgen/androidApp/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
