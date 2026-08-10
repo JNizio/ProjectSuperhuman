@@ -1,5 +1,7 @@
 package com.projectsuperhuman.next
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,7 +19,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,7 +53,11 @@ import kotlin.math.roundToInt
  * - water_total_l: compatibility snapshot kept so older Home code/backup data remains readable.
  * - hydration_goal_ml: latest user-selected daily goal.
  *
- * Keep calculations here; Home only consumes the compatibility snapshot.
+ * Input safety contract:
+ * - New intake can never take today's total above the configured daily goal.
+ * - Slider is the primary input; quick-add buttons obey the same remaining-volume cap.
+ *
+ * Visual primitives such as the animated water orb live in HydrationOrb.kt so tracker logic stays readable.
  */
 private val HydNavy = Color(0xFF123D70)
 private val HydBlue = Color(0xFF0D6CB4)
@@ -88,9 +93,9 @@ private data class HydrationSnapshot(
 internal fun NativeHydrationScreen(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf(HydrationSnapshot()) }
-    var customAmount by remember { mutableStateOf("") }
     var source by remember { mutableStateOf("Water") }
     var goalDraft by remember { mutableStateOf(3600f) }
+    var amountSlider by remember { mutableStateOf(250f) }
     var status by remember { mutableStateOf("") }
 
     suspend fun refresh() {
@@ -99,15 +104,27 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
     }
 
     LaunchedEffect(Unit) { refresh() }
+    LaunchedEffect(snapshot.remainingMl) {
+        amountSlider = when {
+            snapshot.remainingMl <= 0 -> 0f
+            amountSlider <= 0f -> minOf(250, snapshot.remainingMl).toFloat()
+            else -> amountSlider.coerceAtMost(snapshot.remainingMl.toFloat())
+        }
+    }
 
-    fun logDrink(ml: Int) {
-        if (ml <= 0) return
+    fun logDrink(requestedMl: Int) {
+        if (requestedMl <= 0) return
+        val allowed = minOf(requestedMl, snapshot.remainingMl)
+        if (allowed <= 0) {
+            status = "Daily goal already reached"
+            return
+        }
         scope.launch {
             val now = System.currentTimeMillis()
             NativeDataHub.saveMetric(
                 domain = HealthDomain.HYDRATION,
                 metric = "water_intake_ml",
-                value = ml.toDouble(),
+                value = allowed.toDouble(),
                 unit = "ml",
                 source = "native-hydration",
                 metadata = mapOf("drinkSource" to source)
@@ -123,8 +140,11 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
                 source = "native-hydration",
                 metadata = mapOf("compatibilitySnapshot" to "true")
             )
-            status = "+$ml ml logged"
-            customAmount = ""
+            status = if (allowed < requestedMl) {
+                "+$allowed ml logged · capped at daily goal"
+            } else {
+                "+$allowed ml logged"
+            }
             refresh()
         }
     }
@@ -154,47 +174,79 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
         Text("QUICK LOG", color = HydMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(250, 330, 500, 750).forEach { ml ->
+                val enabled = snapshot.remainingMl >= ml
                 Box(
-                    Modifier.weight(1f).background(Color.White, RoundedCornerShape(16.dp)).border(1.dp, HydBorder, RoundedCornerShape(16.dp)).clickable { logDrink(ml) }.padding(vertical = 13.dp),
+                    Modifier.weight(1f)
+                        .background(if (enabled) Color.White else Color(0xFFF2F5F7), RoundedCornerShape(16.dp))
+                        .border(1.dp, HydBorder, RoundedCornerShape(16.dp))
+                        .clickable(enabled = enabled) { logDrink(ml) }
+                        .padding(vertical = 13.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("+$ml", color = HydBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Text("+$ml", color = if (enabled) HydBlue else HydMuted.copy(alpha = .45f), fontSize = 11.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, HydBorder, RoundedCornerShape(24.dp)).padding(16.dp)) {
-            Text("Log a drink", color = HydInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            Text("Choose what you drank, then enter any amount.", color = HydMuted, fontSize = 10.sp)
+        Column(
+            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp))
+                .border(1.dp, HydBorder, RoundedCornerShape(24.dp)).padding(16.dp)
+        ) {
+            Text("Log water", color = HydInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            Text("Slide to the amount you drank. The tracker will never let today go past your goal.", color = HydMuted, fontSize = 10.sp, lineHeight = 15.sp)
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("Water", "Electrolyte", "Other").forEach { option ->
                     val selected = source == option
                     Box(
-                        Modifier.background(if (selected) Color(0xFFE1F2F9) else Color(0xFFF4F7F9), RoundedCornerShape(14.dp)).clickable { source = option }.padding(horizontal = 12.dp, vertical = 9.dp)
+                        Modifier.background(if (selected) Color(0xFFE1F2F9) else Color(0xFFF4F7F9), RoundedCornerShape(14.dp))
+                            .clickable { source = option }.padding(horizontal = 12.dp, vertical = 9.dp)
                     ) {
                         Text(option, color = if (selected) HydBlue else HydMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
-            Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(
-                    value = customAmount,
-                    onValueChange = { customAmount = it.filter(Char::isDigit).take(4) },
-                    modifier = Modifier.weight(1f),
-                    singleLine = true,
-                    label = { Text("Amount (ml)") }
+            Spacer(Modifier.height(14.dp))
+
+            if (snapshot.remainingMl > 0) {
+                val roundedAmount = ((amountSlider / 50f).roundToInt() * 50)
+                    .coerceAtLeast(minOf(50, snapshot.remainingMl))
+                    .coerceAtMost(snapshot.remainingMl)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Column {
+                        Text("Amount", color = HydMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text(formatMl(roundedAmount), color = HydNavy, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                    }
+                    Text("${formatMl(snapshot.remainingMl)} max", color = HydMuted, fontSize = 9.sp)
+                }
+                Slider(
+                    value = amountSlider.coerceIn(0f, snapshot.remainingMl.toFloat()),
+                    onValueChange = { amountSlider = it.coerceIn(0f, snapshot.remainingMl.toFloat()) },
+                    valueRange = 0f..snapshot.remainingMl.toFloat()
                 )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("0", color = HydMuted, fontSize = 8.sp)
+                    Text(formatMl(snapshot.remainingMl), color = HydMuted, fontSize = 8.sp)
+                }
+                Spacer(Modifier.height(10.dp))
                 Box(
-                    Modifier.background(Brush.linearGradient(listOf(HydBlue, HydCyan)), RoundedCornerShape(16.dp)).clickable { customAmount.toIntOrNull()?.let(::logDrink) }.padding(horizontal = 18.dp, vertical = 15.dp),
+                    Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(HydBlue, HydCyan)), RoundedCornerShape(17.dp))
+                        .clickable { logDrink(roundedAmount) }.padding(vertical = 14.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("LOG", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    Text("LOG ${formatMl(roundedAmount).uppercase()}", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                }
+            } else {
+                Box(
+                    Modifier.fillMaxWidth().background(Color(0xFFE9F6F2), RoundedCornerShape(17.dp)).padding(vertical = 15.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("GOAL REACHED", color = HydGreen, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
             }
+
             if (status.isNotBlank()) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(9.dp))
                 Text(status, color = HydGreen, fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
             }
         }
@@ -227,7 +279,8 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
 private fun HydrationHeader(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).border(1.dp, HydBorder, RoundedCornerShape(14.dp)).clickable(onClick = onBack),
+            Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp))
+                .border(1.dp, HydBorder, RoundedCornerShape(14.dp)).clickable(onClick = onBack),
             contentAlignment = Alignment.Center
         ) { Text("‹", color = HydNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
         Spacer(Modifier.width(12.dp))
@@ -240,18 +293,22 @@ private fun HydrationHeader(onBack: () -> Unit) {
 
 @Composable
 private fun HydrationHero(snapshot: HydrationSnapshot) {
+    val visualFraction by animateFloatAsState(
+        targetValue = (snapshot.todayMl.toFloat() / snapshot.goalMl.coerceAtLeast(1)).coerceIn(0f, 1f),
+        animationSpec = tween(700),
+        label = "hydration-hero-progress"
+    )
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.linearGradient(listOf(Color(0xFF0864A7), Color(0xFF10A4C2)))).padding(20.dp)
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF0864A7), Color(0xFF10A4C2)))).padding(20.dp)
     ) {
         Text("TODAY", color = Color.White.copy(alpha = .72f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
         Spacer(Modifier.height(8.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(104.dp).height(104.dp).border(10.dp, Color.White.copy(alpha = .2f), CircleShape), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("${snapshot.pct}%", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                    Text("of goal", color = Color.White.copy(alpha = .72f), fontSize = 8.sp)
-                }
-            }
+            AnimatedHydrationOrb(
+                fraction = visualFraction,
+                percentLabel = "${snapshot.pct.coerceAtMost(100)}%"
+            )
             Spacer(Modifier.width(18.dp))
             Column(Modifier.weight(1f)) {
                 Text(formatMl(snapshot.todayMl), color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Black)
@@ -267,7 +324,7 @@ private fun HydrationHero(snapshot: HydrationSnapshot) {
         }
         Spacer(Modifier.height(16.dp))
         Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Color.White.copy(alpha = .18f))) {
-            Box(Modifier.fillMaxWidth((snapshot.pct.coerceIn(0, 100) / 100f).coerceAtLeast(.005f)).height(6.dp).background(Color.White))
+            Box(Modifier.fillMaxWidth(visualFraction.coerceAtLeast(.005f)).height(6.dp).background(Color.White))
         }
         snapshot.lastDrinkEpochMs?.let { epoch ->
             Spacer(Modifier.height(12.dp))
@@ -285,6 +342,7 @@ private fun HydrationPacingCard(snapshot: HydrationSnapshot) {
     val delta = snapshot.todayMl - expectedMl
     val message = when {
         hour < 7 -> "Your day has barely started — no pace pressure yet."
+        snapshot.remainingMl == 0 -> "Goal complete. New drinks are locked for today so intake cannot run past your target."
         delta >= 300 -> "You’re comfortably ahead of an even hydration pace."
         delta >= -300 -> "You’re roughly on pace for today’s goal."
         else -> "You’re ${formatMl(-delta)} behind an even pace. A small top-up would close the gap."
@@ -296,7 +354,7 @@ private fun HydrationPacingCard(snapshot: HydrationSnapshot) {
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             HydMiniStat(formatMl(snapshot.remainingMl), "remaining")
-            HydMiniStat(formatMl(expectedMl), "pace by now")
+            HydMiniStat(formatMl(expectedMl.coerceAtMost(snapshot.goalMl)), "pace by now")
             HydMiniStat(snapshot.streak.toString(), "goal streak")
         }
     }
@@ -327,7 +385,8 @@ private fun HydrationHistoryCard(snapshot: HydrationSnapshot) {
                 val fraction = (day.ml.toFloat() / max).coerceIn(0.03f, 1f)
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(
-                        Modifier.fillMaxWidth().height((64 * fraction).dp).background(if (day.ml >= snapshot.goalMl) HydGreen.copy(alpha = .75f) else HydBlue.copy(alpha = .25f), RoundedCornerShape(7.dp))
+                        Modifier.fillMaxWidth().height((64 * fraction).dp)
+                            .background(if (day.ml >= snapshot.goalMl) HydGreen.copy(alpha = .75f) else HydBlue.copy(alpha = .25f), RoundedCornerShape(7.dp))
                     )
                     Spacer(Modifier.height(5.dp))
                     Text(day.date.dayOfWeek.name.take(1), color = HydMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
