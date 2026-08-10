@@ -7,11 +7,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -33,7 +33,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
@@ -42,10 +41,9 @@ import kotlin.math.roundToInt
 @Composable
 internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val goalMl = snapshot.waterGoalMl.coerceAtLeast(1)
-    val rawMl = (snapshot.waterLitres * 1000.0).roundToInt()
-    val shownMl = rawMl.coerceIn(0, goalMl)
+    val shownMl = (snapshot.waterLitres * 1000.0).roundToInt().coerceIn(0, goalMl)
     val targetFraction = (shownMl.toFloat() / goalMl).coerceIn(0f, 1f)
-    val animatedFraction by animateFloatAsState(targetFraction, tween(650), label = "home-water-progress")
+    val animatedFraction by animateFloatAsState(targetFraction, tween(500), label = "home-water-progress")
     val pct = (animatedFraction * 100).roundToInt()
     val remaining = (goalMl - shownMl).coerceAtLeast(0)
 
@@ -68,89 +66,81 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
             Image(
                 bitmap = waterImage,
                 contentDescription = null,
-                modifier = Modifier.width(182.dp).fillMaxSize().align(Alignment.CenterEnd),
+                modifier = Modifier.width(176.dp).fillMaxHeight().align(Alignment.CenterEnd),
                 contentScale = ContentScale.Crop,
-                alpha = .92f
+                alpha = .93f
             )
         }
+
         Box(
             Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(
-                    listOf(
-                        Color(0xFFFCFDFE),
-                        Color(0xFFFCFDFE).copy(alpha = .98f),
-                        Color(0xFFFCFDFE).copy(alpha = .72f),
-                        Color.Transparent
-                    )
+                    0.00f to Color(0xFFFCFDFE),
+                    0.44f to Color(0xFFFCFDFE),
+                    0.66f to Color(0xFFFCFDFE).copy(alpha = .90f),
+                    0.82f to Color(0xFFFCFDFE).copy(alpha = .28f),
+                    1.00f to Color.Transparent
                 )
             )
         )
 
+        Text(
+            "HYDRATION",
+            color = Color(0xFF748294),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = 1.15.sp,
+            modifier = Modifier.align(Alignment.TopStart).padding(start = 19.dp, top = 17.dp)
+        )
+
         Row(
-            Modifier.fillMaxSize().padding(horizontal = 19.dp, vertical = 17.dp),
+            Modifier.align(Alignment.CenterStart).padding(start = 19.dp, end = 132.dp, top = 20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(horizontalAlignment = Alignment.Start) {
-                Text(
-                    "HYDRATION",
-                    color = Color(0xFF748294),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.15.sp
-                )
-                Spacer(Modifier.height(9.dp))
-                Box(Modifier.size(92.dp), contentAlignment = Alignment.Center) {
-                    Canvas(Modifier.fillMaxSize()) {
-                        val stroke = 10.dp.toPx()
-                        drawCircle(Color(0xFFD9EAF2), style = Stroke(width = stroke))
-                        if (animatedFraction > 0f) {
-                            drawArc(
-                                brush = Brush.sweepGradient(listOf(Color(0xFF0D6CB4), Color(0xFF20A7C4), Color(0xFF0D6CB4))),
-                                startAngle = -90f,
-                                sweepAngle = animatedFraction * 360f,
-                                useCenter = false,
-                                style = Stroke(width = stroke)
-                            )
-                        }
+            Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.fillMaxSize()) {
+                    val stroke = 9.dp.toPx()
+                    drawCircle(Color(0xFFD9EAF2), style = Stroke(width = stroke))
+                    if (animatedFraction > 0f) {
+                        drawArc(
+                            brush = Brush.sweepGradient(
+                                listOf(Color(0xFF0D6CB4), Color(0xFF20A7C4), Color(0xFF0D6CB4))
+                            ),
+                            startAngle = -90f,
+                            sweepAngle = animatedFraction * 360f,
+                            useCenter = false,
+                            style = Stroke(width = stroke)
+                        )
                     }
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy((-4).dp),
-                        modifier = Modifier.align(Alignment.Center)
-                    ) {
-                        Text("$pct%", color = Color(0xFF123D70), fontSize = 21.sp, fontWeight = FontWeight.Black)
-                        Text("today", color = Color(0xFF748294), fontSize = 8.sp, fontWeight = FontWeight.Medium)
-                    }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("$pct%", color = Color(0xFF123D70), fontSize = 20.sp, fontWeight = FontWeight.Black, lineHeight = 20.sp)
+                    Text("today", color = Color(0xFF748294), fontSize = 8.sp, fontWeight = FontWeight.Medium, lineHeight = 9.sp)
                 }
             }
 
-            Spacer(Modifier.width(18.dp))
+            Spacer(Modifier.width(17.dp))
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
                     if (shownMl >= 1000) "%.1f L".format(shownMl / 1000.0) else "$shownMl ml",
                     color = Color(0xFF123D70),
                     fontSize = 27.sp,
                     fontWeight = FontWeight.Black,
-                    textAlign = TextAlign.Center
+                    lineHeight = 29.sp
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
-                    "of ${if (goalMl >= 1000) "%.1f L".format(goalMl / 1000.0) else "$goalMl ml"} daily target",
+                    "${if (goalMl >= 1000) "%.1f L".format(goalMl / 1000.0) else "$goalMl ml"} daily goal",
                     color = Color(0xFF748294),
-                    fontSize = 10.sp,
-                    textAlign = TextAlign.Center
+                    fontSize = 9.sp
                 )
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(7.dp))
                 Text(
                     if (remaining == 0) "Goal reached" else "${if (remaining >= 1000) "%.1f L".format(remaining / 1000.0) else "$remaining ml"} remaining",
                     color = if (remaining == 0) Color(0xFF4AAE91) else Color(0xFF0D6CB4),
                     fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
