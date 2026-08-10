@@ -19,8 +19,8 @@
     <application
         android:allowBackup="true"
         android:hardwareAccelerated="true"
-        android:icon="@drawable/icon"
-        android:roundIcon="@drawable/icon"
+        android:icon="@drawable/superhuman_mark"
+        android:roundIcon="@drawable/superhuman_mark"
         android:label="Project Superhuman"
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
@@ -39,15 +39,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Health Connect permission rationale entry point for Android 13 and below. -->
             <intent-filter>
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
             </intent-filter>
         </activity>
 
-        <!-- Android 14+ Health Connect opens this entry when the user views how the app uses
-             health permissions. Reuse the main native activity until a dedicated privacy screen
-             is introduced. -->
         <activity-alias
             android:name=".ViewPermissionUsageActivity"
             android:exported="true"
@@ -59,7 +55,6 @@
             </intent-filter>
         </activity-alias>
 
-        <!-- Allow Health Connect itself to surface Project Superhuman as a connectable app. -->
         <activity-alias
             android:name=".HealthConnectOnboardingActivity"
             android:exported="true"
