@@ -1,0 +1,23 @@
+name: Fix sleep history types
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-sleep-history-types.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch sleep history analysis type
+        run: |
+          sed -i 's/SleepAnalysis/SleepIntelligenceResult/g' nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt
+          git diff --cached --quiet || git commit -m "Fix sleep history intelligence result types"
+          git push
