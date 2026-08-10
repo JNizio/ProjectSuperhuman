@@ -1,0 +1,46 @@
+name: Refine NHS Clinical Section Boundaries 11.2
+
+on:
+  push:
+    branches: [ '11.2' ]
+    paths:
+      - '.github/workflows/refine-nhs-section-boundaries-112.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '11.2'
+      - name: Anchor parsing to NHS result titles
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt')
+          s = p.read_text()
+          old = '''        var end = minOf(lines.size, i + 9)\n        for (j in i + 1 until end) {\n            val nextDef = markerDef(lines[j].text)\n            if (nextDef != null && headingLooksReal(lines[j].text, nextDef)) {\n                end = j\n                break\n            }\n        }'''
+          new = '''        var end = minOf(lines.size, i + 12)\n        for (j in i + 1 until end) {\n            val lineText = lines[j].text\n            val nextDef = markerDef(lineText)\n            if (nextDef != null && headingLooksReal(lineText, nextDef)) {\n                end = j\n                break\n            }\n            if (isNhsSectionBoundary(lineText)) {\n                end = j\n                break\n            }\n        }'''
+          if old not in s:
+              raise SystemExit('target parse window not found')
+          s = s.replace(old, new, 1)
+
+          anchor = '''private fun looksLikeRangeLine(text: String): Boolean {'''
+          helper = '''private fun isNhsSectionBoundary(text: String): Boolean {\n    val s = labNorm(text)\n    if (s.isBlank()) return false\n    return listOf(\n        "learn more about",\n        "view test result history",\n        "healthcare professional s comment",\n        "healthcare professional's comment",\n        "help with abbreviations",\n        "give feedback about the nhs app",\n        "you may see medical abbreviations",\n        "app help",\n        "home messages profile"\n    ).any { s.contains(labNorm(it)) }\n}\n\n'''
+          if anchor not in s:
+              raise SystemExit('helper anchor not found')
+          s = s.replace(anchor, helper + anchor, 1)
+          p.write_text(s)
+      - name: Commit boundary refinement
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt
+          if ! git diff --cached --quiet; then
+            git commit -m "Anchor NHS OCR parsing to result-title sections"
+            git push origin HEAD:11.2
+          fi
