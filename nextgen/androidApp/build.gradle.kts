@@ -30,8 +30,8 @@ android {
         applicationId = "com.projectsuperhuman.next"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11014
-        versionName = "11.0.14"
+        versionCode = 11015
+        versionName = "11.0.15"
     }
 
     compileOptions {
