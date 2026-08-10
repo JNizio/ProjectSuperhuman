@@ -30,6 +30,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -125,6 +126,7 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         HistoryHeader(onBack)
+        HistorySleepDashboardHero(nights)
         SleepCalendarCard(
             month = month,
             nights = nights,
@@ -139,6 +141,91 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
 
         HistorySyncCard(connected, syncing, status, ::connectOrSync)
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
+    val latest = nights.maxByOrNull { it.endEpochMs }
+    val previous = nights.filter { it !== latest }.sortedByDescending { it.endEpochMs }.take(7)
+    val latestAnalysis = latest?.snapshot?.let { SleepIntelligenceEngine.analyse(it) }
+    val recentMinutes = previous.mapNotNull { it.snapshot.totalMinutes }
+    val recentScores = previous.map { SleepIntelligenceEngine.analyse(it.snapshot).recoveryScore }
+    val avgMinutes = recentMinutes.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
+    val avgScore = recentScores.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
+    val lastMinutes = latest?.snapshot?.totalMinutes
+    val deltaMinutes = if (lastMinutes != null && avgMinutes != null) lastMinutes - avgMinutes else null
+    val recoveryScore = latestAnalysis?.recoveryScore ?: latest?.snapshot?.score
+    val deepRem = latest?.snapshot?.let { (it.deepMinutes ?: 0) + (it.remMinutes ?: 0) }
+
+    val comparison = when {
+        deltaMinutes == null -> "Build a few nights of history and your personal baseline will appear here."
+        deltaMinutes > 20 -> "Last night was ${formatMinutes(deltaMinutes)} longer than your recent baseline."
+        deltaMinutes < -20 -> "Last night was ${formatMinutes(-deltaMinutes)} shorter than your recent baseline."
+        else -> "Last night's duration was close to your recent baseline."
+    }
+    val focus = latestAnalysis?.priority ?: "Keep syncing sleep to unlock personalised trends."
+
+    Column(
+        Modifier.fillMaxWidth().background(
+            Brush.linearGradient(listOf(Color(0xFF10162F), Color(0xFF232A59), Color(0xFF44388F))),
+            RoundedCornerShape(28.dp)
+        ).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                Text("✦  SLEEP INTELLIGENCE", color = Color.White.copy(alpha = .68f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    latestAnalysis?.headline ?: "Your night sky is still gathering data",
+                    color = Color.White,
+                    fontSize = 19.sp,
+                    lineHeight = 23.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(comparison, color = Color.White.copy(alpha = .76f), fontSize = 9.sp, lineHeight = 14.sp)
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("☾", color = Color.White.copy(alpha = .92f), fontSize = 32.sp, fontWeight = FontWeight.Bold)
+                if (recoveryScore != null) {
+                    Text(recoveryScore.toString(), color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black)
+                    Text("recovery", color = Color.White.copy(alpha = .60f), fontSize = 7.sp)
+                }
+            }
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HistoryHeroStat("Last night", formatMinutes(lastMinutes), Modifier.weight(1f))
+            HistoryHeroStat("7-night avg", formatMinutes(avgMinutes), Modifier.weight(1f))
+            HistoryHeroStat("Deep + REM", formatMinutes(deepRem), Modifier.weight(1f))
+        }
+
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("✦  ·  ✧", color = Color.White.copy(alpha = .52f), fontSize = 10.sp)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                if (avgScore != null) "Recent recovery baseline $avgScore" else "Personal baseline building",
+                color = Color.White.copy(alpha = .70f),
+                fontSize = 8.sp,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Box(
+            Modifier.fillMaxWidth().background(Color.White.copy(alpha = .09f), RoundedCornerShape(14.dp)).padding(11.dp)
+        ) {
+            Text("Tonight's focus: $focus", color = Color.White.copy(alpha = .88f), fontSize = 9.sp, lineHeight = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun HistoryHeroStat(label: String, value: String, modifier: Modifier) {
+    Column(modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp)).padding(10.dp)) {
+        Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Text(label, color = Color.White.copy(alpha = .60f), fontSize = 7.sp)
     }
 }
 
