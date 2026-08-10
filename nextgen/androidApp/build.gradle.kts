@@ -15,7 +15,7 @@ kotlin {
 
 android {
     namespace = "com.projectsuperhuman.next"
-    compileSdk = 35
+    compileSdk = 36
 
     signingConfigs {
         create("projectSuperhuman") {
