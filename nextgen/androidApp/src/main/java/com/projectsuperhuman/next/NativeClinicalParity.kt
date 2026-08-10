@@ -528,7 +528,12 @@ private fun findRange(text: String): RangeHit {
 }
 
 private fun findUnit(text: String, expected: String): Pair<String, Double> {
-    val compact = text.replace(" ", "")
+    val normalizedText = text
+        .replace(Regex("(?i)\\bm[lI1|]u/L\\b"), "mIU/L")
+        .replace(Regex("(?i)\\buIU/mL\\b"), "µIU/mL")
+        .replace(Regex("(?i)\\b(?:ug|μg)/L\\b"), "µg/L")
+        .replace(Regex("(?i)\\b(?:umol|μmol)/L\\b"), "µmol/L")
+    val compact = normalizedText.replace(" ", "")
     val units = listOf(
         "10^12/L" to Regex("10[\\*x×^]?12/L", RegexOption.IGNORE_CASE),
         "10^9/L" to Regex("10[\\*x×^]?9/L", RegexOption.IGNORE_CASE),
@@ -540,6 +545,7 @@ private fun findUnit(text: String, expected: String): Pair<String, Double> {
         "pmol/L" to Regex("pmol/L", RegexOption.IGNORE_CASE),
         "nmol/L" to Regex("nmol/L", RegexOption.IGNORE_CASE),
         "mIU/L" to Regex("mIU/L", RegexOption.IGNORE_CASE),
+        "µIU/mL" to Regex("(?:µIU|uIU)/mL", RegexOption.IGNORE_CASE),
         "mU/L" to Regex("mU/L", RegexOption.IGNORE_CASE),
         "IU/mL" to Regex("IU/mL", RegexOption.IGNORE_CASE),
         "IU/L" to Regex("IU/L", RegexOption.IGNORE_CASE),
@@ -557,8 +563,9 @@ private fun findUnit(text: String, expected: String): Pair<String, Double> {
         "%" to Regex("%")
     )
     units.forEach { (unit, rx) -> if (rx.containsMatchIn(compact)) return unit to .95 }
-    if (Regex("\\b(?:sec|second|seconds)\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)) return "sec" to .9
-    if (expected == "Ratio" && Regex("\\bratio\\b", RegexOption.IGNORE_CASE).containsMatchIn(text)) return "Ratio" to .85
+    if (Regex("\\b(?:sec|second|seconds)\\b", RegexOption.IGNORE_CASE).containsMatchIn(normalizedText)) return "sec" to .9
+    if (expected == "Ratio" && Regex("\\bratio\\b", RegexOption.IGNORE_CASE).containsMatchIn(normalizedText)) return "Ratio" to .85
+    if (expected.isNotBlank() && expected != "U/L") return expected to .70
     return "" to 0.0
 }
 
