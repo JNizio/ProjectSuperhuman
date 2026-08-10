@@ -16,13 +16,6 @@ internal data class SleepReferenceProfile(
     val strongEfficiencyPct: Double = 85.0
 )
 
-internal data class SleepMetricConfidence(
-    val metric: String,
-    val score: Int,
-    val label: String,
-    val reason: String
-)
-
 internal data class SleepIntelligenceResult(
     val interpretedSleepMinutes: Int,
     val sleepOpportunityMinutes: Int,
