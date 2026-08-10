@@ -31,7 +31,9 @@ internal object SleepAnalysisEngine {
         deepMinutes = snapshot.deepMinutes ?: 0,
         remMinutes = snapshot.remMinutes ?: 0,
         lightMinutes = snapshot.lightMinutes ?: 0,
-        interruptionCount = snapshot.interruptionCount
+        interruptionCount = snapshot.stageSegments.count {
+            it.type == "awake" && (it.endMs - it.startMs) >= 5 * 60_000L
+        }
     )
 
     fun analyse(
