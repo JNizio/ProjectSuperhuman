@@ -8,7 +8,6 @@ on:
       - 'app/src/main/java/**'
       - 'app/src/main/res/**'
       - 'app/src/main/assets/**'
-      - '.github/scripts/body_profile_scale_polish.py'
       - '.github/scripts/release_11_1_cleanup.py'
       - '.github/workflows/build-nextgen.yml'
   workflow_dispatch:
@@ -22,17 +21,6 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Apply Body profile and full smart-scale polish
-        shell: bash
-        run: |
-          python3 .github/scripts/body_profile_scale_polish.py
-          if ! git diff --quiet -- nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/BodyDashboardAdvanced.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/OkokScaleNative.kt nextgen/androidApp/build.gradle.kts; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/BodyDashboardAdvanced.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/OkokScaleNative.kt nextgen/androidApp/build.gradle.kts
-            git commit -m "Polish Body profile and full smart-scale scan [skip ci]"
-          fi
 
       - name: Apply 11.1 cleanup and branding
         shell: bash
