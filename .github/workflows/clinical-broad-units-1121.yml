@@ -1,0 +1,156 @@
+name: Clinical broad units 11.2.1
+
+on:
+  push:
+    branches: ['11.2']
+    paths:
+      - '.github/workflows/clinical-broad-units-1121.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch broad Clinical unit understanding
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt')
+          s = p.read_text()
+          start = s.index('private fun findUnit(text: String, expected: String): Pair<String, Double> {')
+          end = s.index('\nprivate fun findGenericRows', start)
+          replacement = r'''private data class ClinicalUnitDef(
+    val canonical: String,
+    val patterns: List<Regex>,
+    val family: String
+)
+
+private val CLINICAL_UNIT_DEFS = listOf(
+    ClinicalUnitDef("10^12/L", listOf(Regex("10\\s*(?:\\^|\\*|x|×)?\\s*12\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "count"),
+    ClinicalUnitDef("10^9/L", listOf(Regex("10\\s*(?:\\^|\\*|x|×)?\\s*9\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "count"),
+    ClinicalUnitDef("mL/min/1.73m²", listOf(Regex("m[lL]\\s*/\\s*min\\s*/\\s*1[.,]?73\\s*m(?:2|\\^2|²)", RegexOption.IGNORE_CASE)), "clearance"),
+    ClinicalUnitDef("mmol/mol", listOf(Regex("mmol\\s*/\\s*mol", RegexOption.IGNORE_CASE)), "ratio"),
+    ClinicalUnitDef("mg/mmol", listOf(Regex("mg\\s*/\\s*mmol", RegexOption.IGNORE_CASE)), "ratio"),
+    ClinicalUnitDef("µmol/L", listOf(Regex("(?:µ|μ|u)mol\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "molar"),
+    ClinicalUnitDef("mmol/L", listOf(Regex("mmol\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "molar"),
+    ClinicalUnitDef("pmol/L", listOf(Regex("pmol\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "molar"),
+    ClinicalUnitDef("nmol/L", listOf(Regex("nmol\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "molar"),
+    ClinicalUnitDef("mol/L", listOf(Regex("(?<![munpµμ])mol\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "molar"),
+    ClinicalUnitDef("mIU/L", listOf(
+        Regex("m(?:i|l|1|\\|)u\\s*/\\s*[lL]", RegexOption.IGNORE_CASE),
+        Regex("m\\s*i\\s*u\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)
+    ), "activity"),
+    ClinicalUnitDef("µIU/mL", listOf(
+        Regex("(?:µ|μ|u)(?:i|l|1)u\\s*/\\s*m[lL]", RegexOption.IGNORE_CASE),
+        Regex("(?:µ|μ|u)\\s*i\\s*u\\s*/\\s*m[lL]", RegexOption.IGNORE_CASE)
+    ), "activity"),
+    ClinicalUnitDef("mU/L", listOf(Regex("m[uU]\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "activity"),
+    ClinicalUnitDef("IU/mL", listOf(Regex("(?:i|l|1)u\\s*/\\s*m[lL]", RegexOption.IGNORE_CASE)), "activity"),
+    ClinicalUnitDef("IU/L", listOf(Regex("(?:i|l|1)u\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "activity"),
+    ClinicalUnitDef("U/L", listOf(Regex("(?<![mµμuiIlL1])u\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "activity"),
+    ClinicalUnitDef("ng/mL", listOf(Regex("ng\\s*/\\s*m[lL]", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("ng/L", listOf(Regex("ng\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("µg/L", listOf(Regex("(?:µ|μ|u)g\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("µg/mL", listOf(Regex("(?:µ|μ|u)g\\s*/\\s*m[lL]", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("mg/L", listOf(Regex("mg\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("mg/dL", listOf(Regex("mg\\s*/\\s*d[lL]", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("g/L", listOf(Regex("(?<![munpµμ])g\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("g/dL", listOf(Regex("g\\s*/\\s*d[lL]", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("L/L", listOf(Regex("[lL]\\s*/\\s*[lL]")), "ratio"),
+    ClinicalUnitDef("mm/h", listOf(Regex("mm\\s*/\\s*h", RegexOption.IGNORE_CASE)), "rate"),
+    ClinicalUnitDef("mmHg", listOf(Regex("mm\\s*hg", RegexOption.IGNORE_CASE)), "pressure"),
+    ClinicalUnitDef("fL", listOf(Regex("\\bf[lL]\\b")), "volume"),
+    ClinicalUnitDef("pg", listOf(Regex("\\bpg\\b", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("pg/mL", listOf(Regex("pg\\s*/\\s*m[lL]", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("µg/dL", listOf(Regex("(?:µ|μ|u)g\\s*/\\s*d[lL]", RegexOption.IGNORE_CASE)), "mass"),
+    ClinicalUnitDef("mEq/L", listOf(Regex("m(?:e|3)q\\s*/\\s*[lL]", RegexOption.IGNORE_CASE)), "electrolyte"),
+    ClinicalUnitDef("copies/mL", listOf(Regex("copies\\s*/\\s*m[lL]", RegexOption.IGNORE_CASE)), "count"),
+    ClinicalUnitDef("cells/µL", listOf(Regex("cells\\s*/\\s*(?:µ|μ|u)[lL]", RegexOption.IGNORE_CASE)), "count"),
+    ClinicalUnitDef("%", listOf(Regex("%")), "percent"),
+    ClinicalUnitDef("sec", listOf(Regex("\\b(?:sec|secs|second|seconds)\\b", RegexOption.IGNORE_CASE)), "time"),
+    ClinicalUnitDef("Ratio", listOf(Regex("\\bratio\\b", RegexOption.IGNORE_CASE)), "ratio")
+)
+
+private fun canonicalUnitKey(unit: String): String = unit
+    .lowercase(Locale.ROOT)
+    .replace("μ", "µ")
+    .replace("²", "2")
+    .replace(Regex("\\s+"), "")
+    .replace("umol", "µmol")
+    .replace("ug", "µg")
+    .replace("uiu", "µiu")
+
+private fun sameUnit(a: String, b: String): Boolean = canonicalUnitKey(a) == canonicalUnitKey(b)
+
+private fun findUnit(text: String, expected: String): Pair<String, Double> {
+    val cleaned = text
+        .replace('μ', 'µ')
+        .replace('–', '-')
+        .replace('—', '-')
+
+    val expectedDef = CLINICAL_UNIT_DEFS.firstOrNull { sameUnit(it.canonical, expected) }
+    val matches = mutableListOf<Pair<ClinicalUnitDef, Int>>()
+
+    CLINICAL_UNIT_DEFS.forEach { def ->
+        def.patterns.forEach { rx ->
+            rx.findAll(cleaned).forEach { hit -> matches += def to hit.range.first }
+        }
+    }
+
+    if (matches.isNotEmpty()) {
+        val scored = matches.map { (def, pos) ->
+            var score = .90
+            if (sameUnit(def.canonical, expected)) score += .08
+            else if (expectedDef != null && def.family == expectedDef.family) score += .02
+            if (def.canonical == "U/L" && expectedDef != null && expectedDef.canonical != "U/L") score -= .18
+            Triple(def, pos, score.coerceIn(.0, .99))
+        }
+        val best = scored.maxWithOrNull(compareBy<Triple<ClinicalUnitDef, Int, Double>> { it.third }.thenBy { -it.second })
+        if (best != null) return best.first.canonical to best.third
+    }
+
+    // If OCR did not yield a trustworthy unit, keep the marker registry expectation,
+    // but lower confidence so the UI can distinguish inferred from screenshot-read units.
+    if (expected.isNotBlank()) return expected to .62
+    return "" to 0.0
+}
+'''
+          p.write_text(s[:start] + replacement + s[end:])
+
+          # Ensure 11.2.1 version label remains set.
+          g = Path('nextgen/androidApp/build.gradle.kts')
+          gs = g.read_text()
+          import re
+          gs = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "11.2.1"', gs)
+          g.write_text(gs)
+
+          import subprocess
+          subprocess.run(['git','config','user.name','github-actions[bot]'], check=True)
+          subprocess.run(['git','config','user.email','41898282+github-actions[bot]@users.noreply.github.com'], check=True)
+          subprocess.run(['git','add',str(p),str(g)], check=True)
+          diff = subprocess.run(['git','diff','--cached','--quiet'])
+          if diff.returncode != 0:
+              subprocess.run(['git','commit','-m','Implement broad Clinical unit understanding 11.2.1 [skip ci]'], check=True)
+              subprocess.run(['git','push','origin','HEAD:11.2'], check=True)
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build 11.2.1 broad-units APK
+        run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProjectSuperhuman-11.2.1-ClinicalBroadUnits
+          path: nextgen/androidApp/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 30
