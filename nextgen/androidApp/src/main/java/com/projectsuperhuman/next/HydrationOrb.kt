@@ -23,20 +23,16 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.PI
 import kotlin.math.sin
 
-/**
- * Hydration-specific visual primitive.
- *
- * Performance rule: the fill itself follows input immediately. We intentionally do not spring/tween
- * the fill because the orb is also an input preview and animation latency makes slider dragging feel
- * disconnected. Only the lightweight surface wave animates continuously.
- */
+/** Hydration progress orb. The fill reflects committed hydration state; only the surface wave animates. */
 @Composable
 internal fun AnimatedHydrationOrb(
     fraction: Float,
@@ -76,31 +72,38 @@ internal fun AnimatedHydrationOrb(
                 drawPath(
                     wavePath,
                     Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = .70f), Color(0xFFBCEBFA).copy(alpha = .50f)),
+                        listOf(Color.White.copy(alpha = .78f), Color(0xFFBCEBFA).copy(alpha = .58f)),
                         startY = waterTop,
                         endY = size.height
                     )
                 )
                 drawOval(
-                    color = Color.White.copy(alpha = .11f),
+                    color = Color.White.copy(alpha = .15f),
                     topLeft = Offset(size.width * .17f, size.height * .13f),
                     size = Size(size.width * .28f, size.height * .13f)
                 )
             }
         }
 
+        val textShadow = Shadow(
+            color = Color(0xFF064B78).copy(alpha = .34f),
+            offset = Offset(0f, 1.5f),
+            blurRadius = 3.5f
+        )
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 percentLabel,
-                color = Color(0xFFF2FAFE).copy(alpha = .92f),
-                fontSize = 23.sp,
-                fontWeight = FontWeight.ExtraBold
+                color = Color.White,
+                fontSize = 25.sp,
+                fontWeight = FontWeight.Black,
+                style = TextStyle(shadow = textShadow)
             )
             Text(
                 "of goal",
-                color = Color(0xFFE4F4FB).copy(alpha = .68f),
+                color = Color.White.copy(alpha = .82f),
                 fontSize = 8.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                style = TextStyle(shadow = textShadow)
             )
         }
     }
