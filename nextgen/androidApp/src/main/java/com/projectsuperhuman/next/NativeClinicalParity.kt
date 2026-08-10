@@ -589,10 +589,10 @@ private fun parseClinicalTextFallback(raw: String): List<ClinicalDraft> {
     return out.distinctBy { it.metric + "|" + it.value }
 }
 
-private fun markerDef(text: String): LabDef? {
+private fun markerDef(text: String): ClinicalMarkerDef? {
     val q = labNorm(text)
     if (q.isBlank()) return null
-    var best: Pair<LabDef, Double>? = null
+    var best: Pair<ClinicalMarkerDef, Double>? = null
     LAB_DEFS.forEach { def ->
         def.aliases.forEach { aliasRaw ->
             val alias = labNorm(aliasRaw)
