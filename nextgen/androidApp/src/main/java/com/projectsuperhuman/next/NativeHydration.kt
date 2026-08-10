@@ -41,13 +41,9 @@ import kotlin.math.roundToInt
 /**
  * Native hydration orchestration and persistence.
  *
- * The interactive hero lives in HydrationHeroControls.kt and the animated liquid primitive lives
- * in HydrationOrb.kt. Keep persistence and analytics here so future design changes stay low-risk.
- *
- * Input safety:
- * - New intake can never take today's total above the configured goal.
- * - UI updates optimistically before SQLite completes, so the orb reacts immediately to a log.
- * - Slider values snap to 50 ml increments and preview the projected orb fill before saving.
+ * Corrections are stored as signed water_intake_ml events instead of deleting history. That gives
+ * future analytics an audit trail while still making the visible daily total behave exactly as the
+ * user expects. Clear Today is therefore a reversible-style correction, not a destructive wipe.
  */
 private val HydNavy = Color(0xFF123D70)
 private val HydBlue = Color(0xFF0D6CB4)
@@ -95,33 +91,42 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
 
     LaunchedEffect(Unit) { refresh() }
 
-    fun logDrink(requestedMl: Int) {
-        if (requestedMl <= 0) return
-        val allowed = minOf(requestedMl, snapshot.remainingMl)
-        if (allowed <= 0) {
-            status = "Daily goal already reached"
+    fun applyHydrationDelta(requestedDeltaMl: Int) {
+        if (requestedDeltaMl == 0) return
+
+        val delta = if (requestedDeltaMl > 0) {
+            minOf(requestedDeltaMl, snapshot.remainingMl)
+        } else {
+            -minOf(-requestedDeltaMl, snapshot.todayMl)
+        }
+        if (delta == 0) {
+            status = if (requestedDeltaMl > 0) "Daily goal already reached" else "Nothing to subtract"
             return
         }
 
         val now = System.currentTimeMillis()
         val previous = snapshot
+        val newTotal = (snapshot.todayMl + delta).coerceIn(0, snapshot.goalMl)
         snapshot = snapshot.copy(
-            todayMl = (snapshot.todayMl + allowed).coerceAtMost(snapshot.goalMl),
-            lastDrinkMl = allowed,
-            lastDrinkEpochMs = now
+            todayMl = newTotal,
+            lastDrinkMl = if (delta > 0) delta else snapshot.lastDrinkMl,
+            lastDrinkEpochMs = if (delta > 0) now else snapshot.lastDrinkEpochMs
         )
         amountSlider = minOf(250, snapshot.remainingMl)
-        status = if (allowed < requestedMl) "+$allowed ml logged · capped at daily goal" else "+$allowed ml logged"
+        status = if (delta > 0) "+$delta ml logged" else "${delta} ml corrected"
 
         scope.launch {
             runCatching {
                 NativeDataHub.saveMetric(
                     domain = HealthDomain.HYDRATION,
                     metric = "water_intake_ml",
-                    value = allowed.toDouble(),
+                    value = delta.toDouble(),
                     unit = "ml",
                     source = "native-hydration",
-                    metadata = mapOf("drinkSource" to source)
+                    metadata = mapOf(
+                        "drinkSource" to source,
+                        "entryType" to if (delta > 0) "intake" else "correction"
+                    )
                 )
                 val zone = ZoneId.systemDefault()
                 val start = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
@@ -134,14 +139,17 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
                     source = "native-hydration",
                     metadata = mapOf("compatibilitySnapshot" to "true")
                 )
-            }.onSuccess {
-                refresh()
-            }.onFailure {
-                snapshot = previous
-                status = "Couldn’t save that drink — nothing was changed"
-            }
+            }.onSuccess { refresh() }
+                .onFailure {
+                    snapshot = previous
+                    status = "Couldn’t save that change — nothing was changed"
+                }
         }
     }
+
+    fun logDrink(requestedMl: Int) = applyHydrationDelta(requestedMl)
+    fun subtractDrink(requestedMl: Int) = applyHydrationDelta(-requestedMl)
+    fun clearToday() = applyHydrationDelta(-snapshot.todayMl)
 
     fun saveGoal() {
         val ml = (goalDraft / 100f).roundToInt() * 100
@@ -168,6 +176,8 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
             onSourceChange = { source = it },
             onAmountChange = { amountSlider = it.coerceIn(0, snapshot.remainingMl) },
             onQuickLog = ::logDrink,
+            onQuickSubtract = ::subtractDrink,
+            onClearToday = ::clearToday,
             onLog = { logDrink(amountSlider) }
         )
 
@@ -280,21 +290,21 @@ private suspend fun loadHydrationSnapshot(): HydrationSnapshot {
     val start = today.atStartOfDay(zone).toInstant().toEpochMilli()
     val goal = NativeDataHub.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
     val todayEvents = NativeDataHub.between("water_intake_ml", start, now).sortedBy { it.timestampEpochMs }
-    val eventTotal = todayEvents.sumOf { it.value }.roundToInt()
+    val eventTotal = todayEvents.sumOf { it.value }.roundToInt().coerceAtLeast(0)
     val compatibilityTotal = NativeDataHub.latest("water_total_l")?.takeIf { it.timestampEpochMs >= start }?.value?.times(1000.0)?.roundToInt() ?: 0
-    val todayMl = (if (todayEvents.isNotEmpty()) eventTotal else compatibilityTotal).coerceAtMost(goal)
+    val todayMl = (if (todayEvents.isNotEmpty()) eventTotal else compatibilityTotal).coerceIn(0, goal)
 
     val history = (6 downTo 0).map { offset ->
         val date = today.minusDays(offset.toLong())
         val from = date.atStartOfDay(zone).toInstant().toEpochMilli()
         val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
         val events = NativeDataHub.between("water_intake_ml", from, to)
-        val total = if (events.isNotEmpty()) events.sumOf { it.value }.roundToInt() else
+        val total = if (events.isNotEmpty()) events.sumOf { it.value }.roundToInt().coerceAtLeast(0) else
             NativeDataHub.between("water_total_l", from, to).maxByOrNull { it.timestampEpochMs }?.value?.times(1000.0)?.roundToInt() ?: 0
         HydrationDay(date, total)
     }
-    val last = todayEvents.lastOrNull()
-    return HydrationSnapshot(todayMl, goal, last?.value?.roundToInt(), last?.timestampEpochMs, history)
+    val lastPositive = todayEvents.lastOrNull { it.value > 0 }
+    return HydrationSnapshot(todayMl, goal, lastPositive?.value?.roundToInt(), lastPositive?.timestampEpochMs, history)
 }
 
 private fun formatClock(epochMs: Long): String {
