@@ -120,6 +120,8 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
             onLog = { logging = !logging }
         )
 
+        NativeOkokScaleCard(onSaved = { scope.launch { refresh() } })
+
         BodyViewToggle(view = view, onChange = { view = it })
 
         if (logging) {
