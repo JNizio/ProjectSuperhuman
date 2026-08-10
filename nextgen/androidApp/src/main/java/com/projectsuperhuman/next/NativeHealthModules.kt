@@ -58,7 +58,7 @@ internal fun NativeBloodPressurePage(onBack: () -> Unit, openLegacy: () -> Unit)
             Box(
                 Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center
-            ) { Text("‹", color = ModuleNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+            ) { Text("←", color = ModuleNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Blood Pressure", color = ModuleInk, fontSize = 24.sp, fontWeight = FontWeight.Black)

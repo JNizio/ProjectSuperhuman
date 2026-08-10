@@ -183,7 +183,7 @@ internal fun LegacyClinicalCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("CLINICAL", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Text("›", color = Color(0xFF8CA6B5), fontSize = 23.sp)
+            Text("→", color = Color(0xFF8CA6B5), fontSize = 23.sp)
         }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -216,7 +216,7 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
         Column(Modifier.fillMaxSize().padding(18.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("TRAINING", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                Text("›", color = Color(0xFF8CA6B5), fontSize = 23.sp)
+                Text("→", color = Color(0xFF8CA6B5), fontSize = 23.sp)
             }
             Text(if (snapshot.workoutsToday > 0) "Training logged" else "Ready when you are", color = Color(0xFF6C4132), fontSize = 20.sp, fontWeight = FontWeight.Black)
             Text(if (snapshot.workoutsToday > 0) "${snapshot.workoutsToday} workout today" else "No workout logged today", color = HomeMuted, fontSize = 10.sp)
@@ -305,7 +305,7 @@ internal fun LegacySleepCard(snapshot: NativeHomeSnapshot, modifier: Modifier, o
 private fun LegacyCardHeader(label: String) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-        Text("›", color = Color(0xFF9AAEBB), fontSize = 18.sp)
+        Text("→", color = Color(0xFF9AAEBB), fontSize = 18.sp)
     }
 }
 
@@ -320,7 +320,7 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
         Column(Modifier.fillMaxSize().padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("NUTRITION", color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("›", color = Color(0xFF8CA6B5), fontSize = 19.sp)
+                Text("→", color = Color(0xFF8CA6B5), fontSize = 19.sp)
             }
             Spacer(Modifier.height(7.dp))
             Text("${snapshot.caloriesToday} kcal", color = HomeNavy, fontSize = 21.sp, fontWeight = FontWeight.Black)

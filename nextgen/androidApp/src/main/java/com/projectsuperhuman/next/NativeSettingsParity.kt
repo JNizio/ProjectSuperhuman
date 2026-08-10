@@ -190,7 +190,7 @@ private fun VaultButton(title: String, subtitle: String, accent: Color, onClick:
             Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
             Text(subtitle, color = Color.White.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
         }
-        Text("›", color = Color.White, fontSize = 22.sp)
+        Text("→", color = Color.White, fontSize = 22.sp)
     }
 }
 

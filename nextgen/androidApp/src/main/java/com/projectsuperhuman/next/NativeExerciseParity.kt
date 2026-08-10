@@ -127,7 +127,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             Box(
                 Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center
-            ) { Text("‹", color = ExerciseBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+            ) { Text("←", color = ExerciseBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Exercise", color = ExerciseInk, fontSize = 24.sp, fontWeight = FontWeight.Black)

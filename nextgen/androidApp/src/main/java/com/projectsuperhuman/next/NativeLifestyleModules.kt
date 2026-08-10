@@ -44,7 +44,7 @@ private fun NativeModuleFrame(title: String, subtitle: String, onBack: () -> Uni
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.background(Color.White, RoundedCornerShape(13.dp)).clickable(onClick = onBack).padding(horizontal = 15.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
-                Text("‹", color = LifestyleNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text("←", color = LifestyleNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
             Column(Modifier.padding(start = 12.dp)) {
                 Text(title, color = LifestyleNavy, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -94,7 +94,7 @@ private fun ActionRow(title: String, subtitle: String, initials: String, backgro
             Text(title, color = LifestyleInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             Text(subtitle, color = LifestyleMuted, fontSize = 9.sp)
         }
-        Text("›", color = accent, fontSize = 23.sp)
+        Text("→", color = accent, fontSize = 23.sp)
     }
 }
 

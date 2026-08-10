@@ -209,7 +209,7 @@ private fun HydrationHeader(onBack: () -> Unit) {
             Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp))
                 .border(1.dp, HydBorder, RoundedCornerShape(14.dp)).superhumanClickable(onClick = onBack),
             contentAlignment = Alignment.Center
-        ) { Text("‹", color = HydNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+        ) { Text("←", color = HydNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
         Spacer(Modifier.width(12.dp))
         Column {
             Text("Hydration", color = HydInk, fontSize = 25.sp, fontWeight = FontWeight.Black)

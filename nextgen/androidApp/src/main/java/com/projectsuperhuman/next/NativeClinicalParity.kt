@@ -203,7 +203,7 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 private fun ClinicalHeader(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-            Text("‹", color = ClinicalNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text("←", color = ClinicalNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(12.dp))
         Column {

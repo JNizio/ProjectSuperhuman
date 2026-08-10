@@ -194,7 +194,7 @@ private fun oneDecimal(value: Double): String = ((value * 10.0).roundToInt() / 1
 private fun ModuleHeader(title: String, subtitle: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(13.dp)).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
-            Text("‹", color = NutritionBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text("←", color = NutritionBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(12.dp))
         Column { Text(title, color = NutritionInk, fontSize = 24.sp, fontWeight = FontWeight.Black); Text(subtitle, color = NutritionMuted, fontSize = 10.sp) }
@@ -214,7 +214,7 @@ private fun NutritionMetric(title: String, value: String, unit: String, modifier
 private fun ActionButton(title: String, subtitle: String, accent: Color, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) { Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold); Text(subtitle, color = Color.White.copy(alpha = .8f), fontSize = 9.sp) }
-        Text("›", color = Color.White, fontSize = 22.sp)
+        Text("→", color = Color.White, fontSize = 22.sp)
     }
 }
 
@@ -231,6 +231,6 @@ private fun NutritionRow(title: String, subtitle: String, initials: String, acce
         Box(Modifier.width(42.dp).height(42.dp).background(accent.copy(alpha = .10f), RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) { Text(initials, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black) }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) { Text(title, color = NutritionInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold); Text(subtitle, color = NutritionMuted, fontSize = 9.sp) }
-        Text("›", color = accent, fontSize = 22.sp)
+        Text("→", color = accent, fontSize = 22.sp)
     }
 }
