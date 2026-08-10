@@ -165,8 +165,8 @@ private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
 
     val comparison = when {
         deltaMinutes == null -> "Build a few nights of history and your personal baseline will appear here."
-        deltaMinutes > 20 -> "You slept ${formatMinutes(deltaMinutes)} longer than your recent baseline."
-        deltaMinutes < -20 -> "You slept ${formatMinutes(-deltaMinutes)} less than your recent baseline."
+        deltaMinutes > 20 -> "You slept ${formatHistoryMinutes(deltaMinutes)} longer than your recent baseline."
+        deltaMinutes < -20 -> "You slept ${formatHistoryMinutes(-deltaMinutes)} less than your recent baseline."
         else -> "Your sleep duration was close to your recent baseline."
     }
     val focus = latestAnalysis?.priority ?: "Keep syncing sleep to unlock personalised trends."
@@ -190,7 +190,7 @@ private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
                 Text("✦  LATEST SLEEP", color = Color.White.copy(alpha = .66f), fontSize = 8.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(5.dp))
                 Text(
-                    formatMinutes(lastMinutes),
+                    formatHistoryMinutes(lastMinutes),
                     color = Color.White,
                     fontSize = 34.sp,
                     lineHeight = 38.sp,
@@ -220,7 +220,7 @@ private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             HistoryHeroStat("Bed", bedTime, Modifier.weight(1f))
             HistoryHeroStat("Wake", wakeTime, Modifier.weight(1f))
-            HistoryHeroStat("7-night avg", formatMinutes(avgMinutes), Modifier.weight(1f))
+            HistoryHeroStat("7-night avg", formatHistoryMinutes(avgMinutes), Modifier.weight(1f))
         }
 
         Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = .14f)))
@@ -235,7 +235,7 @@ private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
             Text(comparison, color = Color.White.copy(alpha = .72f), fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(10.dp))
             Column(horizontalAlignment = Alignment.End) {
-                Text(formatMinutes(deepRem), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Text(formatHistoryMinutes(deepRem), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
                 Text("Deep + REM", color = Color.White.copy(alpha = .56f), fontSize = 7.sp)
             }
         }
@@ -251,14 +251,6 @@ private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
             color = Color.White.copy(alpha = .53f),
             fontSize = 7.sp
         )
-    }
-}
-
-@Composable
-private fun HistoryHeroStat(label: String, value: String, modifier: Modifier) {
-    Column(modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp)).padding(10.dp)) {
-        Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
-        Text(label, color = Color.White.copy(alpha = .60f), fontSize = 7.sp)
     }
 }
 
