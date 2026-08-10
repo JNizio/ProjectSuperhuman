@@ -26,8 +26,8 @@ import java.time.ZoneId
 import kotlin.math.roundToInt
 
 /**
- * Home orchestration only. Visual language lives in HomeDashboardComponents.kt so future sessions
- * can change the dashboard without touching repository/data calculations.
+ * Home orchestration only. Visual language lives in dedicated Home component files so future
+ * sessions can change dashboard visuals without disturbing repository/data calculations.
  */
 data class NativeHomeSnapshot(
     val sleepScore: Int? = null,
@@ -35,6 +35,7 @@ data class NativeHomeSnapshot(
     val sleepStartLabel: String? = null,
     val sleepEndLabel: String? = null,
     val waterLitres: Double = 0.0,
+    val waterGoalMl: Int = 3600,
     val caloriesToday: Int = 0,
     val proteinToday: Int = 0,
     val workoutsToday: Int = 0,
@@ -70,7 +71,7 @@ internal fun NativeLiveHome(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         LegacyHomeHero(snapshot)
-        LegacyHydrationCard(snapshot, openHydration)
+        PremiumHomeHydrationTile(snapshot, openHydration)
         LegacyClinicalCard(snapshot, openClinical)
         LegacyTrainingCard(snapshot, openExercise)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -100,14 +101,19 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val clinical = NativeDataHub.latestForDomain(HealthDomain.CLINICAL)
     val kcal = NativeDataHub.between("food_kcal", start, now).sumOf { it.value }.roundToInt()
     val protein = NativeDataHub.between("food_protein", start, now).sumOf { it.value }.roundToInt()
+    val waterGoalMl = NativeDataHub.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
     val waterEvents = NativeDataHub.between("water_intake_ml", start, now)
-    val water = if (waterEvents.isNotEmpty()) {
+    val rawWaterLitres = if (waterEvents.isNotEmpty()) {
         waterEvents.sumOf { it.value } / 1000.0
     } else {
         NativeDataHub.between("water_total_l", start, now).maxByOrNull { it.timestampEpochMs }?.value
             ?: NativeDataHub.latest("water_total_l")?.takeIf { it.timestampEpochMs >= start }?.value
             ?: 0.0
     }
+    // Old validation builds allowed accidental over-logging. Preserve source events for history,
+    // but the current Home contract never presents more than the active daily goal.
+    val water = rawWaterLitres.coerceIn(0.0, waterGoalMl / 1000.0)
+
     val workouts = NativeDataHub.between("workout_session", start, now)
     val sets = NativeDataHub.between("exercise_set", start, now)
     val volumes = NativeDataHub.between("workout_volume", start, now)
@@ -133,6 +139,7 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         sleepStartLabel = sleepText("sleep_total_minutes"),
         sleepEndLabel = null,
         waterLitres = water,
+        waterGoalMl = waterGoalMl,
         caloriesToday = kcal,
         proteinToday = protein,
         workoutsToday = workouts.size,
