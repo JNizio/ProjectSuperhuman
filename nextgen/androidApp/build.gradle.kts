@@ -10,13 +10,13 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        // Keep a separate package for the first 11.0.0 validation APK so it cannot overwrite
-        // the mature signed app or its private data by accident.
+        // Separate package remains intentional during native parity validation so the mature app
+        // and its private data cannot be overwritten by a test build.
         applicationId = "com.projectsuperhuman.next"
         minSdk = 23
         targetSdk = 35
-        versionCode = 11000
-        versionName = "11.0.0"
+        versionCode = 11002
+        versionName = "11.0.2"
     }
 
     compileOptions {
@@ -29,14 +29,13 @@ android {
     }
 
     sourceSets["main"].apply {
-        // Compatibility resources/assets remain packaged for deliberate fallback routes during
-        // the 11.0.0 validation cycle. Native Compose is still the launcher and primary UI.
+        // Native screens deliberately reuse the mature visual asset library while parity work is
+        // underway; compatibility Java/resources also remain available for explicit fallbacks.
         java.srcDir("../../app/src/main/java")
         res.srcDir("../../app/src/main/res")
         assets.srcDir("../../app/src/main/assets")
     }
 
-    // Conservative release candidate: no R8/resource shrinking until on-device parity is signed off.
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
