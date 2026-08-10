@@ -45,7 +45,7 @@ internal fun NativeBodyPage(onBack: () -> Unit, openLegacy: () -> Unit) {
 
 @Composable
 internal fun NativeSleepPage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    NativeSleepParityScreen(onBack, openLegacy)
+    NativeSleepHistoryPage(onBack, openLegacy)
 }
 
 @Composable
