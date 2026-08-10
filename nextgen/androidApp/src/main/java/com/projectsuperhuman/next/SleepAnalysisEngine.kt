@@ -15,7 +15,10 @@ internal data class SleepAnalysis(
     val headline: String,
     val insight: String,
     val priority: String
-)
+) {
+    // UI-facing alias retained so recovery cards can describe stage quality as restoration.
+    val restorationScore: Int get() = stageBalanceScore
+}
 
 /**
  * Deterministic sleep interpretation layer used by the UI and sync pipeline.
@@ -23,6 +26,15 @@ internal data class SleepAnalysis(
  * replacement point for a future shared ScientificEngine implementation.
  */
 internal object SleepAnalysisEngine {
+    /** Convenience adapter for Compose/UI consumers. */
+    fun analyse(snapshot: NativeSleepSnapshot): SleepAnalysis = analyse(
+        totalMinutes = snapshot.totalMinutes ?: 0,
+        awakeMinutes = snapshot.awakeMinutes ?: 0,
+        deepMinutes = snapshot.deepMinutes ?: 0,
+        remMinutes = snapshot.remMinutes ?: 0,
+        lightMinutes = snapshot.lightMinutes ?: 0
+    )
+
     fun analyse(
         totalMinutes: Int,
         awakeMinutes: Int,
@@ -31,10 +43,12 @@ internal object SleepAnalysisEngine {
         lightMinutes: Int
     ): SleepAnalysis {
         if (totalMinutes <= 0) {
-            return SleepAnalysis(0, 0, 0, 0, 0, 0, 0, 0,
+            return SleepAnalysis(
+                0, 0, 0, 0, 0, 0, 0, 0,
                 "Waiting for a complete night",
                 "Once a full sleep session is available, Project Superhuman will break down duration, continuity and stage balance.",
-                "Sync a recorded night")
+                "Sync a recorded night"
+            )
         }
 
         val asleep = (totalMinutes - awakeMinutes).coerceAtLeast(0)
@@ -78,6 +92,18 @@ internal object SleepAnalysisEngine {
             else -> "Your total sleep and continuity were stronger than the stage mix. Deep and REM balance are the clearest areas to watch across several nights rather than a single session."
         }
 
-        return SleepAnalysis(score, efficiency, deepPct, remPct, awakePct, durationScore, continuityScore, stageBalance, headline, insight, priority)
+        return SleepAnalysis(
+            score,
+            efficiency,
+            deepPct,
+            remPct,
+            awakePct,
+            durationScore,
+            continuityScore,
+            stageBalance,
+            headline,
+            insight,
+            priority
+        )
     }
 }
