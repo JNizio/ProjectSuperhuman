@@ -8,7 +8,6 @@ on:
       - 'app/src/main/java/**'
       - 'app/src/main/res/**'
       - 'app/src/main/assets/**'
-      - '.github/scripts/release_11_1_cleanup.py'
       - '.github/workflows/build-nextgen.yml'
   workflow_dispatch:
 
@@ -21,18 +20,6 @@ jobs:
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
-
-      - name: Apply 11.1 cleanup and branding
-        shell: bash
-        run: |
-          python3 .github/scripts/release_11_1_cleanup.py
-          if ! git diff --quiet -- nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/build.gradle.kts nextgen/androidApp/src/main/AndroidManifest.xml; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/build.gradle.kts nextgen/androidApp/src/main/AndroidManifest.xml
-            git commit -m "Release Project Superhuman 11.1 [skip ci]"
-            git push origin HEAD:main
-          fi
 
       - name: Normalise Compose scoped APIs
         shell: bash
@@ -50,13 +37,13 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Compile Project Superhuman 11.1 APK
+      - name: Compile Project Superhuman 11.1.1 APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload Project Superhuman 11.1 APK
+      - name: Upload Project Superhuman 11.1.1 APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectSuperhuman-11.1-BodyCleanBranding
+          name: ProjectSuperhuman-11.1.1-BrandingFix
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
