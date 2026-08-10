@@ -1,0 +1,46 @@
+name: Apply starry sleep hero
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/apply-starry-sleep-hero.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Integrate starry sleep hero and bump version
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          sleep = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt')
+          text = sleep.read_text()
+          old = '        SleepHero(s, viewMode)'
+          new = '        SleepNightDashboardHero(s)'
+          if old not in text:
+              raise SystemExit('SleepHero call not found')
+          text = text.replace(old, new, 1)
+          sleep.write_text(text)
+
+          gradle = Path('nextgen/androidApp/build.gradle.kts')
+          g = gradle.read_text()
+          g = g.replace('versionCode = 11006', 'versionCode = 11007')
+          g = g.replace('versionName = "11.0.6"', 'versionName = "11.0.7"')
+          gradle.write_text(g)
+          PY
+      - name: Commit integration
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt nextgen/androidApp/build.gradle.kts
+          git commit -m "Integrate starry sleep dashboard hero and bump to 11.0.7"
+          git push origin HEAD:main
