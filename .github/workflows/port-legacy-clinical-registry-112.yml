@@ -1,0 +1,92 @@
+name: Port Legacy Clinical Registry 11.2
+
+on:
+  push:
+    branches: ['11.2']
+    paths:
+      - '.github/workflows/port-legacy-clinical-registry-112.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  port:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate native registry from legacy LAB_MARKERS
+        shell: bash
+        run: |
+          git fetch origin legacy-webview-final:refs/remotes/origin/legacy-webview-final
+          git show origin/legacy-webview-final:app/src/main/assets/index.html > /tmp/legacy-index.html
+          cat > /tmp/port_registry.js <<'NODE'
+          const fs = require('fs');
+          const src = fs.readFileSync('/tmp/legacy-index.html','utf8');
+          const token = 'const LAB_MARKERS=';
+          const p = src.indexOf(token);
+          if (p < 0) throw new Error('LAB_MARKERS not found');
+          const start = src.indexOf('{', p + token.length);
+          let depth = 0, quote = null, esc = false, end = -1;
+          for (let i = start; i < src.length; i++) {
+            const c = src[i];
+            if (quote) {
+              if (esc) { esc = false; continue; }
+              if (c === '\\') { esc = true; continue; }
+              if (c === quote) quote = null;
+              continue;
+            }
+            if (c === "'" || c === '"' || c === '`') { quote = c; continue; }
+            if (c === '{') depth++;
+            if (c === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
+          }
+          if (end < 0) throw new Error('LAB_MARKERS object did not close');
+          const literal = src.slice(start, end);
+          const markers = Function('return (' + literal + ')')();
+          const entries = Object.entries(markers);
+          if (entries.length < 100) throw new Error('Unexpectedly small registry: ' + entries.length);
+          const k = s => JSON.stringify(String(s ?? '')).replace(/\$/g,'\\$');
+          const list = a => (Array.isArray(a) ? a : []).map(x => k(x)).join(', ');
+          let out = `package com.projectsuperhuman.next\n\n`;
+          out += `internal data class ClinicalMarkerDef(\n`;
+          out += `    val id: String,\n    val name: String,\n    val unit: String = \"\",\n    val aliases: List<String>,\n    val panel: String = \"Unclassified\",\n    val defaultLow: String = \"\",\n    val defaultHigh: String = \"\",\n    val maleLow: String = \"\",\n    val maleHigh: String = \"\",\n    val femaleLow: String = \"\",\n    val femaleHigh: String = \"\"\n)\n\n`;
+          out += `internal val CLINICAL_MARKER_REGISTRY: List<ClinicalMarkerDef> = listOf(\n`;
+          for (const [id,m] of entries) {
+            const r=m.range||{}, rm=m.rangeMale||{}, rf=m.rangeFemale||{};
+            const aliases=[...(m.aliases||[])];
+            if (m.name && !aliases.some(x=>String(x).toLowerCase()===String(m.name).toLowerCase())) aliases.unshift(m.name);
+            out += `    ClinicalMarkerDef(${k(id)}, ${k(m.name||id)}, ${k(m.unit||'')}, listOf(${list(aliases)}), ${k(m.panel||'Unclassified')}, ${k(r.low||'')}, ${k(r.high||'')}, ${k(rm.low||'')}, ${k(rm.high||'')}, ${k(rf.low||'')}, ${k(rf.high||'')}),\n`;
+          }
+          out += `)\n\ninternal val CLINICAL_MARKER_BY_ID: Map<String, ClinicalMarkerDef> = CLINICAL_MARKER_REGISTRY.associateBy { it.id }\n`;
+          fs.writeFileSync('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/ClinicalMarkerRegistry.kt',out);
+          console.log(`Generated ${entries.length} native clinical markers`);
+          NODE
+          node /tmp/port_registry.js
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt')
+          s=p.read_text()
+          s=re.sub(r'private data class LabDef\([^\n]*\)\n', '', s)
+          s=re.sub(r'private val LAB_DEFS = listOf\(.*?\n\)\n\nprivate fun parseClinicalText', 'private val LAB_DEFS = CLINICAL_MARKER_REGISTRY\n\nprivate fun parseClinicalText', s, flags=re.S)
+          s=s.replace('def: LabDef', 'def: ClinicalMarkerDef')
+          p.write_text(s)
+          PY
+
+          grep -q 'CLINICAL_MARKER_REGISTRY' nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt
+          test $(grep -c 'ClinicalMarkerDef(' nextgen/androidApp/src/main/java/com/projectsuperhuman/next/ClinicalMarkerRegistry.kt) -gt 100
+
+      - name: Commit native registry
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/ClinicalMarkerRegistry.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt
+          if ! git diff --cached --quiet; then
+            git commit -m "Port full legacy Clinical marker registry to native 11.2"
+            git push origin HEAD:11.2
+          fi
