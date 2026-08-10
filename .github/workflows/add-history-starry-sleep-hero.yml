@@ -14,119 +14,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Add dashboard hero to actual sleep history screen
-        shell: python {0}
+      - name: Patch history screen
         run: |
+          python3 - <<'PY'
           from pathlib import Path
-
+          import base64
+          payload = "QENvbXBvc2FibGUKcHJpdmF0ZSBmdW4gSGlzdG9yeVNsZWVwRGFzaGJvYXJkSGVybyhuaWdodHM6IExpc3Q8SGlzdG9yaWNhbFNsZWVwTmlnaHQ+KSB7CiAgICB2YWwgbGF0ZXN0ID0gbmlnaHRzLm1heEJ5T3JOdWxsIHsgaXQuZW5kRXBvY2hNcyB9CiAgICB2YWwgcHJldmlvdXMgPSBuaWdodHMuZmlsdGVyIHsgaXQgIT09IGxhdGVzdCB9LnNvcnRlZEJ5RGVzY2VuZGluZyB7IGl0LmVuZEVwb2NoTXMgfS50YWtlKDcpCiAgICB2YWwgbGF0ZXN0QW5hbHlzaXMgPSBsYXRlc3Q/LnNuYXBzaG90Py5sZXQgeyBTbGVlcEludGVsbGlnZW5jZUVuZ2luZS5hbmFseXNlKGl0KSB9CiAgICB2YWwgcmVjZW50TWludXRlcyA9IHByZXZpb3VzLm1hcE5vdE51bGwgeyBpdC5zbmFwc2hvdC50b3RhbE1pbnV0ZXMgfQogICAgdmFsIHJlY2VudFNjb3JlcyA9IHByZXZpb3VzLm1hcCB7IFNsZWVwSW50ZWxsaWdlbmNlRW5naW5lLmFuYWx5c2UoaXQuc25hcHNob3QpLnJlY292ZXJ5U2NvcmUgfQogICAgdmFsIGF2Z01pbnV0ZXMgPSByZWNlbnRNaW51dGVzLnRha2VJZiB7IGl0LmlzTm90RW1wdHkoKSB9Py5hdmVyYWdlKCk/LnJvdW5kVG9JbnQoKQogICAgdmFsIGF2Z1Njb3JlID0gcmVjZW50U2NvcmVzLnRha2VJZiB7IGl0LmlzTm90RW1wdHkoKSB9Py5hdmVyYWdlKCk/LnJvdW5kVG9JbnQoKQogICAgdmFsIGxhc3RNaW51dGVzID0gbGF0ZXN0Py5zbmFwc2hvdD8udG90YWxNaW51dGVzCiAgICB2YWwgZGVsdGFNaW51dGVzID0gaWYgKGxhc3RNaW51dGVzICE9IG51bGwgJiYgYXZnTWludXRlcyAhPSBudWxsKSBsYXN0TWludXRlcyAtIGF2Z01pbnV0ZXMgZWxzZSBudWxsCiAgICB2YWwgcmVjb3ZlcnlTY29yZSA9IGxhdGVzdEFuYWx5c2lzPy5yZWNvdmVyeVNjb3JlID86IGxhdGVzdD8uc25hcHNob3Q/LnNjb3JlCiAgICB2YWwgZGVlcFJlbSA9IGxhdGVzdD8uc25hcHNob3Q/LmxldCB7IChpdC5kZWVwTWludXRlcyA/OiAwKSArIChpdC5yZW1NaW51dGVzID86IDApIH0KCiAgICB2YWwgY29tcGFyaXNvbiA9IHdoZW4gewogICAgICAgIGRlbHRhTWludXRlcyA9PSBudWxsIC0+ICJCdWlsZCBhIGZldyBuaWdodHMgb2YgaGlzdG9yeSBhbmQgeW91ciBwZXJzb25hbCBiYXNlbGluZSB3aWxsIGFwcGVhciBoZXJlLiIKICAgICAgICBkZWx0YU1pbnV0ZXMgPiAyMCAtPiAiTGFzdCBuaWdodCB3YXMgJHtmb3JtYXRNaW51dGVzKGRlbHRhTWludXRlcyl9IGxvbmdlciB0aGFuIHlvdXIgcmVjZW50IGJhc2VsaW5lLiIKICAgICAgICBkZWx0YU1pbnV0ZXMgPCAtMjAgLT4gIkxhc3QgbmlnaHQgd2FzICR7Zm9ybWF0TWludXRlcygtZGVsdGFNaW51dGVzKX0gc2hvcnRlciB0aGFuIHlvdXIgcmVjZW50IGJhc2VsaW5lLiIKICAgICAgICBlbHNlIC0+ICJMYXN0IG5pZ2h0J3MgZHVyYXRpb24gd2FzIGNsb3NlIHRvIHlvdXIgcmVjZW50IGJhc2VsaW5lLiIKICAgIH0KICAgIHZhbCBmb2N1cyA9IGxhdGVzdEFuYWx5c2lzPy5wcmlvcml0eSA/OiAiS2VlcCBzeW5jaW5nIHNsZWVwIHRvIHVubG9jayBwZXJzb25hbGlzZWQgdHJlbmRzLiIKCiAgICBDb2x1bW4oCiAgICAgICAgTW9kaWZpZXIuZmlsbE1heFdpZHRoKCkuYmFja2dyb3VuZCgKICAgICAgICAgICAgQnJ1c2gubGluZWFyR3JhZGllbnQobGlzdE9mKENvbG9yKDB4RkYxMDE2MkYpLCBDb2xvcigweEZGMjMyQTU5KSwgQ29sb3IoMHhGRjQ0Mzg4RikpKSwKICAgICAgICAgICAgUm91bmRlZENvcm5lclNoYXBlKDI4LmRwKQogICAgICAgICkucGFkZGluZygyMC5kcCksCiAgICAgICAgdmVydGljYWxBcnJhbmdlbWVudCA9IEFycmFuZ2VtZW50LnNwYWNlZEJ5KDE0LmRwKQogICAgKSB7CiAgICAgICAgUm93KE1vZGlmaWVyLmZpbGxNYXhXaWR0aCgpLCBob3Jpem9udGFsQXJyYW5nZW1lbnQgPSBBcnJhbmdlbWVudC5TcGFjZUJldHdlZW4sIHZlcnRpY2FsQWxpZ25tZW50ID0gQWxpZ25tZW50LlRvcCkgewogICAgICAgICAgICBDb2x1bW4oTW9kaWZpZXIud2VpZ2h0KDFmKS5wYWRkaW5nKGVuZCA9IDEyLmRwKSkgewogICAgICAgICAgICAgICAgVGV4dCgi4pymICBTTEVFUCBJTlRFTExJR0VOQ0UiLCBjb2xvciA9IENvbG9yLldoaXRlLmNvcHkoYWxwaGEgPSAuNjhmKSwgZm9udFNpemUgPSA4LnNwLCBmb250V2VpZ2h0ID0gRm9udFdlaWdodC5CbGFjaykKICAgICAgICAgICAgICAgIFNwYWNlcihNb2RpZmllci5oZWlnaHQoNS5kcCkpCiAgICAgICAgICAgICAgICBUZXh0KAogICAgICAgICAgICAgICAgICAgIGxhdGVzdEFuYWx5c2lzPy5oZWFkbGluZSA/OiAiWW91ciBuaWdodCBza3kgaXMgc3RpbGwgZ2F0aGVyaW5nIGRhdGEiLAogICAgICAgICAgICAgICAgICAgIGNvbG9yID0gQ29sb3IuV2hpdGUsCiAgICAgICAgICAgICAgICAgICAgZm9udFNpemUgPSAxOS5zcCwKICAgICAgICAgICAgICAgICAgICBsaW5lSGVpZ2h0ID0gMjMuc3AsCiAgICAgICAgICAgICAgICAgICAgZm9udFdlaWdodCA9IEZvbnRXZWlnaHQuQmxhY2sKICAgICAgICAgICAgICAgICkKICAgICAgICAgICAgICAgIFNwYWNlcihNb2RpZmllci5oZWlnaHQoNi5kcCkpCiAgICAgICAgICAgICAgICBUZXh0KGNvbXBhcmlzb24sIGNvbG9yID0gQ29sb3IuV2hpdGUuY29weShhbHBoYSA9IC43NmYpLCBmb250U2l6ZSA9IDkuc3AsIGxpbmVIZWlnaHQgPSAxNC5zcCkKICAgICAgICAgICAgfQogICAgICAgICAgICBDb2x1bW4oaG9yaXpvbnRhbEFsaWdubWVudCA9IEFsaWdubWVudC5FbmQpIHsKICAgICAgICAgICAgICAgIFRleHQoIuKYviIsIGNvbG9yID0gQ29sb3IuV2hpdGUuY29weShhbHBoYSA9IC45MmYpLCBmb250U2l6ZSA9IDMyLnNwLCBmb250V2VpZ2h0ID0gRm9udFdlaWdodC5Cb2xkKQogICAgICAgICAgICAgICAgaWYgKHJlY292ZXJ5U2NvcmUgIT0gbnVsbCkgewogICAgICAgICAgICAgICAgICAgIFRleHQocmVjb3ZlcnlTY29yZS50b1N0cmluZygpLCBjb2xvciA9IENvbG9yLldoaXRlLCBmb250U2l6ZSA9IDI5LnNwLCBmb250V2VpZ2h0ID0gRm9udFdlaWdodC5CbGFjaykKICAgICAgICAgICAgICAgICAgICBUZXh0KCJyZWNvdmVyeSIsIGNvbG9yID0gQ29sb3IuV2hpdGUuY29weShhbHBoYSA9IC42MGYpLCBmb250U2l6ZSA9IDcuc3ApCiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9CgogICAgICAgIFJvdyhNb2RpZmllci5maWxsTWF4V2lkdGgoKSwgaG9yaXpvbnRhbEFycmFuZ2VtZW50ID0gQXJyYW5nZW1lbnQuc3BhY2VkQnkoOC5kcCkpIHsKICAgICAgICAgICAgSGlzdG9yeUhlcm9TdGF0KCJMYXN0IG5pZ2h0IiwgZm9ybWF0TWludXRlcyhsYXN0TWludXRlcyksIE1vZGlmaWVyLndlaWdodCgxZikpCiAgICAgICAgICAgIEhpc3RvcnlIZXJvU3RhdCgiNy1uaWdodCBhdmciLCBmb3JtYXRNaW51dGVzKGF2Z01pbnV0ZXMpLCBNb2RpZmllci53ZWlnaHQoMWYpKQogICAgICAgICAgICBIaXN0b3J5SGVyb1N0YXQoIkRlZXAgKyBSRU0iLCBmb3JtYXRNaW51dGVzKGRlZXBSZW0pLCBNb2RpZmllci53ZWlnaHQoMWYpKQogICAgICAgIH0KCiAgICAgICAgUm93KE1vZGlmaWVyLmZpbGxNYXhXaWR0aCgpLCB2ZXJ0aWNhbEFsaWdubWVudCA9IEFsaWdubWVudC5DZW50ZXJWZXJ0aWNhbGx5KSB7CiAgICAgICAgICAgIFRleHQoIuKcpiAgwrcgIOKcpyIsIGNvbG9yID0gQ29sb3IuV2hpdGUuY29weShhbHBoYSA9IC41MmYpLCBmb250U2l6ZSA9IDEwLnNwKQogICAgICAgICAgICBTcGFjZXIoTW9kaWZpZXIud2lkdGgoOC5kcCkpCiAgICAgICAgICAgIFRleHQoCiAgICAgICAgICAgICAgICBpZiAoYXZnU2NvcmUgIT0gbnVsbCkgIlJlY2VudCByZWNvdmVyeSBiYXNlbGluZSAkYXZnU2NvcmUiIGVsc2UgIlBlcnNvbmFsIGJhc2VsaW5lIGJ1aWxkaW5nIiwKICAgICAgICAgICAgICAgIGNvbG9yID0gQ29sb3IuV2hpdGUuY29weShhbHBoYSA9IC43MGYpLAogICAgICAgICAgICAgICAgZm9udFNpemUgPSA4LnNwLAogICAgICAgICAgICAgICAgbW9kaWZpZXIgPSBNb2RpZmllci53ZWlnaHQoMWYpCiAgICAgICAgICAgICkKICAgICAgICB9CgogICAgICAgIEJveCgKICAgICAgICAgICAgTW9kaWZpZXIuZmlsbE1heFdpZHRoKCkuYmFja2dyb3VuZChDb2xvci5XaGl0ZS5jb3B5KGFscGhhID0gLjA5ZiksIFJvdW5kZWRDb3JuZXJTaGFwZSgxNC5kcCkpLnBhZGRpbmcoMTEuZHApCiAgICAgICAgKSB7CiAgICAgICAgICAgIFRleHQoIlRvbmlnaHQncyBmb2N1czogJGZvY3VzIiwgY29sb3IgPSBDb2xvci5XaGl0ZS5jb3B5KGFscGhhID0gLjg4ZiksIGZvbnRTaXplID0gOS5zcCwgbGluZUhlaWdodCA9IDEzLnNwKQogICAgICAgIH0KICAgIH0KfQoKQENvbXBvc2FibGUKcHJpdmF0ZSBmdW4gSGlzdG9yeUhlcm9TdGF0KGxhYmVsOiBTdHJpbmcsIHZhbHVlOiBTdHJpbmcsIG1vZGlmaWVyOiBNb2RpZmllcikgewogICAgQ29sdW1uKG1vZGlmaWVyLmJhY2tncm91bmQoQ29sb3IuV2hpdGUuY29weShhbHBoYSA9IC4xMGYpLCBSb3VuZGVkQ29ybmVyU2hhcGUoMTUuZHApKS5wYWRkaW5nKDEwLmRwKSkgewogICAgICAgIFRleHQodmFsdWUsIGNvbG9yID0gQ29sb3IuV2hpdGUsIGZvbnRTaXplID0gMTIuc3AsIGZvbnRXZWlnaHQgPSBGb250V2VpZ2h0LkJsYWNrKQogICAgICAgIFRleHQobGFiZWwsIGNvbG9yID0gQ29sb3IuV2hpdGUuY29weShhbHBoYSA9IC42MGYpLCBmb250U2l6ZSA9IDcuc3ApCiAgICB9Cn0KCg=="
+          hero = base64.b64decode(payload).decode()
           p = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt')
           s = p.read_text()
-
           if 'import androidx.compose.ui.graphics.Brush' not in s:
               s = s.replace('import androidx.compose.ui.graphics.Color\n', 'import androidx.compose.ui.graphics.Brush\nimport androidx.compose.ui.graphics.Color\n')
-
           if 'HistorySleepDashboardHero(nights)' not in s:
               s = s.replace('        HistoryHeader(onBack)\n        SleepCalendarCard(', '        HistoryHeader(onBack)\n        HistorySleepDashboardHero(nights)\n        SleepCalendarCard(')
-
           marker = '@Composable\nprivate fun HistoryHeader(onBack: () -> Unit) {'
           if 'private fun HistorySleepDashboardHero' not in s:
-              hero = r'''@Composable
-private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
-    val latest = nights.maxByOrNull { it.endEpochMs }
-    val previous = nights.filter { it !== latest }.sortedByDescending { it.endEpochMs }.take(7)
-    val latestAnalysis = latest?.snapshot?.let { SleepIntelligenceEngine.analyse(it) }
-    val recentMinutes = previous.mapNotNull { it.snapshot.totalMinutes }
-    val recentScores = previous.map { SleepIntelligenceEngine.analyse(it.snapshot).recoveryScore }
-    val avgMinutes = recentMinutes.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
-    val avgScore = recentScores.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
-    val lastMinutes = latest?.snapshot?.totalMinutes
-    val deltaMinutes = if (lastMinutes != null && avgMinutes != null) lastMinutes - avgMinutes else null
-    val recoveryScore = latestAnalysis?.recoveryScore ?: latest?.snapshot?.score
-    val deepRem = latest?.snapshot?.let { (it.deepMinutes ?: 0) + (it.remMinutes ?: 0) }
-
-    val comparison = when {
-        deltaMinutes == null -> "Build a few nights of history and your personal baseline will appear here."
-        deltaMinutes > 20 -> "Last night was ${formatMinutes(deltaMinutes)} longer than your recent baseline."
-        deltaMinutes < -20 -> "Last night was ${formatMinutes(-deltaMinutes)} shorter than your recent baseline."
-        else -> "Last night's duration was close to your recent baseline."
-    }
-    val focus = latestAnalysis?.priority ?: "Keep syncing sleep to unlock personalised trends."
-
-    Column(
-        Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(Color(0xFF10162F), Color(0xFF232A59), Color(0xFF44388F))),
-            RoundedCornerShape(28.dp)
-        ).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                Text("✦  SLEEP INTELLIGENCE", color = Color.White.copy(alpha = .68f), fontSize = 8.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    latestAnalysis?.headline ?: "Your night sky is still gathering data",
-                    color = Color.White,
-                    fontSize = 19.sp,
-                    lineHeight = 23.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(comparison, color = Color.White.copy(alpha = .76f), fontSize = 9.sp, lineHeight = 14.sp)
-            }
-            Column(horizontalAlignment = Alignment.End) {
-                Text("☾", color = Color.White.copy(alpha = .92f), fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                if (recoveryScore != null) {
-                    Text(recoveryScore.toString(), color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black)
-                    Text("recovery", color = Color.White.copy(alpha = .60f), fontSize = 7.sp)
-                }
-            }
-        }
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HistoryHeroStat("Last night", formatMinutes(lastMinutes), Modifier.weight(1f))
-            HistoryHeroStat("7-night avg", formatMinutes(avgMinutes), Modifier.weight(1f))
-            HistoryHeroStat("Deep + REM", formatMinutes(deepRem), Modifier.weight(1f))
-        }
-
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("✦  ·  ✧", color = Color.White.copy(alpha = .52f), fontSize = 10.sp)
-            Spacer(Modifier.width(8.dp))
-            Text(
-                if (avgScore != null) "Recent recovery baseline $avgScore" else "Personal baseline building",
-                color = Color.White.copy(alpha = .70f),
-                fontSize = 8.sp,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        Box(
-            Modifier.fillMaxWidth().background(Color.White.copy(alpha = .09f), RoundedCornerShape(14.dp)).padding(11.dp)
-        ) {
-            Text("Tonight's focus: $focus", color = Color.White.copy(alpha = .88f), fontSize = 9.sp, lineHeight = 13.sp)
-        }
-    }
-}
-
-@Composable
-private fun HistoryHeroStat(label: String, value: String, modifier: Modifier) {
-    Column(modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp)).padding(10.dp)) {
-        Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
-        Text(label, color = Color.White.copy(alpha = .60f), fontSize = 7.sp)
-    }
-}
-
-'''
               s = s.replace(marker, hero + marker)
-
           p.write_text(s)
-
-          gradle = Path('nextgen/androidApp/build.gradle.kts')
-          g = gradle.read_text()
-          g = g.replace('versionCode = 11007', 'versionCode = 11008')
-          g = g.replace('versionName = "11.0.7"', 'versionName = "11.0.8"')
-          gradle.write_text(g)
-
+          gpath = Path('nextgen/androidApp/build.gradle.kts')
+          g = gpath.read_text().replace('versionCode = 11007', 'versionCode = 11008').replace('versionName = "11.0.7"', 'versionName = "11.0.8"')
+          gpath.write_text(g)
+          PY
       - name: Commit history hero
         run: |
           git config user.name "github-actions[bot]"
