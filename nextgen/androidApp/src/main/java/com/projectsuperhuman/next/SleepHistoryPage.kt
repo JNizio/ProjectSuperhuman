@@ -338,7 +338,7 @@ private fun SleepViewTab(label: String, selected: Boolean, modifier: Modifier, o
 }
 
 @Composable
-private fun InterpretedSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysis: SleepAnalysis) {
+private fun InterpretedSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysis: SleepIntelligenceResult) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(
             Modifier.fillMaxWidth().background(BrushlessPurple(), RoundedCornerShape(24.dp)).padding(20.dp),
@@ -379,7 +379,7 @@ private fun InterpretedSleepView(snapshot: NativeSleepSnapshot, date: LocalDate,
 }
 
 @Composable
-private fun RawSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysis: SleepAnalysis) {
+private fun RawSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysis: SleepIntelligenceResult) {
     val start = snapshot.startEpochMs?.let(::historyTime)
     val end = snapshot.endEpochMs?.let(::historyTime)
 
@@ -446,7 +446,7 @@ private fun InfoCard(title: String, body: String, content: @Composable () -> Uni
 }
 
 @Composable
-private fun ConfidenceCard(analysis: SleepAnalysis) {
+private fun ConfidenceCard(analysis: SleepIntelligenceResult) {
     Column(
         Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
             .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
