@@ -120,6 +120,8 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
             onLog = { logging = !logging }
         )
 
+        BodyProfileSetupCard(onSaved = { scope.launch { refresh() } })
+
         NativeOkokScaleCard(onSaved = { scope.launch { refresh() } })
 
         BodyViewToggle(view = view, onChange = { view = it })
@@ -142,17 +144,7 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
 
         when (view) {
             BodyView.PROGRESS -> {
-                if (weightHistory.size >= 2) {
-                    ProgressTrendCard(weightHistory, snapshot.goalKg)
-                } else {
-                    EmptyProgressCard(onLog = { logging = true })
-                }
-                RecentChangesCard(
-                    weightHistory = weightHistory,
-                    bodyFatHistory = bodyFatHistory,
-                    waistHistory = waistHistory,
-                    snapshot = snapshot
-                )
+                BodyOverTimeSection()
             }
             BodyView.MEASUREMENTS -> {
                 MeasurementsCard(snapshot = snapshot, onLog = { logging = true })
