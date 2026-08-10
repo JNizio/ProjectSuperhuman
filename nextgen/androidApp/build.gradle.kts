@@ -28,7 +28,7 @@ android {
 
     defaultConfig {
         applicationId = "com.projectsuperhuman.next"
-        minSdk = 23
+        minSdk = 26
         targetSdk = 35
         versionCode = 11006
         versionName = "11.0.6"
