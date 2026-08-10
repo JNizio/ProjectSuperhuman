@@ -10,7 +10,8 @@ import kotlin.math.sqrt
 internal data class SleepMetricConfidence(
     val metric: String,
     val score: Int,
-    val label: String
+    val label: String,
+    val reason: String = ""
 )
 
 internal data class PersonalSleepBaseline(
