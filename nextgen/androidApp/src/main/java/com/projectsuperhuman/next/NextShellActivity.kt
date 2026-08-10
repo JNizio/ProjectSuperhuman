@@ -63,44 +63,51 @@ private enum class ShellPage {
 private fun SuperhumanShell(openCompatibility: () -> Unit) {
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
+    val hasPersistentTopBar = page == ShellPage.HOME || page == ShellPage.SETTINGS
 
     Surface(color = ShellBg, modifier = Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            if (page == ShellPage.HOME || page == ShellPage.SETTINGS) {
+        Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
+            Box(
+                Modifier.fillMaxSize().padding(top = if (hasPersistentTopBar) 92.dp else 0.dp)
+            ) {
+                when (page) {
+                    ShellPage.HOME -> NativeLiveHome(
+                        openClinical = { page = ShellPage.CLINICAL },
+                        openBody = { page = ShellPage.BODY },
+                        openSleep = { page = ShellPage.SLEEP },
+                        openBloodPressure = { page = ShellPage.BLOOD_PRESSURE },
+                        openHydration = { page = ShellPage.HYDRATION },
+                        openNutrition = { page = ShellPage.NUTRITION },
+                        openExercise = { page = ShellPage.EXERCISE },
+                        openMindfulness = { page = ShellPage.MINDFULNESS }
+                    )
+                    ShellPage.SETTINGS -> NativeSettingsParity(noCompatibility)
+                    ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
+                    ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openCompatibility)
+                    ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, openCompatibility)
+                    ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openCompatibility)
+                    ShellPage.HYDRATION -> NativeHydrationScreen { page = ShellPage.HOME }
+                    ShellPage.NUTRITION -> NativeNutritionPage({ page = ShellPage.HOME }, openCompatibility)
+                    ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openCompatibility)
+                    ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openCompatibility)
+                }
+            }
+
+            if (hasPersistentTopBar) {
                 NativeTopBar(
                     title = if (page == ShellPage.HOME) "PROJECT SUPERHUMAN" else "SETTINGS",
-                    onSettings = { page = if (page == ShellPage.SETTINGS) ShellPage.HOME else ShellPage.SETTINGS }
+                    onSettings = { page = if (page == ShellPage.SETTINGS) ShellPage.HOME else ShellPage.SETTINGS },
+                    modifier = Modifier.align(Alignment.TopCenter)
                 )
-            }
-            when (page) {
-                ShellPage.HOME -> NativeLiveHome(
-                    openClinical = { page = ShellPage.CLINICAL },
-                    openBody = { page = ShellPage.BODY },
-                    openSleep = { page = ShellPage.SLEEP },
-                    openBloodPressure = { page = ShellPage.BLOOD_PRESSURE },
-                    openHydration = { page = ShellPage.HYDRATION },
-                    openNutrition = { page = ShellPage.NUTRITION },
-                    openExercise = { page = ShellPage.EXERCISE },
-                    openMindfulness = { page = ShellPage.MINDFULNESS }
-                )
-                ShellPage.SETTINGS -> NativeSettingsParity(noCompatibility)
-                ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
-                ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openCompatibility)
-                ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, openCompatibility)
-                ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openCompatibility)
-                ShellPage.HYDRATION -> NativeHydrationScreen { page = ShellPage.HOME }
-                ShellPage.NUTRITION -> NativeNutritionPage({ page = ShellPage.HOME }, openCompatibility)
-                ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openCompatibility)
-                ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openCompatibility)
             }
         }
     }
 }
 
 @Composable
-private fun NativeTopBar(title: String, onSettings: () -> Unit) {
+private fun NativeTopBar(title: String, onSettings: () -> Unit, modifier: Modifier = Modifier) {
     Row(
-        Modifier.fillMaxWidth().height(92.dp).padding(horizontal = 22.dp),
+        modifier.fillMaxWidth().height(92.dp).padding(horizontal = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
