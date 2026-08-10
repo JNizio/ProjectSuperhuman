@@ -45,4 +45,10 @@ android {
     defaultConfig {
         minSdk = 23
     }
+    // Keep javac and Kotlin on the same JVM target. Android Studio validates this strictly and
+    // refuses local builds when Java defaults to 1.8 while Kotlin compiles for JVM 17.
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
 }
