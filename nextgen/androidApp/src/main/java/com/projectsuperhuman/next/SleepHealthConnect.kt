@@ -116,8 +116,11 @@ internal object SleepHealthConnect {
             }
         }
         return StageBreakdown(
-            awake.roundToInt(), light.roundToInt(), deep.roundToInt(), rem.roundToInt(),
-            (light + deep + rem + generic).roundToInt()
+            awake.toInt(),
+            light.toInt(),
+            deep.toInt(),
+            rem.toInt(),
+            (light + deep + rem + generic).toInt()
         )
     }
 
