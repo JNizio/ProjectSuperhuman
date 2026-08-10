@@ -1,0 +1,101 @@
+name: Clinical cleanup duplicates 11.2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ '11.2' ]
+    paths:
+      - '.github/workflows/clinical-cleanup-duplicates-112.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch Clinical UX and storage
+        shell: python
+        run: |
+          from pathlib import Path
+
+          clinical = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt')
+          s = clinical.read_text()
+
+          # Add duplicate flag to draft model.
+          s = s.replace(
+              '    val comparator: String = ""\n) {',
+              '    val comparator: String = "",\n    val duplicate: Boolean = false\n) {'
+          )
+
+          # Enrich imported drafts with remembered ranges and duplicate detection.
+          old = '''                drafts = enriched.sortedBy { it.name.lowercase(Locale.ROOT) }\n                detectedText = raw.joinToString("\\n\\n").take(5000)'''
+          new = '''                val existingClinical = NativeDataHub.allValuesAsync().filter { it.domain == HealthDomain.CLINICAL }\n                val checked = enriched.map { draft ->\n                    draft.copy(duplicate = clinicalDuplicate(draft, existingClinical))\n                }\n                drafts = checked.sortedBy { it.name.lowercase(Locale.ROOT) }\n                detectedText = raw.joinToString("\\n\\n").take(5000)'''
+          if old not in s:
+              raise SystemExit('Could not find enriched drafts block')
+          s = s.replace(old, new)
+
+          # Counts/status should use checked, not enriched.
+          s = s.replace('val withRanges = enriched.count {', 'val withRanges = checked.count {')
+          s = s.replace('val withUnits = enriched.count {', 'val withUnits = checked.count {')
+          s = s.replace('if (enriched.isEmpty()) "No structured results detected yet." else "Found ${enriched.size} results', 'if (checked.isEmpty()) "No structured results detected yet." else "Found ${checked.size} results')
+
+          # Remove raw OCR text section from UI while retaining internal OCR for provenance/debug metadata.
+          start = '''            if (detectedText.isNotBlank()) {\n                Text("Detected text", color = ClinicalInk, fontSize = 15.sp, fontWeight = FontWeight.Black)'''
+          a = s.find(start)
+          if a < 0:
+              raise SystemExit('Detected text UI block start not found')
+          # Find matching known end immediately before card close.
+          end_marker = '''                }\n            }\n        }\n\n        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {'''
+          b = s.find(end_marker, a)
+          if b < 0:
+              raise SystemExit('Detected text UI block end not found')
+          replacement = '''        }\n\n        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {'''
+          s = s[:a] + replacement + s[b+len(end_marker):]
+
+          # Red duplicate chip in review row.
+          chip_anchor = '            if (draft.confidence in 0.0..0.72) ClinicalChip("Check OCR", ClinicalWarn)\n'
+          if chip_anchor not in s:
+              raise SystemExit('Review chip anchor missing')
+          s = s.replace(chip_anchor, '            if (draft.duplicate) ClinicalChip("DUPLICATE", ClinicalBad)\n' + chip_anchor, 1)
+
+          # Saved rows become removable.
+          usage = '            saved.take(8).forEach { ClinicalResultRow(it) }'
+          repl = '''            saved.take(8).forEach { value ->\n                ClinicalResultRow(value) {\n                    scope.launch {\n                        NativeDataHub.deleteValue(value)\n                        refresh()\n                    }\n                }\n            }'''
+          if usage not in s:
+              raise SystemExit('Saved result usage missing')
+          s = s.replace(usage, repl)
+
+          s = s.replace('@Composable\nprivate fun ClinicalResultRow(value: HealthValue) {', '@Composable\nprivate fun ClinicalResultRow(value: HealthValue, onDelete: () -> Unit) {')
+
+          old_end = '''        Column(horizontalAlignment = Alignment.End) {\n            val qualifier = value.metadata["qualifier"].orEmpty()\n            Text("${qualifier}${trimNumber(value.value)} ${value.unit}", color = ClinicalInk, fontSize = 12.sp, fontWeight = FontWeight.Black)\n            Text(status, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black)\n        }\n    }\n}'''
+          new_end = '''        Column(horizontalAlignment = Alignment.End) {\n            val qualifier = value.metadata["qualifier"].orEmpty()\n            Text("${qualifier}${trimNumber(value.value)} ${value.unit}", color = ClinicalInk, fontSize = 12.sp, fontWeight = FontWeight.Black)\n            Text(status, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black)\n            Text("Remove", color = ClinicalBad, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onDelete).padding(top = 5.dp))\n        }\n    }\n}'''
+          if old_end not in s:
+              raise SystemExit('ClinicalResultRow end missing')
+          s = s.replace(old_end, new_end, 1)
+
+          # Strict duplicate helper: same marker, numeric value, unit and reference bounds.
+          helper_anchor = 'private data class OcrLine(val text: String, val block: Int, val top: Int, val left: Int)'
+          helper = '''private fun clinicalDuplicate(draft: ClinicalDraft, existing: List<HealthValue>): Boolean {\n    val v = draft.value.toDoubleOrNull() ?: return false\n    val unit = draft.unit.trim().lowercase(Locale.ROOT)\n    val low = draft.low.trim()\n    val high = draft.high.trim()\n    return existing.any { saved ->\n        saved.metric == draft.metric &&\n            abs(saved.value - v) < 0.000001 &&\n            saved.unit.trim().lowercase(Locale.ROOT) == unit &&\n            saved.metadata["rangeLow"].orEmpty().trim() == low &&\n            saved.metadata["rangeHigh"].orEmpty().trim() == high\n    }\n}\n\n'''
+          if helper_anchor not in s:
+              raise SystemExit('Helper anchor missing')
+          s = s.replace(helper_anchor, helper + helper_anchor, 1)
+          clinical.write_text(s)
+
+          hub = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt')
+          h = hub.read_text()
+          anchor = '''    suspend fun clearValuesAsync() = withContext(Dispatchers.IO) {\n        repository.clearValues()\n    }\n'''
+          addition = anchor + '''\n    suspend fun deleteValue(target: HealthValue) = withContext(Dispatchers.IO) {\n        val remaining = repository.allValues().filterNot { value ->\n            value.domain == target.domain &&\n                value.metric == target.metric &&\n                value.timestampEpochMs == target.timestampEpochMs &&\n                value.source == target.source &&\n                value.value == target.value &&\n                value.unit == target.unit\n        }\n        repository.clearValues()\n        repository.save(remaining)\n    }\n'''
+          if anchor not in h:
+              raise SystemExit('NativeDataHub anchor missing')
+          h = h.replace(anchor, addition, 1)
+          hub.write_text(h)
+
+      - name: Commit changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt
+          git commit -m "Improve Clinical review duplicates and deletion 11.2"
+          git push origin HEAD:11.2
