@@ -237,10 +237,13 @@ internal object SleepHealthConnect {
                 val previous = ordered[index - 1]
                 val gapMinutes = Duration.between(previous.endTime, session.startTime).toMinutes().coerceAtLeast(0).toInt()
                 if (gapMinutes > 0) {
-                    awake += gapMinutes
+                    // A gap between Health Connect records is an interruption in the night,
+                    // but it is not necessarily an AWAKE sleep stage. Samsung Health, for
+                    // example, excludes out-of-bed gaps from its Awake total. Keep the gap
+                    // for continuity analysis and the timeline without double-counting it.
                     if (gapMinutes >= 5) interruptionCount += 1
                     longestInterruption = maxOf(longestInterruption, gapMinutes)
-                    timeline += "awake,${previous.endTime.toEpochMilli()},${session.startTime.toEpochMilli()}"
+                    timeline += "gap,${previous.endTime.toEpochMilli()},${session.startTime.toEpochMilli()}"
                 }
             }
 
