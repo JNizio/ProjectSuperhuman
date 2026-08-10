@@ -114,7 +114,6 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
 
         BodyViewToggle(view = view, onChange = { view = it })
 
-
         when (view) {
             BodyView.PROGRESS -> {
                 BodyOverTimeSection()
@@ -143,7 +142,9 @@ private fun BodyHeader(onBack: () -> Unit, onProfile: () -> Unit) {
             Text("Your body trends, measurements & goals", color = BodyMuted, fontSize = 10.sp)
         }
         Box(
-            Modifier.width(44.dp).height(44.dp).superhumanClickable(onClick = onProfile),
+            Modifier.width(44.dp).height(44.dp)
+                .background(Color.White, RoundedCornerShape(15.dp))
+                .superhumanClickable(onClick = onProfile),
             contentAlignment = Alignment.Center
         ) {
             Canvas(Modifier.width(24.dp).height(24.dp)) {
