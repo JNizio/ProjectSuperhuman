@@ -54,6 +54,7 @@ internal fun NativeLiveHome(
     openBody: () -> Unit,
     openSleep: () -> Unit,
     openBloodPressure: () -> Unit,
+    openHydration: () -> Unit,
     openNutrition: () -> Unit,
     openExercise: () -> Unit,
     openMindfulness: () -> Unit
@@ -69,7 +70,7 @@ internal fun NativeLiveHome(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         LegacyHomeHero(snapshot)
-        LegacyHydrationCard(snapshot, openNutrition)
+        LegacyHydrationCard(snapshot, openHydration)
         LegacyClinicalCard(snapshot, openClinical)
         LegacyTrainingCard(snapshot, openExercise)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -99,9 +100,14 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val clinical = NativeDataHub.latestForDomain(HealthDomain.CLINICAL)
     val kcal = NativeDataHub.between("food_kcal", start, now).sumOf { it.value }.roundToInt()
     val protein = NativeDataHub.between("food_protein", start, now).sumOf { it.value }.roundToInt()
-    val water = NativeDataHub.between("water_total_l", start, now).maxByOrNull { it.timestampEpochMs }?.value
-        ?: NativeDataHub.latest("water_total_l")?.takeIf { it.timestampEpochMs >= start }?.value
-        ?: 0.0
+    val waterEvents = NativeDataHub.between("water_intake_ml", start, now)
+    val water = if (waterEvents.isNotEmpty()) {
+        waterEvents.sumOf { it.value } / 1000.0
+    } else {
+        NativeDataHub.between("water_total_l", start, now).maxByOrNull { it.timestampEpochMs }?.value
+            ?: NativeDataHub.latest("water_total_l")?.takeIf { it.timestampEpochMs >= start }?.value
+            ?: 0.0
+    }
     val workouts = NativeDataHub.between("workout_session", start, now)
     val sets = NativeDataHub.between("exercise_set", start, now)
     val volumes = NativeDataHub.between("workout_volume", start, now)
