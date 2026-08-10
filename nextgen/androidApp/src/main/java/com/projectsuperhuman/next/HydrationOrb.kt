@@ -2,10 +2,8 @@ package com.projectsuperhuman.next
 
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -33,8 +31,11 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /**
- * Hydration-specific visual primitive. The fill uses a fast spring rather than a long tween so
- * logging feels directly connected to the user's press while still avoiding a harsh jump.
+ * Hydration-specific visual primitive.
+ *
+ * Performance rule: the fill itself follows input immediately. We intentionally do not spring/tween
+ * the fill because the orb is also an input preview and animation latency makes slider dragging feel
+ * disconnected. Only the lightweight surface wave animates continuously.
  */
 @Composable
 internal fun AnimatedHydrationOrb(
@@ -42,23 +43,13 @@ internal fun AnimatedHydrationOrb(
     percentLabel: String,
     modifier: Modifier = Modifier
 ) {
-    val animatedFill by animateFloatAsState(
-        targetValue = fraction.coerceIn(0f, 1f),
-        animationSpec = spring(dampingRatio = .86f, stiffness = 1050f),
-        label = "hydration-fill"
-    )
+    val fill = fraction.coerceIn(0f, 1f)
     val transition = rememberInfiniteTransition(label = "hydration-wave")
     val phase by transition.animateFloat(
         initialValue = 0f,
         targetValue = (2f * PI).toFloat(),
-        animationSpec = infiniteRepeatable(animation = tween(1900), repeatMode = RepeatMode.Restart),
+        animationSpec = infiniteRepeatable(animation = tween(2400), repeatMode = RepeatMode.Restart),
         label = "hydration-wave-phase"
-    )
-    val pulse by transition.animateFloat(
-        initialValue = .96f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(animation = tween(1300), repeatMode = RepeatMode.Reverse),
-        label = "hydration-pulse"
     )
 
     Box(
@@ -68,11 +59,12 @@ internal fun AnimatedHydrationOrb(
         Canvas(Modifier.fillMaxSize()) {
             val circle = Path().apply { addOval(androidx.compose.ui.geometry.Rect(Offset.Zero, size)) }
             clipPath(circle) {
-                val waterTop = size.height * (1f - animatedFill)
-                val amplitude = size.height * .03f
+                val waterTop = size.height * (1f - fill)
+                val amplitude = size.height * .026f
                 val wavePath = Path().apply {
                     moveTo(0f, waterTop)
-                    val steps = 48
+                    // 24 segments are visually smooth at this size and halve path work while dragging.
+                    val steps = 24
                     for (i in 0..steps) {
                         val x = size.width * i / steps
                         val angle = phase + (i.toFloat() / steps) * (2f * PI).toFloat()
@@ -85,7 +77,7 @@ internal fun AnimatedHydrationOrb(
                 drawPath(
                     wavePath,
                     Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = .76f * pulse), Color(0xFFBCEBFA).copy(alpha = .55f)),
+                        listOf(Color.White.copy(alpha = .76f), Color(0xFFBCEBFA).copy(alpha = .55f)),
                         startY = waterTop,
                         endY = size.height
                     )
