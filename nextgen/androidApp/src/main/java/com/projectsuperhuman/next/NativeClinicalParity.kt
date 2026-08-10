@@ -460,10 +460,15 @@ private fun parseClinicalText(ocr: MlText): List<ClinicalDraft> {
         val def = markerDef(heading.text) ?: continue
         if (!headingLooksReal(heading.text, def)) continue
 
-        var end = minOf(lines.size, i + 9)
+        var end = minOf(lines.size, i + 12)
         for (j in i + 1 until end) {
-            val nextDef = markerDef(lines[j].text)
-            if (nextDef != null && headingLooksReal(lines[j].text, nextDef)) {
+            val lineText = lines[j].text
+            val nextDef = markerDef(lineText)
+            if (nextDef != null && headingLooksReal(lineText, nextDef)) {
+                end = j
+                break
+            }
+            if (isNhsSectionBoundary(lineText)) {
                 end = j
                 break
             }
@@ -701,6 +706,22 @@ private fun stripAliases(text: String, aliases: List<String>): String {
         out = out.replace(Regex(Regex.escape(alias), RegexOption.IGNORE_CASE), " ")
     }
     return out
+}
+
+private fun isNhsSectionBoundary(text: String): Boolean {
+    val s = labNorm(text)
+    if (s.isBlank()) return false
+    return listOf(
+        "learn more about",
+        "view test result history",
+        "healthcare professional s comment",
+        "healthcare professional's comment",
+        "help with abbreviations",
+        "give feedback about the nhs app",
+        "you may see medical abbreviations",
+        "app help",
+        "home messages profile"
+    ).any { s.contains(labNorm(it)) }
 }
 
 private fun looksLikeRangeLine(text: String): Boolean {
