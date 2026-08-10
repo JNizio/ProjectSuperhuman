@@ -139,7 +139,7 @@ internal fun NativeSleepParityScreen(onBack: () -> Unit, openLegacy: () -> Unit)
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         SleepHeader(onBack)
-        SleepHero(s, viewMode)
+        SleepNightDashboardHero(s)
         if (s?.totalMinutes != null) {
             SleepViewToggle(viewMode) { viewMode = it }
             SleepNightOverview(s, viewMode)
