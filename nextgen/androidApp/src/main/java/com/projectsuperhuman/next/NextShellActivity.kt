@@ -63,7 +63,7 @@ private enum class ShellPage {
 private fun SuperhumanShell(openCompatibility: () -> Unit) {
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
-    val hasPersistentTopBar = page == ShellPage.HOME || page == ShellPage.SETTINGS
+    val hasPersistentTopBar = page == ShellPage.SETTINGS
 
     Surface(color = ShellBg, modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -79,7 +79,13 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                         openHydration = { page = ShellPage.HYDRATION },
                         openNutrition = { page = ShellPage.NUTRITION },
                         openExercise = { page = ShellPage.EXERCISE },
-                        openMindfulness = { page = ShellPage.MINDFULNESS }
+                        openMindfulness = { page = ShellPage.MINDFULNESS },
+                        topContent = {
+                            NativeTopBar(
+                                title = "PROJECT SUPERHUMAN",
+                                onSettings = { page = ShellPage.SETTINGS }
+                            )
+                        }
                     )
                     ShellPage.SETTINGS -> NativeSettingsParity(noCompatibility)
                     ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
@@ -95,8 +101,8 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
 
             if (hasPersistentTopBar) {
                 NativeTopBar(
-                    title = if (page == ShellPage.HOME) "PROJECT SUPERHUMAN" else "SETTINGS",
-                    onSettings = { page = if (page == ShellPage.SETTINGS) ShellPage.HOME else ShellPage.SETTINGS },
+                    title = "SETTINGS",
+                    onSettings = { page = ShellPage.HOME },
                     modifier = Modifier.align(Alignment.TopCenter)
                 )
             }
