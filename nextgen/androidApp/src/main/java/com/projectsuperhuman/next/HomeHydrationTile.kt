@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,6 +33,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
@@ -128,32 +128,30 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
                     if (shownMl >= 1000) "%.1f L".format(shownMl / 1000.0) else "$shownMl ml",
                     color = Color(0xFF123D70),
                     fontSize = 27.sp,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.Black,
+                    textAlign = TextAlign.Center
                 )
                 Text(
                     "of ${if (goalMl >= 1000) "%.1f L".format(goalMl / 1000.0) else "$goalMl ml"} daily target",
                     color = Color(0xFF748294),
-                    fontSize = 10.sp
+                    fontSize = 10.sp,
+                    textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(7.dp))
+                Spacer(Modifier.height(8.dp))
                 Text(
                     if (remaining == 0) "Goal reached" else "${if (remaining >= 1000) "%.1f L".format(remaining / 1000.0) else "$remaining ml"} remaining",
                     color = if (remaining == 0) Color(0xFF4AAE91) else Color(0xFF0D6CB4),
                     fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(10.dp))
-                Box(
-                    Modifier.background(Color(0xFFE3F2F9), RoundedCornerShape(17.dp)).padding(horizontal = 14.dp, vertical = 8.dp)
-                ) {
-                    Text("Open tracker  →", color = Color(0xFF0D6CB4), fontSize = 9.sp, fontWeight = FontWeight.Black)
-                }
             }
         }
     }
