@@ -5,6 +5,10 @@ plugins {
     id("org.jetbrains.compose")
 }
 
+kotlin {
+    jvmToolchain(17)
+}
+
 android {
     namespace = "com.projectsuperhuman.next"
     compileSdk = 35
