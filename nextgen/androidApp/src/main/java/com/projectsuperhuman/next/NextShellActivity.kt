@@ -1,10 +1,12 @@
 package com.projectsuperhuman.next
 
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,13 +35,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.m1x.HealthBridge
 
 private val ShellNavy = Color(0xFF123D70)
-private val ShellBlue = Color(0xFF0D6CB4)
 private val ShellBg = Color(0xFFF8FBFD)
 private val ShellMuted = Color(0xFF748294)
 
@@ -100,6 +104,11 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
 
 @Composable
 private fun NativeTopBar(title: String, onSettings: () -> Unit) {
+    val context = LocalContext.current
+    val logo = remember {
+        runCatching { context.assets.open("icon.png").use(BitmapFactory::decodeStream)?.asImageBitmap() }.getOrNull()
+    }
+
     Row(
         Modifier.fillMaxWidth().height(92.dp).padding(horizontal = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -112,7 +121,11 @@ private fun NativeTopBar(title: String, onSettings: () -> Unit) {
                     .border(1.dp, Color(0xFFDDE6ED), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                Text("PS", color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = .5.sp)
+                if (title == "PROJECT SUPERHUMAN" && logo != null) {
+                    Image(logo, null, Modifier.fillMaxSize().padding(4.dp), contentScale = ContentScale.Fit)
+                } else {
+                    Text("PS", color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = .5.sp)
+                }
             }
             Spacer(Modifier.width(14.dp))
             Column {
