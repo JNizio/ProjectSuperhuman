@@ -1,0 +1,40 @@
+name: Fix sleep hero build
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/fix-sleep-hero-build.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix SleepHistoryPage compile errors
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt')
+          s = p.read_text()
+          s = s.replace('formatMinutes(', 'formatHistoryMinutes(')
+          duplicate = '''@Composable\nprivate fun HistoryHeroStat(label: String, value: String, modifier: Modifier) {\n    Column(modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp)).padding(10.dp)) {\n        Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)\n        Text(label, color = Color.White.copy(alpha = .60f), fontSize = 7.sp)\n    }\n}\n\n'''
+          if duplicate in s:
+              s = s.replace(duplicate, '', 1)
+          p.write_text(s)
+
+          g = Path('nextgen/androidApp/build.gradle.kts')
+          t = g.read_text().replace('versionCode = 11009', 'versionCode = 11010').replace('versionName = "11.0.9"', 'versionName = "11.0.10"')
+          g.write_text(t)
+          PY
+      - name: Commit fixed build
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt nextgen/androidApp/build.gradle.kts
+          git commit -m "Fix enriched sleep hero compilation and bump to 11.0.10"
+          git push origin HEAD:main
