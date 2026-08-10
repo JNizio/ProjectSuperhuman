@@ -48,6 +48,19 @@ internal object NativeDataHub {
         repository.clearValues()
     }
 
+    suspend fun deleteValue(target: HealthValue) = withContext(Dispatchers.IO) {
+        val remaining = repository.allValues().filterNot { value ->
+            value.domain == target.domain &&
+                value.metric == target.metric &&
+                value.timestampEpochMs == target.timestampEpochMs &&
+                value.source == target.source &&
+                value.value == target.value &&
+                value.unit == target.unit
+        }
+        repository.clearValues()
+        repository.save(remaining)
+    }
+
     suspend fun storedValueCountAsync(): Long = withContext(Dispatchers.IO) {
         repository.count()
     }

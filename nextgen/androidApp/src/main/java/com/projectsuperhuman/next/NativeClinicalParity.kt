@@ -70,7 +70,8 @@ data class ClinicalDraft(
     val confidence: Double = 0.0,
     val rangeSource: String = "",
     val unitSource: String = "",
-    val comparator: String = ""
+    val comparator: String = "",
+    val duplicate: Boolean = false
 ) {
     val metric: String get() = "clinical.${slug(name)}"
 }
@@ -121,11 +122,15 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             else draft.copy(low = rememberedLow, high = rememberedHigh, rangeSource = "remembered")
                         }
                     }
-                drafts = enriched.sortedBy { it.name.lowercase(Locale.ROOT) }
+                val existingClinical = NativeDataHub.allValuesAsync().filter { it.domain == HealthDomain.CLINICAL }
+                val checked = enriched.map { draft ->
+                    draft.copy(duplicate = clinicalDuplicate(draft, existingClinical))
+                }
+                drafts = checked.sortedBy { it.name.lowercase(Locale.ROOT) }
                 detectedText = raw.joinToString("\n\n").take(5000)
-                val withRanges = enriched.count { it.low.isNotBlank() || it.high.isNotBlank() }
-                val withUnits = enriched.count { it.unit.isNotBlank() }
-                importState = if (enriched.isEmpty()) "No structured results detected yet." else "Found ${enriched.size} results · $withUnits units · $withRanges ranges"
+                val withRanges = checked.count { it.low.isNotBlank() || it.high.isNotBlank() }
+                val withUnits = checked.count { it.unit.isNotBlank() }
+                importState = if (checked.isEmpty()) "No structured results detected yet." else "Found ${checked.size} results · $withUnits units · $withRanges ranges"
             }
         }
 
@@ -168,13 +173,6 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 }
             }
 
-            if (detectedText.isNotBlank()) {
-                Text("Detected text", color = ClinicalInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
-                Text("The OCR output is shown for verification; only structured fields below are saved.", color = ClinicalMuted, fontSize = 9.sp, lineHeight = 13.sp)
-                Box(Modifier.fillMaxWidth().background(ClinicalBg, RoundedCornerShape(14.dp)).padding(12.dp)) {
-                    Text(detectedText, color = ClinicalInk, fontSize = 9.sp, lineHeight = 13.sp)
-                }
-            }
         }
 
         Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -240,7 +238,14 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 
         if (saved.isNotEmpty()) {
             Text("LATEST RESULTS", color = ClinicalMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-            saved.take(8).forEach { ClinicalResultRow(it) }
+            saved.take(8).forEach { value ->
+                ClinicalResultRow(value) {
+                    scope.launch {
+                        NativeDataHub.deleteValue(value)
+                        refresh()
+                    }
+                }
+            }
         }
         Spacer(Modifier.height(18.dp))
     }
@@ -289,6 +294,7 @@ private fun ClinicalLegacyReviewRow(draft: ClinicalDraft, onChange: (ClinicalDra
             if (draft.unit.isNotBlank()) ClinicalChip(if (draft.unitSource == "screenshot") "Unit read" else "Unit inferred", ClinicalBlue)
             if (draft.low.isNotBlank() || draft.high.isNotBlank()) ClinicalChip(if (draft.rangeSource == "screenshot") "Range read" else "Range remembered", ClinicalNavy)
             if (draft.comparator.isNotBlank()) ClinicalChip("${draft.comparator} result", ClinicalNavy)
+            if (draft.duplicate) ClinicalChip("DUPLICATE", ClinicalBad)
             if (draft.confidence in 0.0..0.72) ClinicalChip("Check OCR", ClinicalWarn)
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFE6EDF4)))
@@ -359,7 +365,7 @@ private fun ClinicalReviewCard(draft: ClinicalDraft, onChange: (ClinicalDraft) -
 }
 
 @Composable
-private fun ClinicalResultRow(value: HealthValue) {
+private fun ClinicalResultRow(value: HealthValue, onDelete: () -> Unit) {
     val low = value.metadata["rangeLow"]?.toDoubleOrNull()
     val high = value.metadata["rangeHigh"]?.toDoubleOrNull()
     val status = statusOf(value.value, low, high)
@@ -377,6 +383,7 @@ private fun ClinicalResultRow(value: HealthValue) {
             val qualifier = value.metadata["qualifier"].orEmpty()
             Text("${qualifier}${trimNumber(value.value)} ${value.unit}", color = ClinicalInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
             Text(status, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Text("Remove", color = ClinicalBad, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onDelete).padding(top = 5.dp))
         }
     }
 }
@@ -385,6 +392,20 @@ private fun ClinicalResultRow(value: HealthValue) {
 private fun ClinicalButton(title: String, accent: Color, onClick: () -> Unit) {
     Box(Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
         Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+    }
+}
+
+private fun clinicalDuplicate(draft: ClinicalDraft, existing: List<HealthValue>): Boolean {
+    val v = draft.value.toDoubleOrNull() ?: return false
+    val unit = draft.unit.trim().lowercase(Locale.ROOT)
+    val low = draft.low.trim()
+    val high = draft.high.trim()
+    return existing.any { saved ->
+        saved.metric == draft.metric &&
+            abs(saved.value - v) < 0.000001 &&
+            saved.unit.trim().lowercase(Locale.ROOT) == unit &&
+            saved.metadata["rangeLow"].orEmpty().trim() == low &&
+            saved.metadata["rangeHigh"].orEmpty().trim() == high
     }
 }
 
