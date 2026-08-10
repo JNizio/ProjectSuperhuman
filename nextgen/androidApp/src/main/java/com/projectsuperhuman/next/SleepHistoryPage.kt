@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,13 +31,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
-import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
@@ -62,6 +62,8 @@ internal data class HistoricalSleepNight(
     val snapshot: NativeSleepSnapshot
 )
 
+private enum class HistoryDataView { INTERPRETED, RAW }
+
 @Composable
 internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) {
     val context = LocalContext.current
@@ -75,9 +77,7 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
 
     suspend fun refreshHistory() {
         nights = NativeHistoricalSleepStore.loadAll()
-        if (selectedDate == null) {
-            selectedDate = nights.maxByOrNull { it.endEpochMs }?.wakeDate
-        }
+        if (selectedDate == null) selectedDate = nights.maxByOrNull { it.endEpochMs }?.wakeDate
         selectedDate?.let { month = YearMonth.from(it) }
         status = if (nights.isEmpty()) "No historical sleep records yet" else "${nights.size} sleep records available"
     }
@@ -152,7 +152,14 @@ private fun HistoryHeader(onBack: () -> Unit) {
                 .superhumanClickable(onClick = onBack),
             contentAlignment = Alignment.Center
         ) {
-            Text("‹", modifier = Modifier.width(28.dp), color = HistoryPurple, fontSize = 30.sp, lineHeight = 30.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Text(
+                "←",
+                color = HistoryPurple,
+                fontSize = 25.sp,
+                lineHeight = 25.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center
+            )
         }
         Spacer(Modifier.width(12.dp))
         Column {
@@ -186,20 +193,18 @@ private fun SleepCalendarCard(
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(36.dp).height(36.dp).background(HistoryBg, CircleShape).superhumanClickable(onClick = onPrevious), contentAlignment = Alignment.Center) {
-                Text("‹", color = HistoryPurple, fontSize = 24.sp, textAlign = TextAlign.Center)
-            }
+            CalendarArrow("‹", onPrevious)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")), color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Text("Tap a night to inspect it", color = HistoryMuted, fontSize = 8.sp)
             }
-            Box(Modifier.width(36.dp).height(36.dp).background(HistoryBg, CircleShape).superhumanClickable(onClick = onNext), contentAlignment = Alignment.Center) {
-                Text("›", color = HistoryPurple, fontSize = 24.sp, textAlign = TextAlign.Center)
-            }
+            CalendarArrow("›", onNext)
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            listOf("M", "T", "W", "T", "F", "S", "S").forEach { Text(it, Modifier.width(28.dp), color = HistoryMuted, fontSize = 8.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold) }
+            listOf("M", "T", "W", "T", "F", "S", "S").forEach {
+                Text(it, Modifier.width(28.dp), color = HistoryMuted, fontSize = 8.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+            }
         }
 
         LazyVerticalGrid(
@@ -214,11 +219,11 @@ private fun SleepCalendarCard(
                     Spacer(Modifier.height(34.dp))
                 } else {
                     val night = nightByDate[date]
-                    val selected = date == selectedDate
+                    val isSelected = date == selectedDate
                     val today = date == LocalDate.now()
                     val score = night?.snapshot?.score
                     val background = when {
-                        selected -> HistoryPurple
+                        isSelected -> HistoryPurple
                         night != null -> HistoryPurple.copy(alpha = .10f)
                         else -> Color.Transparent
                     }
@@ -229,9 +234,14 @@ private fun SleepCalendarCard(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        Text(date.dayOfMonth.toString(), color = if (selected) Color.White else HistoryInk, fontSize = 9.sp, fontWeight = if (today) FontWeight.Black else FontWeight.Bold)
+                        Text(
+                            date.dayOfMonth.toString(),
+                            color = if (isSelected) Color.White else HistoryInk,
+                            fontSize = 9.sp,
+                            fontWeight = if (today) FontWeight.Black else FontWeight.Bold
+                        )
                         if (night != null) {
-                            Box(Modifier.width(5.dp).height(5.dp).background(if (selected) Color.White else scoreColor(score), CircleShape))
+                            Box(Modifier.width(5.dp).height(5.dp).background(if (isSelected) Color.White else scoreColor(score), CircleShape))
                         }
                     }
                 }
@@ -243,6 +253,24 @@ private fun SleepCalendarCard(
             CalendarLegendDot(HistoryGood, "Better recovery")
             CalendarLegendDot(HistoryWarn, "Lower recovery")
         }
+    }
+}
+
+@Composable
+private fun CalendarArrow(symbol: String, onClick: () -> Unit) {
+    Box(
+        Modifier.width(36.dp).height(36.dp).background(HistoryBg, CircleShape).superhumanClickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            symbol,
+            modifier = Modifier.width(24.dp),
+            color = HistoryPurple,
+            fontSize = 24.sp,
+            lineHeight = 24.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -264,9 +292,53 @@ private fun scoreColor(score: Int?): Color = when {
 @Composable
 private fun HistoricalSleepDetail(snapshot: NativeSleepSnapshot, date: LocalDate) {
     val analysis = SleepIntelligenceEngine.analyse(snapshot)
-    val start = snapshot.startEpochMs?.let(::historyTime)
-    val end = snapshot.endEpochMs?.let(::historyTime)
+    var view by remember(date) { mutableStateOf(HistoryDataView.INTERPRETED) }
 
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SleepViewToggle(view = view, onChange = { view = it })
+
+        when (view) {
+            HistoryDataView.INTERPRETED -> InterpretedSleepView(snapshot, date, analysis)
+            HistoryDataView.RAW -> RawSleepView(snapshot, date, analysis)
+        }
+    }
+}
+
+@Composable
+private fun SleepViewToggle(view: HistoryDataView, onChange: (HistoryDataView) -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp))
+            .border(1.dp, HistoryBorder, RoundedCornerShape(18.dp)).padding(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        SleepViewTab("INTERPRETED", view == HistoryDataView.INTERPRETED, Modifier.weight(1f)) {
+            onChange(HistoryDataView.INTERPRETED)
+        }
+        SleepViewTab("RAW DATA", view == HistoryDataView.RAW, Modifier.weight(1f)) {
+            onChange(HistoryDataView.RAW)
+        }
+    }
+}
+
+@Composable
+private fun SleepViewTab(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.background(if (selected) HistoryPurple else Color.Transparent, RoundedCornerShape(14.dp))
+            .superhumanClickable(onClick = onClick).padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = if (selected) Color.White else HistoryMuted,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = .4.sp
+        )
+    }
+}
+
+@Composable
+private fun InterpretedSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysis: SleepAnalysis) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(
             Modifier.fillMaxWidth().background(BrushlessPurple(), RoundedCornerShape(24.dp)).padding(20.dp),
@@ -279,7 +351,7 @@ private fun HistoricalSleepDetail(snapshot: NativeSleepSnapshot, date: LocalDate
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(analysis.recoveryScore.toString(), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
-                    Text("sleep score", color = Color.White.copy(alpha = .68f), fontSize = 8.sp)
+                    Text("interpreted score", color = Color.White.copy(alpha = .68f), fontSize = 8.sp)
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -289,35 +361,7 @@ private fun HistoricalSleepDetail(snapshot: NativeSleepSnapshot, date: LocalDate
             }
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(11.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(Modifier.weight(1f)) {
-                    Text("Sleep episode", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                    if (start != null && end != null) Text("$start – $end", color = HistoryMuted, fontSize = 9.sp)
-                }
-                Text(formatHistoryMinutes(snapshot.totalMinutes), color = HistoryPurple, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                HistoryMiniStat("${snapshot.efficiencyPct ?: analysis.efficiencyPct}%", "efficiency")
-                HistoryMiniStat(formatHistoryMinutes(snapshot.awakeMinutes), "awake")
-                HistoryMiniStat(snapshot.stageSegments.size.toString(), "stage shifts")
-            }
-        }
-
-        SleepArchitectureDiagram(snapshot.stageSegments, snapshot.startEpochMs, snapshot.endEpochMs)
-
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text("Stage balance", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("Recorded stage distribution for this date", color = HistoryMuted, fontSize = 9.sp)
-            HistoryStageRow("Light", snapshot.lightMinutes, HistoryBlue)
-            HistoryStageRow("Deep", snapshot.deepMinutes, HistoryGood)
-            HistoryStageRow("REM", snapshot.remMinutes, HistoryPurple)
-            HistoryStageRow("Awake", snapshot.awakeMinutes, HistoryWarn)
-        }
-
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Smart interpretation", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text(analysis.insight, color = HistoryMuted, fontSize = 10.sp, lineHeight = 15.sp)
+        InfoCard("Smart interpretation", analysis.insight) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 HistoryMiniStat(analysis.durationScore.toString(), "duration")
                 HistoryMiniStat(analysis.continuityScore.toString(), "continuity")
@@ -328,16 +372,94 @@ private fun HistoricalSleepDetail(snapshot: NativeSleepSnapshot, date: LocalDate
             }
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-            Text("Data confidence", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("Confidence is based on the information available from the source records.", color = HistoryMuted, fontSize = 9.sp)
-            analysis.confidence.forEach { item ->
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Text(item.metric.replaceFirstChar { it.uppercase() }, color = HistoryInk, fontSize = 9.sp, modifier = Modifier.weight(1f))
-                    Text("${item.score}%", color = HistoryInk, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Spacer(Modifier.width(8.dp))
-                    Text(item.label, color = if (item.score >= 75) HistoryGood else HistoryWarn, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        InfoCard("How this differs from raw data", "The interpreted view keeps the recorded sleep data intact, then layers Project Superhuman's sleep engine on top to estimate recovery quality and highlight the most useful next action.") { }
+
+        ConfidenceCard(analysis)
+    }
+}
+
+@Composable
+private fun RawSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysis: SleepAnalysis) {
+    val start = snapshot.startEpochMs?.let(::historyTime)
+    val end = snapshot.endEpochMs?.let(::historyTime)
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(
+            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+                .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(11.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Column(Modifier.weight(1f)) {
+                    Text("Raw sleep record", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                    Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), color = HistoryMuted, fontSize = 9.sp)
+                    if (start != null && end != null) Text("$start – $end", color = HistoryMuted, fontSize = 9.sp)
                 }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(snapshot.score?.toString() ?: "—", color = HistoryPurple, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    Text("source score", color = HistoryMuted, fontSize = 8.sp)
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                HistoryMiniStat(formatHistoryMinutes(snapshot.totalMinutes), "asleep")
+                HistoryMiniStat("${snapshot.efficiencyPct ?: analysis.efficiencyPct}%", "efficiency")
+                HistoryMiniStat(formatHistoryMinutes(snapshot.awakeMinutes), "awake")
+            }
+        }
+
+        SleepArchitectureDiagram(snapshot.stageSegments, snapshot.startEpochMs, snapshot.endEpochMs)
+
+        Column(
+            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+                .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            Text("Recorded stage balance", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
+            Text("Direct values from the imported sleep record — no interpretation applied.", color = HistoryMuted, fontSize = 9.sp)
+            HistoryStageRow("Light", snapshot.lightMinutes, HistoryBlue)
+            HistoryStageRow("Deep", snapshot.deepMinutes, HistoryGood)
+            HistoryStageRow("REM", snapshot.remMinutes, HistoryPurple)
+            HistoryStageRow("Awake", snapshot.awakeMinutes, HistoryWarn)
+            Spacer(Modifier.height(4.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                HistoryMiniStat(snapshot.stageSegments.size.toString(), "stage segments")
+                HistoryMiniStat(snapshot.sessionsImported.toString(), "sessions imported")
+                HistoryMiniStat(formatHistoryMinutes(snapshot.recentAverageMinutes), "recent avg")
+            }
+        }
+
+        ConfidenceCard(analysis)
+    }
+}
+
+@Composable
+private fun InfoCard(title: String, body: String, content: @Composable () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+            .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(title, color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
+        Text(body, color = HistoryMuted, fontSize = 10.sp, lineHeight = 15.sp)
+        content()
+    }
+}
+
+@Composable
+private fun ConfidenceCard(analysis: SleepAnalysis) {
+    Column(
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+            .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
+    ) {
+        Text("Data confidence", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
+        Text("Confidence is based on the information available from the source records.", color = HistoryMuted, fontSize = 9.sp)
+        analysis.confidence.forEach { item ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(item.metric.replaceFirstChar { it.uppercase() }, color = HistoryInk, fontSize = 9.sp, modifier = Modifier.weight(1f))
+                Text("${item.score}%", color = HistoryInk, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(8.dp))
+                Text(item.label, color = if (item.score >= 75) HistoryGood else HistoryWarn, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -371,7 +493,11 @@ private fun HistoryStageRow(name: String, minutes: Int?, accent: Color) {
 
 @Composable
 private fun HistorySyncCard(connected: Boolean, syncing: Boolean, status: String, onAction: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+            .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 8.dp)) {
                 Text("Health Connect", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -381,7 +507,11 @@ private fun HistorySyncCard(connected: Boolean, syncing: Boolean, status: String
                 Text(if (connected) "CONNECTED" else "NOT CONNECTED", color = if (connected) HistoryGood else HistoryPurple, fontSize = 7.sp, fontWeight = FontWeight.Black)
             }
         }
-        Box(Modifier.fillMaxWidth().background(if (connected) Color(0xFFF0F3FF) else HistoryPurple, RoundedCornerShape(15.dp)).superhumanClickable(enabled = !syncing, onClick = onAction).padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier.fillMaxWidth().background(if (connected) Color(0xFFF0F3FF) else HistoryPurple, RoundedCornerShape(15.dp))
+                .superhumanClickable(enabled = !syncing, onClick = onAction).padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
             Text(if (syncing) "SYNCING…" else "SYNC NOW", color = if (connected) HistoryPurple else Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
         }
         Text(status, color = HistoryMuted, fontSize = 8.sp)
@@ -403,9 +533,13 @@ private fun formatHistoryMinutes(minutes: Int?): String {
     return if (h > 0) "${h}h ${m}m" else "${m}m"
 }
 
-private fun historyTime(epochMs: Long): String = Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+private fun historyTime(epochMs: Long): String = Instant.ofEpochMilli(epochMs)
+    .atZone(ZoneId.systemDefault())
+    .toLocalTime()
+    .format(DateTimeFormatter.ofPattern("HH:mm"))
 
-private fun BrushlessPurple(): androidx.compose.ui.graphics.Brush = androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF4939A9), Color(0xFF6F5BE1)))
+private fun BrushlessPurple(): androidx.compose.ui.graphics.Brush =
+    androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF4939A9), Color(0xFF6F5BE1)))
 
 private object NativeHistoricalSleepStore {
     suspend fun loadAll(): List<HistoricalSleepNight> {
