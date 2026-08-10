@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -139,9 +140,7 @@ internal fun NativeSleepParityScreen(onBack: () -> Unit, openLegacy: () -> Unit)
             SleepStageBreakdown(s, analysis)
             SleepInsightCard(analysis)
             SleepTrendCard(s)
-        } else {
-            EmptySleepCard(connected)
-        }
+        } else EmptySleepCard(connected)
         HealthConnectCard(connected, checked, syncing, status, ::connectOrSync)
         Spacer(Modifier.height(22.dp))
     }
@@ -168,10 +167,7 @@ private fun SleepHero(s: NativeSleepSnapshot?, analysis: SleepAnalysis?) {
     val start = s?.startEpochMs?.let(::formatSleepTime)
     val end = s?.endEpochMs?.let(::formatSleepTime)
     Column(
-        Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(Color(0xFF44329E), Color(0xFF735FE8))),
-            RoundedCornerShape(28.dp)
-        ).padding(20.dp),
+        Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF44329E), Color(0xFF735FE8))), RoundedCornerShape(28.dp)).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
@@ -180,21 +176,18 @@ private fun SleepHero(s: NativeSleepSnapshot?, analysis: SleepAnalysis?) {
                 Spacer(Modifier.height(6.dp))
                 Text(analysis?.headline ?: "Your sleep summary will appear here", color = Color.White, fontSize = 20.sp, lineHeight = 24.sp, fontWeight = FontWeight.Black)
                 if (start != null && end != null) {
-                    Spacer(Modifier.height(6.dp))
-                    Text("$start – $end", color = Color.White.copy(alpha = .72f), fontSize = 10.sp)
+                    Spacer(Modifier.height(6.dp)); Text("$start – $end", color = Color.White.copy(alpha = .72f), fontSize = 10.sp)
                 }
             }
-            if (analysis != null) {
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(analysis.score.toString(), color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Black)
-                    Text("sleep score", color = Color.White.copy(alpha = .66f), fontSize = 8.sp)
-                }
+            if (analysis != null) Column(horizontalAlignment = Alignment.End) {
+                Text(analysis.score.toString(), color = Color.White, fontSize = 38.sp, fontWeight = FontWeight.Black)
+                Text("sleep score", color = Color.White.copy(alpha = .66f), fontSize = 8.sp)
             }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SleepHeroStat("Asleep", formatMinutes(s?.totalMinutes?.minus(s.awakeMinutes ?: 0)), Modifier.weight(1f))
             SleepHeroStat("Efficiency", s?.efficiencyPct?.let { "$it%" } ?: "—", Modifier.weight(1f))
-            SleepHeroStat("Deep + REM", formatMinutes((s?.deepMinutes ?: 0) + (s?.remMinutes ?: 0)).takeIf { s?.totalMinutes != null } ?: "—", Modifier.weight(1f))
+            SleepHeroStat("Deep + REM", if (s?.totalMinutes != null) formatMinutes((s.deepMinutes ?: 0) + (s.remMinutes ?: 0)) else "—", Modifier.weight(1f))
         }
     }
 }
@@ -208,33 +201,29 @@ private fun SleepHeroStat(label: String, value: String, modifier: Modifier) {
 }
 
 @Composable
-private fun SleepOverviewCard(s: NativeSleepSnapshot, a: SleepAnalysis) {
-    CardShell {
-        Text("Night overview", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            SleepMiniStat(formatMinutes(s.totalMinutes), "time in bed")
-            SleepMiniStat(formatMinutes((s.totalMinutes ?: 0) - (s.awakeMinutes ?: 0)), "asleep")
-            SleepMiniStat("${a.efficiencyPct}%", "efficiency")
-        }
-        Spacer(Modifier.height(14.dp))
-        ScoreBar("Duration", a.durationScore, SleepBlue)
-        ScoreBar("Continuity", a.continuityScore, SleepGood)
-        ScoreBar("Stage balance", a.stageBalanceScore, SleepPurple)
+private fun SleepOverviewCard(s: NativeSleepSnapshot, a: SleepAnalysis) = CardShell {
+    Text("Night overview", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+    Spacer(Modifier.height(12.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        SleepMiniStat(formatMinutes(s.totalMinutes), "time in bed")
+        SleepMiniStat(formatMinutes((s.totalMinutes ?: 0) - (s.awakeMinutes ?: 0)), "asleep")
+        SleepMiniStat("${a.efficiencyPct}%", "efficiency")
     }
+    Spacer(Modifier.height(14.dp))
+    ScoreBar("Duration", a.durationScore, SleepBlue)
+    ScoreBar("Continuity", a.continuityScore, SleepGood)
+    ScoreBar("Stage balance", a.stageBalanceScore, SleepPurple)
 }
 
 @Composable
-private fun SleepStageBreakdown(s: NativeSleepSnapshot, a: SleepAnalysis) {
-    CardShell {
-        Text("Sleep stages", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text("Distribution across the latest night", color = SleepMuted, fontSize = 9.sp)
-        Spacer(Modifier.height(10.dp))
-        StageRow("Light", s.lightMinutes, SleepBlue, if ((s.lightMinutes ?: 0) > 0) 100 - a.deepPct - a.remPct else 0)
-        StageRow("Deep", s.deepMinutes, Color(0xFF315A9E), a.deepPct)
-        StageRow("REM", s.remMinutes, SleepPurple, a.remPct)
-        StageRow("Awake", s.awakeMinutes, SleepWarn, a.awakePct)
-    }
+private fun SleepStageBreakdown(s: NativeSleepSnapshot, a: SleepAnalysis) = CardShell {
+    Text("Sleep stages", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+    Text("Distribution across the latest night", color = SleepMuted, fontSize = 9.sp)
+    Spacer(Modifier.height(10.dp))
+    StageRow("Light", s.lightMinutes, SleepBlue, if ((s.lightMinutes ?: 0) > 0) (100 - a.deepPct - a.remPct).coerceAtLeast(0) else 0)
+    StageRow("Deep", s.deepMinutes, Color(0xFF315A9E), a.deepPct)
+    StageRow("REM", s.remMinutes, SleepPurple, a.remPct)
+    StageRow("Awake", s.awakeMinutes, SleepWarn, a.awakePct)
 }
 
 @Composable
@@ -250,54 +239,47 @@ private fun SleepInsightCard(a: SleepAnalysis) {
 }
 
 @Composable
-private fun SleepTrendCard(s: NativeSleepSnapshot) {
-    CardShell {
-        Text("Recent trend", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text("Averages from the sleep currently stored on this device", color = SleepMuted, fontSize = 9.sp)
-        Spacer(Modifier.height(12.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            SleepMiniStat(s.recentAverageMinutes?.let(::formatMinutes) ?: "—", "avg sleep")
-            SleepMiniStat(s.recentAverageScore?.toString() ?: "—", "avg score")
-            SleepMiniStat(s.sessionsImported.toString(), "nights synced")
-        }
+private fun SleepTrendCard(s: NativeSleepSnapshot) = CardShell {
+    Text("Recent trend", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+    Text("Averages from sleep stored on this device", color = SleepMuted, fontSize = 9.sp)
+    Spacer(Modifier.height(12.dp))
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        SleepMiniStat(s.recentAverageMinutes?.let(::formatMinutes) ?: "—", "avg sleep")
+        SleepMiniStat(s.recentAverageScore?.toString() ?: "—", "avg score")
+        SleepMiniStat(s.sessionsImported.toString(), "nights synced")
     }
 }
 
 @Composable
-private fun HealthConnectCard(connected: Boolean, checked: Boolean, syncing: Boolean, status: String, onAction: () -> Unit) {
-    CardShell {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Health Connect", color = SleepInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
-                Text(if (connected) "Sleep data source connected" else "Connect a supported sleep source", color = SleepMuted, fontSize = 9.sp)
-            }
-            Box(Modifier.background(if (connected) SleepGood.copy(alpha = .12f) else SleepPurple.copy(alpha = .10f), RoundedCornerShape(99.dp)).padding(horizontal = 9.dp, vertical = 6.dp)) {
-                Text(when { !checked -> "CHECKING"; connected -> "CONNECTED"; else -> "NOT CONNECTED" }, color = if (connected) SleepGood else SleepPurple, fontSize = 7.sp, fontWeight = FontWeight.Black)
-            }
+private fun HealthConnectCard(connected: Boolean, checked: Boolean, syncing: Boolean, status: String, onAction: () -> Unit) = CardShell {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            Text("Health Connect", color = SleepInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
+            Text(if (connected) "Sleep data source connected" else "Connect a supported sleep source", color = SleepMuted, fontSize = 9.sp)
         }
-        Spacer(Modifier.height(11.dp))
-        Box(
-            Modifier.fillMaxWidth().background(if (connected) Color(0xFFF0F3FF) else SleepPurple, RoundedCornerShape(15.dp))
-                .superhumanClickable(enabled = !syncing, onClick = onAction).padding(vertical = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(when { syncing -> "SYNCING…"; connected -> "SYNC NOW"; else -> "CONNECT HEALTH CONNECT" }, color = if (connected) SleepPurple else Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        Box(Modifier.background(if (connected) SleepGood.copy(alpha = .12f) else SleepPurple.copy(alpha = .10f), RoundedCornerShape(99.dp)).padding(horizontal = 9.dp, vertical = 6.dp)) {
+            Text(when { !checked -> "CHECKING"; connected -> "CONNECTED"; else -> "NOT CONNECTED" }, color = if (connected) SleepGood else SleepPurple, fontSize = 7.sp, fontWeight = FontWeight.Black)
         }
-        Spacer(Modifier.height(8.dp))
-        Text(status, color = SleepMuted, fontSize = 8.sp)
     }
+    Spacer(Modifier.height(11.dp))
+    Box(
+        Modifier.fillMaxWidth().background(if (connected) Color(0xFFF0F3FF) else SleepPurple, RoundedCornerShape(15.dp))
+            .superhumanClickable(enabled = !syncing, onClick = onAction).padding(vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(when { syncing -> "SYNCING…"; connected -> "SYNC NOW"; else -> "CONNECT HEALTH CONNECT" }, color = if (connected) SleepPurple else Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+    }
+    Spacer(Modifier.height(8.dp)); Text(status, color = SleepMuted, fontSize = 8.sp)
 }
 
 @Composable
-private fun EmptySleepCard(connected: Boolean) {
-    CardShell {
-        Text("No sleep data yet", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text(if (connected) "Sync a recorded night to see sleep architecture, recovery scoring and stage trends." else "Connect Health Connect to import sleep from compatible apps and devices.", color = SleepMuted, fontSize = 10.sp, lineHeight = 15.sp)
-    }
+private fun EmptySleepCard(connected: Boolean) = CardShell {
+    Text("No sleep data yet", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+    Text(if (connected) "Sync a recorded night to see sleep architecture, recovery scoring and stage trends." else "Connect Health Connect to import sleep from compatible apps and devices.", color = SleepMuted, fontSize = 10.sp, lineHeight = 15.sp)
 }
 
 @Composable
-private fun CardShell(content: @Composable Column.() -> Unit) {
+private fun CardShell(content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
             .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp),
@@ -306,12 +288,7 @@ private fun CardShell(content: @Composable Column.() -> Unit) {
 }
 
 @Composable
-private fun SleepMiniStat(value: String, label: String) {
-    Column {
-        Text(value, color = SleepInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text(label, color = SleepMuted, fontSize = 8.sp)
-    }
-}
+private fun SleepMiniStat(value: String, label: String) { Column { Text(value, color = SleepInk, fontSize = 13.sp, fontWeight = FontWeight.Black); Text(label, color = SleepMuted, fontSize = 8.sp) } }
 
 @Composable
 private fun ScoreBar(label: String, score: Int, color: Color) {
@@ -320,8 +297,7 @@ private fun ScoreBar(label: String, score: Int, color: Color) {
         Box(Modifier.weight(1f).height(7.dp).background(Color(0xFFEEF0F6), RoundedCornerShape(99.dp))) {
             Box(Modifier.fillMaxWidth(score.coerceIn(0, 100) / 100f).height(7.dp).background(color, RoundedCornerShape(99.dp)))
         }
-        Spacer(Modifier.width(8.dp))
-        Text(score.toString(), color = SleepInk, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(8.dp)); Text(score.toString(), color = SleepInk, fontSize = 9.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -329,21 +305,13 @@ private fun ScoreBar(label: String, score: Int, color: Color) {
 private fun StageRow(name: String, minutes: Int?, accent: Color, pct: Int) {
     Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(8.dp).height(8.dp).background(accent, RoundedCornerShape(99.dp)))
-        Spacer(Modifier.width(9.dp))
-        Text(name, color = SleepInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Spacer(Modifier.width(9.dp)); Text(name, color = SleepInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         Text("${formatMinutes(minutes)}  ·  $pct%", color = SleepMuted, fontSize = 10.sp)
     }
 }
 
-private fun formatMinutes(minutes: Int?): String {
-    if (minutes == null) return "—"
-    val h = minutes / 60
-    val m = minutes % 60
-    return if (h > 0) "${h}h ${m}m" else "${m}m"
-}
-
-private fun formatSleepTime(epochMs: Long): String = Instant.ofEpochMilli(epochMs)
-    .atZone(ZoneId.systemDefault()).toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
+private fun formatMinutes(minutes: Int?): String { if (minutes == null) return "—"; val h = minutes / 60; val m = minutes % 60; return if (h > 0) "${h}h ${m}m" else "${m}m" }
+private fun formatSleepTime(epochMs: Long): String = Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"))
 
 private object NativeSleepStore {
     suspend fun loadLatest(): NativeSleepSnapshot {
@@ -354,15 +322,10 @@ private object NativeSleepStore {
         val durations = NativeDataHub.between("sleep_total_minutes", from, System.currentTimeMillis())
         val scores = NativeDataHub.between("sleep_score", from, System.currentTimeMillis())
         return NativeSleepSnapshot(
-            score = metric("sleep_score")?.value?.roundToInt(),
-            totalMinutes = metric("sleep_total_minutes")?.value?.roundToInt(),
-            awakeMinutes = metric("sleep_awake_minutes")?.value?.roundToInt(),
-            lightMinutes = metric("sleep_light_minutes")?.value?.roundToInt(),
-            deepMinutes = metric("sleep_deep_minutes")?.value?.roundToInt(),
-            remMinutes = metric("sleep_rem_minutes")?.value?.roundToInt(),
-            efficiencyPct = metric("sleep_efficiency_pct")?.value?.roundToInt(),
-            startEpochMs = metric("sleep_start_epoch_ms")?.value?.toLong(),
-            endEpochMs = end,
+            score = metric("sleep_score")?.value?.roundToInt(), totalMinutes = metric("sleep_total_minutes")?.value?.roundToInt(),
+            awakeMinutes = metric("sleep_awake_minutes")?.value?.roundToInt(), lightMinutes = metric("sleep_light_minutes")?.value?.roundToInt(),
+            deepMinutes = metric("sleep_deep_minutes")?.value?.roundToInt(), remMinutes = metric("sleep_rem_minutes")?.value?.roundToInt(),
+            efficiencyPct = metric("sleep_efficiency_pct")?.value?.roundToInt(), startEpochMs = metric("sleep_start_epoch_ms")?.value?.toLong(), endEpochMs = end,
             stageSegments = parseSleepStageSegments(metric("sleep_stage_timeline")?.metadata?.get("segments")),
             sessionsImported = metric("sleep_sessions_imported")?.value?.roundToInt() ?: 0,
             recentAverageMinutes = durations.takeIf { it.isNotEmpty() }?.map { it.value }?.average()?.roundToInt(),
