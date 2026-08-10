@@ -57,7 +57,7 @@ jobs:
       - name: Upload Project Superhuman 11.2.0 APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectSuperhuman-11.2.0-ClinicalLegacyUI
+          name: ProjectSuperhuman-11.2.0-ClinicalFullRegistry
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
