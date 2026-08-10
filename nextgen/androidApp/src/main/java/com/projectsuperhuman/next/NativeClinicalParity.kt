@@ -1,9 +1,11 @@
 package com.projectsuperhuman.next
 
 import android.net.Uri
+import android.graphics.BitmapFactory
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,11 +14,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -30,7 +34,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -74,8 +80,9 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     val scope = rememberCoroutineScope()
     var saved by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var drafts by remember { mutableStateOf<List<ClinicalDraft>>(emptyList()) }
-    var importState by remember { mutableStateOf("Choose one or more NHS/lab screenshots to import.") }
-    var reviewing by remember { mutableStateOf(false) }
+    var importState by remember { mutableStateOf("Choose one or several screenshots.") }
+    var selectedUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var detectedText by remember { mutableStateOf("") }
 
     suspend fun refresh() {
         saved = NativeDataHub.latestForDomain(HealthDomain.CLINICAL)
@@ -87,9 +94,12 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        selectedUris = uris
+        detectedText = ""
         importState = "Reading ${uris.size} screenshot${if (uris.size == 1) "" else "s"}…"
         val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
         val collected = mutableListOf<ClinicalDraft>()
+        val raw = mutableListOf<String>()
         var remaining = uris.size
 
         fun finishOne() {
@@ -107,72 +117,93 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             val rememberedLow = previous?.metadata?.get("rangeLow").orEmpty()
                             val rememberedHigh = previous?.metadata?.get("rangeHigh").orEmpty()
                             if (rememberedLow.isBlank() && rememberedHigh.isBlank()) draft
-                            else draft.copy(
-                                low = rememberedLow,
-                                high = rememberedHigh,
-                                rangeSource = "remembered"
-                            )
+                            else draft.copy(low = rememberedLow, high = rememberedHigh, rangeSource = "remembered")
                         }
                     }
                 drafts = enriched.sortedBy { it.name.lowercase(Locale.ROOT) }
-                reviewing = enriched.isNotEmpty()
+                detectedText = raw.joinToString("\n\n").take(5000)
                 val withRanges = enriched.count { it.low.isNotBlank() || it.high.isNotBlank() }
                 val withUnits = enriched.count { it.unit.isNotBlank() }
-                importState = if (enriched.isEmpty()) {
-                    "OCR finished, but no confident lab rows were found."
-                } else {
-                    "Found ${enriched.size} results · $withUnits units · $withRanges reference ranges. Review before saving."
-                }
+                importState = if (enriched.isEmpty()) "No structured results detected yet." else "Found ${enriched.size} results · $withUnits units · $withRanges ranges"
             }
         }
 
-        uris.forEach { uri: Uri ->
+        uris.forEach { uri ->
             try {
                 val image = InputImage.fromFilePath(context, uri)
                 recognizer.process(image)
-                    .addOnSuccessListener { text -> collected += parseClinicalText(text); finishOne() }
+                    .addOnSuccessListener { text ->
+                        raw += text.text
+                        collected += parseClinicalText(text)
+                        finishOne()
+                    }
                     .addOnFailureListener { finishOne() }
-            } catch (_: Exception) {
-                finishOne()
-            }
+            } catch (_: Exception) { finishOne() }
         }
     }
 
     Column(
         Modifier.fillMaxSize().background(ClinicalBg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         ClinicalHeader(onBack)
 
-        val abnormal = saved.count {
-            statusOf(it.value, it.metadata["rangeLow"]?.toDoubleOrNull(), it.metadata["rangeHigh"]?.toDoubleOrNull()) != "NORMAL" &&
-                (it.metadata["rangeLow"].orEmpty().isNotBlank() || it.metadata["rangeHigh"].orEmpty().isNotBlank())
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            ClinicalStat("MARKERS", saved.size.toString(), ClinicalBlue, Modifier.weight(1f))
-            ClinicalStat("ALERTS", abnormal.toString(), if (abnormal > 0) ClinicalBad else ClinicalGood, Modifier.weight(1f))
-            ClinicalStat("SOURCE", if (saved.isEmpty()) "—" else "DB", ClinicalNavy, Modifier.weight(1f))
-        }
+        Text("CLINICAL IMPORT", color = ClinicalBlue, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.6.sp)
+        Text("Add your results.", color = ClinicalInk, fontSize = 31.sp, fontWeight = FontWeight.Black, lineHeight = 35.sp)
+        Text(
+            "Choose one or several screenshots. Project Superhuman will read the text automatically, identify supported lab markers, and turn them into editable structured data before anything is saved.",
+            color = ClinicalMuted, fontSize = 14.sp, lineHeight = 21.sp
+        )
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
-            Text("Clinical Import", color = ClinicalInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            Text("NHS-aware on-device OCR now associates nearby text blocks, recognises common lab names and units, extracts reference ranges, and reuses a saved range only when the screenshot genuinely omits it.", color = ClinicalMuted, fontSize = 10.sp, lineHeight = 15.sp)
-            Spacer(Modifier.height(12.dp))
-            ClinicalButton("Import screenshots", ClinicalBlue) { launcher.launch("image/*") }
-            Spacer(Modifier.height(8.dp))
+        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            ClinicalButton("Choose screenshots", ClinicalBlue) { launcher.launch("image/*") }
             Text(importState, color = ClinicalMuted, fontSize = 9.sp, lineHeight = 13.sp)
+
+            if (selectedUris.isNotEmpty()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    selectedUris.take(3).forEach { uri ->
+                        ClinicalScreenshotPreview(uri, Modifier.weight(1f))
+                    }
+                }
+            }
+
+            if (detectedText.isNotBlank()) {
+                Text("Detected text", color = ClinicalInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                Text("The OCR output is shown for verification; only structured fields below are saved.", color = ClinicalMuted, fontSize = 9.sp, lineHeight = 13.sp)
+                Box(Modifier.fillMaxWidth().background(ClinicalBg, RoundedCornerShape(14.dp)).padding(12.dp)) {
+                    Text(detectedText, color = ClinicalInk, fontSize = 9.sp, lineHeight = 13.sp)
+                }
+            }
         }
 
-        if (reviewing) {
-            Text("REVIEW BEFORE SAVE", color = ClinicalMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-            drafts.forEachIndexed { index, draft ->
-                ClinicalReviewCard(
-                    draft = draft,
-                    onChange = { changed -> drafts = drafts.toMutableList().also { it[index] = changed } },
-                    onRemove = { drafts = drafts.toMutableList().also { it.removeAt(index) } }
-                )
+        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Review before saving", color = ClinicalInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
+            Text("Recognised fields are editable before they become part of your health history.", color = ClinicalMuted, fontSize = 9.sp, lineHeight = 13.sp)
+
+            if (drafts.isEmpty()) {
+                Box(Modifier.fillMaxWidth().padding(vertical = 28.dp), contentAlignment = Alignment.Center) {
+                    Text("No results detected yet.", color = ClinicalMuted, fontSize = 12.sp)
+                }
+            } else {
+                drafts.forEachIndexed { index, draft ->
+                    ClinicalLegacyReviewRow(
+                        draft = draft,
+                        onChange = { changed -> drafts = drafts.toMutableList().also { it[index] = changed } },
+                        onRemove = { drafts = drafts.toMutableList().also { it.removeAt(index) } }
+                    )
+                }
             }
-            ClinicalButton("Save ${drafts.size} reviewed result${if (drafts.size == 1) "" else "s"}", ClinicalGood) {
+
+            Box(
+                Modifier.fillMaxWidth().background(Color(0xFFEAF2FA), RoundedCornerShape(16.dp)).clickable {
+                    drafts = drafts + ClinicalDraft(name = "", value = "", unit = "", confidence = 1.0)
+                }.padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("+ Add result manually", color = ClinicalNavy, fontSize = 13.sp, fontWeight = FontWeight.Black)
+            }
+
+            ClinicalButton("Confirm & save", ClinicalBlue) {
                 scope.launch {
                     drafts.forEach { d ->
                         val number = d.value.toDoubleOrNull() ?: return@forEach
@@ -197,25 +228,74 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         )
                     }
                     drafts = emptyList()
-                    reviewing = false
-                    importState = "Saved to the native clinical database."
+                    selectedUris = emptyList()
+                    detectedText = ""
+                    importState = "Saved to your clinical history."
                     refresh()
                 }
             }
         }
 
-        Text("LATEST RESULTS", color = ClinicalMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-        if (saved.isEmpty()) {
-            Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp)).padding(16.dp)) {
-                Text("No native clinical results yet", color = ClinicalInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                Text("Import screenshots above, or open the existing clinical tools to view legacy results while migration continues.", color = ClinicalMuted, fontSize = 9.sp, lineHeight = 14.sp)
-            }
-        } else {
-            saved.take(40).forEach { ClinicalResultRow(it) }
+        if (saved.isNotEmpty()) {
+            Text("LATEST RESULTS", color = ClinicalMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+            saved.take(8).forEach { ClinicalResultRow(it) }
         }
-
-        ClinicalButton("Open existing clinical tools", ClinicalNavy, openLegacy)
         Spacer(Modifier.height(18.dp))
+    }
+}
+
+@Composable
+private fun ClinicalScreenshotPreview(uri: Uri, modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val bitmap = remember(uri) {
+        runCatching { context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } }.getOrNull()
+    }
+    Box(modifier.aspectRatio(0.78f).clip(RoundedCornerShape(14.dp)).background(ClinicalBg), contentAlignment = Alignment.Center) {
+        if (bitmap != null) {
+            Image(bitmap = bitmap.asImageBitmap(), contentDescription = "Clinical screenshot preview", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+        } else {
+            Text("Preview unavailable", color = ClinicalMuted, fontSize = 8.sp)
+        }
+    }
+}
+
+@Composable
+private fun ClinicalLegacyReviewRow(draft: ClinicalDraft, onChange: (ClinicalDraft) -> Unit, onRemove: () -> Unit) {
+    val value = draft.value.toDoubleOrNull()
+    val low = draft.low.toDoubleOrNull()
+    val high = draft.high.toDoubleOrNull()
+    val status = if (value == null) "CHECK" else statusOf(value, low, high)
+    val statusLabel = when (status) { "NORMAL" -> "Within range"; "HIGH" -> "High"; "LOW" -> "Low"; else -> "Check range" }
+    val statusColor = when (status) { "NORMAL" -> ClinicalGood; "HIGH", "LOW" -> ClinicalBad; else -> ClinicalWarn }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            ClinicalChip(statusLabel, statusColor, Modifier.weight(1f, fill = false))
+            Spacer(Modifier.weight(1f))
+            Text("Remove", color = Color(0xFFA95C5C), fontSize = 12.sp, modifier = Modifier.clickable(onClick = onRemove).padding(6.dp))
+        }
+        OutlinedTextField(draft.name, { onChange(draft.copy(name = it)) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("TEST") })
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(draft.value, { onChange(draft.copy(value = it.filterClinicalNumber())) }, Modifier.weight(1f), singleLine = true, label = { Text("VALUE") })
+            OutlinedTextField(draft.unit, { onChange(draft.copy(unit = it, unitSource = "reviewed")) }, Modifier.weight(1f), singleLine = true, label = { Text("UNIT") })
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(draft.low, { onChange(draft.copy(low = it.filterClinicalNumber(), rangeSource = "reviewed")) }, Modifier.weight(1f), singleLine = true, label = { Text("LOW") })
+            OutlinedTextField(draft.high, { onChange(draft.copy(high = it.filterClinicalNumber(), rangeSource = "reviewed")) }, Modifier.weight(1f), singleLine = true, label = { Text("HIGH") })
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (draft.unit.isNotBlank()) ClinicalChip(if (draft.unitSource == "screenshot") "Unit read" else "Unit inferred", ClinicalBlue)
+            if (draft.low.isNotBlank() || draft.high.isNotBlank()) ClinicalChip(if (draft.rangeSource == "screenshot") "Range read" else "Range remembered", ClinicalNavy)
+            if (draft.confidence in 0.0..0.72) ClinicalChip("Check OCR", ClinicalWarn)
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFE6EDF4)))
+    }
+}
+
+@Composable
+private fun ClinicalChip(text: String, accent: Color, modifier: Modifier = Modifier) {
+    Box(modifier.background(accent.copy(alpha = 0.10f), RoundedCornerShape(99.dp)).padding(horizontal = 9.dp, vertical = 5.dp)) {
+        Text(text, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
     }
 }
 
