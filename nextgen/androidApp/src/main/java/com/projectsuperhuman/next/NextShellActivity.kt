@@ -1,7 +1,6 @@
 package com.projectsuperhuman.next
 
 import android.content.Intent
-import android.graphics.BitmapFactory
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -35,9 +34,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -106,11 +104,6 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
 
 @Composable
 private fun NativeTopBar(title: String, onSettings: () -> Unit) {
-    val context = LocalContext.current
-    val logo = remember {
-        runCatching { context.assets.open("icon.png").use(BitmapFactory::decodeStream)?.asImageBitmap() }.getOrNull()
-    }
-
     Row(
         Modifier.fillMaxWidth().height(92.dp).padding(horizontal = 22.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -124,8 +117,13 @@ private fun NativeTopBar(title: String, onSettings: () -> Unit) {
                     .border(1.dp, Color(0xFFDDE6ED), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                if (title == "PROJECT SUPERHUMAN" && logo != null) {
-                    Image(logo, null, Modifier.fillMaxSize().padding(4.dp), contentScale = ContentScale.Fit)
+                if (title == "PROJECT SUPERHUMAN") {
+                    Image(
+                        painter = painterResource(id = R.drawable.icon),
+                        contentDescription = "Project Superhuman",
+                        modifier = Modifier.fillMaxSize().padding(3.dp),
+                        contentScale = ContentScale.Fit
+                    )
                 } else {
                     Text("PS", color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = .5.sp)
                 }
