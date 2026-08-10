@@ -193,12 +193,12 @@ private fun SleepCalendarCard(
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            CalendarArrow("‹", onPrevious)
+            CalendarArrow("←", onPrevious)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")), color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Text("Tap a night to inspect it", color = HistoryMuted, fontSize = 8.sp)
             }
-            CalendarArrow("›", onNext)
+            CalendarArrow("→", onNext)
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -264,10 +264,10 @@ private fun CalendarArrow(symbol: String, onClick: () -> Unit) {
     ) {
         Text(
             symbol,
-            modifier = Modifier.width(24.dp),
+            modifier = Modifier.width(28.dp),
             color = HistoryPurple,
-            fontSize = 24.sp,
-            lineHeight = 24.sp,
+            fontSize = 22.sp,
+            lineHeight = 22.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center
         )
