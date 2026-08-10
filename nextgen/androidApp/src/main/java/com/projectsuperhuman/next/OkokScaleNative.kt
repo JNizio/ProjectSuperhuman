@@ -51,6 +51,8 @@ import kotlin.math.round
 private const val SCALE_PREFS = "project_superhuman_scale"
 private const val PREF_SCALE_MAC = "okok_scale_mac"
 private const val PREF_SCALE_NAME = "okok_scale_name"
+private const val EXACT_SCALE_MAC = "28:FA:7A:4D:42:59"
+private const val EXACT_SCALE_NAME = "Bluetooth Scale1"
 
 internal data class OkokCandidate(val name: String, val mac: String, val rssi: Int)
 internal data class OkokMeasurement(val weightKg: Double, val impedanceOhm: Double?, val mac: String, val rssi: Int, val stable: Boolean)
@@ -82,10 +84,13 @@ internal object OkokScaleManager {
     private var lastImpedance: Double? = null
 
     fun loadPairing(context: Context) {
-        val p = context.getSharedPreferences(SCALE_PREFS, Context.MODE_PRIVATE)
-        syncedMac = normalizeMac(p.getString(PREF_SCALE_MAC, "").orEmpty())
-        syncedName = p.getString(PREF_SCALE_NAME, "").orEmpty()
-        status = if (syncedMac.isBlank()) "No scale synced" else "Scale synced"
+        syncedMac = EXACT_SCALE_MAC
+        syncedName = EXACT_SCALE_NAME
+        context.getSharedPreferences(SCALE_PREFS, Context.MODE_PRIVATE).edit()
+            .putString(PREF_SCALE_MAC, EXACT_SCALE_MAC)
+            .putString(PREF_SCALE_NAME, EXACT_SCALE_NAME)
+            .apply()
+        status = "Bluetooth Scale1 linked"
     }
 
     fun requiredPermissions(): Array<String> = if (Build.VERSION.SDK_INT >= 31) arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -101,15 +106,20 @@ internal object OkokScaleManager {
 
     @SuppressLint("MissingPermission")
     fun startSync(context: Context) {
-        if (!prepareScanner(context)) return
-        resetSession(); mode = ScaleMode.SYNCING; scanning = true; candidates = emptyList(); measurement = null
-        status = "Searching — wake the scale by stepping on it"
-        beginScan(12_000)
+        syncedMac = EXACT_SCALE_MAC
+        syncedName = EXACT_SCALE_NAME
+        context.getSharedPreferences(SCALE_PREFS, Context.MODE_PRIVATE).edit()
+            .putString(PREF_SCALE_MAC, EXACT_SCALE_MAC)
+            .putString(PREF_SCALE_NAME, EXACT_SCALE_NAME)
+            .apply()
+        measurement = null
+        candidates = emptyList()
+        status = "Bluetooth Scale1 synced — ready to measure"
     }
 
     @SuppressLint("MissingPermission")
     fun startMeasure(context: Context) {
-        if (syncedMac.isBlank()) { status = "Sync your scale first"; return }
+        syncedMac = EXACT_SCALE_MAC; syncedName = EXACT_SCALE_NAME
         if (!prepareScanner(context)) return
         resetSession(); mode = ScaleMode.MEASURING; scanning = true; measurement = null
         status = "Measuring — step on your synced scale barefoot"
@@ -168,7 +178,7 @@ internal object OkokScaleManager {
         val name = try { result.device?.name.orEmpty() } catch (_: SecurityException) { "" }
         when (mode) {
             ScaleMode.SYNCING -> consumeSync(name, mac, result.rssi, raw)
-            ScaleMode.MEASURING -> if (mac == syncedMac) consumeMeasurement(mac, result.rssi, raw)
+            ScaleMode.MEASURING -> if (mac == EXACT_SCALE_MAC) consumeMeasurement(mac, result.rssi, raw)
             ScaleMode.IDLE -> Unit
         }
     }
@@ -249,24 +259,16 @@ internal fun NativeOkokScaleCard(onSaved: () -> Unit) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("SMART SCALE", color = Color.White.copy(alpha=.62f), fontSize=8.sp, fontWeight=FontWeight.Black)
-                Text(if (OkokScaleManager.syncedMac.isBlank()) "No scale linked" else "OKOK / Chipsea", color=Color.White, fontSize=18.sp, fontWeight=FontWeight.Black)
+                Text("Bluetooth Scale1", color=Color.White, fontSize=18.sp, fontWeight=FontWeight.Black)
                 Text(OkokScaleManager.status, color=Color.White.copy(alpha=.78f), fontSize=9.sp)
-                if (OkokScaleManager.syncedMac.isNotBlank()) Text("Synced • ${OkokScaleManager.syncedName} • ${OkokScaleManager.syncedMac.takeLast(8)}", color=Color.White.copy(alpha=.56f), fontSize=7.sp)
+                Text("Linked • 28:FA:7A:4D:42:59", color=Color.White.copy(alpha=.56f), fontSize=7.sp)
             }
-            Box(Modifier.background(Color.White.copy(alpha=.14f), RoundedCornerShape(14.dp)).clickable { if (OkokScaleManager.scanning) OkokScaleManager.stop() else if (OkokScaleManager.syncedMac.isBlank()) sync() else measure() }.padding(horizontal=14.dp, vertical=11.dp)) {
-                Text(if (OkokScaleManager.scanning) "CANCEL" else if (OkokScaleManager.syncedMac.isBlank()) "SYNC" else "MEASURE", color=Color.White, fontSize=9.sp, fontWeight=FontWeight.Black)
-            }
-        }
-        if (OkokScaleManager.syncedMac.isNotBlank() && !OkokScaleManager.scanning) Text("Change synced scale", color=Color.White.copy(alpha=.72f), fontSize=8.sp, fontWeight=FontWeight.Bold, modifier=Modifier.clickable { sync() })
-        if (OkokScaleManager.candidates.isNotEmpty()) {
-            Text("SELECT YOUR SCALE", color=Color.White.copy(alpha=.62f), fontSize=8.sp, fontWeight=FontWeight.Black)
-            OkokScaleManager.candidates.forEach { c ->
-                Row(Modifier.fillMaxWidth().background(Color.White.copy(alpha=.10f), RoundedCornerShape(13.dp)).clickable { OkokScaleManager.pair(context, c) }.padding(11.dp), horizontalArrangement=Arrangement.SpaceBetween, verticalAlignment=Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text(c.name, color=Color.White, fontSize=10.sp, fontWeight=FontWeight.Bold); Text("${c.mac} • ${c.rssi} dBm", color=Color.White.copy(alpha=.62f), fontSize=7.sp) }
-                    Text("USE", color=Color.White, fontSize=8.sp, fontWeight=FontWeight.Black)
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Box(Modifier.background(Color.White.copy(alpha=.10f), RoundedCornerShape(14.dp)).clickable { sync() }.padding(horizontal=11.dp, vertical=11.dp)) { Text("SYNC", color=Color.White, fontSize=8.sp, fontWeight=FontWeight.Black) }
+                Box(Modifier.background(Color.White.copy(alpha=.16f), RoundedCornerShape(14.dp)).clickable { if (OkokScaleManager.scanning) OkokScaleManager.stop() else measure() }.padding(horizontal=13.dp, vertical=11.dp)) { Text(if (OkokScaleManager.scanning) "CANCEL" else "MEASURE", color=Color.White, fontSize=9.sp, fontWeight=FontWeight.Black) }
             }
         }
+        Text("SYNC confirms the known scale; MEASURE listens only to this MAC.", color=Color.White.copy(alpha=.62f), fontSize=7.sp)
         if (m != null) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) { ScaleMetric("WEIGHT", "%.2f kg".format(m.weightKg), Modifier.weight(1f)); ScaleMetric("IMPEDANCE", m.impedanceOhm?.let { "%.1f Ω".format(it) } ?: "waiting…", Modifier.weight(1f)) }
             Text(if (m.stable) "Stable reading from your synced scale" else "Hold still while the reading settles", color=Color.White.copy(alpha=.75f), fontSize=8.sp)
