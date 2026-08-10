@@ -1,0 +1,175 @@
+name: Enrich sleep history hero
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - '.github/workflows/enrich-sleep-history-hero.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enrich the routed sleep hero
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt')
+          s = p.read_text()
+          start = s.index('@Composable\nprivate fun HistorySleepDashboardHero')
+          end = s.index('@Composable\nprivate fun HistoryHeader', start)
+
+          hero = r'''@Composable
+private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
+    val latest = nights.maxByOrNull { it.endEpochMs }
+    val previous = nights.filter { it !== latest }.sortedByDescending { it.endEpochMs }.take(7)
+    val latestAnalysis = latest?.snapshot?.let { SleepIntelligenceEngine.analyse(it) }
+    val recentMinutes = previous.mapNotNull { it.snapshot.totalMinutes }
+    val recentScores = previous.map { SleepIntelligenceEngine.analyse(it.snapshot).recoveryScore }
+    val avgMinutes = recentMinutes.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
+    val avgScore = recentScores.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
+    val lastMinutes = latest?.snapshot?.totalMinutes
+    val deltaMinutes = if (lastMinutes != null && avgMinutes != null) lastMinutes - avgMinutes else null
+    val sleepScore = latestAnalysis?.recoveryScore ?: latest?.snapshot?.score
+    val deepRem = latest?.snapshot?.let { (it.deepMinutes ?: 0) + (it.remMinutes ?: 0) }
+    val bedTime = latest?.snapshot?.startEpochMs?.let(::historyHeroTime) ?: "—"
+    val wakeTime = latest?.snapshot?.endEpochMs?.let(::historyHeroTime) ?: "—"
+    val durationScore = latestAnalysis?.durationScore
+    val continuityScore = latestAnalysis?.continuityScore
+    val stageScore = latestAnalysis?.stageBalanceScore
+
+    val comparison = when {
+        deltaMinutes == null -> "Build a few nights of history and your personal baseline will appear here."
+        deltaMinutes > 20 -> "You slept ${formatMinutes(deltaMinutes)} longer than your recent baseline."
+        deltaMinutes < -20 -> "You slept ${formatMinutes(-deltaMinutes)} less than your recent baseline."
+        else -> "Your sleep duration was close to your recent baseline."
+    }
+    val focus = latestAnalysis?.priority ?: "Keep syncing sleep to unlock personalised trends."
+    val scoreLabel = when {
+        sleepScore == null -> "Building"
+        sleepScore >= 85 -> "Excellent"
+        sleepScore >= 75 -> "Strong"
+        sleepScore >= 60 -> "Fair"
+        else -> "Needs recovery"
+    }
+
+    Column(
+        Modifier.fillMaxWidth().background(
+            Brush.linearGradient(listOf(Color(0xFF08152F), Color(0xFF162D66), Color(0xFF41348F))),
+            RoundedCornerShape(28.dp)
+        ).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(15.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+            Column(Modifier.weight(1f).padding(end = 14.dp)) {
+                Text("✦  LATEST SLEEP", color = Color.White.copy(alpha = .66f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    formatMinutes(lastMinutes),
+                    color = Color.White,
+                    fontSize = 34.sp,
+                    lineHeight = 38.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    latestAnalysis?.headline ?: "Your night sky is still gathering data",
+                    color = Color.White.copy(alpha = .86f),
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text("SLEEP SCORE", color = Color.White.copy(alpha = .67f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                if (sleepScore != null) {
+                    Text(sleepScore.toString(), color = Color.White, fontSize = 52.sp, lineHeight = 54.sp, fontWeight = FontWeight.Black)
+                    Text(scoreLabel, color = HistoryGood, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                } else {
+                    Text("—", color = Color.White, fontSize = 52.sp, lineHeight = 54.sp, fontWeight = FontWeight.Black)
+                    Text(scoreLabel, color = Color.White.copy(alpha = .58f), fontSize = 9.sp)
+                }
+            }
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HistoryHeroStat("Bed", bedTime, Modifier.weight(1f))
+            HistoryHeroStat("Wake", wakeTime, Modifier.weight(1f))
+            HistoryHeroStat("7-night avg", formatMinutes(avgMinutes), Modifier.weight(1f))
+        }
+
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = .14f)))
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HistoryHeroScoreStat("Duration", durationScore, Modifier.weight(1f))
+            HistoryHeroScoreStat("Continuity", continuityScore, Modifier.weight(1f))
+            HistoryHeroScoreStat("Stages", stageScore, Modifier.weight(1f))
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(comparison, color = Color.White.copy(alpha = .72f), fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(10.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(formatMinutes(deepRem), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Text("Deep + REM", color = Color.White.copy(alpha = .56f), fontSize = 7.sp)
+            }
+        }
+
+        Box(
+            Modifier.fillMaxWidth().background(Color.White.copy(alpha = .09f), RoundedCornerShape(14.dp)).padding(11.dp)
+        ) {
+            Text("Tonight's focus: $focus", color = Color.White.copy(alpha = .90f), fontSize = 9.sp, lineHeight = 13.sp)
+        }
+
+        Text(
+            if (avgScore != null) "✦ Recent sleep-score baseline $avgScore   ·   personalised from your history" else "✦ Personal baseline building",
+            color = Color.White.copy(alpha = .53f),
+            fontSize = 7.sp
+        )
+    }
+}
+
+@Composable
+private fun HistoryHeroStat(label: String, value: String, modifier: Modifier) {
+    Column(modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp)).padding(10.dp)) {
+        Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Text(label, color = Color.White.copy(alpha = .60f), fontSize = 7.sp)
+    }
+}
+
+@Composable
+private fun HistoryHeroScoreStat(label: String, value: Int?, modifier: Modifier) {
+    Column(modifier.background(Color.White.copy(alpha = .075f), RoundedCornerShape(14.dp)).padding(9.dp)) {
+        Text(value?.toString() ?: "—", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("$label /100", color = Color.White.copy(alpha = .55f), fontSize = 7.sp)
+    }
+}
+
+private fun historyHeroTime(epochMs: Long): String =
+    Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
+
+'''
+          s = s[:start] + hero + s[end:]
+          p.write_text(s)
+
+          gradle = Path('nextgen/androidApp/build.gradle.kts')
+          g = gradle.read_text()
+          g = g.replace('versionCode = 11008', 'versionCode = 11009')
+          g = g.replace('versionName = "11.0.8"', 'versionName = "11.0.9"')
+          gradle.write_text(g)
+          PY
+
+      - name: Commit enriched hero
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt nextgen/androidApp/build.gradle.kts
+          git commit -m "Enrich starry sleep hero with prominent score and nightly metrics"
+          git push origin HEAD:main
