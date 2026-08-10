@@ -33,11 +33,11 @@ import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Hydration's primary interaction surface.
+ * Water-only primary interaction surface.
  *
- * Interaction rule: one amount selector serves both logging and correction. Presets select an
- * amount instead of immediately mutating data, and the Add / Correct mode decides what the single
- * primary action does. This keeps the hero calm and avoids grids of tiny +/- buttons.
+ * Amount always starts at zero and the orb shows committed database state only. The slider and
+ * presets select the next mutation; they never preview a fake future fill. Electrolytes live in
+ * Nutrition, keeping hydration semantically clean and easy for future sessions to reason about.
  */
 @Composable
 internal fun HydrationHeroControls(
@@ -45,10 +45,8 @@ internal fun HydrationHeroControls(
     goalMl: Int,
     lastDrinkMl: Int?,
     lastDrinkLabel: String?,
-    source: String,
     amountMl: Int,
     status: String,
-    onSourceChange: (String) -> Unit,
     onAmountChange: (Int) -> Unit,
     onQuickSubtract: (Int) -> Unit,
     onClearToday: () -> Unit,
@@ -59,16 +57,8 @@ internal fun HydrationHeroControls(
     val maxAmount = if (correcting) todayMl.coerceAtLeast(0) else remaining
     val sliderMax = maxAmount.coerceAtLeast(50)
     val selected = amountMl.coerceAtMost(maxAmount)
-
-    val projectedTotal = if (correcting) {
-        (todayMl - selected).coerceAtLeast(0)
-    } else {
-        (todayMl + selected).coerceAtMost(goalMl)
-    }
     val currentFraction = todayMl.toFloat() / goalMl.coerceAtLeast(1)
-    val projectedFraction = projectedTotal.toFloat() / goalMl.coerceAtLeast(1)
     val currentPct = (currentFraction * 100f).roundToInt().coerceIn(0, 100)
-    val projectedPct = (projectedFraction * 100f).roundToInt().coerceIn(0, 100)
 
     var dragValue by remember { mutableFloatStateOf(selected.toFloat()) }
     LaunchedEffect(selected, sliderMax, correcting) {
@@ -84,7 +74,7 @@ internal fun HydrationHeroControls(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("TODAY", color = Color.White.copy(alpha = .72f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text("WATER TODAY", color = Color.White.copy(alpha = .72f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(
                 if (remaining > 0) "${formatMlHydration(remaining)} remaining" else "Goal reached",
                 color = Color.White.copy(alpha = .82f), fontSize = 10.sp, fontWeight = FontWeight.Bold
@@ -92,22 +82,13 @@ internal fun HydrationHeroControls(
         }
 
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AnimatedHydrationOrb(
-                fraction = if (selected > 0) projectedFraction else currentFraction,
-                percentLabel = if (selected > 0) "$projectedPct%" else "$currentPct%"
-            )
+            AnimatedHydrationOrb(fraction = currentFraction, percentLabel = "$currentPct%")
             Spacer(Modifier.width(18.dp))
             Column(Modifier.weight(1f)) {
                 Text(formatMlHydration(todayMl), color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black)
                 Text("of ${formatMlHydration(goalMl)}", color = Color.White.copy(alpha = .72f), fontSize = 11.sp)
-                if (selected > 0) {
-                    Spacer(Modifier.height(7.dp))
-                    Text(
-                        if (correcting) "Preview −${formatMlHydration(selected)}" else "Preview +${formatMlHydration(selected)}",
-                        color = Color.White.copy(alpha = .94f), fontSize = 11.sp, fontWeight = FontWeight.Bold
-                    )
-                    Text("→ ${formatMlHydration(projectedTotal)} total", color = Color.White.copy(alpha = .68f), fontSize = 9.sp)
-                }
+                Spacer(Modifier.height(7.dp))
+                Text("Water only", color = Color.White.copy(alpha = .64f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -116,7 +97,6 @@ internal fun HydrationHeroControls(
                 Modifier.fillMaxWidth().background(Color.White.copy(alpha = .10f), RoundedCornerShape(22.dp)).padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(11.dp)
             ) {
-                // Two-state segmented control replaces separate add and correction button grids.
                 Row(
                     Modifier.fillMaxWidth().background(Color.White.copy(alpha = .08f), RoundedCornerShape(15.dp)).padding(3.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
@@ -128,8 +108,7 @@ internal fun HydrationHeroControls(
                                 .background(if (active) Color.White.copy(alpha = .20f) else Color.Transparent, RoundedCornerShape(12.dp))
                                 .superhumanClickable(enabled = !active) {
                                     correcting = mode
-                                    val newMax = if (mode) todayMl else remaining
-                                    onAmountChange(minOf(amountMl.coerceAtLeast(50), newMax))
+                                    onAmountChange(0)
                                 }
                                 .padding(vertical = 9.dp),
                             contentAlignment = Alignment.Center
@@ -139,38 +118,17 @@ internal fun HydrationHeroControls(
                     }
                 }
 
-                if (!correcting) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        listOf("Water", "Electrolyte", "Other").forEach { option ->
-                            val selectedSource = source == option
-                            Box(
-                                Modifier.background(
-                                    if (selectedSource) Color.White.copy(alpha = .20f) else Color.White.copy(alpha = .07f),
-                                    RoundedCornerShape(13.dp)
-                                ).superhumanClickable { onSourceChange(option) }
-                                    .padding(horizontal = 11.dp, vertical = 8.dp)
-                            ) {
-                                Text(option, color = Color.White.copy(alpha = if (selectedSource) .95f else .62f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
-
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                     Column {
                         Text(
-                            if (correcting) "CORRECTION AMOUNT" else "DRINK AMOUNT",
+                            if (correcting) "CORRECTION AMOUNT" else "WATER AMOUNT",
                             color = Color.White.copy(alpha = .56f), fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp
                         )
                         Text(formatMlHydration(selected), color = Color.White.copy(alpha = .96f), fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
-                    Text(
-                        "max ${formatMlHydration(maxAmount)}",
-                        color = Color.White.copy(alpha = .60f), fontSize = 8.sp
-                    )
+                    Text("max ${formatMlHydration(maxAmount)}", color = Color.White.copy(alpha = .60f), fontSize = 8.sp)
                 }
 
-                // Presets only select an amount. The single primary action performs the mutation.
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(250, 500, 750).forEach { preset ->
                         val enabled = maxAmount >= preset
@@ -182,8 +140,7 @@ internal fun HydrationHeroControls(
                                         active -> Color.White.copy(alpha = .22f)
                                         enabled -> Color.White.copy(alpha = .09f)
                                         else -> Color.White.copy(alpha = .04f)
-                                    },
-                                    RoundedCornerShape(13.dp)
+                                    }, RoundedCornerShape(13.dp)
                                 )
                                 .superhumanClickable(enabled = enabled) { onAmountChange(preset) }
                                 .padding(vertical = 9.dp),
@@ -225,7 +182,7 @@ internal fun HydrationHeroControls(
                 ) {
                     Text(
                         when {
-                            !actionEnabled -> if (correcting) "SELECT CORRECTION" else "SELECT AMOUNT"
+                            !actionEnabled -> if (correcting) "SELECT CORRECTION" else "SELECT WATER"
                             correcting -> "REMOVE ${formatMlHydration(selected).uppercase()}"
                             else -> "ADD ${formatMlHydration(selected).uppercase()}"
                         },
@@ -235,8 +192,7 @@ internal fun HydrationHeroControls(
 
                 if (correcting && todayMl > 0) {
                     Box(
-                        Modifier.align(Alignment.CenterHorizontally)
-                            .superhumanClickable { onClearToday() }
+                        Modifier.align(Alignment.CenterHorizontally).superhumanClickable { onClearToday() }
                             .padding(horizontal = 12.dp, vertical = 5.dp)
                     ) {
                         Text("Clear today", color = Color.White.copy(alpha = .58f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
@@ -246,7 +202,7 @@ internal fun HydrationHeroControls(
         }
 
         if (lastDrinkLabel != null) {
-            Text("Last drink ${lastDrinkMl ?: 0} ml · $lastDrinkLabel", color = Color.White.copy(alpha = .66f), fontSize = 8.sp)
+            Text("Last water ${lastDrinkMl ?: 0} ml · $lastDrinkLabel", color = Color.White.copy(alpha = .66f), fontSize = 8.sp)
         }
         if (status.isNotBlank()) {
             Text(status, color = Color.White.copy(alpha = .88f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
