@@ -69,7 +69,8 @@ data class ClinicalDraft(
     val sourceText: String = "",
     val confidence: Double = 0.0,
     val rangeSource: String = "",
-    val unitSource: String = ""
+    val unitSource: String = "",
+    val comparator: String = ""
 ) {
     val metric: String get() = "clinical.${slug(name)}"
 }
@@ -223,7 +224,8 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                 "rangeSource" to d.rangeSource.ifBlank { if (d.low.isNotBlank() || d.high.isNotBlank()) "reviewed" else "none" },
                                 "unitSource" to d.unitSource,
                                 "ocrConfidence" to String.format(Locale.US, "%.2f", d.confidence),
-                                "rawOcr" to d.sourceText.take(700)
+                                "rawOcr" to d.sourceText.take(700),
+                                "qualifier" to d.comparator
                             )
                         )
                     }
@@ -286,6 +288,7 @@ private fun ClinicalLegacyReviewRow(draft: ClinicalDraft, onChange: (ClinicalDra
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             if (draft.unit.isNotBlank()) ClinicalChip(if (draft.unitSource == "screenshot") "Unit read" else "Unit inferred", ClinicalBlue)
             if (draft.low.isNotBlank() || draft.high.isNotBlank()) ClinicalChip(if (draft.rangeSource == "screenshot") "Range read" else "Range remembered", ClinicalNavy)
+            if (draft.comparator.isNotBlank()) ClinicalChip("${draft.comparator} result", ClinicalNavy)
             if (draft.confidence in 0.0..0.72) ClinicalChip("Check OCR", ClinicalWarn)
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFE6EDF4)))
@@ -371,7 +374,8 @@ private fun ClinicalResultRow(value: HealthValue) {
             Text(range, color = ClinicalMuted, fontSize = 9.sp)
         }
         Column(horizontalAlignment = Alignment.End) {
-            Text("${trimNumber(value.value)} ${value.unit}", color = ClinicalInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+            val qualifier = value.metadata["qualifier"].orEmpty()
+            Text("${qualifier}${trimNumber(value.value)} ${value.unit}", color = ClinicalInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
             Text(status, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black)
         }
     }
@@ -387,7 +391,7 @@ private fun ClinicalButton(title: String, accent: Color, onClick: () -> Unit) {
 private data class LabDef(val id: String, val name: String, val unit: String = "", val aliases: List<String>)
 private data class OcrLine(val text: String, val block: Int, val top: Int, val left: Int)
 private data class RangeHit(val low: String = "", val high: String = "")
-private data class ValueHit(val value: String, val lineIndex: Int, val confidence: Double)
+private data class ValueHit(val value: String, val lineIndex: Int, val confidence: Double, val comparator: String = "")
 
 private val LAB_DEFS = listOf(
     LabDef("wbc", "White blood cells", "10^9/L", listOf("white blood cell count", "white blood cells", "total white cell count", "wbc")),
@@ -426,7 +430,7 @@ private val LAB_DEFS = listOf(
     LabDef("phosphate", "Phosphate", "mmol/L", listOf("serum phosphate", "phosphate")),
     LabDef("magnesium", "Magnesium", "mmol/L", listOf("serum magnesium", "magnesium")),
     LabDef("tsh", "TSH", "mU/L", listOf("thyroid stimulating hormone", "serum tsh", "tsh")),
-    LabDef("free_t4", "Free T4", "pmol/L", listOf("free thyroxine", "free t4", "ft4")),
+    LabDef("free_t4", "Free T4", "pmol/L", listOf("serum free t4 level", "serum free t4", "free thyroxine", "free t4", "ft4")),
     LabDef("free_t3", "Free T3", "pmol/L", listOf("free triiodothyronine", "free t3", "ft3")),
     LabDef("b12", "Vitamin B12", "ng/L", listOf("serum vitamin b12", "vitamin b12", "b12")),
     LabDef("folate", "Folate", "ug/L", listOf("serum folate", "folate")),
@@ -480,13 +484,12 @@ private fun parseClinicalText(ocr: MlText): List<ClinicalDraft> {
             sourceText = blockText,
             confidence = confidence,
             rangeSource = if (range.low.isNotBlank() || range.high.isNotBlank()) "screenshot" else "",
-            unitSource = if (unitRead.first.isNotBlank()) "screenshot" else if (def.unit.isNotBlank()) "marker database" else ""
+            unitSource = if (unitRead.first.isNotBlank()) "screenshot" else if (def.unit.isNotBlank()) "marker database" else "",
+            comparator = valueHit.comparator
         )
         if (out.none { it.metric == draft.metric && it.value == draft.value }) out += draft
     }
 
-    val generic = findGenericRows(lines)
-    generic.forEach { g -> if (out.none { it.metric == g.metric && it.value == g.value }) out += g }
     return out
 }
 
@@ -525,7 +528,8 @@ private fun findResult(window: List<OcrLine>, def: LabDef): ValueHit? {
                 offset <= 2 -> .78
                 else -> .68
             }
-            return ValueHit(v, offset, confidence)
+            val comparator = hit.groupValues[1].replace(" ", "").trim()
+            return ValueHit(v, offset, confidence, comparator)
         }
     }
     return null
@@ -631,7 +635,7 @@ private fun parseClinicalTextFallback(raw: String): List<ClinicalDraft> {
         val block = window.joinToString("\n") { it.text }
         val range = findRange(block)
         val unit = findUnit(block, def.unit).first
-        out += ClinicalDraft(def.name, value.value, unit.ifBlank { def.unit }, range.low, range.high, block, .7, if (range.low.isNotBlank() || range.high.isNotBlank()) "screenshot" else "", if (unit.isNotBlank()) "screenshot" else "marker database")
+        out += ClinicalDraft(def.name, value.value, unit.ifBlank { def.unit }, range.low, range.high, block, .7, if (range.low.isNotBlank() || range.high.isNotBlank()) "screenshot" else "", if (unit.isNotBlank()) "screenshot" else "marker database", value.comparator)
     }
     return out.distinctBy { it.metric + "|" + it.value }
 }
@@ -686,7 +690,8 @@ private fun looksGenericHeading(text: String): Boolean {
     val s = text.trim()
     if (s.length !in 3..80 || clinicalBoilerplate(s)) return false
     if (s.count(Char::isLetter) < 3 || s.count(Char::isDigit) > s.length / 4) return false
-    if (Regex("(?:range|reference|result|date|time|page|status|normal|high|low)", RegexOption.IGNORE_CASE).containsMatchIn(s)) return false
+    if (Regex("(?:range|reference|result|date|time|page|status|normal|high|low|screening test|function test|professional.s comment)", RegexOption.IGNORE_CASE).containsMatchIn(s)) return false
+    if (Regex("^(?:m?iu|mu|u|mmol|umol|µmol|pmol|nmol|mg|ug|µg|ng|g|fl|pg)(?:/|$)|^ratio[.]?$|^sec[.]?$", RegexOption.IGNORE_CASE).containsMatchIn(s.replace(" ", ""))) return false
     return true
 }
 
