@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -6,7 +8,11 @@ plugins {
 }
 
 kotlin {
-    jvmToolchain(17)
+    compilerOptions {
+        // Compile Kotlin bytecode for Java 17 while allowing Android Studio to run Gradle on its
+        // bundled JDK. Do not request a separate JDK 17 toolchain on developer machines.
+        jvmTarget.set(JvmTarget.JVM_17)
+    }
 }
 
 android {
