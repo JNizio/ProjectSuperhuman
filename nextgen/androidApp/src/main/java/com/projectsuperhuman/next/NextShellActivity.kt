@@ -119,7 +119,7 @@ private fun NativeTopBar(title: String, onSettings: () -> Unit) {
             ) {
                 if (title == "PROJECT SUPERHUMAN") {
                     Image(
-                        painter = painterResource(id = R.drawable.icon),
+                        painter = painterResource(id = R.drawable.superhuman_mark),
                         contentDescription = "Project Superhuman",
                         modifier = Modifier.fillMaxSize().padding(3.dp),
                         contentScale = ContentScale.Fit
