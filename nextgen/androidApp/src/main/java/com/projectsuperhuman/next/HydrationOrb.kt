@@ -63,7 +63,6 @@ internal fun AnimatedHydrationOrb(
                 val amplitude = size.height * .026f
                 val wavePath = Path().apply {
                     moveTo(0f, waterTop)
-                    // 24 segments are visually smooth at this size and halve path work while dragging.
                     val steps = 24
                     for (i in 0..steps) {
                         val x = size.width * i / steps
@@ -77,13 +76,13 @@ internal fun AnimatedHydrationOrb(
                 drawPath(
                     wavePath,
                     Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = .76f), Color(0xFFBCEBFA).copy(alpha = .55f)),
+                        listOf(Color.White.copy(alpha = .70f), Color(0xFFBCEBFA).copy(alpha = .50f)),
                         startY = waterTop,
                         endY = size.height
                     )
                 )
                 drawOval(
-                    color = Color.White.copy(alpha = .14f),
+                    color = Color.White.copy(alpha = .11f),
                     topLeft = Offset(size.width * .17f, size.height * .13f),
                     size = Size(size.width * .28f, size.height * .13f)
                 )
@@ -91,8 +90,18 @@ internal fun AnimatedHydrationOrb(
         }
 
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(percentLabel, color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
-            Text("of goal", color = Color.White.copy(alpha = .76f), fontSize = 8.sp)
+            Text(
+                percentLabel,
+                color = Color(0xFFF2FAFE).copy(alpha = .92f),
+                fontSize = 23.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+            Text(
+                "of goal",
+                color = Color(0xFFE4F4FB).copy(alpha = .68f),
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
