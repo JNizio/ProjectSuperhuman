@@ -72,20 +72,24 @@ internal object SleepHealthConnect {
                             breakdown.remMinutes,
                             effectiveSleep
                         )
-                        val common = mapOf(
-                            "sourceRecordId" to session.metadata.id,
+                        val timestamp = session.endTime.toEpochMilli()
+                        val baseMetadata = mapOf(
+                            "healthConnectRecordId" to session.metadata.id,
                             "sessionStart" to session.startTime.toEpochMilli().toString(),
                             "sessionEnd" to session.endTime.toEpochMilli().toString()
                         )
-                        val timestamp = session.endTime.toEpochMilli()
-                        add(HealthValue(HealthDomain.SLEEP, "sleep_score", score.toDouble(), "score", timestamp, "health-connect", common))
-                        add(HealthValue(HealthDomain.SLEEP, "sleep_total_minutes", totalMinutes.toDouble(), "min", timestamp, "health-connect", common))
-                        add(HealthValue(HealthDomain.SLEEP, "sleep_awake_minutes", breakdown.awakeMinutes.toDouble(), "min", timestamp, "health-connect", common))
-                        add(HealthValue(HealthDomain.SLEEP, "sleep_light_minutes", breakdown.lightMinutes.toDouble(), "min", timestamp, "health-connect", common))
-                        add(HealthValue(HealthDomain.SLEEP, "sleep_deep_minutes", breakdown.deepMinutes.toDouble(), "min", timestamp, "health-connect", common))
-                        add(HealthValue(HealthDomain.SLEEP, "sleep_rem_minutes", breakdown.remMinutes.toDouble(), "min", timestamp, "health-connect", common))
-                        add(HealthValue(HealthDomain.SLEEP, "sleep_start_epoch_ms", session.startTime.toEpochMilli().toDouble(), "ms", timestamp, "health-connect", common))
-                        add(HealthValue(HealthDomain.SLEEP, "sleep_end_epoch_ms", timestamp.toDouble(), "ms", timestamp, "health-connect", common))
+
+                        fun metadata(metric: String) = baseMetadata +
+                            ("sourceRecordId" to "${session.metadata.id}|$metric")
+
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_score", score.toDouble(), "score", timestamp, "health-connect", metadata("sleep_score")))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_total_minutes", totalMinutes.toDouble(), "min", timestamp, "health-connect", metadata("sleep_total_minutes")))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_awake_minutes", breakdown.awakeMinutes.toDouble(), "min", timestamp, "health-connect", metadata("sleep_awake_minutes")))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_light_minutes", breakdown.lightMinutes.toDouble(), "min", timestamp, "health-connect", metadata("sleep_light_minutes")))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_deep_minutes", breakdown.deepMinutes.toDouble(), "min", timestamp, "health-connect", metadata("sleep_deep_minutes")))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_rem_minutes", breakdown.remMinutes.toDouble(), "min", timestamp, "health-connect", metadata("sleep_rem_minutes")))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_start_epoch_ms", session.startTime.toEpochMilli().toDouble(), "ms", timestamp, "health-connect", metadata("sleep_start_epoch_ms")))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_end_epoch_ms", timestamp.toDouble(), "ms", timestamp, "health-connect", metadata("sleep_end_epoch_ms")))
                     }
                     add(
                         HealthValue(
