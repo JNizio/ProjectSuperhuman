@@ -131,7 +131,7 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
 private fun BodyHeader(onBack: () -> Unit, onProfile: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.width(44.dp).height(44.dp).background(Color.White, RoundedCornerShape(15.dp)).clickable(onClick = onBack),
+            Modifier.superhumanTopButton(onClick = onBack),
             contentAlignment = Alignment.Center
         ) {
             Text("←", color = BodyBlue, fontSize = 25.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)

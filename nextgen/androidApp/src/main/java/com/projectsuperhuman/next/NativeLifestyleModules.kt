@@ -43,7 +43,7 @@ fun NativeMindfulnessPage(onBack: () -> Unit, openLegacy: () -> Unit) {
 private fun NativeModuleFrame(title: String, subtitle: String, onBack: () -> Unit, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.background(Color.White, RoundedCornerShape(13.dp)).clickable(onClick = onBack).padding(horizontal = 15.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.superhumanTopButton(onClick = onBack).padding(horizontal = 15.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
                 Text("←", color = LifestyleNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
             }
             Column(Modifier.padding(start = 12.dp)) {

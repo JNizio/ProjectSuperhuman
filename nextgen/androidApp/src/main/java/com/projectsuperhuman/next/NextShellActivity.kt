@@ -139,11 +139,7 @@ private fun NativeTopBar(title: String, onSettings: () -> Unit) {
             }
         }
         Box(
-            Modifier.width(48.dp).height(48.dp)
-                .clip(RoundedCornerShape(17.dp))
-                .background(Color.White)
-                .border(1.dp, Color(0xFFE1E8EE), RoundedCornerShape(17.dp))
-                .superhumanClickable(onClick = onSettings),
+            Modifier.superhumanTopButton(onClick = onSettings),
             contentAlignment = Alignment.Center
         ) {
             Text(if (title == "SETTINGS") "×" else "⚙", color = ShellNavy, fontSize = 21.sp, fontWeight = FontWeight.Bold)

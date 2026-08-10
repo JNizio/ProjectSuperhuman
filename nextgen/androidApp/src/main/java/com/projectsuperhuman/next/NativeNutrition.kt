@@ -193,7 +193,7 @@ private fun oneDecimal(value: Double): String = ((value * 10.0).roundToInt() / 1
 @Composable
 private fun ModuleHeader(title: String, subtitle: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(13.dp)).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
+        Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
             Text("←", color = NutritionBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(12.dp))
