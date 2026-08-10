@@ -120,7 +120,7 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             if (editing) {
-                Box(Modifier.weight(1f).background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).padding(6.dp)) {
+                Box(Modifier.weight(1f).height(80.dp).background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).padding(6.dp)) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("SEX", color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -130,9 +130,12 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
                     }
                 }
                 Box(Modifier.weight(2f)) {
-                    Column(Modifier.fillMaxWidth().background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).clickable { activityOpen = true }.padding(10.dp)) {
+                    Column(
+                        Modifier.fillMaxWidth().height(80.dp).background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).superhumanClickable { activityOpen = true }.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
+                        horizontalAlignment = Alignment.Start
+                    ) {
                         Text("ACTIVITY", color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(3.dp))
                         Text(activityLabels[profile.activity] + "  ▾", color = DashInk, fontSize = 10.sp, fontWeight = FontWeight.Black)
                     }
                     DropdownMenu(expanded = activityOpen, onDismissRequest = { activityOpen = false }) {

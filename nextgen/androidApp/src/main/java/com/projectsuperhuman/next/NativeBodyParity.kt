@@ -66,6 +66,7 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
     var waistHistory by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var view by remember { mutableStateOf(BodyView.PROGRESS) }
     var profileOpen by remember { mutableStateOf(false) }
+    val scrollState = rememberScrollState()
 
     suspend fun refresh() {
         val values = NativeDataHub.latestForDomain(HealthDomain.BODY)
@@ -91,20 +92,23 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
     val goalDelta = if (latestWeight != null && snapshot.goalKg != null) latestWeight - snapshot.goalKg!! else null
 
     Column(
-        Modifier.fillMaxSize().background(BodyBg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
+        Modifier.fillMaxSize().background(BodyBg).verticalScroll(scrollState).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        BodyHeader(onBack = onBack, onProfile = { profileOpen = !profileOpen })
+        BodyHeader(onBack = onBack, onProfile = {
+            profileOpen = !profileOpen
+            if (profileOpen) scope.launch { scrollState.animateScrollTo(0) }
+        })
+
+        if (profileOpen) {
+            BodyProfileSetupCard(onSaved = { scope.launch { refresh() } })
+        }
 
         BodyHero(
             snapshot = snapshot,
             weightChange = weightChange,
             goalDelta = goalDelta
         )
-
-        if (profileOpen) {
-            BodyProfileSetupCard(onSaved = { scope.launch { refresh() } })
-        }
 
         NativeOkokScaleCard(onSaved = { scope.launch { refresh() } })
 
@@ -139,7 +143,7 @@ private fun BodyHeader(onBack: () -> Unit, onProfile: () -> Unit) {
             Text("Your body trends, measurements & goals", color = BodyMuted, fontSize = 10.sp)
         }
         Box(
-            Modifier.width(44.dp).height(44.dp).clickable(onClick = onProfile),
+            Modifier.width(44.dp).height(44.dp).superhumanClickable(onClick = onProfile),
             contentAlignment = Alignment.Center
         ) {
             Canvas(Modifier.width(24.dp).height(24.dp)) {
