@@ -82,10 +82,11 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
     suspend fun refresh() {
         snapshot = loadHydrationSnapshot()
         goalDraft = snapshot.goalMl.toFloat()
+        val broadMax = maxOf(snapshot.remainingMl, snapshot.todayMl)
         amountSlider = when {
-            snapshot.remainingMl <= 0 -> 0
-            amountSlider <= 0 -> minOf(250, snapshot.remainingMl)
-            else -> amountSlider.coerceAtMost(snapshot.remainingMl)
+            broadMax <= 0 -> 0
+            amountSlider <= 0 -> minOf(250, broadMax)
+            else -> amountSlider.coerceAtMost(broadMax)
         }
     }
 
@@ -112,7 +113,8 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
             lastDrinkMl = if (delta > 0) delta else snapshot.lastDrinkMl,
             lastDrinkEpochMs = if (delta > 0) now else snapshot.lastDrinkEpochMs
         )
-        amountSlider = minOf(250, snapshot.remainingMl)
+        val nextMax = maxOf(snapshot.remainingMl, snapshot.todayMl)
+        amountSlider = minOf(250, nextMax)
         status = if (delta > 0) "+$delta ml logged" else "${delta} ml corrected"
 
         scope.launch {
@@ -174,8 +176,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
             amountMl = amountSlider,
             status = status,
             onSourceChange = { source = it },
-            onAmountChange = { amountSlider = it.coerceIn(0, snapshot.remainingMl) },
-            onQuickLog = ::logDrink,
+            onAmountChange = { amountSlider = it.coerceIn(0, maxOf(snapshot.remainingMl, snapshot.todayMl)) },
             onQuickSubtract = ::subtractDrink,
             onClearToday = ::clearToday,
             onLog = { logDrink(amountSlider) }
