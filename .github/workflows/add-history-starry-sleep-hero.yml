@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Add dashboard hero to actual sleep history screen
-        shell: python
+        shell: python {0}
         run: |
           from pathlib import Path
 
