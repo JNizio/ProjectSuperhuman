@@ -38,10 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
-/**
- * Premium Home hydration tile. Kept separate from HomeDashboardComponents.kt so hydration visuals
- * can evolve without growing the general dashboard file.
- */
+/** Premium Home hydration tile. */
 @Composable
 internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val goalMl = snapshot.waterGoalMl.coerceAtLeast(1)
@@ -116,9 +113,13 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
                             )
                         }
                     }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy((-2).dp),
+                        modifier = Modifier.align(Alignment.Center)
+                    ) {
                         Text("$pct%", color = Color(0xFF123D70), fontSize = 20.sp, fontWeight = FontWeight.Black)
-                        Text("today", color = Color(0xFF748294), fontSize = 8.sp)
+                        Text("today", color = Color(0xFF748294), fontSize = 8.sp, fontWeight = FontWeight.Medium)
                     }
                 }
             }
