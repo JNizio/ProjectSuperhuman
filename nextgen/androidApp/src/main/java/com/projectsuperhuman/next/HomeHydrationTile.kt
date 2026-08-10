@@ -115,10 +115,10 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
                     }
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy((-2).dp),
+                        verticalArrangement = Arrangement.spacedBy((-4).dp),
                         modifier = Modifier.align(Alignment.Center)
                     ) {
-                        Text("$pct%", color = Color(0xFF123D70), fontSize = 20.sp, fontWeight = FontWeight.Black)
+                        Text("$pct%", color = Color(0xFF123D70), fontSize = 21.sp, fontWeight = FontWeight.Black)
                         Text("today", color = Color(0xFF748294), fontSize = 8.sp, fontWeight = FontWeight.Medium)
                     }
                 }
