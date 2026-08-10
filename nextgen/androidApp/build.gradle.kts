@@ -9,6 +9,15 @@ android {
     namespace = "com.projectsuperhuman.next"
     compileSdk = 35
 
+    signingConfigs {
+        create("projectSuperhuman") {
+            storeFile = file("../../signing/project-superhuman-v97.keystore")
+            storePassword = "PSH970-LocalFirst-2026-KeepSafe"
+            keyAlias = "project-superhuman"
+            keyPassword = "PSH970-LocalFirst-2026-KeepSafe"
+        }
+    }
+
     defaultConfig {
         // Separate package remains intentional during native parity validation so the mature app
         // and its private data cannot be overwritten by a test build.
@@ -37,7 +46,13 @@ android {
     }
 
     buildTypes {
+        getByName("debug") {
+            // Local Android Studio runs must use the same permanent identity as checkpoint APKs so
+            // they can install over the existing native validation app without wiping its data.
+            signingConfig = signingConfigs.getByName("projectSuperhuman")
+        }
         getByName("release") {
+            signingConfig = signingConfigs.getByName("projectSuperhuman")
             isMinifyEnabled = false
             isShrinkResources = false
         }
