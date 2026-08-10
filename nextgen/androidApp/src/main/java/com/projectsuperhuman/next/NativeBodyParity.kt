@@ -64,12 +64,6 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
     var weightHistory by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var bodyFatHistory by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var waistHistory by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
-    var weight by remember { mutableStateOf("") }
-    var bodyFat by remember { mutableStateOf("") }
-    var waist by remember { mutableStateOf("") }
-    var goal by remember { mutableStateOf("") }
-    var status by remember { mutableStateOf("") }
-    var logging by remember { mutableStateOf(false) }
     var view by remember { mutableStateOf(BodyView.PROGRESS) }
     var profileOpen by remember { mutableStateOf(false) }
 
@@ -91,19 +85,6 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
 
     LaunchedEffect(Unit) { refresh() }
 
-    fun save() {
-        scope.launch {
-            weight.toDoubleOrNull()?.let { NativeDataHub.saveMetric(HealthDomain.BODY, "body_weight_kg", it, "kg") }
-            bodyFat.toDoubleOrNull()?.let { NativeDataHub.saveMetric(HealthDomain.BODY, "body_fat_pct", it, "%") }
-            waist.toDoubleOrNull()?.let { NativeDataHub.saveMetric(HealthDomain.BODY, "body_waist_cm", it, "cm") }
-            goal.toDoubleOrNull()?.let { NativeDataHub.saveMetric(HealthDomain.BODY, "body_goal_weight_kg", it, "kg") }
-            status = "Progress saved"
-            weight = ""; bodyFat = ""; waist = ""; goal = ""
-            logging = false
-            refresh()
-        }
-    }
-
     val latestWeight = snapshot.weightKg
     val previousWeight = weightHistory.dropLast(1).lastOrNull()?.value
     val weightChange = if (latestWeight != null && previousWeight != null) latestWeight - previousWeight else null
@@ -118,8 +99,7 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
         BodyHero(
             snapshot = snapshot,
             weightChange = weightChange,
-            goalDelta = goalDelta,
-            onLog = { logging = !logging }
+            goalDelta = goalDelta
         )
 
         if (profileOpen) {
@@ -130,28 +110,13 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
 
         BodyViewToggle(view = view, onChange = { view = it })
 
-        if (logging) {
-            QuickLogCard(
-                weight = weight,
-                onWeight = { weight = cleanNumber(it, 6) },
-                bodyFat = bodyFat,
-                onBodyFat = { bodyFat = cleanNumber(it, 5) },
-                waist = waist,
-                onWaist = { waist = cleanNumber(it, 6) },
-                goal = goal,
-                onGoal = { goal = cleanNumber(it, 6) },
-                onSave = ::save,
-                onCancel = { logging = false },
-                status = status
-            )
-        }
 
         when (view) {
             BodyView.PROGRESS -> {
                 BodyOverTimeSection()
             }
             BodyView.MEASUREMENTS -> {
-                MeasurementsCard(snapshot = snapshot, onLog = { logging = true })
+                MeasurementsCard(snapshot = snapshot)
             }
         }
 
@@ -190,8 +155,7 @@ private fun BodyHeader(onBack: () -> Unit, onProfile: () -> Unit) {
 private fun BodyHero(
     snapshot: BodySnapshot,
     weightChange: Double?,
-    goalDelta: Double?,
-    onLog: () -> Unit
+    goalDelta: Double?
 ) {
     val progress = when {
         snapshot.weightKg == null || snapshot.goalKg == null -> null
@@ -231,11 +195,6 @@ private fun BodyHero(
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold
                 )
-            }
-            Box(
-                Modifier.background(Color.White.copy(alpha = .16f), RoundedCornerShape(14.dp)).clickable(onClick = onLog).padding(horizontal = 14.dp, vertical = 11.dp)
-            ) {
-                Text("+ LOG", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
             }
         }
 
@@ -299,47 +258,6 @@ private fun ToggleButton(label: String, selected: Boolean, modifier: Modifier, o
         contentAlignment = Alignment.Center
     ) {
         Text(label, color = if (selected) Color.White else BodyMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
-    }
-}
-
-@Composable
-private fun QuickLogCard(
-    weight: String,
-    onWeight: (String) -> Unit,
-    bodyFat: String,
-    onBodyFat: (String) -> Unit,
-    waist: String,
-    onWaist: (String) -> Unit,
-    goal: String,
-    onGoal: (String) -> Unit,
-    onSave: () -> Unit,
-    onCancel: () -> Unit,
-    status: String
-) {
-    Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Quick log", color = BodyInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Text("Weight first. Everything else is optional.", color = BodyMuted, fontSize = 9.sp)
-            }
-            Text("Close", color = BodyBlue, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onCancel))
-        }
-        OutlinedTextField(weight, onWeight, Modifier.fillMaxWidth(), label = { Text("Weight (kg)") }, singleLine = true)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(bodyFat, onBodyFat, Modifier.weight(1f), label = { Text("Body fat %") }, singleLine = true)
-            OutlinedTextField(waist, onWaist, Modifier.weight(1f), label = { Text("Waist cm") }, singleLine = true)
-        }
-        OutlinedTextField(goal, onGoal, Modifier.fillMaxWidth(), label = { Text("Goal weight (kg)") }, singleLine = true)
-        Box(
-            Modifier.fillMaxWidth().background(BodyGreen, RoundedCornerShape(16.dp)).clickable(onClick = onSave).padding(14.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("SAVE ENTRY", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
-        }
-        if (status.isNotBlank()) Text(status, color = BodyMuted, fontSize = 9.sp)
     }
 }
 
@@ -448,14 +366,13 @@ private fun ChangeRow(label: String, latest: Double?, previous: Double?, unit: S
 }
 
 @Composable
-private fun MeasurementsCard(snapshot: BodySnapshot, onLog: () -> Unit) {
+private fun MeasurementsCard(snapshot: BodySnapshot) {
     Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text("Measurements", color = BodyInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 Text("Current saved body measurements", color = BodyMuted, fontSize = 8.sp)
             }
-            Text("EDIT", color = BodyBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable(onClick = onLog))
         }
         Spacer(Modifier.height(14.dp))
         MeasurementRow("Weight", snapshot.weightKg?.let { "%.1f kg".format(it) } ?: "—")
@@ -464,7 +381,7 @@ private fun MeasurementsCard(snapshot: BodySnapshot, onLog: () -> Unit) {
         MeasurementRow("Goal weight", snapshot.goalKg?.let { "%.1f kg".format(it) } ?: "—")
         Spacer(Modifier.height(8.dp))
         Text(
-            "Smart-scale composition metrics will plug into this view later without changing the core layout.",
+            "Smart Scale Sync updates supported composition metrics automatically after each complete scan.",
             color = BodyMuted,
             fontSize = 8.sp,
             lineHeight = 12.sp
