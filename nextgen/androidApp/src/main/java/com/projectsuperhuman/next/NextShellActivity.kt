@@ -119,7 +119,7 @@ private fun NativeTopBar(title: String, onSettings: () -> Unit, modifier: Modifi
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.width(48.dp).height(48.dp),
+                Modifier.width(54.dp).height(54.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (title == "PROJECT SUPERHUMAN") {
@@ -133,7 +133,7 @@ private fun NativeTopBar(title: String, onSettings: () -> Unit, modifier: Modifi
                     Text("PS", color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = .5.sp)
                 }
             }
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(12.dp))
             Column {
                 Text(title, color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 14.sp, letterSpacing = 1.8.sp)
                 Text(
