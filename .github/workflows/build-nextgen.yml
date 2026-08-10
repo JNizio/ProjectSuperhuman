@@ -61,3 +61,5 @@ jobs:
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
+
+# rebuild after Clinical registry type fix
