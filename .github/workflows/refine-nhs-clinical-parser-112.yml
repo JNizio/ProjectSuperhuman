@@ -1,0 +1,64 @@
+name: Refine NHS Clinical Parser 11.2
+
+on:
+  push:
+    branches: [ '11.2' ]
+    paths:
+      - '.github/workflows/refine-nhs-clinical-parser-112.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: '11.2'
+      - name: Refine NHS parser from real screenshot patterns
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt')
+          s = p.read_text()
+
+          s = s.replace('''    val unitSource: String = ""\n) {''', '''    val unitSource: String = "",\n    val comparator: String = ""\n) {''')
+          s = s.replace('''private data class ValueHit(val value: String, val lineIndex: Int, val confidence: Double)''', '''private data class ValueHit(val value: String, val lineIndex: Int, val confidence: Double, val comparator: String = "")''')
+
+          s = s.replace('''            return ValueHit(v, offset, confidence)''', '''            val comparator = hit.groupValues[1].replace(" ", "").trim()\n            return ValueHit(v, offset, confidence, comparator)''')
+
+          s = s.replace('''            unitSource = if (unitRead.first.isNotBlank()) "screenshot" else if (def.unit.isNotBlank()) "marker database" else ""\n        )''', '''            unitSource = if (unitRead.first.isNotBlank()) "screenshot" else if (def.unit.isNotBlank()) "marker database" else "",\n            comparator = valueHit.comparator\n        )''')
+
+          s = s.replace('''        out += ClinicalDraft(def.name, value.value, unit.ifBlank { def.unit }, range.low, range.high, block, .7, if (range.low.isNotBlank() || range.high.isNotBlank()) "screenshot" else "", if (unit.isNotBlank()) "screenshot" else "marker database")''', '''        out += ClinicalDraft(def.name, value.value, unit.ifBlank { def.unit }, range.low, range.high, block, .7, if (range.low.isNotBlank() || range.high.isNotBlank()) "screenshot" else "", if (unit.isNotBlank()) "screenshot" else "marker database", value.comparator)''')
+
+          s = s.replace('''                                "rawOcr" to d.sourceText.take(700)\n                            )''', '''                                "rawOcr" to d.sourceText.take(700),\n                                "qualifier" to d.comparator\n                            )''')
+
+          s = s.replace('''            if (draft.confidence in 0.0..0.72) ClinicalChip("Check OCR", ClinicalWarn)''', '''            if (draft.comparator.isNotBlank()) ClinicalChip("${draft.comparator} result", ClinicalNavy)\n            if (draft.confidence in 0.0..0.72) ClinicalChip("Check OCR", ClinicalWarn)''')
+
+          s = s.replace('''            Text("${trimNumber(value.value)} ${value.unit}", color = ClinicalInk, fontSize = 12.sp, fontWeight = FontWeight.Black)''', '''            val qualifier = value.metadata["qualifier"].orEmpty()\n            Text("${qualifier}${trimNumber(value.value)} ${value.unit}", color = ClinicalInk, fontSize = 12.sp, fontWeight = FontWeight.Black)''')
+
+          # Real NHS headings/aliases observed in supplied screenshots.
+          s = s.replace('''LabDef("free_t4", "Free T4", "pmol/L", listOf("free thyroxine", "free t4", "ft4"))''', '''LabDef("free_t4", "Free T4", "pmol/L", listOf("serum free t4 level", "serum free t4", "free thyroxine", "free t4", "ft4"))''')
+          s = s.replace('''LabDef("ferritin", "Ferritin", "ug/L", listOf("serum ferritin", "ferritin"))''', '''LabDef("ferritin", "Ferritin", "ug/L", listOf("serum ferritin", "ferritin"))''')
+
+          # Unknown-row inference caused units and panel titles to become fake markers. Known-marker parsing is safer.
+          s = s.replace('''    val generic = findGenericRows(lines)\n    generic.forEach { g -> if (out.none { it.metric == g.metric && it.value == g.value }) out += g }\n    return out''', '''    return out''')
+
+          # NHS page chrome, panel titles and narrative labels are context, never tests.
+          s = s.replace('''    "(?:learn more about|lab tests online|view test result history|app help|home messages profile|your results|nhs app|page \\d+|download|print|contact your gp)",''', '''    "(?:learn more about|lab tests online|view test result history|app help|home messages profile|your results|your result|nhs app|page \\d+|download|print|contact your gp|healthcare professional.s comment|help with abbreviations|give feedback|clotting screening test|thyroid function test|back)",''')
+
+          # Treat bare unit lines as non-headings even if future generic parsing is re-enabled.
+          s = s.replace('''    if (Regex("(?:range|reference|result|date|time|page|status|normal|high|low)", RegexOption.IGNORE_CASE).containsMatchIn(s)) return false''', '''    if (Regex("(?:range|reference|result|date|time|page|status|normal|high|low|screening test|function test|professional.s comment)", RegexOption.IGNORE_CASE).containsMatchIn(s)) return false\n    if (Regex("^(?:m?iu|mu|u|mmol|umol|µmol|pmol|nmol|mg|ug|µg|ng|g|fl|pg)(?:/|$)|^ratio[.]?$|^sec[.]?$", RegexOption.IGNORE_CASE).containsMatchIn(s.replace(" ", ""))) return false''')
+
+          p.write_text(s)
+      - name: Commit parser refinement
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeClinicalParity.kt
+          if ! git diff --cached --quiet; then
+            git commit -m "Refine NHS Clinical OCR parser from real screenshots"
+            git push origin HEAD:11.2
+          fi
