@@ -63,7 +63,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, NUTRITION, EXERCISE, MINDFULNESS
+    HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS
 }
 
 @Composable
@@ -85,6 +85,7 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                     openBody = { page = ShellPage.BODY },
                     openSleep = { page = ShellPage.SLEEP },
                     openBloodPressure = { page = ShellPage.BLOOD_PRESSURE },
+                    openHydration = { page = ShellPage.HYDRATION },
                     openNutrition = { page = ShellPage.NUTRITION },
                     openExercise = { page = ShellPage.EXERCISE },
                     openMindfulness = { page = ShellPage.MINDFULNESS }
@@ -94,6 +95,7 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                 ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openCompatibility)
                 ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, openCompatibility)
                 ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openCompatibility)
+                ShellPage.HYDRATION -> NativeHydrationScreen { page = ShellPage.HOME }
                 ShellPage.NUTRITION -> NativeNutritionPage({ page = ShellPage.HOME }, openCompatibility)
                 ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openCompatibility)
                 ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openCompatibility)
