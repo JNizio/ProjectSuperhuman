@@ -12,6 +12,7 @@ on:
       - '.github/scripts/integrate_okok_scale.py'
       - '.github/scripts/lock_okok_scale.py'
       - '.github/scripts/refine_body_dashboard.py'
+      - '.github/scripts/polish_body_experience.py'
       - '.github/workflows/build-nextgen.yml'
   workflow_dispatch:
 
@@ -62,7 +63,19 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/build.gradle.kts
-            git commit -m "Refine Body dashboard and bump 11.0.17 [skip ci]"
+            git commit -m "Refine Body dashboard [skip ci]"
+            git push origin HEAD:main
+          fi
+
+      - name: Polish Body profile, scale and trends
+        shell: bash
+        run: |
+          python3 .github/scripts/polish_body_experience.py
+          if ! git diff --quiet -- nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/OkokScaleNative.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/BodyDashboardAdvanced.kt nextgen/androidApp/build.gradle.kts; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeBodyParity.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/OkokScaleNative.kt nextgen/androidApp/src/main/java/com/projectsuperhuman/next/BodyDashboardAdvanced.kt nextgen/androidApp/build.gradle.kts
+            git commit -m "Polish Body experience and bump 11.0.18 [skip ci]"
             git push origin HEAD:main
           fi
 
@@ -89,13 +102,13 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Compile Project Superhuman 11.0.17 APK
+      - name: Compile Project Superhuman 11.0.18 APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload Project Superhuman 11.0.17 APK
+      - name: Upload Project Superhuman 11.0.18 APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectSuperhuman-11.0.17-BodyAutoTrack
+          name: ProjectSuperhuman-11.0.18-BodyPolish
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
