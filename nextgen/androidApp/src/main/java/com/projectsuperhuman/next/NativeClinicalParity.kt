@@ -437,7 +437,7 @@ private fun findResult(window: List<OcrLine>, def: LabDef): ValueHit? {
             val v = hit.groupValues[2].replace(',', '.')
             val number = v.toDoubleOrNull() ?: continue
             if (looksLikeDateNumber(candidate, hit.range.first)) continue
-            if (number.absoluteValue > 1_000_000) continue
+            if (abs(number) > 1_000_000) continue
             val hasExpectedUnit = def.unit.isNotBlank() && unitRegexFor(def.unit).containsMatchIn(raw.replace(" ", ""))
             val confidence = when {
                 offset == 0 && hasExpectedUnit -> .86
