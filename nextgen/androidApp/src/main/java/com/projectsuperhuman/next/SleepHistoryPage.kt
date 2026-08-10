@@ -75,6 +75,7 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
     var syncing by remember { mutableStateOf(false) }
     var connected by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Loading sleep history…") }
+    var dashboardView by remember { mutableStateOf(HistoryDataView.INTERPRETED) }
 
     suspend fun refreshHistory() {
         nights = NativeHistoricalSleepStore.loadAll()
@@ -126,7 +127,7 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         HistoryHeader(onBack)
-        HistorySleepDashboardHero(nights)
+        HistorySleepDashboardHero(nights, selected, dashboardView) { dashboardView = it }
         SleepCalendarCard(
             month = month,
             nights = nights,
@@ -136,8 +137,6 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
             onSelect = { selectedDate = it }
         )
 
-        selected?.let { HistoricalSleepDetail(it.snapshot, it.wakeDate) }
-            ?: EmptyHistoryCard(nights.isNotEmpty())
 
         HistorySyncCard(connected, syncing, status, ::connectOrSync)
         Spacer(Modifier.height(24.dp))
@@ -145,31 +144,36 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
 }
 
 @Composable
-private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
-    val latest = nights.maxByOrNull { it.endEpochMs }
-    val previous = nights.filter { it !== latest }.sortedByDescending { it.endEpochMs }.take(7)
-    val latestAnalysis = latest?.snapshot?.let { SleepIntelligenceEngine.analyse(it) }
+private fun HistorySleepDashboardHero(
+    nights: List<HistoricalSleepNight>,
+    selected: HistoricalSleepNight?,
+    view: HistoryDataView,
+    onViewChange: (HistoryDataView) -> Unit
+) {
+    val active = selected ?: nights.maxByOrNull { it.endEpochMs }
+    val snapshot = active?.snapshot
+    val analysis = snapshot?.let { SleepIntelligenceEngine.analyse(it) }
+    val previous = active?.let { chosen ->
+        nights.filter { it.endEpochMs < chosen.endEpochMs }.sortedByDescending { it.endEpochMs }.take(7)
+    } ?: emptyList()
     val recentMinutes = previous.mapNotNull { it.snapshot.totalMinutes }
     val recentScores = previous.map { SleepIntelligenceEngine.analyse(it.snapshot).recoveryScore }
     val avgMinutes = recentMinutes.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
     val avgScore = recentScores.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
-    val lastMinutes = latest?.snapshot?.totalMinutes
-    val deltaMinutes = if (lastMinutes != null && avgMinutes != null) lastMinutes - avgMinutes else null
-    val sleepScore = latestAnalysis?.recoveryScore ?: latest?.snapshot?.score
-    val deepRem = latest?.snapshot?.let { (it.deepMinutes ?: 0) + (it.remMinutes ?: 0) }
-    val bedTime = latest?.snapshot?.startEpochMs?.let(::historyHeroTime) ?: "—"
-    val wakeTime = latest?.snapshot?.endEpochMs?.let(::historyHeroTime) ?: "—"
-    val durationScore = latestAnalysis?.durationScore
-    val continuityScore = latestAnalysis?.continuityScore
-    val stageScore = latestAnalysis?.stageBalanceScore
-
+    val totalMinutes = snapshot?.totalMinutes
+    val deltaMinutes = if (totalMinutes != null && avgMinutes != null) totalMinutes - avgMinutes else null
+    val sleepScore = analysis?.recoveryScore ?: snapshot?.score
+    val deepRem = snapshot?.let { (it.deepMinutes ?: 0) + (it.remMinutes ?: 0) }
+    val bedTime = snapshot?.startEpochMs?.let(::historyHeroTime) ?: "—"
+    val wakeTime = snapshot?.endEpochMs?.let(::historyHeroTime) ?: "—"
+    val dateLabel = active?.wakeDate?.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")) ?: "No sleep selected"
     val comparison = when {
-        deltaMinutes == null -> "Build a few nights of history and your personal baseline will appear here."
+        deltaMinutes == null -> "Build more sleep history to establish your personal baseline."
         deltaMinutes > 20 -> "You slept ${formatHistoryMinutes(deltaMinutes)} longer than your recent baseline."
         deltaMinutes < -20 -> "You slept ${formatHistoryMinutes(-deltaMinutes)} less than your recent baseline."
         else -> "Your sleep duration was close to your recent baseline."
     }
-    val focus = latestAnalysis?.priority ?: "Keep syncing sleep to unlock personalised trends."
+    val focus = analysis?.priority ?: "Keep syncing sleep to unlock personalised trends."
     val scoreLabel = when {
         sleepScore == null -> "Building"
         sleepScore >= 85 -> "Excellent"
@@ -183,74 +187,111 @@ private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
             Brush.linearGradient(listOf(Color(0xFF08152F), Color(0xFF162D66), Color(0xFF41348F))),
             RoundedCornerShape(28.dp)
         ).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(15.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f).padding(end = 14.dp)) {
-                Text("✦  LATEST SLEEP", color = Color.White.copy(alpha = .66f), fontSize = 8.sp, fontWeight = FontWeight.Black)
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    formatHistoryMinutes(lastMinutes),
-                    color = Color.White,
-                    fontSize = 34.sp,
-                    lineHeight = 38.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    latestAnalysis?.headline ?: "Your night sky is still gathering data",
-                    color = Color.White.copy(alpha = .86f),
-                    fontSize = 10.sp,
-                    lineHeight = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("✦  SLEEP DASHBOARD", color = Color.White.copy(alpha = .64f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text(dateLabel, color = Color.White.copy(alpha = .82f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
-            Column(horizontalAlignment = Alignment.End) {
-                Text("SLEEP SCORE", color = Color.White.copy(alpha = .67f), fontSize = 8.sp, fontWeight = FontWeight.Black)
-                if (sleepScore != null) {
-                    Text(sleepScore.toString(), color = Color.White, fontSize = 52.sp, lineHeight = 54.sp, fontWeight = FontWeight.Black)
-                    Text(scoreLabel, color = HistoryGood, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                } else {
-                    Text("—", color = Color.White, fontSize = 52.sp, lineHeight = 54.sp, fontWeight = FontWeight.Black)
-                    Text(scoreLabel, color = Color.White.copy(alpha = .58f), fontSize = 9.sp)
+            DashboardViewToggle(view, onViewChange)
+        }
+
+        if (view == HistoryDataView.INTERPRETED) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f).padding(end = 14.dp)) {
+                    Text(formatHistoryMinutes(totalMinutes), color = Color.White, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.height(5.dp))
+                    Text(analysis?.headline ?: "Your night sky is still gathering data", color = Color.White.copy(alpha = .86f), fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("SLEEP SCORE", color = Color.White.copy(alpha = .67f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text(sleepScore?.toString() ?: "—", color = Color.White, fontSize = 52.sp, lineHeight = 54.sp, fontWeight = FontWeight.Black)
+                    Text(scoreLabel, color = if ((sleepScore ?: 0) >= 75) HistoryGood else Color.White.copy(alpha = .64f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
             }
-        }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HistoryHeroStat("Bed", bedTime, Modifier.weight(1f))
-            HistoryHeroStat("Wake", wakeTime, Modifier.weight(1f))
-            HistoryHeroStat("7-night avg", formatHistoryMinutes(avgMinutes), Modifier.weight(1f))
-        }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HistoryHeroStat("Bed", bedTime, Modifier.weight(1f))
+                HistoryHeroStat("Wake", wakeTime, Modifier.weight(1f))
+                HistoryHeroStat("7-night avg", formatHistoryMinutes(avgMinutes), Modifier.weight(1f))
+            }
 
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = .14f)))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = .14f)))
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HistoryHeroScoreStat("Duration", durationScore, Modifier.weight(1f))
-            HistoryHeroScoreStat("Continuity", continuityScore, Modifier.weight(1f))
-            HistoryHeroScoreStat("Stages", stageScore, Modifier.weight(1f))
-        }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HistoryHeroScoreStat("Duration", analysis?.durationScore, Modifier.weight(1f))
+                HistoryHeroScoreStat("Continuity", analysis?.continuityScore, Modifier.weight(1f))
+                HistoryHeroScoreStat("Stages", analysis?.stageBalanceScore, Modifier.weight(1f))
+            }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(comparison, color = Color.White.copy(alpha = .72f), fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.weight(1f))
-            Spacer(Modifier.width(10.dp))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(formatHistoryMinutes(deepRem), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                Text("Deep + REM", color = Color.White.copy(alpha = .56f), fontSize = 7.sp)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(comparison, color = Color.White.copy(alpha = .72f), fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.weight(1f))
+                Spacer(Modifier.width(10.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(formatHistoryMinutes(deepRem), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    Text("Deep + REM", color = Color.White.copy(alpha = .56f), fontSize = 7.sp)
+                }
+            }
+
+            Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = .09f), RoundedCornerShape(14.dp)).padding(11.dp)) {
+                Text("Tonight's focus: $focus", color = Color.White.copy(alpha = .90f), fontSize = 9.sp, lineHeight = 13.sp)
+            }
+
+            Text(
+                if (avgScore != null) "✦ Recent sleep-score baseline $avgScore   ·   personalised from your history" else "✦ Personal baseline building",
+                color = Color.White.copy(alpha = .53f),
+                fontSize = 7.sp
+            )
+        } else {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
+                Column(Modifier.weight(1f)) {
+                    Text("RAW HEALTH CONNECT DATA", color = Color.White.copy(alpha = .65f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.height(4.dp))
+                    Text(formatHistoryMinutes(totalMinutes), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
+                    Text("recorded sleep", color = Color.White.copy(alpha = .62f), fontSize = 8.sp)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("SOURCE SCORE", color = Color.White.copy(alpha = .62f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text(snapshot?.score?.toString() ?: "—", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HistoryHeroStat("Bed", bedTime, Modifier.weight(1f))
+                HistoryHeroStat("Wake", wakeTime, Modifier.weight(1f))
+                HistoryHeroStat("Awake", formatHistoryMinutes(snapshot?.awakeMinutes), Modifier.weight(1f))
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                HistoryHeroStat("Light", formatHistoryMinutes(snapshot?.lightMinutes), Modifier.weight(1f))
+                HistoryHeroStat("Deep", formatHistoryMinutes(snapshot?.deepMinutes), Modifier.weight(1f))
+                HistoryHeroStat("REM", formatHistoryMinutes(snapshot?.remMinutes), Modifier.weight(1f))
+            }
+
+            Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = .08f), RoundedCornerShape(14.dp)).padding(11.dp)) {
+                Text("Raw view shows the values imported from the sleep source. Interpretation, scoring and historical context are intentionally hidden here.", color = Color.White.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
             }
         }
+    }
+}
 
-        Box(
-            Modifier.fillMaxWidth().background(Color.White.copy(alpha = .09f), RoundedCornerShape(14.dp)).padding(11.dp)
-        ) {
-            Text("Tonight's focus: $focus", color = Color.White.copy(alpha = .90f), fontSize = 9.sp, lineHeight = 13.sp)
+@Composable
+private fun DashboardViewToggle(view: HistoryDataView, onChange: (HistoryDataView) -> Unit) {
+    Row(
+        Modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(12.dp)).padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(3.dp)
+    ) {
+        listOf(HistoryDataView.INTERPRETED to "INSIGHT", HistoryDataView.RAW to "RAW").forEach { (item, label) ->
+            Box(
+                Modifier.background(if (view == item) Color.White.copy(alpha = .18f) else Color.Transparent, RoundedCornerShape(9.dp))
+                    .superhumanClickable { onChange(item) }
+                    .padding(horizontal = 10.dp, vertical = 7.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(label, color = Color.White.copy(alpha = if (view == item) .98f else .62f), fontSize = 7.sp, fontWeight = FontWeight.Black)
+            }
         }
-
-        Text(
-            if (avgScore != null) "✦ Recent sleep-score baseline $avgScore   ·   personalised from your history" else "✦ Personal baseline building",
-            color = Color.White.copy(alpha = .53f),
-            fontSize = 7.sp
-        )
     }
 }
 
