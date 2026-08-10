@@ -123,10 +123,14 @@ internal object OkokScaleManager {
         val stable = stableCount >= 3
         measurement = OkokMeasurement(weight, lastImpedance, stable, now)
         status = when { stable && lastImpedance != null -> "Measurement captured"; stable -> "Weight stable — finishing body composition"; else -> "Reading — stay still" }
-        if (stable) maybeAutoSave(weight, lastImpedance, onSaved)
+        if (stable && lastImpedance != null) maybeAutoSave(weight, lastImpedance, onSaved)
     }
 
     private fun maybeAutoSave(weight: Double, impedance: Double?, onSaved: () -> Unit) {
+        if (impedance == null) return
+        val h = profileHeightCm
+        val male = profileMale
+        if (h == null || male == null) { status = "Add height and sex in Personal details to enable full body scan"; return }
         val sameWeight = lastSavedWeight != null && abs(weight - lastSavedWeight!!) <= 0.05
         val sameImpedance = when { impedance == null && lastSavedImpedance == null -> true; impedance != null && lastSavedImpedance != null -> abs(impedance - lastSavedImpedance!!) <= 1.0; else -> false }
         val recentlySaved = lastSavedAt?.let { System.currentTimeMillis() - it < 20_000 } == true
@@ -135,8 +139,7 @@ internal object OkokScaleManager {
             NativeDataHub.saveMetric(HealthDomain.BODY, "body_weight_kg", weight, "kg")
             if (impedance != null) {
                 NativeDataHub.saveMetric(HealthDomain.BODY, "body_impedance_ohm", impedance, "ohm")
-                val h = profileHeightCm; val male = profileMale
-                if (h != null && male != null) OkokBiaEstimator.estimate(weight, impedance, h, male)?.let { b ->
+                OkokBiaEstimator.estimate(weight, impedance, h, male)?.let { b ->
                     NativeDataHub.saveMetric(HealthDomain.BODY, "body_fat_pct", b.bodyFatPct, "%")
                     NativeDataHub.saveMetric(HealthDomain.BODY, "body_fat_mass_kg", b.fatMassKg, "kg")
                     NativeDataHub.saveMetric(HealthDomain.BODY, "body_fat_free_mass_kg", b.fatFreeMassKg, "kg")
@@ -153,7 +156,7 @@ internal object OkokScaleManager {
                 }
             }
             lastSavedWeight = weight; lastSavedImpedance = impedance; lastSavedAt = System.currentTimeMillis()
-            status = if (impedance != null) "Synced to Body & Progress" else "Weight synced"
+            status = "Full body scan synced"
             onSaved()
         }
     }

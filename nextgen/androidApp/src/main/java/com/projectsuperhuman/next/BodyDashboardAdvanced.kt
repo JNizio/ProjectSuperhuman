@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -107,39 +107,46 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
             Text(if (editing) "CLOSE" else "EDIT", color = DashBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable { editing = !editing })
         }
 
-        if (!editing) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            if (editing) {
+                ProfileEditMini("HEIGHT", profile.heightCm, "cm", Modifier.weight(1f)) { profile = profile.copy(heightCm = clean(it, 5)) }
+                ProfileEditMini("AGE", profile.age, "", Modifier.weight(1f)) { profile = profile.copy(age = clean(it, 3)) }
+                ProfileEditMini("GOAL", profile.goalKg, "kg", Modifier.weight(1f)) { profile = profile.copy(goalKg = clean(it, 6)) }
+            } else {
                 ProfileMini("HEIGHT", profile.heightCm.ifBlank { "—" } + if (profile.heightCm.isNotBlank()) " cm" else "", Modifier.weight(1f))
                 ProfileMini("AGE", profile.age.ifBlank { "—" }, Modifier.weight(1f))
                 ProfileMini("GOAL", profile.goalKg.ifBlank { "—" } + if (profile.goalKg.isNotBlank()) " kg" else "", Modifier.weight(1f))
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            if (editing) {
+                Box(Modifier.weight(1f).background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).padding(6.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("SEX", color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            SexChoice("Male", profile.male == true, Modifier.weight(1f)) { profile = profile.copy(male = true) }
+                            SexChoice("Female", profile.male == false, Modifier.weight(1f)) { profile = profile.copy(male = false) }
+                        }
+                    }
+                }
+                Box(Modifier.weight(2f)) {
+                    Column(Modifier.fillMaxWidth().background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).clickable { activityOpen = true }.padding(10.dp)) {
+                        Text("ACTIVITY", color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(3.dp))
+                        Text(activityLabels[profile.activity] + "  ▾", color = DashInk, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                    }
+                    DropdownMenu(expanded = activityOpen, onDismissRequest = { activityOpen = false }) {
+                        activityLabels.forEachIndexed { index, label ->
+                            DropdownMenuItem(text = { Text(label) }, onClick = { profile = profile.copy(activity = index); activityOpen = false })
+                        }
+                    }
+                }
+            } else {
                 ProfileMini("SEX", when(profile.male){true->"Male";false->"Female";null->"—"}, Modifier.weight(1f))
                 ProfileMini("ACTIVITY", activityLabels[profile.activity], Modifier.weight(2f))
             }
-        } else {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(profile.heightCm, { v -> profile = profile.copy(heightCm = clean(v, 5)) }, Modifier.weight(1f), label = { Text("Height cm") }, singleLine = true)
-                OutlinedTextField(profile.age, { v -> profile = profile.copy(age = clean(v, 3)) }, Modifier.weight(1f), label = { Text("Age") }, singleLine = true)
-            }
-            Row(Modifier.fillMaxWidth().background(Color(0xFFF4F7FA), RoundedCornerShape(14.dp)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                SexChoice("Male", profile.male == true, Modifier.weight(1f)) { profile = profile.copy(male = true) }
-                SexChoice("Female", profile.male == false, Modifier.weight(1f)) { profile = profile.copy(male = false) }
-            }
-            OutlinedTextField(profile.goalKg, { v -> profile = profile.copy(goalKg = clean(v, 6)) }, Modifier.fillMaxWidth(), label = { Text("Goal weight (kg)") }, singleLine = true)
-            Box {
-                Box(Modifier.fillMaxWidth().background(Color(0xFFF4F7FA), RoundedCornerShape(14.dp)).clickable { activityOpen = true }.padding(14.dp)) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Activity level", color = DashMuted, fontSize = 10.sp)
-                        Text(activityLabels[profile.activity] + "  ▾", color = DashInk, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
-                DropdownMenu(expanded = activityOpen, onDismissRequest = { activityOpen = false }) {
-                    activityLabels.forEachIndexed { index, label ->
-                        DropdownMenuItem(text = { Text(label) }, onClick = { profile = profile.copy(activity = index); activityOpen = false })
-                    }
-                }
-            }
+        }
+        if (editing) {
             Box(Modifier.fillMaxWidth().background(DashGreen, RoundedCornerShape(15.dp)).clickable {
                 scope.launch {
                     profile.heightCm.toDoubleOrNull()?.let { NativeDataHub.saveMetric(HealthDomain.BODY, "body_height_cm", it, "cm") }
@@ -247,6 +254,25 @@ internal fun BodyOverTimeSection() {
                 }
             }
             Text("Tap a point to inspect that reading", color = DashMuted, fontSize = 8.sp)
+        }
+    }
+}
+
+@Composable
+private fun ProfileEditMini(label: String, value: String, unit: String, modifier: Modifier, onValue: (String) -> Unit) {
+    Column(modifier.background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).padding(10.dp)) {
+        Text(label, color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.height(3.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BasicTextField(
+                value = value,
+                onValueChange = onValue,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(color = DashInk, fontSize = 10.sp, fontWeight = FontWeight.Black),
+                decorationBox = { inner -> if (value.isBlank()) Text("—", color = DashMuted, fontSize = 10.sp) else inner() }
+            )
+            if (unit.isNotBlank()) Text(" $unit", color = DashMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.projectsuperhuman.next
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -173,10 +174,14 @@ private fun BodyHeader(onBack: () -> Unit, onProfile: () -> Unit) {
             Text("Your body trends, measurements & goals", color = BodyMuted, fontSize = 10.sp)
         }
         Box(
-            Modifier.width(44.dp).height(44.dp).background(Color.White, RoundedCornerShape(15.dp)).clickable(onClick = onProfile),
+            Modifier.width(44.dp).height(44.dp).clickable(onClick = onProfile),
             contentAlignment = Alignment.Center
         ) {
-            Text("👤", fontSize = 20.sp, textAlign = TextAlign.Center)
+            Canvas(Modifier.width(24.dp).height(24.dp)) {
+                val c = Color(0xFF0D6CB4)
+                drawCircle(c, radius = size.minDimension * 0.18f, center = androidx.compose.ui.geometry.Offset(size.width * .5f, size.height * .31f))
+                drawArc(c, startAngle = 200f, sweepAngle = 140f, useCenter = false, topLeft = androidx.compose.ui.geometry.Offset(size.width * .22f, size.height * .48f), size = androidx.compose.ui.geometry.Size(size.width * .56f, size.height * .42f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = size.minDimension * .11f))
+            }
         }
     }
 }
