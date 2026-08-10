@@ -10,12 +10,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,9 +33,9 @@ import kotlin.math.roundToInt
 /**
  * Hydration's primary interaction surface.
  *
- * The orb is intentionally the control centre: slider movement previews the projected water level,
- * while quick amounts and the log action live in the same visual system. This keeps hydration from
- * feeling like a generic form bolted underneath a decorative orb.
+ * Performance rule: slider thumb movement stays continuous locally, while the app state is updated
+ * only when the user crosses a 50 ml boundary. This keeps drag rendering smooth without losing the
+ * satisfying 50 ml snap behaviour used by logging and the orb preview.
  */
 @Composable
 internal fun HydrationHeroControls(
@@ -55,7 +59,14 @@ internal fun HydrationHeroControls(
     val projectedPct = (projectedFraction * 100f).roundToInt().coerceIn(0, 100)
     val maxAmount = remaining.coerceAtLeast(0)
     val sliderMax = maxAmount.coerceAtLeast(50)
-    val sliderSteps = ((sliderMax / 50) - 1).coerceAtLeast(0)
+
+    var dragValue by remember { mutableFloatStateOf(amountMl.toFloat()) }
+    LaunchedEffect(amountMl, sliderMax) {
+        val target = amountMl.toFloat().coerceIn(0f, sliderMax.toFloat())
+        if ((dragValue - target).let { kotlin.math.abs(it) } > 55f || amountMl == 0) {
+            dragValue = target
+        }
+    }
 
     Column(
         Modifier.fillMaxWidth()
@@ -133,13 +144,17 @@ internal fun HydrationHeroControls(
                 }
 
                 Slider(
-                    value = amountMl.toFloat().coerceIn(0f, sliderMax.toFloat()),
+                    value = dragValue.coerceIn(0f, sliderMax.toFloat()),
                     onValueChange = { raw ->
+                        dragValue = raw.coerceIn(0f, sliderMax.toFloat())
                         val snapped = ((raw / 50f).roundToInt() * 50).coerceIn(0, maxAmount)
-                        onAmountChange(snapped)
+                        if (snapped != amountMl) onAmountChange(snapped)
+                    },
+                    onValueChangeFinished = {
+                        dragValue = amountMl.toFloat().coerceIn(0f, sliderMax.toFloat())
                     },
                     valueRange = 0f..sliderMax.toFloat(),
-                    steps = sliderSteps,
+                    steps = 0,
                     colors = SliderDefaults.colors(
                         thumbColor = Color.White,
                         activeTrackColor = Color.White,
