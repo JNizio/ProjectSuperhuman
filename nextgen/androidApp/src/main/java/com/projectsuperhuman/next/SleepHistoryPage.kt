@@ -155,69 +155,102 @@ private fun HistorySleepDashboardHero(nights: List<HistoricalSleepNight>) {
     val avgScore = recentScores.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
     val lastMinutes = latest?.snapshot?.totalMinutes
     val deltaMinutes = if (lastMinutes != null && avgMinutes != null) lastMinutes - avgMinutes else null
-    val recoveryScore = latestAnalysis?.recoveryScore ?: latest?.snapshot?.score
+    val sleepScore = latestAnalysis?.recoveryScore ?: latest?.snapshot?.score
     val deepRem = latest?.snapshot?.let { (it.deepMinutes ?: 0) + (it.remMinutes ?: 0) }
+    val bedTime = latest?.snapshot?.startEpochMs?.let(::historyHeroTime) ?: "—"
+    val wakeTime = latest?.snapshot?.endEpochMs?.let(::historyHeroTime) ?: "—"
+    val durationScore = latestAnalysis?.durationScore
+    val continuityScore = latestAnalysis?.continuityScore
+    val stageScore = latestAnalysis?.stageBalanceScore
 
     val comparison = when {
         deltaMinutes == null -> "Build a few nights of history and your personal baseline will appear here."
-        deltaMinutes > 20 -> "Last night was ${formatMinutes(deltaMinutes)} longer than your recent baseline."
-        deltaMinutes < -20 -> "Last night was ${formatMinutes(-deltaMinutes)} shorter than your recent baseline."
-        else -> "Last night's duration was close to your recent baseline."
+        deltaMinutes > 20 -> "You slept ${formatMinutes(deltaMinutes)} longer than your recent baseline."
+        deltaMinutes < -20 -> "You slept ${formatMinutes(-deltaMinutes)} less than your recent baseline."
+        else -> "Your sleep duration was close to your recent baseline."
     }
     val focus = latestAnalysis?.priority ?: "Keep syncing sleep to unlock personalised trends."
+    val scoreLabel = when {
+        sleepScore == null -> "Building"
+        sleepScore >= 85 -> "Excellent"
+        sleepScore >= 75 -> "Strong"
+        sleepScore >= 60 -> "Fair"
+        else -> "Needs recovery"
+    }
 
     Column(
         Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(Color(0xFF10162F), Color(0xFF232A59), Color(0xFF44388F))),
+            Brush.linearGradient(listOf(Color(0xFF08152F), Color(0xFF162D66), Color(0xFF41348F))),
             RoundedCornerShape(28.dp)
         ).padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
-            Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                Text("✦  SLEEP INTELLIGENCE", color = Color.White.copy(alpha = .68f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Column(Modifier.weight(1f).padding(end = 14.dp)) {
+                Text("✦  LATEST SLEEP", color = Color.White.copy(alpha = .66f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    formatMinutes(lastMinutes),
+                    color = Color.White,
+                    fontSize = 34.sp,
+                    lineHeight = 38.sp,
+                    fontWeight = FontWeight.Black
+                )
                 Spacer(Modifier.height(5.dp))
                 Text(
                     latestAnalysis?.headline ?: "Your night sky is still gathering data",
-                    color = Color.White,
-                    fontSize = 19.sp,
-                    lineHeight = 23.sp,
-                    fontWeight = FontWeight.Black
+                    color = Color.White.copy(alpha = .86f),
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.height(6.dp))
-                Text(comparison, color = Color.White.copy(alpha = .76f), fontSize = 9.sp, lineHeight = 14.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
-                Text("☾", color = Color.White.copy(alpha = .92f), fontSize = 32.sp, fontWeight = FontWeight.Bold)
-                if (recoveryScore != null) {
-                    Text(recoveryScore.toString(), color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black)
-                    Text("recovery", color = Color.White.copy(alpha = .60f), fontSize = 7.sp)
+                Text("SLEEP SCORE", color = Color.White.copy(alpha = .67f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                if (sleepScore != null) {
+                    Text(sleepScore.toString(), color = Color.White, fontSize = 52.sp, lineHeight = 54.sp, fontWeight = FontWeight.Black)
+                    Text(scoreLabel, color = HistoryGood, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                } else {
+                    Text("—", color = Color.White, fontSize = 52.sp, lineHeight = 54.sp, fontWeight = FontWeight.Black)
+                    Text(scoreLabel, color = Color.White.copy(alpha = .58f), fontSize = 9.sp)
                 }
             }
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            HistoryHeroStat("Last night", formatMinutes(lastMinutes), Modifier.weight(1f))
+            HistoryHeroStat("Bed", bedTime, Modifier.weight(1f))
+            HistoryHeroStat("Wake", wakeTime, Modifier.weight(1f))
             HistoryHeroStat("7-night avg", formatMinutes(avgMinutes), Modifier.weight(1f))
-            HistoryHeroStat("Deep + REM", formatMinutes(deepRem), Modifier.weight(1f))
         }
 
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("✦  ·  ✧", color = Color.White.copy(alpha = .52f), fontSize = 10.sp)
-            Spacer(Modifier.width(8.dp))
-            Text(
-                if (avgScore != null) "Recent recovery baseline $avgScore" else "Personal baseline building",
-                color = Color.White.copy(alpha = .70f),
-                fontSize = 8.sp,
-                modifier = Modifier.weight(1f)
-            )
+        Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = .14f)))
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HistoryHeroScoreStat("Duration", durationScore, Modifier.weight(1f))
+            HistoryHeroScoreStat("Continuity", continuityScore, Modifier.weight(1f))
+            HistoryHeroScoreStat("Stages", stageScore, Modifier.weight(1f))
+        }
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(comparison, color = Color.White.copy(alpha = .72f), fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(10.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(formatMinutes(deepRem), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Text("Deep + REM", color = Color.White.copy(alpha = .56f), fontSize = 7.sp)
+            }
         }
 
         Box(
             Modifier.fillMaxWidth().background(Color.White.copy(alpha = .09f), RoundedCornerShape(14.dp)).padding(11.dp)
         ) {
-            Text("Tonight's focus: $focus", color = Color.White.copy(alpha = .88f), fontSize = 9.sp, lineHeight = 13.sp)
+            Text("Tonight's focus: $focus", color = Color.White.copy(alpha = .90f), fontSize = 9.sp, lineHeight = 13.sp)
         }
+
+        Text(
+            if (avgScore != null) "✦ Recent sleep-score baseline $avgScore   ·   personalised from your history" else "✦ Personal baseline building",
+            color = Color.White.copy(alpha = .53f),
+            fontSize = 7.sp
+        )
     }
 }
 
@@ -228,6 +261,17 @@ private fun HistoryHeroStat(label: String, value: String, modifier: Modifier) {
         Text(label, color = Color.White.copy(alpha = .60f), fontSize = 7.sp)
     }
 }
+
+@Composable
+private fun HistoryHeroScoreStat(label: String, value: Int?, modifier: Modifier) {
+    Column(modifier.background(Color.White.copy(alpha = .075f), RoundedCornerShape(14.dp)).padding(9.dp)) {
+        Text(value?.toString() ?: "—", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text("$label /100", color = Color.White.copy(alpha = .55f), fontSize = 7.sp)
+    }
+}
+
+private fun historyHeroTime(epochMs: Long): String =
+    Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
 
 @Composable
 private fun HistoryHeader(onBack: () -> Unit) {
