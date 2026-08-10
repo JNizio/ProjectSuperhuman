@@ -1,21 +1,8 @@
 package com.projectsuperhuman.next
 
-import android.app.Activity
-import android.content.Context
-import android.content.pm.PackageManager
-import android.health.connect.HealthConnectException
-import android.health.connect.HealthConnectManager
-import android.health.connect.HealthPermissions
-import android.health.connect.ReadRecordsRequestUsingFilters
-import android.health.connect.ReadRecordsResponse
-import android.health.connect.TimeInstantRangeFilter
-import android.health.connect.datatypes.SleepSessionRecord
-import android.os.Build
-import android.os.OutcomeReceiver
 import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,28 +26,30 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.PermissionController
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
 import kotlinx.coroutines.launch
-import java.time.Duration
 import java.time.Instant
-import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
-import kotlin.math.abs
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-private val SleepPurple = Color(0xFF6547C9)
-private val SleepBlue = Color(0xFF0D6CB4)
-private val SleepInk = Color(0xFF0B1F35)
-private val SleepMuted = Color(0xFF64748B)
-private val SleepGood = Color(0xFF168A78)
-private val SleepWarn = Color(0xFFD97706)
-private val SleepBg = Color(0xFFF6F9FC)
+private val SleepPurple = Color(0xFF6753D8)
+private val SleepBlue = Color(0xFF4777D9)
+private val SleepInk = Color(0xFF17233A)
+private val SleepMuted = Color(0xFF718096)
+private val SleepGood = Color(0xFF42A58C)
+private val SleepWarn = Color(0xFFE29B55)
+private val SleepBg = Color(0xFFF7F8FC)
+private val SleepBorder = Color(0xFFE6E9F2)
 
 data class NativeSleepSnapshot(
     val score: Int? = null,
@@ -77,123 +66,274 @@ data class NativeSleepSnapshot(
 @Composable
 internal fun NativeSleepParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) {
     val context = LocalContext.current
-    val activity = context as? Activity
     val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf<NativeSleepSnapshot?>(null) }
-    var status by remember { mutableStateOf("Ready to sync") }
+    var connected by remember { mutableStateOf(false) }
     var syncing by remember { mutableStateOf(false) }
+    var connectionChecked by remember { mutableStateOf(false) }
+    var status by remember { mutableStateOf("Checking Health Connect…") }
 
     suspend fun refresh() { snapshot = NativeSleepStore.loadLatest() }
-    LaunchedEffect(Unit) { refresh() }
 
-    fun syncNow() {
-        if (activity == null) {
-            status = "Android activity unavailable"
-            return
+    suspend fun sync() {
+        syncing = true
+        val result = SleepHealthConnect.sync(context)
+        syncing = false
+        status = result.message
+        connected = SleepHealthConnect.hasPermission(context)
+        refresh()
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract()
+    ) { granted ->
+        if (SleepHealthConnect.permission in granted) {
+            connected = true
+            status = "Connected"
+            scope.launch { sync() }
+        } else {
+            connected = false
+            status = "Sleep access wasn’t enabled"
         }
+    }
+
+    fun connectOrSync() {
         scope.launch {
-            syncing = true
-            status = "Reading Health Connect…"
-            val result = NativeSleepConnect.readAndStore(activity)
-            syncing = false
-            status = result.second
-            refresh()
+            when (SleepHealthConnect.availability(context)) {
+                HealthConnectClient.SDK_AVAILABLE -> {
+                    if (SleepHealthConnect.hasPermission(context)) sync()
+                    else permissionLauncher.launch(setOf(SleepHealthConnect.permission))
+                }
+                HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ->
+                    status = "Health Connect needs an update before sleep can sync"
+                else -> status = "Health Connect isn’t available on this device"
+            }
         }
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) syncNow() else status = "Sleep permission was not granted"
-    }
-
-    fun requestOrSync() {
-        if (Build.VERSION.SDK_INT < 34) {
-            status = "Health Connect sleep import requires Android 14+ on this build"
-            return
+    LaunchedEffect(Unit) {
+        refresh()
+        val available = SleepHealthConnect.availability(context) == HealthConnectClient.SDK_AVAILABLE
+        connected = available && SleepHealthConnect.hasPermission(context)
+        connectionChecked = true
+        status = when {
+            !available -> "Health Connect isn’t available on this device"
+            connected -> "Connected"
+            else -> "Connect to bring in sleep from your watch or health apps"
         }
-        if (context.checkSelfPermission(HealthPermissions.READ_SLEEP) == PackageManager.PERMISSION_GRANTED) syncNow()
-        else permissionLauncher.launch(HealthPermissions.READ_SLEEP)
+        if (connected) sync()
     }
 
     val s = snapshot
     Column(
-        Modifier.fillMaxSize().background(SleepBg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        Modifier.fillMaxSize().background(SleepBg).verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp)).clickable(onClick = onBack),
-                contentAlignment = Alignment.Center
-            ) { Text("‹", color = SleepBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Sleep", color = SleepInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                Text("Health Connect, stages, score & recovery", color = SleepMuted, fontSize = 10.sp)
-            }
+        SleepHeader(onBack)
+        SleepHero(s)
+        HealthConnectCard(connected, connectionChecked, syncing, status, ::connectOrSync)
+        if (s?.totalMinutes != null) {
+            LastSleepCard(s)
+            SleepStageCard(s)
+        } else {
+            EmptySleepCard(connected)
         }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            SleepStat("SCORE", s?.score?.toString() ?: "—", SleepPurple, Modifier.weight(1f))
-            SleepStat("TOTAL", formatMinutes(s?.totalMinutes), SleepBlue, Modifier.weight(1f))
-            SleepStat("AWAKE", formatMinutes(s?.awakeMinutes), SleepWarn, Modifier.weight(1f))
-        }
-
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(17.dp)) {
-            Text("Last sleep", color = SleepInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(10.dp))
-            StageRow("Light", s?.lightMinutes, SleepBlue)
-            StageRow("Deep", s?.deepMinutes, SleepGood)
-            StageRow("REM", s?.remMinutes, SleepPurple)
-            StageRow("Awake", s?.awakeMinutes, SleepWarn)
-            if (s?.totalMinutes != null && s.totalMinutes > 0) {
-                Spacer(Modifier.height(8.dp))
-                Text(scoreExplanation(s), color = SleepMuted, fontSize = 9.sp, lineHeight = 14.sp)
-            }
-        }
-
-        Column(Modifier.fillMaxWidth().background(SleepPurple.copy(alpha = .09f), RoundedCornerShape(22.dp)).padding(17.dp)) {
-            Text("Health Connect", color = SleepPurple, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("Imports up to 30 days of sleep sessions and stages directly into the shared Project Superhuman database.", color = SleepMuted, fontSize = 10.sp, lineHeight = 15.sp)
-            Spacer(Modifier.height(10.dp))
-            Box(
-                Modifier.fillMaxWidth().background(SleepPurple, RoundedCornerShape(16.dp)).clickable(enabled = !syncing, onClick = { requestOrSync() }).padding(14.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(if (syncing) "SYNCING…" else "SYNC SLEEP NOW", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(status, color = SleepMuted, fontSize = 9.sp)
-        }
-
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(16.dp)) {
-            Text("Sleep history", color = SleepInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text("${s?.sessionsImported ?: 0} session(s) represented by the latest sync. Detailed trend charts build on stored native metrics rather than WebView data.", color = SleepMuted, fontSize = 9.sp, lineHeight = 14.sp)
-        }
-
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(16.dp)) {
-            Text("Compatibility bridge", color = SleepBlue, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-            Text("The previous sleep screen is still available as a fallback while device-specific Health Connect behaviour is validated.", color = SleepMuted, fontSize = 9.sp, lineHeight = 14.sp)
-            Spacer(Modifier.height(9.dp))
-            Box(Modifier.fillMaxWidth().background(SleepBlue, RoundedCornerShape(15.dp)).clickable(onClick = openLegacy).padding(13.dp), contentAlignment = Alignment.Center) {
-                Text("OPEN EXISTING SLEEP TOOLS", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
-            }
-        }
-        Spacer(Modifier.height(18.dp))
+        SleepHistorySummary(s)
+        Spacer(Modifier.height(22.dp))
     }
 }
 
 @Composable
-private fun SleepStat(label: String, value: String, accent: Color, modifier: Modifier) {
-    Column(modifier.background(Color.White, RoundedCornerShape(16.dp)).padding(11.dp)) {
-        Text(label, color = SleepMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-        Spacer(Modifier.height(4.dp))
-        Text(value, color = accent, fontSize = 15.sp, fontWeight = FontWeight.Black)
+private fun SleepHeader(onBack: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp))
+                .border(1.dp, SleepBorder, RoundedCornerShape(14.dp)).superhumanClickable(onClick = onBack),
+            contentAlignment = Alignment.Center
+        ) { Text("‹", color = SleepPurple, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text("Sleep", color = SleepInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
+            Text("Your nights, recovery and sleep stages", color = SleepMuted, fontSize = 10.sp)
+        }
+    }
+}
+
+@Composable
+private fun SleepHero(s: NativeSleepSnapshot?) {
+    val score = s?.score
+    val message = when {
+        score == null -> "Your sleep summary will appear here"
+        score >= 85 -> "A strong night"
+        score >= 70 -> "A solid night"
+        score >= 55 -> "Room to recover"
+        else -> "Recovery was limited"
+    }
+    Column(
+        Modifier.fillMaxWidth().background(
+            Brush.linearGradient(listOf(Color(0xFF4939A9), Color(0xFF6F5BE1))),
+            RoundedCornerShape(28.dp)
+        ).padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(15.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("LATEST SLEEP", color = Color.White.copy(alpha = .64f), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Spacer(Modifier.height(5.dp))
+                Text(message, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            }
+            if (score != null) {
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(score.toString(), color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Black)
+                    Text("sleep score", color = Color.White.copy(alpha = .68f), fontSize = 8.sp)
+                }
+            }
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            SleepHeroStat("Asleep", formatMinutes(s?.totalMinutes), Modifier.weight(1f))
+            SleepHeroStat("Deep", formatMinutes(s?.deepMinutes), Modifier.weight(1f))
+            SleepHeroStat("REM", formatMinutes(s?.remMinutes), Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun SleepHeroStat(label: String, value: String, modifier: Modifier) {
+    Column(modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(16.dp)).padding(11.dp)) {
+        Text(value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Black)
+        Text(label, color = Color.White.copy(alpha = .62f), fontSize = 8.sp)
+    }
+}
+
+@Composable
+private fun HealthConnectCard(connected: Boolean, checked: Boolean, syncing: Boolean, status: String, onAction: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Health Connect", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                Text(
+                    if (connected) "Sleep can sync from supported watches and health apps" else "Bring your sleep data together in one place",
+                    color = SleepMuted, fontSize = 9.sp, lineHeight = 14.sp
+                )
+            }
+            Box(
+                Modifier.background(if (connected) SleepGood.copy(alpha = .12f) else SleepPurple.copy(alpha = .10f), RoundedCornerShape(99.dp))
+                    .padding(horizontal = 9.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    when { !checked -> "CHECKING"; connected -> "CONNECTED"; else -> "NOT CONNECTED" },
+                    color = if (connected) SleepGood else SleepPurple,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        }
+        Box(
+            Modifier.fillMaxWidth().background(if (connected) Color(0xFFF0F3FF) else SleepPurple, RoundedCornerShape(15.dp))
+                .superhumanClickable(enabled = !syncing, onClick = onAction).padding(vertical = 12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                when { syncing -> "SYNCING…"; connected -> "SYNC NOW"; else -> "CONNECT HEALTH CONNECT" },
+                color = if (connected) SleepPurple else Color.White,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
+        Text(status, color = SleepMuted, fontSize = 8.sp)
+    }
+}
+
+@Composable
+private fun LastSleepCard(s: NativeSleepSnapshot) {
+    val start = s.startEpochMs?.let(::formatSleepTime)
+    val end = s.endEpochMs?.let(::formatSleepTime)
+    Column(
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Text("Last sleep", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                if (start != null && end != null) Text("$start – $end", color = SleepMuted, fontSize = 9.sp)
+            }
+            Text(formatMinutes(s.totalMinutes), color = SleepPurple, fontSize = 16.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.height(12.dp))
+        val awake = s.awakeMinutes ?: 0
+        val total = s.totalMinutes ?: 0
+        val efficiency = if (total > 0) (((total - awake).toDouble() / total) * 100).roundToInt().coerceIn(0, 100) else 0
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            SleepMiniStat("$efficiency%", "sleep efficiency")
+            SleepMiniStat(formatMinutes(s.awakeMinutes), "awake")
+            SleepMiniStat((s.score ?: 0).toString(), "score")
+        }
+    }
+}
+
+@Composable
+private fun SleepStageCard(s: NativeSleepSnapshot) {
+    Column(
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp)
+    ) {
+        Text("Sleep stages", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+        Text("How your night was distributed", color = SleepMuted, fontSize = 9.sp)
+        Spacer(Modifier.height(10.dp))
+        StageRow("Light", s.lightMinutes, SleepBlue)
+        StageRow("Deep", s.deepMinutes, SleepGood)
+        StageRow("REM", s.remMinutes, SleepPurple)
+        StageRow("Awake", s.awakeMinutes, SleepWarn)
+    }
+}
+
+@Composable
+private fun EmptySleepCard(connected: Boolean) {
+    Column(
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(18.dp)
+    ) {
+        Text("No sleep data yet", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+        Text(
+            if (connected) "Sync after your next recorded night, or check that your sleep app is sharing data with Health Connect."
+            else "Connect Health Connect to import sleep recorded by compatible apps and devices.",
+            color = SleepMuted, fontSize = 10.sp, lineHeight = 15.sp
+        )
+    }
+}
+
+@Composable
+private fun SleepHistorySummary(s: NativeSleepSnapshot?) {
+    Column(
+        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp)
+    ) {
+        Text("Sleep history", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+        Text(
+            if ((s?.sessionsImported ?: 0) > 0) "${s?.sessionsImported} recent nights are available for trends and future recovery insights."
+            else "Your recent nights will build into trends here as sleep data is synced.",
+            color = SleepMuted, fontSize = 9.sp, lineHeight = 14.sp
+        )
+    }
+}
+
+@Composable
+private fun SleepMiniStat(value: String, label: String) {
+    Column {
+        Text(value, color = SleepInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
+        Text(label, color = SleepMuted, fontSize = 8.sp)
     }
 }
 
 @Composable
 private fun StageRow(name: String, minutes: Int?, accent: Color) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(7.dp).height(7.dp).background(accent, RoundedCornerShape(99.dp)))
+    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(8.dp).height(8.dp).background(accent, RoundedCornerShape(99.dp)))
         Spacer(Modifier.width(9.dp))
         Text(name, color = SleepInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
         Text(formatMinutes(minutes), color = SleepMuted, fontSize = 10.sp)
@@ -207,11 +347,9 @@ private fun formatMinutes(minutes: Int?): String {
     return if (h > 0) "${h}h ${m}m" else "${m}m"
 }
 
-private fun scoreExplanation(s: NativeSleepSnapshot): String {
-    val total = s.totalMinutes ?: return ""
-    val score = s.score ?: return ""
-    return "Sleep score $score/100 combines duration, awake time/estimated efficiency, and the balance of deep and REM sleep. Latest session: ${formatMinutes(total)}."
-}
+private fun formatSleepTime(epochMs: Long): String =
+    Instant.ofEpochMilli(epochMs).atZone(ZoneId.systemDefault()).toLocalTime()
+        .format(DateTimeFormatter.ofPattern("HH:mm"))
 
 private object NativeSleepStore {
     suspend fun loadLatest(): NativeSleepSnapshot {
@@ -228,82 +366,5 @@ private object NativeSleepStore {
             endEpochMs = metric("sleep_end_epoch_ms")?.value?.toLong(),
             sessionsImported = metric("sleep_sessions_imported")?.value?.roundToInt() ?: 0
         )
-    }
-}
-
-private object NativeSleepConnect {
-    suspend fun readAndStore(activity: Activity): Pair<Boolean, String> {
-        if (Build.VERSION.SDK_INT < 34) return false to "Health Connect requires Android 14+ on this build"
-        if (activity.checkSelfPermission(HealthPermissions.READ_SLEEP) != PackageManager.PERMISSION_GRANTED) return false to "Sleep permission is not granted"
-        val manager = activity.getSystemService("health_connect") as? HealthConnectManager
-            ?: return false to "Health Connect service is unavailable"
-
-        val response = readRecords(manager, activity) ?: return false to "Health Connect sleep read failed"
-        val sessions = response.records.sortedByDescending { it.endTime }
-        if (sessions.isEmpty()) return false to "No sleep sessions found in the last 30 days"
-
-        val latest = sessions.first()
-        val totalMinutes = Duration.between(latest.startTime, latest.endTime).toMinutes().coerceAtLeast(0).toInt()
-        var awake = 0L
-        var light = 0L
-        var deep = 0L
-        var rem = 0L
-        var genericSleep = 0L
-
-        latest.stages.forEach { stage ->
-            val mins = Duration.between(stage.startTime, stage.endTime).toMinutes().coerceAtLeast(0)
-            when (stage.type) {
-                SleepSessionRecord.StageType.STAGE_TYPE_AWAKE,
-                SleepSessionRecord.StageType.STAGE_TYPE_AWAKE_IN_BED,
-                SleepSessionRecord.StageType.STAGE_TYPE_AWAKE_OUT_OF_BED -> awake += mins
-                SleepSessionRecord.StageType.STAGE_TYPE_SLEEPING_LIGHT -> light += mins
-                SleepSessionRecord.StageType.STAGE_TYPE_SLEEPING_DEEP -> deep += mins
-                SleepSessionRecord.StageType.STAGE_TYPE_SLEEPING_REM -> rem += mins
-                SleepSessionRecord.StageType.STAGE_TYPE_SLEEPING -> genericSleep += mins
-            }
-        }
-        if (latest.stages.isEmpty()) genericSleep = totalMinutes.toLong()
-        val stagedSleep = light + deep + rem + genericSleep
-        val effectiveSleep = if (stagedSleep > 0) stagedSleep.toInt() else (totalMinutes - awake.toInt()).coerceAtLeast(0)
-        val score = calculateScore(totalMinutes, awake.toInt(), deep.toInt(), rem.toInt(), effectiveSleep)
-        val common = mapOf("sourceRecordId" to latest.metadata.id, "sessionStart" to latest.startTime.toEpochMilli().toString())
-
-        NativeDataHub.saveValues(listOf(
-            HealthValue(HealthDomain.SLEEP, "sleep_score", score.toDouble(), "score", latest.endTime.toEpochMilli(), "health-connect", common),
-            HealthValue(HealthDomain.SLEEP, "sleep_total_minutes", totalMinutes.toDouble(), "min", latest.endTime.toEpochMilli(), "health-connect", common),
-            HealthValue(HealthDomain.SLEEP, "sleep_awake_minutes", awake.toDouble(), "min", latest.endTime.toEpochMilli(), "health-connect", common),
-            HealthValue(HealthDomain.SLEEP, "sleep_light_minutes", light.toDouble(), "min", latest.endTime.toEpochMilli(), "health-connect", common),
-            HealthValue(HealthDomain.SLEEP, "sleep_deep_minutes", deep.toDouble(), "min", latest.endTime.toEpochMilli(), "health-connect", common),
-            HealthValue(HealthDomain.SLEEP, "sleep_rem_minutes", rem.toDouble(), "min", latest.endTime.toEpochMilli(), "health-connect", common),
-            HealthValue(HealthDomain.SLEEP, "sleep_start_epoch_ms", latest.startTime.toEpochMilli().toDouble(), "ms", latest.endTime.toEpochMilli(), "health-connect", common),
-            HealthValue(HealthDomain.SLEEP, "sleep_end_epoch_ms", latest.endTime.toEpochMilli().toDouble(), "ms", latest.endTime.toEpochMilli(), "health-connect", common),
-            HealthValue(HealthDomain.SLEEP, "sleep_sessions_imported", sessions.size.toDouble(), "count", System.currentTimeMillis(), "health-connect", emptyMap())
-        ))
-        return true to "Synced ${sessions.size} sleep session(s). Latest score: $score/100"
-    }
-
-    private suspend fun readRecords(manager: HealthConnectManager, activity: Activity): ReadRecordsResponse<SleepSessionRecord>? = suspendCoroutine { cont ->
-        val end = Instant.now()
-        val start = end.minusSeconds(30L * 24L * 60L * 60L)
-        val range = TimeInstantRangeFilter.Builder().setStartTime(start).setEndTime(end).build()
-        val request = ReadRecordsRequestUsingFilters.Builder(SleepSessionRecord::class.java).setTimeRangeFilter(range).setPageSize(200).build()
-        try {
-            manager.readRecords(request, activity.mainExecutor, object : OutcomeReceiver<ReadRecordsResponse<SleepSessionRecord>, HealthConnectException> {
-                override fun onResult(result: ReadRecordsResponse<SleepSessionRecord>) = cont.resume(result)
-                override fun onError(error: HealthConnectException) = cont.resume(null)
-            })
-        } catch (_: Exception) { cont.resume(null) }
-    }
-
-    private fun calculateScore(total: Int, awake: Int, deep: Int, rem: Int, effectiveSleep: Int): Int {
-        if (total <= 0) return 0
-        val durationHours = effectiveSleep / 60.0
-        val durationScore = (100.0 - abs(durationHours - 8.0) * 18.0).coerceIn(0.0, 100.0)
-        val efficiency = ((total - awake).toDouble() / total * 100.0).coerceIn(0.0, 100.0)
-        val deepPct = if (effectiveSleep > 0) deep.toDouble() / effectiveSleep * 100.0 else 0.0
-        val remPct = if (effectiveSleep > 0) rem.toDouble() / effectiveSleep * 100.0 else 0.0
-        val deepScore = (100.0 - abs(deepPct - 18.0) * 5.0).coerceIn(0.0, 100.0)
-        val remScore = (100.0 - abs(remPct - 22.0) * 4.0).coerceIn(0.0, 100.0)
-        return (durationScore * .55 + efficiency * .20 + deepScore * .15 + remScore * .10).roundToInt().coerceIn(0, 100)
     }
 }
