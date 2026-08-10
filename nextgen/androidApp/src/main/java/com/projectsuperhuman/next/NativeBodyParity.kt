@@ -70,6 +70,7 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
     var status by remember { mutableStateOf("") }
     var logging by remember { mutableStateOf(false) }
     var view by remember { mutableStateOf(BodyView.PROGRESS) }
+    var profileOpen by remember { mutableStateOf(false) }
 
     suspend fun refresh() {
         val values = NativeDataHub.latestForDomain(HealthDomain.BODY)
@@ -111,7 +112,7 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
         Modifier.fillMaxSize().background(BodyBg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        BodyHeader(onBack)
+        BodyHeader(onBack = onBack, onProfile = { profileOpen = !profileOpen })
 
         BodyHero(
             snapshot = snapshot,
@@ -120,7 +121,9 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
             onLog = { logging = !logging }
         )
 
-        BodyProfileSetupCard(onSaved = { scope.launch { refresh() } })
+        if (profileOpen) {
+            BodyProfileSetupCard(onSaved = { scope.launch { refresh() } })
+        }
 
         NativeOkokScaleCard(onSaved = { scope.launch { refresh() } })
 
@@ -156,7 +159,7 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
 }
 
 @Composable
-private fun BodyHeader(onBack: () -> Unit) {
+private fun BodyHeader(onBack: () -> Unit, onProfile: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.width(44.dp).height(44.dp).background(Color.White, RoundedCornerShape(15.dp)).clickable(onClick = onBack),
@@ -168,6 +171,12 @@ private fun BodyHeader(onBack: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text("Body & Progress", color = BodyInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
             Text("Your body trends, measurements & goals", color = BodyMuted, fontSize = 10.sp)
+        }
+        Box(
+            Modifier.width(44.dp).height(44.dp).background(Color.White, RoundedCornerShape(15.dp)).clickable(onClick = onProfile),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("👤", fontSize = 20.sp, textAlign = TextAlign.Center)
         }
     }
 }

@@ -200,15 +200,15 @@ internal fun NativeOkokScaleCard(onSaved: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF0B3554), Color(0xFF0A6370), Color(0xFF138A78))), RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("SMART SCALE", color = Color.White.copy(alpha=.60f), fontSize=8.sp, fontWeight=FontWeight.Black)
-                Text(TARGET_SCALE_NAME, color=Color.White, fontSize=17.sp, fontWeight=FontWeight.Black)
+                Text("AUTOMATIC BODY SCAN", color = Color.White.copy(alpha=.60f), fontSize=8.sp, fontWeight=FontWeight.Black)
+                Text("Smart Scale Sync", color=Color.White, fontSize=17.sp, fontWeight=FontWeight.Black)
                 Text(OkokScaleManager.status, color=Color.White.copy(alpha=.80f), fontSize=9.sp)
             }
             if (!OkokScaleManager.hasPermissions(context)) Box(Modifier.background(Color.White, RoundedCornerShape(13.dp)).clickable { launcher.launch(OkokScaleManager.requiredPermissions()) }.padding(horizontal=13.dp, vertical=10.dp)) { Text("ENABLE", color=Color(0xFF0A6370), fontSize=9.sp, fontWeight=FontWeight.Black) }
             else Box(Modifier.background(Color.White.copy(alpha=.12f), RoundedCornerShape(13.dp)).padding(horizontal=12.dp, vertical=9.dp)) { Text(if(OkokScaleManager.listening)"AUTO" else "PAUSED", color=Color.White, fontSize=9.sp, fontWeight=FontWeight.Black) }
         }
         OkokScaleManager.measurement?.let { m -> Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) { ScaleMetric("WEIGHT", "%.2f kg".format(m.weightKg), Modifier.weight(1f)); ScaleMetric("IMPEDANCE", m.impedanceOhm?.let { "%.0f Ω".format(it) } ?: "—", Modifier.weight(1f)) } }
-        if (OkokScaleManager.measurement == null) Text("Step on the scale normally. Stable readings save automatically and update your dashboard.", color=Color.White.copy(alpha=.70f), fontSize=8.sp, lineHeight=12.sp)
+        if (OkokScaleManager.measurement == null) Text("Step on your scale normally. Weight and body composition sync automatically when the reading settles.", color=Color.White.copy(alpha=.70f), fontSize=8.sp, lineHeight=12.sp)
     }
 }
 

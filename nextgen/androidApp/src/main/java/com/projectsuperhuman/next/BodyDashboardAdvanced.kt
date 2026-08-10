@@ -1,6 +1,8 @@
 package com.projectsuperhuman.next
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +25,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -31,7 +36,11 @@ import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
 import kotlinx.coroutines.launch
+import java.util.Locale
+import java.util.Date
+import java.text.SimpleDateFormat
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 private val DashInk = Color(0xFF0B1F35)
 private val DashMuted = Color(0xFF64748B)
@@ -200,12 +209,44 @@ internal fun BodyOverTimeSection() {
                 }
                 Text(changeText(change, selected), color = if (abs(change) < .01) DashMuted else DashBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
-            Row(Modifier.fillMaxWidth().height(96.dp), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.Bottom) {
-                history.forEach { point ->
-                    val fraction = ((point.value - min) / span).coerceIn(0.0, 1.0)
-                    Box(Modifier.weight(1f).height((18 + 70 * fraction).dp).background(DashBlue.copy(alpha = .20f), RoundedCornerShape(6.dp)))
+            var selectedIndex by remember(selected.metric, history.size) { mutableStateOf(history.lastIndex) }
+            val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
+            val selectedPoint = history.getOrNull(selectedIndex) ?: history.last()
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(dateFormat.format(Date(selectedPoint.timestampEpochMs)), color = DashMuted, fontSize = 8.sp)
+                Text(formatMetric(selectedPoint.value, selected), color = DashBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            }
+            Canvas(
+                Modifier.fillMaxWidth().height(150.dp).pointerInput(history, selected.metric) {
+                    detectTapGestures { tap ->
+                        if (history.size > 1 && size.width > 0) {
+                            val fraction = (tap.x / size.width).coerceIn(0f, 1f)
+                            selectedIndex = (fraction * (history.size - 1)).roundToInt().coerceIn(0, history.lastIndex)
+                        }
+                    }
+                }
+            ) {
+                if (history.size > 1) {
+                    val left = 6f
+                    val right = size.width - 6f
+                    val top = 12f
+                    val bottom = size.height - 16f
+                    fun xFor(i: Int) = left + (right - left) * i / (history.size - 1).toFloat()
+                    fun yFor(v: Double) = bottom - ((v - min) / span).toFloat() * (bottom - top)
+                    val path = Path()
+                    history.forEachIndexed { index, point ->
+                        val x = xFor(index); val y = yFor(point.value)
+                        if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+                    }
+                    drawPath(path, DashBlue, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f))
+                    history.forEachIndexed { index, point ->
+                        val x = xFor(index); val y = yFor(point.value)
+                        drawCircle(if (index == selectedIndex) DashBlue else DashBlue.copy(alpha = .45f), radius = if (index == selectedIndex) 8f else 5f, center = Offset(x, y))
+                        if (index == selectedIndex) drawCircle(Color.White, radius = 3f, center = Offset(x, y))
+                    }
                 }
             }
+            Text("Tap a point to inspect that reading", color = DashMuted, fontSize = 8.sp)
         }
     }
 }
