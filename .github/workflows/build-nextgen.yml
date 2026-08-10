@@ -10,6 +10,7 @@ on:
       - 'app/src/main/assets/**'
       - '.github/scripts/unify_sleep_dashboard.py'
       - '.github/scripts/integrate_okok_scale.py'
+      - '.github/scripts/lock_okok_scale.py'
       - '.github/workflows/build-nextgen.yml'
   workflow_dispatch:
 
@@ -47,6 +48,18 @@ jobs:
             git push origin HEAD:main
           fi
 
+      - name: Lock smart scale to Bluetooth Scale1
+        shell: bash
+        run: |
+          python3 .github/scripts/lock_okok_scale.py
+          if ! git diff --quiet -- nextgen/androidApp/src/main/java/com/projectsuperhuman/next/OkokScaleNative.kt nextgen/androidApp/build.gradle.kts; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/OkokScaleNative.kt nextgen/androidApp/build.gradle.kts
+            git commit -m "Lock OKOK scale to 28:FA:7A:4D:42:59 [skip ci]"
+            git push origin HEAD:main
+          fi
+
       - name: Normalise Compose scoped APIs
         shell: bash
         run: |
@@ -70,13 +83,13 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Compile Project Superhuman 11.0.15 APK
+      - name: Compile Project Superhuman 11.0.16 APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload Project Superhuman 11.0.15 APK
+      - name: Upload Project Superhuman 11.0.16 APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectSuperhuman-11.0.15-OKOKSyncFix
+          name: ProjectSuperhuman-11.0.16-ExactOKOK
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
