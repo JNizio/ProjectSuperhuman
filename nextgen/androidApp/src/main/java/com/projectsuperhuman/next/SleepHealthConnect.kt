@@ -10,6 +10,8 @@ import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
 import java.time.Duration
 import java.time.Instant
+import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.withTimeout
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -20,8 +22,10 @@ internal object SleepHealthConnect {
 
     suspend fun hasPermission(context: Context): Boolean {
         if (availability(context) != HealthConnectClient.SDK_AVAILABLE) return false
-        val client = HealthConnectClient.getOrCreate(context)
-        return permission in client.permissionController.getGrantedPermissions()
+        return runCatching {
+            val client = HealthConnectClient.getOrCreate(context)
+            permission in client.permissionController.getGrantedPermissions()
+        }.getOrDefault(false)
     }
 
     suspend fun sync(context: Context): SleepSyncResult {
@@ -30,62 +34,82 @@ internal object SleepHealthConnect {
         }
         val client = HealthConnectClient.getOrCreate(context)
         if (permission !in client.permissionController.getGrantedPermissions()) {
-            return SleepSyncResult(false, 0, "Sleep access is needed before syncing")
+            return SleepSyncResult(false, 0, "Sleep access needs to be enabled in Health Connect")
         }
 
-        return runCatching {
-            val end = Instant.now()
-            val start = end.minus(Duration.ofDays(30))
-            val response = client.readRecords(
-                ReadRecordsRequest(
-                    recordType = SleepSessionRecord::class,
-                    timeRangeFilter = TimeRangeFilter.between(start, end),
-                    ascendingOrder = false,
-                    pageSize = 200
+        return try {
+            withTimeout(12_000L) {
+                val end = Instant.now()
+                val start = end.minus(Duration.ofDays(30))
+                val response = client.readRecords(
+                    ReadRecordsRequest(
+                        recordType = SleepSessionRecord::class,
+                        timeRangeFilter = TimeRangeFilter.between(start, end),
+                        ascendingOrder = false,
+                        pageSize = 200
+                    )
                 )
-            )
-            val sessions = response.records.sortedByDescending { it.endTime }
-            if (sessions.isEmpty()) return@runCatching SleepSyncResult(true, 0, "No recent sleep data found")
-
-            val values = buildList {
-                sessions.forEach { session ->
-                    val breakdown = stageBreakdown(session)
-                    val totalMinutes = Duration.between(session.startTime, session.endTime).toMinutes().coerceAtLeast(0).toInt()
-                    val effectiveSleep = breakdown.sleepMinutes.takeIf { it > 0 }
-                        ?: (totalMinutes - breakdown.awakeMinutes).coerceAtLeast(0)
-                    val score = calculateScore(totalMinutes, breakdown.awakeMinutes, breakdown.deepMinutes, breakdown.remMinutes, effectiveSleep)
-                    val recordId = session.metadata.id
-                    val common = mapOf(
-                        "sourceRecordId" to recordId,
-                        "sessionStart" to session.startTime.toEpochMilli().toString(),
-                        "sessionEnd" to session.endTime.toEpochMilli().toString()
+                val sessions = response.records.sortedByDescending { it.endTime }
+                if (sessions.isEmpty()) {
+                    return@withTimeout SleepSyncResult(
+                        true,
+                        0,
+                        "Connected — no sleep records are being shared with Health Connect yet"
                     )
-                    val timestamp = session.endTime.toEpochMilli()
-                    add(HealthValue(HealthDomain.SLEEP, "sleep_score", score.toDouble(), "score", timestamp, "health-connect", common))
-                    add(HealthValue(HealthDomain.SLEEP, "sleep_total_minutes", totalMinutes.toDouble(), "min", timestamp, "health-connect", common))
-                    add(HealthValue(HealthDomain.SLEEP, "sleep_awake_minutes", breakdown.awakeMinutes.toDouble(), "min", timestamp, "health-connect", common))
-                    add(HealthValue(HealthDomain.SLEEP, "sleep_light_minutes", breakdown.lightMinutes.toDouble(), "min", timestamp, "health-connect", common))
-                    add(HealthValue(HealthDomain.SLEEP, "sleep_deep_minutes", breakdown.deepMinutes.toDouble(), "min", timestamp, "health-connect", common))
-                    add(HealthValue(HealthDomain.SLEEP, "sleep_rem_minutes", breakdown.remMinutes.toDouble(), "min", timestamp, "health-connect", common))
-                    add(HealthValue(HealthDomain.SLEEP, "sleep_start_epoch_ms", session.startTime.toEpochMilli().toDouble(), "ms", timestamp, "health-connect", common))
-                    add(HealthValue(HealthDomain.SLEEP, "sleep_end_epoch_ms", timestamp.toDouble(), "ms", timestamp, "health-connect", common))
                 }
-                add(
-                    HealthValue(
-                        HealthDomain.SLEEP,
-                        "sleep_sessions_imported",
-                        sessions.size.toDouble(),
-                        "count",
-                        System.currentTimeMillis(),
-                        "health-connect",
-                        mapOf("sourceRecordId" to "sync-summary")
+
+                val values = buildList {
+                    sessions.forEach { session ->
+                        val breakdown = stageBreakdown(session)
+                        val totalMinutes = Duration.between(session.startTime, session.endTime)
+                            .toMinutes().coerceAtLeast(0).toInt()
+                        val effectiveSleep = breakdown.sleepMinutes.takeIf { it > 0 }
+                            ?: (totalMinutes - breakdown.awakeMinutes).coerceAtLeast(0)
+                        val score = calculateScore(
+                            totalMinutes,
+                            breakdown.awakeMinutes,
+                            breakdown.deepMinutes,
+                            breakdown.remMinutes,
+                            effectiveSleep
+                        )
+                        val common = mapOf(
+                            "sourceRecordId" to session.metadata.id,
+                            "sessionStart" to session.startTime.toEpochMilli().toString(),
+                            "sessionEnd" to session.endTime.toEpochMilli().toString()
+                        )
+                        val timestamp = session.endTime.toEpochMilli()
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_score", score.toDouble(), "score", timestamp, "health-connect", common))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_total_minutes", totalMinutes.toDouble(), "min", timestamp, "health-connect", common))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_awake_minutes", breakdown.awakeMinutes.toDouble(), "min", timestamp, "health-connect", common))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_light_minutes", breakdown.lightMinutes.toDouble(), "min", timestamp, "health-connect", common))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_deep_minutes", breakdown.deepMinutes.toDouble(), "min", timestamp, "health-connect", common))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_rem_minutes", breakdown.remMinutes.toDouble(), "min", timestamp, "health-connect", common))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_start_epoch_ms", session.startTime.toEpochMilli().toDouble(), "ms", timestamp, "health-connect", common))
+                        add(HealthValue(HealthDomain.SLEEP, "sleep_end_epoch_ms", timestamp.toDouble(), "ms", timestamp, "health-connect", common))
+                    }
+                    add(
+                        HealthValue(
+                            HealthDomain.SLEEP,
+                            "sleep_sessions_imported",
+                            sessions.size.toDouble(),
+                            "count",
+                            System.currentTimeMillis(),
+                            "health-connect",
+                            mapOf("sourceRecordId" to "sync-summary")
+                        )
                     )
+                }
+                NativeDataHub.saveValues(values)
+                SleepSyncResult(
+                    true,
+                    sessions.size,
+                    if (sessions.size == 1) "1 recent night synced" else "${sessions.size} recent nights synced"
                 )
             }
-            NativeDataHub.saveValues(values)
-            SleepSyncResult(true, sessions.size, "Sleep is up to date")
-        }.getOrElse {
-            SleepSyncResult(false, 0, "Couldn’t sync sleep right now")
+        } catch (_: TimeoutCancellationException) {
+            SleepSyncResult(false, 0, "Health Connect took too long to respond — try again")
+        } catch (t: Throwable) {
+            SleepSyncResult(false, 0, "Sync couldn’t finish: ${t.javaClass.simpleName}")
         }
     }
 
@@ -133,7 +157,8 @@ internal object SleepHealthConnect {
         val remPct = if (effectiveSleep > 0) rem.toDouble() / effectiveSleep * 100.0 else 0.0
         val deepScore = (100.0 - abs(deepPct - 18.0) * 5.0).coerceIn(0.0, 100.0)
         val remScore = (100.0 - abs(remPct - 22.0) * 4.0).coerceIn(0.0, 100.0)
-        return (durationScore * .40 + efficiency * .30 + deepScore * .15 + remScore * .15).roundToInt().coerceIn(0, 100)
+        return (durationScore * .40 + efficiency * .30 + deepScore * .15 + remScore * .15)
+            .roundToInt().coerceIn(0, 100)
     }
 }
 
