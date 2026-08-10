@@ -58,7 +58,8 @@ internal fun NativeLiveHome(
     openHydration: () -> Unit,
     openNutrition: () -> Unit,
     openExercise: () -> Unit,
-    openMindfulness: () -> Unit
+    openMindfulness: () -> Unit,
+    topContent: @Composable () -> Unit = {}
 ) {
     var snapshot by remember { mutableStateOf(NativeHomeSnapshot()) }
     LaunchedEffect(Unit) { snapshot = loadNativeHomeSnapshot() }
@@ -70,6 +71,7 @@ internal fun NativeLiveHome(
             .padding(horizontal = 17.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        topContent()
         LegacyHomeHero(snapshot)
         PremiumHomeHydrationTile(snapshot, openHydration)
         LegacyClinicalCard(snapshot, openClinical)
@@ -110,8 +112,6 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
             ?: NativeDataHub.latest("water_total_l")?.takeIf { it.timestampEpochMs >= start }?.value
             ?: 0.0
     }
-    // Old validation builds allowed accidental over-logging. Preserve source events for history,
-    // but the current Home contract never presents more than the active daily goal.
     val water = rawWaterLitres.coerceIn(0.0, waterGoalMl / 1000.0)
 
     val workouts = NativeDataHub.between("workout_session", start, now)
