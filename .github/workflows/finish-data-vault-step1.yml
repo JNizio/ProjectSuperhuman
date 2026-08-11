@@ -50,6 +50,16 @@ jobs:
           grep -q "ingestion.ingestValues" \
             nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt
 
+      - name: Verify Step 4 query boundary exists
+        shell: bash
+        run: |
+          grep -q "class HealthQueryEngine" \
+            nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/HealthQueryEngine.kt
+          grep -q "fun queryEngine" \
+            nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt
+          grep -q "Raw query window is too large" \
+            nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/HealthQueryEngine.kt
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
