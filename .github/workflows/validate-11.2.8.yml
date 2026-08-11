@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 
-# Validation after finger-anchored long-press drag and animated neighbour movement.
+# Final validation after finger anchoring, animated neighbour movement and live gesture callbacks.
 jobs:
   compile:
     runs-on: ubuntu-latest
