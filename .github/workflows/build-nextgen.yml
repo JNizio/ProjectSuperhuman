@@ -2,37 +2,24 @@ name: Build Project Superhuman 11
 
 on:
   push:
-    branches: [ main ]
+    branches: [ agent/global-data-performance ]
     paths:
       - 'nextgen/**'
       - 'app/src/main/java/**'
       - 'app/src/main/res/**'
       - 'app/src/main/assets/**'
-      - '.github/scripts/global_top_button_style.py'
       - '.github/workflows/build-nextgen.yml'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-nextgen:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout source
+      - name: Checkout performance branch
         uses: actions/checkout@v4
-
-      - name: Apply global top button style
-        shell: bash
-        run: |
-          python3 .github/scripts/global_top_button_style.py
-          if ! git diff --quiet -- nextgen/androidApp/src/main/java nextgen/androidApp/build.gradle.kts; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add nextgen/androidApp/src/main/java nextgen/androidApp/build.gradle.kts
-            git commit -m "Standardise native top controls 11.1.3 [skip ci]"
-            git push origin HEAD:main
-          fi
 
       - name: Normalise Compose scoped APIs
         shell: bash
@@ -50,13 +37,13 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Compile Project Superhuman 11.1.3 APK
+      - name: Compile performance APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload Project Superhuman 11.1.3 APK
+      - name: Upload performance APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectSuperhuman-11.1.3-GlobalTopControls
+          name: ProjectSuperhuman-Performance-Preview
           path: nextgen/androidApp/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 30
