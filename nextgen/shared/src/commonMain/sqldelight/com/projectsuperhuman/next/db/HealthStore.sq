@@ -73,11 +73,8 @@ CREATE TABLE legacy_import_log (
   status TEXT NOT NULL
 );
 
-/*
- * Runtime-safe indexes. These are called during Data Vault initialisation so an
- * existing install gains the large-history indexes without destructive schema
- * recreation or requiring the user to clear app data.
- */
+-- Runtime-safe indexes are called during Data Vault initialisation so existing
+-- installs gain large-history indexes without destructive schema recreation.
 ensureDomainMetricTimeIndex:
 CREATE INDEX IF NOT EXISTS health_value_domain_metric_time_idx
 ON health_value(domain, metric, timestamp_epoch_ms DESC);
