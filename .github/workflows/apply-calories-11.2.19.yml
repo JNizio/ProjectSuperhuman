@@ -21,6 +21,27 @@ jobs:
       - name: Apply calories mini module
         run: python3 scripts/apply_calories_11_2_19.py
 
+      - name: Fix delegated calorie state smart cast
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/HomeMiniMetrics.kt')
+          text = path.read_text()
+          old = '''                status = when {
+                              metrics.caloriesBurned != null -> "${compactCount(metrics.caloriesEaten ?: 0)} eaten"
+                              metrics.caloriesEaten != null -> "${compactCount(metrics.caloriesEaten)} eaten · connect burn"
+                              else -> "Tap to connect"
+                          },'''
+          new = '''                status = if (metrics.caloriesBurned != null) {
+                              "${compactCount(metrics.caloriesEaten ?: 0)} eaten"
+                          } else {
+                              metrics.caloriesEaten?.let { "${compactCount(it)} eaten · connect burn" } ?: "Tap to connect"
+                          },'''
+          if old not in text:
+              raise SystemExit('Expected calorie status block was not found')
+          path.write_text(text.replace(old, new, 1))
+          PY
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
