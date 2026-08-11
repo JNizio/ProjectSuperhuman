@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
 
+# Revalidation after target persistence and unknown-micronutrient hardening.
 jobs:
   compile:
     runs-on: ubuntu-latest
