@@ -28,6 +28,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -289,6 +290,12 @@ private fun ReorderableHomeTile(
     content: @Composable () -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
+    val currentOnMeasured by rememberUpdatedState(onMeasured)
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentOnDragDelta by rememberUpdatedState(onDragDelta)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+    val currentOnDragCancel by rememberUpdatedState(onDragCancel)
+
     val animatedNeighbourOffset by animateFloatAsState(
         targetValue = neighbourShiftY,
         animationSpec = spring(
@@ -309,7 +316,7 @@ private fun ReorderableHomeTile(
     Box(
         Modifier.fillMaxWidth()
             .onGloballyPositioned { coordinates ->
-                onMeasured(coordinates.positionInParent().y, coordinates.size.height.toFloat())
+                currentOnMeasured(coordinates.positionInParent().y, coordinates.size.height.toFloat())
             }
             .zIndex(if (isDragging) 20f else 0f)
             .graphicsLayer {
@@ -324,14 +331,14 @@ private fun ReorderableHomeTile(
                 if (!enabled) return@pointerInput
                 detectDragGesturesAfterLongPress(
                     onDragStart = {
-                        onDragStart()
+                        currentOnDragStart()
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
-                    onDragCancel = onDragCancel,
-                    onDragEnd = onDragEnd,
+                    onDragCancel = { currentOnDragCancel() },
+                    onDragEnd = { currentOnDragEnd() },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        onDragDelta(dragAmount.y)
+                        currentOnDragDelta(dragAmount.y)
                     }
                 )
             }
