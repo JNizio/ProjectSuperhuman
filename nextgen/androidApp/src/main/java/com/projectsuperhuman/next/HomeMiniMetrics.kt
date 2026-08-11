@@ -1,5 +1,7 @@
 package com.projectsuperhuman.next
 
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -20,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +43,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
 import java.time.LocalDate
@@ -61,7 +67,7 @@ private data class MiniMetricSnapshot(
     val heartRateBpm: Int? = null,
     val heartRateTimestampMs: Long? = null,
     val steps: Int? = null,
-    val steps7dAverage: Int? = null,
+    val stepsRecentAverage: Int? = null,
     val bloodOxygenPct: Int? = null,
     val bloodOxygenTimestampMs: Long? = null,
     val stressScore: Int? = null
@@ -86,6 +92,39 @@ private val MiniHeart = Color(0xFFD46072)
 private val MiniSteps = Color(0xFF0D6CB4)
 private val MiniOxygen = Color(0xFF20A7C4)
 private val MiniStress = Color(0xFF7260BF)
+
+private fun Context.findLifecycleOwner(): LifecycleOwner? {
+    var current: Context? = this
+    while (current != null) {
+        if (current is LifecycleOwner) return current
+        current = (current as? ContextWrapper)?.baseContext
+    }
+    return null
+}
+
+@Composable
+private fun rememberMiniMetricsForeground(): Boolean {
+    val context = LocalContext.current
+    val owner = remember(context) { context.findLifecycleOwner() }
+    var resumed by remember(owner) {
+        mutableStateOf(owner?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.RESUMED) ?: true)
+    }
+
+    DisposableEffect(owner) {
+        if (owner == null) return@DisposableEffect onDispose { }
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_RESUME -> resumed = true
+                Lifecycle.Event.ON_PAUSE, Lifecycle.Event.ON_STOP, Lifecycle.Event.ON_DESTROY -> resumed = false
+                else -> Unit
+            }
+        }
+        owner.lifecycle.addObserver(observer)
+        resumed = owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        onDispose { owner.lifecycle.removeObserver(observer) }
+    }
+    return resumed
+}
 
 @Composable
 internal fun HomeDateStrip() {
@@ -117,11 +156,14 @@ internal fun HomeDateStrip() {
 @Composable
 internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
     val context = LocalContext.current
+    val isForeground = rememberMiniMetricsForeground()
     var metrics by remember { mutableStateOf(MiniMetricSnapshot()) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(isForeground) {
         metrics = loadMiniMetricSnapshot()
+        if (!isForeground) return@LaunchedEffect
         if (MiniMetricsHealthConnect.hasAnyPermission(context)) {
+            // Reconcile history whenever the app becomes active, then poll only while resumed.
             MiniMetricsHealthConnect.sync(context)
             metrics = loadMiniMetricSnapshot()
             while (true) {
@@ -148,7 +190,7 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
                 metric = HomeMiniMetric.STEPS,
                 value = metrics.steps?.let(::compactCount) ?: "—",
                 unit = "",
-                status = if (metrics.steps != null) metrics.steps7dAverage?.let { "7d avg ${compactCount(it)}" } ?: "today · auto refresh" else "Tap to connect",
+                status = if (metrics.steps != null) metrics.stepsRecentAverage?.let { "recent avg ${compactCount(it)}" } ?: "today · auto refresh" else "Tap to connect",
                 accent = MiniSteps,
                 modifier = Modifier.weight(.75f),
                 style = MiniVisualStyle.DOTS,
@@ -285,6 +327,7 @@ private fun MiniMetricVisual(style: MiniVisualStyle, accent: Color, modifier: Mo
 @Composable
 internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () -> Unit) {
     val context = LocalContext.current
+    val isForeground = rememberMiniMetricsForeground()
     val scope = rememberCoroutineScope()
     val accent = accentFor(metric)
     val permission = MiniMetricsHealthConnect.permissionFor(metric)
@@ -354,8 +397,8 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
         if (connected) sync()
     }
 
-    LaunchedEffect(metric, connected) {
-        if (!connected || metric == HomeMiniMetric.STRESS) return@LaunchedEffect
+    LaunchedEffect(metric, connected, isForeground) {
+        if (!connected || metric == HomeMiniMetric.STRESS || !isForeground) return@LaunchedEffect
         val intervalMs = when (metric) {
             HomeMiniMetric.HEART_RATE, HomeMiniMetric.STEPS -> 15_000L
             HomeMiniMetric.BLOOD_OXYGEN -> 30_000L
@@ -636,7 +679,8 @@ private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
     val latestStepPerDay = stepRows.groupBy { it.metadata["summaryDate"].orEmpty() }
         .values
         .mapNotNull { rows -> rows.maxByOrNull { it.timestampEpochMs } }
-    val steps7dAverage = latestStepPerDay.takeIf { it.isNotEmpty() }?.map { it.value }?.average()?.roundToInt()
+    val completedStepDays = latestStepPerDay.filter { it.metadata["summaryDate"] != today.toString() }
+    val stepsRecentAverage = completedStepDays.takeIf { it.isNotEmpty() }?.map { it.value }?.average()?.roundToInt()
     val oxygen = latestSamsung(NativeDataHub.between(HealthDomain.BODY, "blood_oxygen_percent", sevenDaysAgo, now))
 
     suspend fun fallback(vararg names: String): Double? {
@@ -649,7 +693,7 @@ private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
         heartRateBpm = heart?.value?.roundToInt(),
         heartRateTimestampMs = heart?.timestampEpochMs,
         steps = steps?.value?.roundToInt(),
-        steps7dAverage = steps7dAverage,
+        stepsRecentAverage = stepsRecentAverage,
         bloodOxygenPct = oxygen?.value?.roundToInt(),
         bloodOxygenTimestampMs = oxygen?.timestampEpochMs,
         stressScore = stress?.let { if (it <= 10.0) (it * 10.0).roundToInt() else it.roundToInt() }
