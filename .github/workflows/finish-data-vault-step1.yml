@@ -1,0 +1,45 @@
+name: Finish Data Vault Step 1
+
+on:
+  push:
+    branches: ['11.2']
+    paths:
+      - '.github/scripts/finish_data_vault_step1.py'
+      - '.github/workflows/finish-data-vault-step1.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  finish-step-1:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 11.2
+
+      - name: Apply Step 1 hardening patch
+        run: python3 .github/scripts/finish_data_vault_step1.py
+
+      - name: Commit hardened Data Vault paths
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet; then
+            git add \
+              nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt \
+              nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt \
+              nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt \
+              nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlHealthRepository.kt
+            git commit -m "Finish Data Vault Step 1 hardening [skip ci]"
+            git push origin HEAD:11.2
+          fi
+
+      - name: Verify no Sleep all-values hot path remains
+        shell: bash
+        run: |
+          ! grep -R "NativeDataHub.allValuesAsync" \
+            nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt \
+            nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt
