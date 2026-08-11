@@ -1,5 +1,6 @@
 package com.projectsuperhuman.next.data
 
+import com.projectsuperhuman.next.core.DailyAggregatePoint
 import com.projectsuperhuman.next.core.DataVaultGateway
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
@@ -96,5 +97,15 @@ private class SqlInterpretationDataPort(
     ): List<HealthValue> {
         require(fromEpochMs <= toEpochMs) { "fromEpochMs must be <= toEpochMs" }
         return repository.domainBetween(domain, fromEpochMs, toEpochMs)
+    }
+
+    override suspend fun dailyAggregates(
+        domain: HealthDomain,
+        metric: String,
+        fromDayEpoch: Long,
+        toDayEpoch: Long
+    ): List<DailyAggregatePoint> {
+        require(fromDayEpoch <= toDayEpoch) { "fromDayEpoch must be <= toDayEpoch" }
+        return repository.dailyAggregates(domain, metric, fromDayEpoch, toDayEpoch)
     }
 }
