@@ -92,9 +92,15 @@ internal object NativeDataHub {
     }
 
     suspend fun saveValues(values: List<HealthValue>) = withContext(Dispatchers.IO) {
-        // Compatibility path for mixed-domain import/restore code. New module code
-        // should use module(domain).save(...) so domain isolation is enforced.
-        repository.save(values)
+        if (values.isEmpty()) return@withContext
+        val domains = values.asSequence().map { it.domain }.distinct().take(2).toList()
+        if (domains.size == 1) {
+            gateway.module(domains.first()).save(values)
+        } else {
+            // Mixed-domain batches are reserved for compatibility import/restore
+            // paths until every importer is split into explicit module ports.
+            repository.save(values)
+        }
     }
 
     /** Compatibility/export helpers. Do not use for normal screens or analytics. */
