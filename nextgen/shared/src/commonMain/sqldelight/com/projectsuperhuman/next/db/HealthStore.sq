@@ -73,6 +73,19 @@ CREATE TABLE legacy_import_log (
   status TEXT NOT NULL
 );
 
+/*
+ * Runtime-safe indexes. These are called during Data Vault initialisation so an
+ * existing install gains the large-history indexes without destructive schema
+ * recreation or requiring the user to clear app data.
+ */
+ensureDomainMetricTimeIndex:
+CREATE INDEX IF NOT EXISTS health_value_domain_metric_time_idx
+ON health_value(domain, metric, timestamp_epoch_ms DESC);
+
+ensureDomainSourceTimeIndex:
+CREATE INDEX IF NOT EXISTS health_value_domain_source_time_idx
+ON health_value(domain, source, timestamp_epoch_ms DESC);
+
 upsertHealthValue:
 INSERT OR REPLACE INTO health_value(
   id, domain, metric, numeric_value, unit, timestamp_epoch_ms, source,
@@ -85,10 +98,38 @@ WHERE metric = ?
 ORDER BY timestamp_epoch_ms DESC
 LIMIT 1;
 
+latestByDomainMetric:
+SELECT * FROM health_value
+WHERE domain = ? AND metric = ?
+ORDER BY timestamp_epoch_ms DESC
+LIMIT 1;
+
 betweenByMetric:
 SELECT * FROM health_value
 WHERE metric = ? AND timestamp_epoch_ms BETWEEN ? AND ?
 ORDER BY timestamp_epoch_ms ASC;
+
+betweenByDomainMetric:
+SELECT * FROM health_value
+WHERE domain = ? AND metric = ? AND timestamp_epoch_ms BETWEEN ? AND ?
+ORDER BY timestamp_epoch_ms ASC;
+
+valuesForDomainBetween:
+SELECT * FROM health_value
+WHERE domain = ? AND timestamp_epoch_ms BETWEEN ? AND ?
+ORDER BY timestamp_epoch_ms ASC;
+
+valuesForDomainPage:
+SELECT * FROM health_value
+WHERE domain = ?
+ORDER BY timestamp_epoch_ms DESC
+LIMIT ? OFFSET ?;
+
+valuesForMetricPage:
+SELECT * FROM health_value
+WHERE domain = ? AND metric = ?
+ORDER BY timestamp_epoch_ms DESC
+LIMIT ? OFFSET ?;
 
 latestForDomain:
 SELECT hv.* FROM health_value hv
@@ -108,8 +149,20 @@ ORDER BY timestamp_epoch_ms ASC;
 countValues:
 SELECT COUNT(*) FROM health_value;
 
+countValuesForDomain:
+SELECT COUNT(*) FROM health_value WHERE domain = ?;
+
+latestTimestampForDomain:
+SELECT MAX(timestamp_epoch_ms) FROM health_value WHERE domain = ?;
+
 clearHealthValues:
 DELETE FROM health_value;
+
+deleteHealthValueById:
+DELETE FROM health_value WHERE id = ?;
+
+deleteDomainValues:
+DELETE FROM health_value WHERE domain = ?;
 
 upsertRange:
 INSERT OR REPLACE INTO clinical_range(metric, unit, low, high, source, observed_epoch_ms)
