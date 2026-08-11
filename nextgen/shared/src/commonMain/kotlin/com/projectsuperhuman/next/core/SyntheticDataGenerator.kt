@@ -101,33 +101,76 @@ class SyntheticDataGenerator(
             val activity = (0.48 + recovery * 0.22 - stress * 0.10 + sin(dayIndex / 5.0) * 0.10 + random.centered(0.16))
                 .coerceIn(0.12, 0.98)
 
-            // Sleep: better recovery + lower stress produces longer, more efficient sleep.
+            // Sleep: mirror the native Health Connect night shape so history/calendar UI sees every synthetic night.
             val sleepMinutes = (385.0 + recovery * 115.0 - stress * 48.0 + random.centered(24.0)).coerceIn(300.0, 555.0)
             val awakeMinutes = (52.0 - recovery * 30.0 + stress * 24.0 + random.centered(12.0)).coerceIn(8.0, 95.0)
-            val totalMinutes = sleepMinutes + awakeMinutes
+            val sleepWindowMinutes = sleepMinutes + awakeMinutes
             val deepFraction = (0.12 + recovery * 0.10 - stress * 0.018 + random.centered(0.025)).coerceIn(0.08, 0.28)
             val remFraction = (0.17 + recovery * 0.075 - stress * 0.012 + random.centered(0.02)).coerceIn(0.14, 0.30)
             val deepMinutes = sleepMinutes * deepFraction
             val remMinutes = sleepMinutes * remFraction
             val lightMinutes = (sleepMinutes - deepMinutes - remMinutes).coerceAtLeast(0.0)
-            val efficiency = (sleepMinutes / totalMinutes * 100.0).coerceIn(60.0, 99.0)
+            val efficiency = (sleepMinutes / sleepWindowMinutes * 100.0).coerceIn(60.0, 99.0)
             val durationScore = (100.0 - abs(sleepMinutes - 480.0) * 0.28).coerceIn(35.0, 100.0)
             val continuityScore = (100.0 - awakeMinutes * 0.68 - stress * 10.0).coerceIn(30.0, 100.0)
             val stageScore = (100.0 - abs(deepFraction - 0.20) * 175.0 - abs(remFraction - 0.23) * 145.0).coerceIn(35.0, 100.0)
             val sleepScore = (durationScore * 0.40 + continuityScore * 0.32 + stageScore * 0.28 + random.centered(2.0)).coerceIn(30.0, 99.0)
-            val sleepTs = anchor - 8L * HOUR_MS
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_total_minutes", totalMinutes, "min", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_time_minutes", sleepMinutes, "min", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_awake_minutes", awakeMinutes, "min", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_light_minutes", lightMinutes, "min", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_deep_minutes", deepMinutes, "min", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_rem_minutes", remMinutes, "min", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_efficiency_pct", efficiency, "%", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_duration_score", durationScore, "score", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_continuity_score", continuityScore, "score", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_stage_balance_score", stageScore, "score", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_score", sleepScore, "score", sleepTs)
-            add(dayIndex, anchor, HealthDomain.SLEEP, "sleep_interruption_count", (1.0 + stress * 4.0 + random.nextDouble() * 2.0).roundToInt().toDouble(), "count", sleepTs)
+            val interruptionCount = (1.0 + stress * 4.0 + random.nextDouble() * 2.0).roundToInt()
+            val longestInterruptionMinutes = (5.0 + stress * 22.0 + random.centered(4.0)).roundToInt().coerceAtLeast(1)
+            val sleepEnd = anchor
+            val sleepStart = sleepEnd - sleepWindowMinutes.roundToInt() * MINUTE_MS
+            val sleepTs = (sleepEnd + 1L).coerceAtMost(now)
+            val sleepMeta = mapOf(
+                "nightStart" to sleepStart.toString(),
+                "nightEnd" to sleepEnd.toString(),
+                "sleepBlocks" to "1",
+                "interruptions" to interruptionCount.toString(),
+                "longestInterruptionMinutes" to longestInterruptionMinutes.toString(),
+                "syntheticNight" to "true"
+            )
+
+            fun sleepAdd(metric: String, value: Double, unit: String, extra: Map<String, String> = emptyMap()) {
+                add(dayIndex, anchor, HealthDomain.SLEEP, metric, value, unit, sleepTs, metadata = sleepMeta + extra)
+            }
+
+            val lightFirstMinutes = (lightMinutes * 0.55).roundToInt().coerceAtLeast(1)
+            val lightSecondMinutes = (lightMinutes.roundToInt() - lightFirstMinutes).coerceAtLeast(1)
+            val deepRounded = deepMinutes.roundToInt().coerceAtLeast(1)
+            val remRounded = remMinutes.roundToInt().coerceAtLeast(1)
+            val awakeRounded = awakeMinutes.roundToInt().coerceAtLeast(1)
+            var segmentCursor = sleepStart
+            fun segment(type: String, minutes: Int): String {
+                val start = segmentCursor
+                val end = start + minutes * MINUTE_MS
+                segmentCursor = end
+                return "$type,$start,$end"
+            }
+            val timeline = listOf(
+                segment("light", lightFirstMinutes),
+                segment("deep", deepRounded),
+                segment("light", lightSecondMinutes),
+                segment("rem", remRounded),
+                segment("awake", awakeRounded)
+            ).joinToString(";")
+
+            // Match native semantics: total = actual asleep time; sleep time = complete staged window.
+            sleepAdd("sleep_total_minutes", sleepMinutes, "min")
+            sleepAdd("sleep_time_minutes", sleepWindowMinutes, "min")
+            sleepAdd("sleep_awake_minutes", awakeMinutes, "min")
+            sleepAdd("sleep_light_minutes", lightMinutes, "min")
+            sleepAdd("sleep_deep_minutes", deepMinutes, "min")
+            sleepAdd("sleep_rem_minutes", remMinutes, "min")
+            sleepAdd("sleep_efficiency_pct", efficiency, "%")
+            sleepAdd("sleep_duration_score", durationScore, "score")
+            sleepAdd("sleep_continuity_score", continuityScore, "score")
+            sleepAdd("sleep_stage_balance_score", stageScore, "score")
+            sleepAdd("sleep_score", sleepScore, "score")
+            sleepAdd("sleep_start_epoch_ms", sleepStart.toDouble(), "ms")
+            sleepAdd("sleep_end_epoch_ms", sleepEnd.toDouble(), "ms")
+            sleepAdd("sleep_interruption_count", interruptionCount.toDouble(), "count")
+            sleepAdd("sleep_longest_interruption_minutes", longestInterruptionMinutes.toDouble(), "min")
+            sleepAdd("sleep_block_count", 1.0, "count")
+            sleepAdd("sleep_stage_timeline", 1.0, "timeline", mapOf("segments" to timeline))
 
             // Wearable/activity stream. Steps and calories share a strong relationship.
             val steps = (3_500.0 + activity * 9_000.0 + recovery * 1_200.0 - stress * 650.0 + random.centered(900.0))
@@ -270,6 +313,7 @@ class SyntheticDataGenerator(
     private companion object {
         const val DAY_MS = 86_400_000L
         const val HOUR_MS = 3_600_000L
+        const val MINUTE_MS = 60_000L
         const val MAX_DAYS = 730
     }
 }
