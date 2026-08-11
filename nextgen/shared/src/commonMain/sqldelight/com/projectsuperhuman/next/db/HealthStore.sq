@@ -150,7 +150,10 @@ countValuesForDomain:
 SELECT COUNT(*) FROM health_value WHERE domain = ?;
 
 latestTimestampForDomain:
-SELECT MAX(timestamp_epoch_ms) FROM health_value WHERE domain = ?;
+SELECT timestamp_epoch_ms FROM health_value
+WHERE domain = ?
+ORDER BY timestamp_epoch_ms DESC
+LIMIT 1;
 
 clearHealthValues:
 DELETE FROM health_value;
