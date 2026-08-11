@@ -47,6 +47,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 internal enum class HomeMiniMetric(val title: String, val subtitle: String) {
@@ -58,8 +59,11 @@ internal enum class HomeMiniMetric(val title: String, val subtitle: String) {
 
 private data class MiniMetricSnapshot(
     val heartRateBpm: Int? = null,
+    val heartRateTimestampMs: Long? = null,
     val steps: Int? = null,
+    val steps7dAverage: Int? = null,
     val bloodOxygenPct: Int? = null,
+    val bloodOxygenTimestampMs: Long? = null,
     val stressScore: Int? = null
 )
 
@@ -120,6 +124,11 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
         if (MiniMetricsHealthConnect.hasAnyPermission(context)) {
             MiniMetricsHealthConnect.sync(context)
             metrics = loadMiniMetricSnapshot()
+            while (true) {
+                delay(30_000L)
+                MiniMetricsHealthConnect.syncCurrent(context)
+                metrics = loadMiniMetricSnapshot()
+            }
         }
     }
 
@@ -129,7 +138,7 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
                 metric = HomeMiniMetric.HEART_RATE,
                 value = metrics.heartRateBpm?.toString() ?: "—",
                 unit = if (metrics.heartRateBpm != null) "bpm" else "",
-                status = if (metrics.heartRateBpm != null) "Samsung Health · latest" else "Tap to connect",
+                status = if (metrics.heartRateBpm != null) freshnessLabel(metrics.heartRateTimestampMs) else "Tap to connect",
                 accent = MiniHeart,
                 modifier = Modifier.weight(1.25f),
                 style = MiniVisualStyle.PULSE,
@@ -139,7 +148,7 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
                 metric = HomeMiniMetric.STEPS,
                 value = metrics.steps?.let(::compactCount) ?: "—",
                 unit = "",
-                status = if (metrics.steps != null) "today" else "Tap to connect",
+                status = if (metrics.steps != null) metrics.steps7dAverage?.let { "7d avg ${compactCount(it)}" } ?: "today · auto refresh" else "Tap to connect",
                 accent = MiniSteps,
                 modifier = Modifier.weight(.75f),
                 style = MiniVisualStyle.DOTS,
@@ -152,7 +161,7 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
                 metric = HomeMiniMetric.BLOOD_OXYGEN,
                 value = metrics.bloodOxygenPct?.toString() ?: "—",
                 unit = if (metrics.bloodOxygenPct != null) "%" else "",
-                status = if (metrics.bloodOxygenPct != null) "Samsung Health · latest" else "Tap to connect",
+                status = if (metrics.bloodOxygenPct != null) freshnessLabel(metrics.bloodOxygenTimestampMs) else "Tap to connect",
                 accent = MiniOxygen,
                 modifier = Modifier.weight(.82f),
                 style = MiniVisualStyle.RING,
@@ -343,6 +352,20 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
             else -> "Connect this metric from Samsung Health"
         }
         if (connected) sync()
+    }
+
+    LaunchedEffect(metric, connected) {
+        if (!connected || metric == HomeMiniMetric.STRESS) return@LaunchedEffect
+        val intervalMs = when (metric) {
+            HomeMiniMetric.HEART_RATE, HomeMiniMetric.STEPS -> 15_000L
+            HomeMiniMetric.BLOOD_OXYGEN -> 30_000L
+            HomeMiniMetric.STRESS -> 60_000L
+        }
+        while (true) {
+            delay(intervalMs)
+            MiniMetricsHealthConnect.syncCurrent(context, metric)
+            refresh()
+        }
     }
 
     Column(
@@ -607,7 +630,13 @@ private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
         rows.filter { it.source == MiniMetricsHealthConnect.SOURCE }.maxByOrNull { it.timestampEpochMs }
 
     val heart = latestSamsung(NativeDataHub.between(HealthDomain.EXERCISE, "heart_rate_bpm", sevenDaysAgo, now))
-    val steps = latestSamsung(NativeDataHub.between(HealthDomain.EXERCISE, "steps", todayStart, now))
+    val stepRows = NativeDataHub.between(HealthDomain.EXERCISE, "steps", sevenDaysAgo, now)
+        .filter { it.source == MiniMetricsHealthConnect.SOURCE && it.metadata["summaryDate"] != null }
+    val steps = latestSamsung(stepRows.filter { it.timestampEpochMs >= todayStart })
+    val latestStepPerDay = stepRows.groupBy { it.metadata["summaryDate"].orEmpty() }
+        .values
+        .mapNotNull { rows -> rows.maxByOrNull { it.timestampEpochMs } }
+    val steps7dAverage = latestStepPerDay.takeIf { it.isNotEmpty() }?.map { it.value }?.average()?.roundToInt()
     val oxygen = latestSamsung(NativeDataHub.between(HealthDomain.BODY, "blood_oxygen_percent", sevenDaysAgo, now))
 
     suspend fun fallback(vararg names: String): Double? {
@@ -618,8 +647,11 @@ private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
     val stress = fallback("stress_score", "stress_level")
     return MiniMetricSnapshot(
         heartRateBpm = heart?.value?.roundToInt(),
+        heartRateTimestampMs = heart?.timestampEpochMs,
         steps = steps?.value?.roundToInt(),
+        steps7dAverage = steps7dAverage,
         bloodOxygenPct = oxygen?.value?.roundToInt(),
+        bloodOxygenTimestampMs = oxygen?.timestampEpochMs,
         stressScore = stress?.let { if (it <= 10.0) (it * 10.0).roundToInt() else it.roundToInt() }
     )
 }
@@ -709,6 +741,18 @@ private suspend fun loadMiniMetricDetail(metric: HomeMiniMetric): MiniMetricDeta
                 hasSamsungData = false
             )
         }
+    }
+}
+
+private fun freshnessLabel(timestampMs: Long?): String {
+    if (timestampMs == null) return "Samsung Health"
+    val ageMs = (System.currentTimeMillis() - timestampMs).coerceAtLeast(0L)
+    val minutes = ageMs / 60_000L
+    return when {
+        minutes <= 1L -> "just updated"
+        minutes < 60L -> "${minutes}m ago"
+        minutes < 24L * 60L -> "${minutes / 60L}h ago"
+        else -> "saved history"
     }
 }
 

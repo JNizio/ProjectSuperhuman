@@ -112,6 +112,186 @@ internal object MiniMetricsHealthConnect {
         }
     }
 
+    /**
+     * Lightweight foreground refresh for the mini dashboard.
+     *
+     * Health Connect is not a streaming transport from Samsung Health, so this checks only the
+     * current day/latest reading instead of re-reading the full seven-day history every poll.
+     * New latest HR/SpO2 samples are deduplicated by Health Connect record id; today's aggregate
+     * rows are replaced in place so step totals stay current without stacking duplicates.
+     */
+    suspend fun syncCurrent(context: Context, metric: HomeMiniMetric? = null): MiniHealthSyncResult {
+        if (availability(context) != HealthConnectClient.SDK_AVAILABLE) {
+            return MiniHealthSyncResult(false, 0, "Health Connect isn’t available on this device")
+        }
+        if (metric == HomeMiniMetric.STRESS) {
+            return MiniHealthSyncResult(false, 0, "Samsung Stress is not shared through Health Connect")
+        }
+
+        val client = HealthConnectClient.getOrCreate(context)
+        val granted = client.permissionController.getGrantedPermissions()
+        val requestedPermissions = when (metric) {
+            HomeMiniMetric.HEART_RATE -> setOf(heartRatePermission)
+            HomeMiniMetric.STEPS -> setOf(stepsPermission)
+            HomeMiniMetric.BLOOD_OXYGEN -> setOf(oxygenPermission)
+            HomeMiniMetric.STRESS -> emptySet()
+            null -> permissions
+        }
+        val readable = requestedPermissions.intersect(granted)
+        if (readable.isEmpty()) {
+            return MiniHealthSyncResult(false, 0, "No readable Samsung Health mini metrics")
+        }
+
+        return try {
+            withTimeout(8_000L) {
+                val zone = ZoneId.systemDefault()
+                val today = LocalDate.now(zone)
+                val now = Instant.now()
+                val values = mutableListOf<HealthValue>()
+
+                if (heartRatePermission in readable) importHeartRateCurrent(client, today, now, zone, values)
+                if (stepsPermission in readable) importStepsCurrent(client, today, now, zone, values)
+                if (oxygenPermission in readable) importOxygenCurrent(client, today, now, zone, values)
+
+                val changed = replaceSummaryRows(values)
+                MiniHealthSyncResult(true, changed, "Foreground wearable metrics refreshed")
+            }
+        } catch (_: TimeoutCancellationException) {
+            MiniHealthSyncResult(false, 0, "Foreground wearable refresh timed out")
+        } catch (t: Throwable) {
+            MiniHealthSyncResult(false, 0, "Foreground refresh couldn’t finish: ${t.javaClass.simpleName}")
+        }
+    }
+
+    private suspend fun importHeartRateCurrent(
+        client: HealthConnectClient,
+        today: LocalDate,
+        now: Instant,
+        zone: ZoneId,
+        output: MutableList<HealthValue>
+    ) {
+        val start = today.atStartOfDay(zone).toInstant()
+        if (!now.isAfter(start)) return
+
+        val result = client.aggregate(
+            AggregateRequest(
+                metrics = setOf(
+                    HeartRateRecord.BPM_AVG,
+                    HeartRateRecord.BPM_MIN,
+                    HeartRateRecord.BPM_MAX,
+                    HeartRateRecord.MEASUREMENTS_COUNT
+                ),
+                timeRangeFilter = TimeRangeFilter.between(start, now),
+                dataOriginFilter = samsungFilter
+            )
+        )
+        val timestamp = now.toEpochMilli()
+        val count = result[HeartRateRecord.MEASUREMENTS_COUNT]
+        val meta = summaryMeta(today, "heart-rate") + mapOf("measurementCount" to (count ?: 0L).toString())
+        result[HeartRateRecord.BPM_AVG]?.let { output += row(HealthDomain.EXERCISE, "heart_rate_avg_bpm", it.toDouble(), "bpm", timestamp, meta) }
+        result[HeartRateRecord.BPM_MIN]?.let { output += row(HealthDomain.EXERCISE, "heart_rate_min_bpm", it.toDouble(), "bpm", timestamp, meta) }
+        result[HeartRateRecord.BPM_MAX]?.let { output += row(HealthDomain.EXERCISE, "heart_rate_max_bpm", it.toDouble(), "bpm", timestamp, meta) }
+
+        val response = client.readRecords(
+            ReadRecordsRequest(
+                recordType = HeartRateRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(start, now),
+                dataOriginFilter = samsungFilter,
+                ascendingOrder = false,
+                pageSize = 250
+            )
+        )
+        val latest = response.records.asSequence()
+            .flatMap { record -> record.samples.asSequence().map { sample -> record to sample } }
+            .maxByOrNull { it.second.time }
+        latest?.let { (record, sample) ->
+            output += row(
+                HealthDomain.EXERCISE,
+                "heart_rate_bpm",
+                sample.beatsPerMinute.toDouble(),
+                "bpm",
+                sample.time.toEpochMilli(),
+                mapOf(
+                    "sourceRecordId" to "samsung-hc:heart:${record.metadata.id}:${sample.time.toEpochMilli()}",
+                    "healthConnectRecordId" to record.metadata.id,
+                    "sourcePackage" to record.metadata.dataOrigin.packageName,
+                    "summaryType" to "latest-reading"
+                )
+            )
+        }
+    }
+
+    private suspend fun importStepsCurrent(
+        client: HealthConnectClient,
+        today: LocalDate,
+        now: Instant,
+        zone: ZoneId,
+        output: MutableList<HealthValue>
+    ) {
+        val start = today.atStartOfDay(zone).toInstant()
+        if (!now.isAfter(start)) return
+        val result = client.aggregate(
+            AggregateRequest(
+                metrics = setOf(StepsRecord.COUNT_TOTAL),
+                timeRangeFilter = TimeRangeFilter.between(start, now),
+                dataOriginFilter = samsungFilter
+            )
+        )
+        val count = result[StepsRecord.COUNT_TOTAL] ?: 0L
+        output += row(
+            HealthDomain.EXERCISE,
+            "steps",
+            count.toDouble(),
+            "count",
+            now.toEpochMilli(),
+            summaryMeta(today, "steps") + mapOf("refreshMode" to "foreground")
+        )
+    }
+
+    private suspend fun importOxygenCurrent(
+        client: HealthConnectClient,
+        today: LocalDate,
+        now: Instant,
+        zone: ZoneId,
+        output: MutableList<HealthValue>
+    ) {
+        val start = today.atStartOfDay(zone).toInstant()
+        if (!now.isAfter(start)) return
+        val response = client.readRecords(
+            ReadRecordsRequest(
+                recordType = OxygenSaturationRecord::class,
+                timeRangeFilter = TimeRangeFilter.between(start, now),
+                dataOriginFilter = samsungFilter,
+                ascendingOrder = true,
+                pageSize = 5000
+            )
+        )
+        val records = response.records
+        if (records.isEmpty()) return
+        val values = records.map { it.percentage.value }
+        val meta = summaryMeta(today, "oxygen") + mapOf("measurementCount" to records.size.toString())
+        val timestamp = now.toEpochMilli()
+        output += row(HealthDomain.BODY, "blood_oxygen_avg_percent", values.average(), "%", timestamp, meta)
+        values.minOrNull()?.let { output += row(HealthDomain.BODY, "blood_oxygen_min_percent", it, "%", timestamp, meta) }
+        values.maxOrNull()?.let { output += row(HealthDomain.BODY, "blood_oxygen_max_percent", it, "%", timestamp, meta) }
+
+        records.maxByOrNull { it.time }?.let { record ->
+            output += row(
+                HealthDomain.BODY,
+                "blood_oxygen_percent",
+                record.percentage.value,
+                "%",
+                record.time.toEpochMilli(),
+                mapOf(
+                    "sourceRecordId" to "samsung-hc:oxygen:${record.metadata.id}",
+                    "healthConnectRecordId" to record.metadata.id,
+                    "sourcePackage" to record.metadata.dataOrigin.packageName,
+                    "summaryType" to "latest-reading"
+                )
+            )
+        }
+    }
+
     private suspend fun importHeartRate(
         client: HealthConnectClient,
         today: LocalDate,
