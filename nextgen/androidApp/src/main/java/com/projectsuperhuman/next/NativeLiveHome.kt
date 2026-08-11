@@ -3,7 +3,6 @@ package com.projectsuperhuman.next
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -78,10 +77,8 @@ internal fun NativeLiveHome(
             PremiumHomeHydrationTile(snapshot, openHydration)
             LegacyClinicalCard(snapshot, openClinical)
             LegacyTrainingCard(snapshot, openExercise)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                LegacyBodyCard(snapshot, Modifier.weight(1f), openBody)
-                LegacySleepCard(snapshot, Modifier.weight(1f), openSleep)
-            }
+            LegacyBodyCard(snapshot, Modifier.fillMaxWidth(), openBody)
+            HomeSleepInsightTile(snapshot, openSleep)
             LegacyNutritionCard(snapshot, openNutrition)
             LegacyHomeLinks(
                 openMindfulness = openMindfulness,
