@@ -93,7 +93,7 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                     ShellPage.SLEEP -> NativeSleepPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.HYDRATION -> NativeHydrationScreen { page = ShellPage.HOME }
-                    ShellPage.NUTRITION -> NativeNutritionExperiencePage { page = ShellPage.HOME }
+                    ShellPage.NUTRITION -> NativeNutritionExperienceV2Page { page = ShellPage.HOME }
                     ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openCompatibility)
                 }
