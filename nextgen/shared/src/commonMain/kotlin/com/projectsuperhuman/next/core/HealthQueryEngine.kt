@@ -19,7 +19,7 @@ data class MetricSummary(
     val metric: String,
     val fromEpochMs: Long,
     val toEpochMs: Long,
-    val count: Int,
+    val count: Long,
     val min: Double?,
     val max: Double?,
     val average: Double?,
@@ -61,49 +61,45 @@ enum class CorrelationStrength { STRONG, MODERATE, WEAK, NONE, INSUFFICIENT_DATA
 /**
  * Read-only query/aggregation facade for the Interpretation Engine.
  *
- * Interpretation asks health questions through this class rather than reading SQL or
- * whole-domain archives. Every request is explicitly time-bounded. Cross-metric work is
- * aligned in time before statistics are calculated, which prevents accidental comparison
- * of unrelated observations.
- *
- * Step 4 deliberately keeps this engine storage-agnostic. The backing port may later serve
- * long windows from daily/weekly aggregate tables without changing Interpretation callers.
+ * Short windows use indexed raw observations. Long windows automatically switch to
+ * incrementally maintained daily aggregates. Interpretation never needs to know which
+ * storage path answered the question, and never receives unrestricted SQL access.
  */
 class HealthQueryEngine(
     private val data: InterpretationDataPort,
     private val registry: MetricRegistry = CoreMetricRegistry,
     private val maxRawWindowMs: Long = DEFAULT_MAX_RAW_WINDOW_MS
 ) {
-    suspend fun summary(window: MetricWindow): MetricSummary {
-        val values = read(window)
-        if (values.isEmpty()) return emptySummary(window)
-        return MetricSummary(
-            domain = window.domain,
-            metric = canonicalMetric(window),
-            fromEpochMs = window.fromEpochMs,
-            toEpochMs = window.toEpochMs,
-            count = values.size,
-            min = values.minOf { it.value },
-            max = values.maxOf { it.value },
-            average = values.map { it.value }.average(),
-            sum = values.sumOf { it.value },
-            first = values.first().value,
-            last = values.last().value,
-            unit = values.last().unit
-        )
-    }
+    suspend fun summary(window: MetricWindow): MetricSummary =
+        if (isRawWindow(window)) {
+            val values = readRaw(window)
+            if (values.isEmpty()) emptySummary(window) else summaryFromValues(window, values)
+        } else {
+            summaryFromAggregates(window, readAggregates(window))
+        }
 
     suspend fun baseline(window: MetricWindow): MetricSummary = summary(window)
 
     suspend fun trend(window: MetricWindow): TrendResult {
-        val values = read(window)
-        val summary = if (values.isEmpty()) emptySummary(window) else summaryFromValues(window, values)
-        if (values.size < 2) return TrendResult(summary, null, TrendDirection.INSUFFICIENT_DATA)
+        val summary = summary(window)
+        val points: List<Pair<Double, Double>> = if (isRawWindow(window)) {
+            val values = readRaw(window)
+            if (values.isEmpty()) emptyList() else {
+                val start = values.first().timestampEpochMs
+                values.map { ((it.timestampEpochMs - start) / DAY_MS.toDouble()) to it.value }
+            }
+        } else {
+            val aggregates = readAggregates(window)
+            if (aggregates.isEmpty()) emptyList() else {
+                val startDay = aggregates.first().dayEpoch
+                aggregates.mapNotNull { row ->
+                    row.average?.let { ((row.dayEpoch - startDay).toDouble()) to it }
+                }
+            }
+        }
 
-        val start = values.first().timestampEpochMs.toDouble()
-        val xs = values.map { (it.timestampEpochMs - start) / DAY_MS.toDouble() }
-        val ys = values.map { it.value }
-        val slope = linearSlope(xs, ys)
+        if (points.size < 2) return TrendResult(summary, null, TrendDirection.INSUFFICIENT_DATA)
+        val slope = linearSlope(points.map { it.first }, points.map { it.second })
         val scale = summary.average?.let { kotlin.math.abs(it) }?.coerceAtLeast(1e-9) ?: 1.0
         val relativeDailySlope = kotlin.math.abs(slope) / scale
         val direction = when {
@@ -128,8 +124,9 @@ class HealthQueryEngine(
     }
 
     /**
-     * Align two series by nearest timestamp within [toleranceMs]. This is the safe input
-     * for later correlation/causal-hypothesis work; unaligned rows are never paired.
+     * Align two raw series by nearest timestamp within [toleranceMs]. Correlation remains a
+     * bounded high-resolution operation; callers wanting multi-year relationships should
+     * compare aggregate series in a future interpretation stage rather than raw millions.
      */
     suspend fun alignedSeries(
         left: MetricWindow,
@@ -137,8 +134,11 @@ class HealthQueryEngine(
         toleranceMs: Long = DEFAULT_ALIGNMENT_TOLERANCE_MS
     ): List<AlignedPoint> {
         require(toleranceMs >= 0L)
-        val leftValues = read(left)
-        val rightValues = read(right)
+        require(isRawWindow(left) && isRawWindow(right)) {
+            "Aligned raw series are limited to the raw query window"
+        }
+        val leftValues = readRaw(left)
+        val rightValues = readRaw(right)
         if (leftValues.isEmpty() || rightValues.isEmpty()) return emptyList()
 
         val result = ArrayList<AlignedPoint>(minOf(leftValues.size, rightValues.size))
@@ -193,14 +193,26 @@ class HealthQueryEngine(
         )
     }
 
-    private suspend fun read(window: MetricWindow): List<HealthValue> {
-        require(window.toEpochMs - window.fromEpochMs <= maxRawWindowMs) {
-            "Raw query window is too large; use aggregate-backed query path"
-        }
-        val metric = canonicalMetric(window)
-        return data.between(window.domain, metric, window.fromEpochMs, window.toEpochMs)
-            .sortedBy { it.timestampEpochMs }
+    private fun isRawWindow(window: MetricWindow): Boolean =
+        window.toEpochMs - window.fromEpochMs <= maxRawWindowMs
+
+    private suspend fun readRaw(window: MetricWindow): List<HealthValue> {
+        require(isRawWindow(window)) { "Raw query window is too large" }
+        return data.between(
+            window.domain,
+            canonicalMetric(window),
+            window.fromEpochMs,
+            window.toEpochMs
+        ).sortedBy { it.timestampEpochMs }
     }
+
+    private suspend fun readAggregates(window: MetricWindow): List<DailyAggregatePoint> =
+        data.dailyAggregates(
+            window.domain,
+            canonicalMetric(window),
+            window.fromEpochMs.floorDiv(DAY_MS),
+            window.toEpochMs.floorDiv(DAY_MS)
+        ).sortedBy { it.dayEpoch }
 
     private fun canonicalMetric(window: MetricWindow): String =
         registry.definition(window.domain, window.metric)?.id ?: window.metric.trim()
@@ -211,7 +223,7 @@ class HealthQueryEngine(
             metric = canonicalMetric(window),
             fromEpochMs = window.fromEpochMs,
             toEpochMs = window.toEpochMs,
-            count = values.size,
+            count = values.size.toLong(),
             min = values.minOf { it.value },
             max = values.maxOf { it.value },
             average = values.map { it.value }.average(),
@@ -221,9 +233,34 @@ class HealthQueryEngine(
             unit = values.last().unit
         )
 
+    private fun summaryFromAggregates(
+        window: MetricWindow,
+        rows: List<DailyAggregatePoint>
+    ): MetricSummary {
+        if (rows.isEmpty()) return emptySummary(window)
+        val count = rows.sumOf { it.count }
+        val sum = rows.mapNotNull { it.sum }.takeIf { it.isNotEmpty() }?.sum()
+        val weightedAverage = if (count > 0L && sum != null) sum / count else null
+        return MetricSummary(
+            domain = window.domain,
+            metric = canonicalMetric(window),
+            fromEpochMs = window.fromEpochMs,
+            toEpochMs = window.toEpochMs,
+            count = count,
+            min = rows.mapNotNull { it.min }.minOrNull(),
+            max = rows.mapNotNull { it.max }.maxOrNull(),
+            average = weightedAverage,
+            sum = sum,
+            first = rows.firstNotNullOfOrNull { it.first },
+            last = rows.asReversed().firstNotNullOfOrNull { it.last },
+            unit = registry.definition(window.domain, window.metric)?.canonicalUnit
+        )
+    }
+
     private fun emptySummary(window: MetricWindow) = MetricSummary(
         window.domain, canonicalMetric(window), window.fromEpochMs, window.toEpochMs,
-        0, null, null, null, null, null, null, null
+        0L, null, null, null, null, null, null,
+        registry.definition(window.domain, window.metric)?.canonicalUnit
     )
 
     private fun linearSlope(xs: List<Double>, ys: List<Double>): Double {
