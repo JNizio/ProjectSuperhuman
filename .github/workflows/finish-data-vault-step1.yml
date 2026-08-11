@@ -7,7 +7,6 @@ on:
       - '.github/workflows/finish-data-vault-step1.yml'
       - 'nextgen/shared/src/commonMain/sqldelight/com/projectsuperhuman/next/db/HealthStore.sq'
       - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlHealthRepository.kt'
-      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt'
   workflow_dispatch:
