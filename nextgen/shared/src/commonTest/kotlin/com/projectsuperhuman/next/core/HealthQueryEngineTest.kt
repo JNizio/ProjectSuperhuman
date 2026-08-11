@@ -28,13 +28,31 @@ class HealthQueryEngineTest {
         val summary = engine.summary(window)
         val trend = engine.trend(window)
 
-        assertEquals(5, summary.count)
+        assertEquals(5L, summary.count)
         assertEquals(440.0, summary.average)
         assertEquals(400.0, summary.first)
         assertEquals(480.0, summary.last)
         assertEquals(TrendDirection.RISING, trend.direction)
         assertNotNull(trend.slopePerDay)
         assertTrue(trend.slopePerDay!! > 0.0)
+    }
+
+    @Test
+    fun longHistoryUsesDailyAggregatesInsteadOfRawRows() = runTest {
+        val aggregates = listOf(
+            DailyAggregatePoint(0, HealthDomain.SLEEP, "sleep_score", 2, 60.0, 70.0, 65.0, 130.0, 60.0, 70.0),
+            DailyAggregatePoint(150, HealthDomain.SLEEP, "sleep_score", 2, 80.0, 90.0, 85.0, 170.0, 80.0, 90.0)
+        )
+        val port = FakeInterpretationPort(emptyList(), aggregates)
+        val engine = HealthQueryEngine(port)
+        val summary = engine.summary(MetricWindow(HealthDomain.SLEEP, "sleep_score", 0L, 150L * day))
+
+        assertEquals(4L, summary.count)
+        assertEquals(75.0, summary.average)
+        assertEquals(60.0, summary.min)
+        assertEquals(90.0, summary.max)
+        assertEquals(0, port.rawReadCount)
+        assertTrue(port.aggregateReadCount > 0)
     }
 
     @Test
@@ -80,16 +98,12 @@ class HealthQueryEngineTest {
     }
 
     @Test
-    fun refusesUnboundedRawHistory() = runTest {
+    fun refusesUnboundedRawCorrelation() = runTest {
         val engine = HealthQueryEngine(FakeInterpretationPort(emptyList()))
         assertFailsWith<IllegalArgumentException> {
-            engine.summary(
-                MetricWindow(
-                    HealthDomain.SLEEP,
-                    "sleep_score",
-                    0L,
-                    121L * day
-                )
+            engine.alignedSeries(
+                MetricWindow(HealthDomain.SLEEP, "sleep_score", 0L, 121L * day),
+                MetricWindow(HealthDomain.MINDFULNESS, "anxiety_score", 0L, 121L * day)
             )
         }
     }
@@ -105,8 +119,12 @@ class HealthQueryEngineTest {
 }
 
 private class FakeInterpretationPort(
-    private val values: List<HealthValue>
+    private val values: List<HealthValue>,
+    private val aggregates: List<DailyAggregatePoint> = emptyList()
 ) : InterpretationDataPort {
+    var rawReadCount: Int = 0
+    var aggregateReadCount: Int = 0
+
     override suspend fun latest(domain: HealthDomain, metric: String): HealthValue? =
         values.filter { it.domain == domain && it.metric == metric }.maxByOrNull { it.timestampEpochMs }
 
@@ -115,9 +133,12 @@ private class FakeInterpretationPort(
         metric: String,
         fromEpochMs: Long,
         toEpochMs: Long
-    ): List<HealthValue> = values.filter {
-        it.domain == domain && it.metric == metric && it.timestampEpochMs in fromEpochMs..toEpochMs
-    }.sortedBy { it.timestampEpochMs }
+    ): List<HealthValue> {
+        rawReadCount++
+        return values.filter {
+            it.domain == domain && it.metric == metric && it.timestampEpochMs in fromEpochMs..toEpochMs
+        }.sortedBy { it.timestampEpochMs }
+    }
 
     override suspend fun domainBetween(
         domain: HealthDomain,
@@ -126,4 +147,16 @@ private class FakeInterpretationPort(
     ): List<HealthValue> = values.filter {
         it.domain == domain && it.timestampEpochMs in fromEpochMs..toEpochMs
     }.sortedBy { it.timestampEpochMs }
+
+    override suspend fun dailyAggregates(
+        domain: HealthDomain,
+        metric: String,
+        fromDayEpoch: Long,
+        toDayEpoch: Long
+    ): List<DailyAggregatePoint> {
+        aggregateReadCount++
+        return aggregates.filter {
+            it.domain == domain && it.metric == metric && it.dayEpoch in fromDayEpoch..toDayEpoch
+        }.sortedBy { it.dayEpoch }
+    }
 }
