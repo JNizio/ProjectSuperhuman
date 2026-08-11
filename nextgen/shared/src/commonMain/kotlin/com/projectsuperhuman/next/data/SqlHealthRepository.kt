@@ -5,11 +5,24 @@ import com.projectsuperhuman.next.core.HealthRepository
 import com.projectsuperhuman.next.core.HealthValue
 import com.projectsuperhuman.next.db.SuperhumanDatabase
 
+/**
+ * SQL-backed health archive.
+ *
+ * Large-history rule: callers should prefer domain/metric scoped queries and
+ * pagination over [allValues]. The latter remains only for compatibility,
+ * backup/export and controlled migration work.
+ */
 class SqlHealthRepository(
     private val database: SuperhumanDatabase,
     private val nowEpochMs: () -> Long
 ) : HealthRepository {
     private val q = database.healthStoreQueries
+
+    /** Safe to call on every startup; upgrades indexes on existing installs. */
+    fun ensureLargeHistoryIndexes() {
+        q.ensureDomainMetricTimeIndex()
+        q.ensureDomainSourceTimeIndex()
+    }
 
     override suspend fun save(values: List<HealthValue>) {
         if (values.isEmpty()) return
@@ -36,6 +49,9 @@ class SqlHealthRepository(
     override suspend fun latest(metric: String): HealthValue? =
         q.latestByMetric(metric, ::mapHealthValue).executeAsOneOrNull()
 
+    suspend fun latest(domain: HealthDomain, metric: String): HealthValue? =
+        q.latestByDomainMetric(domain.name, metric, ::mapHealthValue).executeAsOneOrNull()
+
     override suspend fun between(
         metric: String,
         fromEpochMs: Long,
@@ -43,16 +59,57 @@ class SqlHealthRepository(
     ): List<HealthValue> =
         q.betweenByMetric(metric, fromEpochMs, toEpochMs, ::mapHealthValue).executeAsList()
 
+    suspend fun between(
+        domain: HealthDomain,
+        metric: String,
+        fromEpochMs: Long,
+        toEpochMs: Long
+    ): List<HealthValue> =
+        q.betweenByDomainMetric(domain.name, metric, fromEpochMs, toEpochMs, ::mapHealthValue).executeAsList()
+
+    suspend fun domainBetween(
+        domain: HealthDomain,
+        fromEpochMs: Long,
+        toEpochMs: Long
+    ): List<HealthValue> =
+        q.valuesForDomainBetween(domain.name, fromEpochMs, toEpochMs, ::mapHealthValue).executeAsList()
+
+    suspend fun pageForDomain(domain: HealthDomain, limit: Long, offset: Long): List<HealthValue> =
+        q.valuesForDomainPage(domain.name, limit, offset, ::mapHealthValue).executeAsList()
+
+    suspend fun pageForMetric(
+        domain: HealthDomain,
+        metric: String,
+        limit: Long,
+        offset: Long
+    ): List<HealthValue> =
+        q.valuesForMetricPage(domain.name, metric, limit, offset, ::mapHealthValue).executeAsList()
+
     override suspend fun latestForDomain(domain: HealthDomain): List<HealthValue> =
         q.latestForDomain(domain.name, domain.name, ::mapHealthValue).executeAsList()
 
+    /** Compatibility/export path only. Avoid in screens and interpretation hot paths. */
     fun allValues(): List<HealthValue> = q.allHealthValues(::mapHealthValue).executeAsList()
 
     fun clearValues() {
         q.clearHealthValues()
     }
 
+    fun clearDomain(domain: HealthDomain) {
+        q.deleteDomainValues(domain.name)
+    }
+
     fun count(): Long = q.countValues().executeAsOne()
+
+    fun count(domain: HealthDomain): Long = q.countValuesForDomain(domain.name).executeAsOne()
+
+    fun latestTimestamp(domain: HealthDomain): Long? =
+        q.latestTimestampForDomain(domain.name).executeAsOne().MAX
+
+    /** O(log n) indexed delete instead of clearing and rewriting the entire archive. */
+    fun delete(value: HealthValue) {
+        q.deleteHealthValueById(stableId(value))
+    }
 
     private fun mapHealthValue(
         id: String,
