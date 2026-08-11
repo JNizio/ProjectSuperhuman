@@ -6,6 +6,7 @@ import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
@@ -43,13 +44,14 @@ internal object MiniMetricsHealthConnect {
     val heartRatePermission: String = HealthPermission.getReadPermission(HeartRateRecord::class)
     val stepsPermission: String = HealthPermission.getReadPermission(StepsRecord::class)
     val oxygenPermission: String = HealthPermission.getReadPermission(OxygenSaturationRecord::class)
-    val permissions: Set<String> = setOf(heartRatePermission, stepsPermission, oxygenPermission)
+    val totalCaloriesPermission: String = HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class)
+    val permissions: Set<String> = setOf(heartRatePermission, stepsPermission, oxygenPermission, totalCaloriesPermission)
 
     fun permissionFor(metric: HomeMiniMetric): String? = when (metric) {
         HomeMiniMetric.HEART_RATE -> heartRatePermission
         HomeMiniMetric.STEPS -> stepsPermission
         HomeMiniMetric.BLOOD_OXYGEN -> oxygenPermission
-        HomeMiniMetric.STRESS -> null
+        HomeMiniMetric.CALORIES -> totalCaloriesPermission
     }
 
     fun availability(context: Context): Int = HealthConnectClient.getSdkStatus(context)
@@ -97,6 +99,9 @@ internal object MiniMetricsHealthConnect {
                 if (oxygenPermission in granted) {
                     importOxygen(client, today, now, zone, values)
                 }
+                if (totalCaloriesPermission in granted) {
+                    importCalories(client, today, now, zone, values)
+                }
 
                 val changed = replaceSummaryRows(values)
                 val label = when (readable.size) {
@@ -124,17 +129,13 @@ internal object MiniMetricsHealthConnect {
         if (availability(context) != HealthConnectClient.SDK_AVAILABLE) {
             return MiniHealthSyncResult(false, 0, "Health Connect isn’t available on this device")
         }
-        if (metric == HomeMiniMetric.STRESS) {
-            return MiniHealthSyncResult(false, 0, "Samsung Stress is not shared through Health Connect")
-        }
-
         val client = HealthConnectClient.getOrCreate(context)
         val granted = client.permissionController.getGrantedPermissions()
         val requestedPermissions = when (metric) {
             HomeMiniMetric.HEART_RATE -> setOf(heartRatePermission)
             HomeMiniMetric.STEPS -> setOf(stepsPermission)
             HomeMiniMetric.BLOOD_OXYGEN -> setOf(oxygenPermission)
-            HomeMiniMetric.STRESS -> emptySet()
+            HomeMiniMetric.CALORIES -> setOf(totalCaloriesPermission)
             null -> permissions
         }
         val readable = requestedPermissions.intersect(granted)
@@ -152,6 +153,7 @@ internal object MiniMetricsHealthConnect {
                 if (heartRatePermission in readable) importHeartRateCurrent(client, today, now, zone, values)
                 if (stepsPermission in readable) importStepsCurrent(client, today, now, zone, values)
                 if (oxygenPermission in readable) importOxygenCurrent(client, today, now, zone, values)
+                if (totalCaloriesPermission in readable) importCaloriesCurrent(client, today, now, zone, values)
 
                 val changed = replaceSummaryRows(values)
                 MiniHealthSyncResult(true, changed, "Foreground wearable metrics refreshed")
@@ -246,6 +248,35 @@ internal object MiniMetricsHealthConnect {
             now.toEpochMilli(),
             summaryMeta(today, "steps") + mapOf("refreshMode" to "foreground")
         )
+    }
+
+
+    private suspend fun importCaloriesCurrent(
+        client: HealthConnectClient,
+        today: LocalDate,
+        now: Instant,
+        zone: ZoneId,
+        output: MutableList<HealthValue>
+    ) {
+        val start = today.atStartOfDay(zone).toInstant()
+        if (!now.isAfter(start)) return
+        val result = client.aggregate(
+            AggregateRequest(
+                metrics = setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL),
+                timeRangeFilter = TimeRangeFilter.between(start, now),
+                dataOriginFilter = samsungFilter
+            )
+        )
+        result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.let { energy ->
+            output += row(
+                HealthDomain.EXERCISE,
+                "calories_burned_total_kcal",
+                energy.inKilocalories,
+                "kcal",
+                now.toEpochMilli(),
+                summaryMeta(today, "calories-burned") + mapOf("refreshMode" to "foreground")
+            )
+        }
     }
 
     private suspend fun importOxygenCurrent(
@@ -390,6 +421,39 @@ internal object MiniMetricsHealthConnect {
                 summaryTimestamp(date, today, end, now),
                 summaryMeta(date, "steps")
             )
+        }
+    }
+
+
+    private suspend fun importCalories(
+        client: HealthConnectClient,
+        today: LocalDate,
+        now: Instant,
+        zone: ZoneId,
+        output: MutableList<HealthValue>
+    ) {
+        repeat(HISTORY_DAYS.toInt()) { offset ->
+            val date = today.minusDays(offset.toLong())
+            val start = date.atStartOfDay(zone).toInstant()
+            val end = if (date == today) now else date.plusDays(1).atStartOfDay(zone).toInstant()
+            if (!end.isAfter(start)) return@repeat
+            val result = client.aggregate(
+                AggregateRequest(
+                    metrics = setOf(TotalCaloriesBurnedRecord.ENERGY_TOTAL),
+                    timeRangeFilter = TimeRangeFilter.between(start, end),
+                    dataOriginFilter = samsungFilter
+                )
+            )
+            result[TotalCaloriesBurnedRecord.ENERGY_TOTAL]?.let { energy ->
+                output += row(
+                    HealthDomain.EXERCISE,
+                    "calories_burned_total_kcal",
+                    energy.inKilocalories,
+                    "kcal",
+                    summaryTimestamp(date, today, end, now),
+                    summaryMeta(date, "calories-burned")
+                )
+            }
         }
     }
 

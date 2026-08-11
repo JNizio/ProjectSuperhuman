@@ -60,7 +60,7 @@ internal enum class HomeMiniMetric(val title: String, val subtitle: String) {
     HEART_RATE("Heart rate", "Pulse & daily range"),
     STEPS("Steps", "Daily movement"),
     BLOOD_OXYGEN("Blood oxygen", "SpO₂ readings"),
-    STRESS("Stress", "Recovery & strain")
+    CALORIES("Calories", "Burned vs eaten")
 }
 
 private data class MiniMetricSnapshot(
@@ -70,7 +70,8 @@ private data class MiniMetricSnapshot(
     val stepsRecentAverage: Int? = null,
     val bloodOxygenPct: Int? = null,
     val bloodOxygenTimestampMs: Long? = null,
-    val stressScore: Int? = null
+    val caloriesBurned: Int? = null,
+    val caloriesEaten: Int? = null
 )
 
 private data class MiniMetricDetailData(
@@ -91,7 +92,7 @@ private val MiniBorder = Color(0xFFE3EAF0)
 private val MiniHeart = Color(0xFFD46072)
 private val MiniSteps = Color(0xFF0D6CB4)
 private val MiniOxygen = Color(0xFF20A7C4)
-private val MiniStress = Color(0xFF7260BF)
+private val MiniCalories = Color(0xFFE08A2E)
 
 private fun Context.findLifecycleOwner(): LifecycleOwner? {
     var current: Context? = this
@@ -210,14 +211,18 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
                 onClick = { openMetric(HomeMiniMetric.BLOOD_OXYGEN) }
             )
             MiniMetricCard(
-                metric = HomeMiniMetric.STRESS,
-                value = metrics.stressScore?.toString() ?: "—",
-                unit = if (metrics.stressScore != null) "/100" else "",
-                status = if (metrics.stressScore != null) "Latest reading" else "Not shared by Samsung",
-                accent = MiniStress,
+                metric = HomeMiniMetric.CALORIES,
+                value = metrics.caloriesBurned?.let(::compactCount) ?: "—",
+                unit = if (metrics.caloriesBurned != null) "kcal" else "",
+                status = if (metrics.caloriesBurned != null) {
+                    "${compactCount(metrics.caloriesEaten ?: 0)} eaten"
+                } else {
+                    metrics.caloriesEaten?.let { "${compactCount(it)} eaten · connect burn" } ?: "Tap to connect"
+                },
+                accent = MiniCalories,
                 modifier = Modifier.weight(1.18f),
                 style = MiniVisualStyle.WAVES,
-                onClick = { openMetric(HomeMiniMetric.STRESS) }
+                onClick = { openMetric(HomeMiniMetric.CALORIES) }
             )
         }
     }
@@ -367,7 +372,6 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
     }
 
     fun connectOrSync() {
-        if (metric == HomeMiniMetric.STRESS) return
         scope.launch {
             when (MiniMetricsHealthConnect.availability(context)) {
                 HealthConnectClient.SDK_AVAILABLE -> {
@@ -383,10 +387,6 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
 
     LaunchedEffect(metric) {
         refresh()
-        if (metric == HomeMiniMetric.STRESS) {
-            status = "Samsung Health does not currently share its Stress score through Health Connect"
-            return@LaunchedEffect
-        }
         val available = MiniMetricsHealthConnect.availability(context) == HealthConnectClient.SDK_AVAILABLE
         connected = available && MiniMetricsHealthConnect.hasPermission(context, metric)
         status = when {
@@ -398,11 +398,11 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
     }
 
     LaunchedEffect(metric, connected, isForeground) {
-        if (!connected || metric == HomeMiniMetric.STRESS || !isForeground) return@LaunchedEffect
+        if (!connected || !isForeground) return@LaunchedEffect
         val intervalMs = when (metric) {
             HomeMiniMetric.HEART_RATE, HomeMiniMetric.STEPS -> 15_000L
             HomeMiniMetric.BLOOD_OXYGEN -> 30_000L
-            HomeMiniMetric.STRESS -> 60_000L
+            HomeMiniMetric.CALORIES -> 30_000L
         }
         while (true) {
             delay(intervalMs)
@@ -420,9 +420,7 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
     ) {
         MiniMetricHeader(metric, onBack)
 
-        if (metric == HomeMiniMetric.STRESS && detail.current == null) {
-            UnsupportedStressCard()
-        } else {
+        run {
             MiniMetricHero(metric, detail, accent)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricStat(detail.primaryLabel, detail.primaryValue, Modifier.weight(1f))
@@ -435,14 +433,12 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
             }
         }
 
-        if (metric != HomeMiniMetric.STRESS) {
-            HealthConnectMiniCard(
-                connected = connected,
-                syncing = syncing,
-                status = status,
-                onClick = ::connectOrSync
-            )
-        }
+        HealthConnectMiniCard(
+            connected = connected,
+            syncing = syncing,
+            status = status,
+            onClick = ::connectOrSync
+        )
         Spacer(Modifier.height(18.dp))
     }
 }
@@ -506,7 +502,7 @@ private fun MiniMetricHero(metric: HomeMiniMetric, detail: MiniMetricDetailData,
                 HomeMiniMetric.HEART_RATE -> "Latest Fit3 / Samsung Health heart-rate reading"
                 HomeMiniMetric.STEPS -> "Samsung Health steps accumulated today"
                 HomeMiniMetric.BLOOD_OXYGEN -> "Latest blood-oxygen reading shared by Samsung Health"
-                HomeMiniMetric.STRESS -> "Latest stress value"
+                HomeMiniMetric.CALORIES -> "Total energy burned today compared with food logged in Project Superhuman"
             },
             color = MiniMuted,
             fontSize = 10.sp,
@@ -541,7 +537,7 @@ private fun MiniMetricHistoryCard(metric: HomeMiniMetric, history: List<Double?>
                 HomeMiniMetric.HEART_RATE -> "Daily average heart rate"
                 HomeMiniMetric.STEPS -> "Daily steps"
                 HomeMiniMetric.BLOOD_OXYGEN -> "Daily average SpO₂"
-                HomeMiniMetric.STRESS -> "Daily stress"
+                HomeMiniMetric.CALORIES -> "Daily calories burned"
             },
             color = MiniNavy,
             fontSize = 15.sp,
@@ -630,11 +626,11 @@ private fun HealthConnectMiniCard(
 private fun UnsupportedStressCard() {
     Column(
         Modifier.fillMaxWidth()
-            .background(Brush.linearGradient(listOf(MiniStress.copy(alpha = .14f), Color.White)), RoundedCornerShape(26.dp))
-            .border(1.dp, MiniStress.copy(alpha = .16f), RoundedCornerShape(26.dp))
+            .background(Brush.linearGradient(listOf(MiniCalories.copy(alpha = .14f), Color.White)), RoundedCornerShape(26.dp))
+            .border(1.dp, MiniCalories.copy(alpha = .16f), RoundedCornerShape(26.dp))
             .padding(20.dp)
     ) {
-        Text("SOURCE LIMITATION", color = MiniStress, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+        Text("SOURCE LIMITATION", color = MiniCalories, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
         Spacer(Modifier.height(8.dp))
         Text("Samsung Stress isn’t exported", color = MiniNavy, fontSize = 21.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(7.dp))
@@ -659,7 +655,7 @@ private fun accentFor(metric: HomeMiniMetric): Color = when (metric) {
     HomeMiniMetric.HEART_RATE -> MiniHeart
     HomeMiniMetric.STEPS -> MiniSteps
     HomeMiniMetric.BLOOD_OXYGEN -> MiniOxygen
-    HomeMiniMetric.STRESS -> MiniStress
+    HomeMiniMetric.CALORIES -> MiniCalories
 }
 
 private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
@@ -683,12 +679,12 @@ private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
     val stepsRecentAverage = completedStepDays.takeIf { it.isNotEmpty() }?.map { it.value }?.average()?.roundToInt()
     val oxygen = latestSamsung(NativeDataHub.between(HealthDomain.BODY, "blood_oxygen_percent", sevenDaysAgo, now))
 
-    suspend fun fallback(vararg names: String): Double? {
-        names.forEach { name -> NativeDataHub.latest(name)?.value?.let { return it } }
-        return null
-    }
+    val caloriesBurned = latestSamsung(
+        NativeDataHub.between(HealthDomain.EXERCISE, "calories_burned_total_kcal", todayStart, now)
+    )?.value
+    val caloriesEaten = NativeDataHub.between(HealthDomain.NUTRITION, "food_kcal", todayStart, now)
+        .sumOf { it.value }
 
-    val stress = fallback("stress_score", "stress_level")
     return MiniMetricSnapshot(
         heartRateBpm = heart?.value?.roundToInt(),
         heartRateTimestampMs = heart?.timestampEpochMs,
@@ -696,7 +692,8 @@ private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
         stepsRecentAverage = stepsRecentAverage,
         bloodOxygenPct = oxygen?.value?.roundToInt(),
         bloodOxygenTimestampMs = oxygen?.timestampEpochMs,
-        stressScore = stress?.let { if (it <= 10.0) (it * 10.0).roundToInt() else it.roundToInt() }
+        caloriesBurned = caloriesBurned?.roundToInt(),
+        caloriesEaten = caloriesEaten.takeIf { it > 0.0 }?.roundToInt()
     )
 }
 
@@ -771,18 +768,27 @@ private suspend fun loadMiniMetricDetail(metric: HomeMiniMetric): MiniMetricDeta
                 hasSamsungData = current != null || history.any { it != null }
             )
         }
-        HomeMiniMetric.STRESS -> {
-            val raw = NativeDataHub.latest("stress_score")?.value ?: NativeDataHub.latest("stress_level")?.value
-            val current = raw?.let { if (it <= 10.0) it * 10.0 else it }
+        HomeMiniMetric.CALORIES -> {
+            suspend fun eaten(date: LocalDate): Double? {
+                val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+                val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+                val total = NativeDataHub.between(HealthDomain.NUTRITION, "food_kcal", start, end).sumOf { it.value }
+                return total.takeIf { it > 0.0 }
+            }
+
+            val history = dates.map { summary(HealthDomain.EXERCISE, "calories_burned_total_kcal", it) }
+            val current = history.lastOrNull()
+            val eatenToday = eaten(today)
             MiniMetricDetailData(
                 current = current,
-                unit = "/100",
-                primaryLabel = "SOURCE",
-                primaryValue = if (current != null) "Local" else "—",
-                secondaryLabel = "SAMSUNG",
-                secondaryValue = "Not shared",
-                history = emptyList(),
-                hasSamsungData = false
+                unit = "kcal",
+                primaryLabel = "BURNED",
+                primaryValue = current?.roundToInt()?.let { "${compactCount(it)} kcal" } ?: "—",
+                secondaryLabel = "EATEN",
+                secondaryValue = eatenToday?.roundToInt()?.let { "${compactCount(it)} kcal" } ?: "0 kcal",
+                sourceValue = "Samsung + diary",
+                history = history,
+                hasSamsungData = history.any { it != null }
             )
         }
     }

@@ -56,7 +56,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, HEART_RATE, STEPS, BLOOD_OXYGEN, STRESS
+    HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
 }
 
 @Composable
@@ -85,7 +85,7 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                                 HomeMiniMetric.HEART_RATE -> ShellPage.HEART_RATE
                                 HomeMiniMetric.STEPS -> ShellPage.STEPS
                                 HomeMiniMetric.BLOOD_OXYGEN -> ShellPage.BLOOD_OXYGEN
-                                HomeMiniMetric.STRESS -> ShellPage.STRESS
+                                HomeMiniMetric.CALORIES -> ShellPage.CALORIES
                             }
                         },
                         topContent = {
@@ -107,7 +107,7 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                     ShellPage.HEART_RATE -> NativeMiniMetricPlaceholderPage(HomeMiniMetric.HEART_RATE) { page = ShellPage.HOME }
                     ShellPage.STEPS -> NativeMiniMetricPlaceholderPage(HomeMiniMetric.STEPS) { page = ShellPage.HOME }
                     ShellPage.BLOOD_OXYGEN -> NativeMiniMetricPlaceholderPage(HomeMiniMetric.BLOOD_OXYGEN) { page = ShellPage.HOME }
-                    ShellPage.STRESS -> NativeMiniMetricPlaceholderPage(HomeMiniMetric.STRESS) { page = ShellPage.HOME }
+                    ShellPage.CALORIES -> NativeMiniMetricPlaceholderPage(HomeMiniMetric.CALORIES) { page = ShellPage.HOME }
                 }
             }
 

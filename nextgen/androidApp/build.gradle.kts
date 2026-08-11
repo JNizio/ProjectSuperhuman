@@ -31,8 +31,8 @@ android {
         applicationId = "com.projectsuperhuman.next"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11218
-        versionName = "11.2.18"
+        versionCode = 11219
+        versionName = "11.2.19"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
