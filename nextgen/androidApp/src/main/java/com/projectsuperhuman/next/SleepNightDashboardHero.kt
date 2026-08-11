@@ -39,7 +39,7 @@ internal fun SleepNightDashboardHero(s: NativeSleepSnapshot?) {
     val analysis = s?.let { SleepIntelligenceEngine.analyse(it) }
     val score = analysis?.recoveryScore ?: s?.score
     val total = s?.totalMinutes
-    val sleepTime = total?.let { it + (s.awakeMinutes ?: 0) }
+    val sleepTime = s?.sleepTimeMinutes ?: total?.let { it + (s.awakeMinutes ?: 0) }
     val recentMinutes = s?.recentAverageMinutes
     val recentScore = s?.recentAverageScore
     val durationDelta = if (total != null && recentMinutes != null) total - recentMinutes else null

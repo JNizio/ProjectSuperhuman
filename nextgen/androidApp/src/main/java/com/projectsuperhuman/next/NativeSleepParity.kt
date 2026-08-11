@@ -55,6 +55,7 @@ private val SleepBorder = Color(0xFFE6E9F2)
 internal data class NativeSleepSnapshot(
     val score: Int? = null,
     val totalMinutes: Int? = null,
+    val sleepTimeMinutes: Int? = null,
     val awakeMinutes: Int? = null,
     val lightMinutes: Int? = null,
     val deepMinutes: Int? = null,
@@ -513,6 +514,7 @@ private object NativeSleepStore {
         return NativeSleepSnapshot(
             score = metric("sleep_score")?.value?.roundToInt(),
             totalMinutes = metric("sleep_total_minutes")?.value?.roundToInt(),
+            sleepTimeMinutes = metric("sleep_time_minutes")?.value?.roundToInt(),
             awakeMinutes = metric("sleep_awake_minutes")?.value?.roundToInt(),
             lightMinutes = metric("sleep_light_minutes")?.value?.roundToInt(),
             deepMinutes = metric("sleep_deep_minutes")?.value?.roundToInt(),

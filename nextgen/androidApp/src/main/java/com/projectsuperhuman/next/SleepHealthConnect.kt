@@ -104,6 +104,7 @@ internal object SleepHealthConnect {
 
                         addMetric("sleep_score", analysis.score.toDouble(), "score")
                         addMetric("sleep_total_minutes", summary.asleepMinutes.toDouble(), "min")
+                        addMetric("sleep_time_minutes", summary.sleepTimeMinutes.toDouble(), "min")
                         addMetric("sleep_awake_minutes", summary.awakeMinutes.toDouble(), "min")
                         addMetric("sleep_light_minutes", summary.lightMinutes.toDouble(), "min")
                         addMetric("sleep_deep_minutes", summary.deepMinutes.toDouble(), "min")
@@ -204,14 +205,16 @@ internal object SleepHealthConnect {
         }
     }
 
-    private data class Breakdown(val awake: Int, val light: Int, val deep: Int, val rem: Int) {
+    private data class Breakdown(val awake: Int, val light: Int, val deep: Int, val rem: Int, val unknown: Int) {
         val stagedSleep: Int get() = light + deep + rem
+        val stagedWindow: Int get() = awake + light + deep + rem + unknown
     }
 
     private data class NightSummary(
         val start: Instant,
         val end: Instant,
         val asleepMinutes: Int,
+        val sleepTimeMinutes: Int,
         val awakeMinutes: Int,
         val lightMinutes: Int,
         val deepMinutes: Int,
@@ -227,6 +230,7 @@ internal object SleepHealthConnect {
         var light = 0
         var deep = 0
         var rem = 0
+        var unknown = 0
         var asleep = 0
         var interruptionCount = 0
         var longestInterruption = 0
@@ -256,6 +260,7 @@ internal object SleepHealthConnect {
             light += if (stagedSleep > 0) breakdown.light else inferredSleep
             deep += breakdown.deep
             rem += breakdown.rem
+            unknown += breakdown.unknown
 
             val encoded = encodeStages(session)
             if (encoded.isNotBlank()) timeline += encoded
@@ -266,6 +271,12 @@ internal object SleepHealthConnect {
             start = ordered.first().startTime,
             end = ordered.last().endTime,
             asleepMinutes = asleep,
+            // Samsung-style sleep time is the complete staged interval inside the
+            // sleep records. Unknown intervals are real source time and must not be
+            // silently discarded just because they cannot be classified as a stage.
+            sleepTimeMinutes = if (ordered.any { it.stages.isNotEmpty() }) {
+                (asleep + awake + unknown).coerceAtLeast(asleep)
+            } else asleep,
             awakeMinutes = awake,
             lightMinutes = light,
             deepMinutes = deep,
@@ -281,6 +292,7 @@ internal object SleepHealthConnect {
         var light = 0L
         var deep = 0L
         var rem = 0L
+        var unknown = 0L
         session.stages.forEach { stage ->
             val min = Duration.between(stage.startTime, stage.endTime).toMinutes().coerceAtLeast(0)
             when (stage.stage) {
@@ -291,9 +303,11 @@ internal object SleepHealthConnect {
                 SleepSessionRecord.STAGE_TYPE_SLEEPING -> light += min
                 SleepSessionRecord.STAGE_TYPE_DEEP -> deep += min
                 SleepSessionRecord.STAGE_TYPE_REM -> rem += min
+                SleepSessionRecord.STAGE_TYPE_UNKNOWN -> unknown += min
+                else -> unknown += min
             }
         }
-        return Breakdown(awake.toInt(), light.toInt(), deep.toInt(), rem.toInt())
+        return Breakdown(awake.toInt(), light.toInt(), deep.toInt(), rem.toInt(), unknown.toInt())
     }
 
     private fun encodeStages(session: SleepSessionRecord): String = session.stages.joinToString(";") { stage ->
@@ -303,7 +317,9 @@ internal object SleepHealthConnect {
             SleepSessionRecord.STAGE_TYPE_OUT_OF_BED -> "awake"
             SleepSessionRecord.STAGE_TYPE_DEEP -> "deep"
             SleepSessionRecord.STAGE_TYPE_REM -> "rem"
-            else -> "light"
+            SleepSessionRecord.STAGE_TYPE_LIGHT,
+            SleepSessionRecord.STAGE_TYPE_SLEEPING -> "light"
+            else -> "unknown"
         }
         "$type,${stage.startTime.toEpochMilli()},${stage.endTime.toEpochMilli()}"
     }
