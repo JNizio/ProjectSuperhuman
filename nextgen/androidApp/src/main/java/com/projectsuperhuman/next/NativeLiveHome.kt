@@ -82,7 +82,6 @@ private enum class HomeTile(val storageKey: String) {
     BODY("body"),
     SLEEP("sleep"),
     NUTRITION("nutrition"),
-    QUICK_LINKS("quick_links"),
     BLOOD_PRESSURE("blood_pressure")
 }
 
@@ -99,7 +98,6 @@ private val defaultHomeTileOrder = listOf(
     HomeTile.BODY,
     HomeTile.SLEEP,
     HomeTile.NUTRITION,
-    HomeTile.QUICK_LINKS,
     HomeTile.BLOOD_PRESSURE
 )
 
@@ -310,14 +308,9 @@ internal fun NativeLiveHome(
                             HomeTile.HYDRATION -> PremiumHomeHydrationTile(snapshot, openHydration)
                             HomeTile.CLINICAL -> LegacyClinicalCard(snapshot, openClinical)
                             HomeTile.EXERCISE -> LegacyTrainingCard(snapshot, openExercise)
-                            HomeTile.BODY -> LegacyBodyCard(snapshot, Modifier.fillMaxWidth(), openBody)
+                            HomeTile.BODY -> HomeBodyMindfulnessRow(snapshot, openBody, openMindfulness)
                             HomeTile.SLEEP -> HomeSleepInsightTile(snapshot, openSleep)
                             HomeTile.NUTRITION -> LegacyNutritionCard(snapshot, openNutrition)
-                            HomeTile.QUICK_LINKS -> LegacyHomeLinks(
-                                openMindfulness = openMindfulness,
-                                openExercise = openExercise,
-                                openInsights = openClinical
-                            )
                             HomeTile.BLOOD_PRESSURE -> LegacyBloodPressureLink(openBloodPressure)
                         }
                     }

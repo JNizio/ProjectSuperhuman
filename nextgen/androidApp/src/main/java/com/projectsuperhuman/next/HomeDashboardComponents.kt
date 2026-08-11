@@ -255,6 +255,65 @@ internal fun LegacyBodyCard(snapshot: NativeHomeSnapshot, modifier: Modifier, on
 }
 
 @Composable
+internal fun HomeBodyMindfulnessRow(
+    snapshot: NativeHomeSnapshot,
+    openBody: () -> Unit,
+    openMindfulness: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        LegacyBodyCard(snapshot, Modifier.weight(1f), openBody)
+        LegacyMindfulnessCard(snapshot, Modifier.weight(1f), openMindfulness)
+    }
+}
+
+@Composable
+private fun LegacyMindfulnessCard(
+    snapshot: NativeHomeSnapshot,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    val minutes = snapshot.mindfulnessMinutesToday
+    Column(
+        modifier.height(148.dp)
+            .clip(RoundedCornerShape(23.dp))
+            .background(Color(0xFFF4FAFB))
+            .border(1.dp, Color(0xFFDCECEF), RoundedCornerShape(23.dp))
+            .clickable(onClick = onClick)
+            .padding(15.dp)
+    ) {
+        LegacyCardHeader("MINDFULNESS")
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (minutes > 0) "$minutes min" else "Ready",
+            color = Color(0xFF176B72),
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            if (minutes > 0) "mindful time today" else "Breathe · reflect · reset",
+            color = HomeMuted,
+            fontSize = 8.sp
+        )
+        Spacer(Modifier.height(13.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.Bottom) {
+            listOf(12, 20, 30, 22, 15).forEachIndexed { index, height ->
+                Box(
+                    Modifier.weight(1f)
+                        .height(height.dp)
+                        .background(
+                            if (minutes > 0 && index < 3) Color(0xFF5CB7AE) else Color(0xFFD9ECEB),
+                            RoundedCornerShape(8.dp)
+                        )
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun BodySparkline(values: List<Double>) {
     Canvas(Modifier.fillMaxWidth().height(42.dp)) {
         if (values.size < 2) {
