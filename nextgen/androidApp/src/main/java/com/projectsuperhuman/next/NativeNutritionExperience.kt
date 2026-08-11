@@ -688,17 +688,18 @@ private fun NxNutrients(day: NxDay) {
         }
 
         val microById = day.micros.associateBy { it.id }
-        val highlighted = nxHighlightOrder.mapNotNull { id -> microById[id]?.let { id to it } }
-        if (highlighted.isNotEmpty()) {
+        if (day.entries.isNotEmpty()) {
             Column(
                 Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
                     .border(1.dp, NxBorder, RoundedCornerShape(22.dp)).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("NEEDS ATTENTION", color = NxMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                highlighted
-                    .sortedBy { (id, micro) -> nxReferenceById[id]?.let { micro.value / it.value } ?: 99.0 }
-                    .forEach { (_, micro) -> NxMicroRow(micro, entryCount) }
+                Text("KEY NUTRIENTS", color = NxMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                nxHighlightOrder.forEach { id ->
+                    val micro = microById[id]
+                    if (micro != null) NxMicroRow(micro, entryCount)
+                    else nxReferenceById[id]?.let { NxUnknownMicroRow(it) }
+                }
             }
         }
 
@@ -743,6 +744,22 @@ private fun NxMicroRow(micro: NxMicro, totalEntries: Int) {
             Text(pct?.let { "$it%" } ?: "tracked", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black)
         }
         reference?.let { NxProgress(micro.value, it.value, accent) }
+    }
+}
+
+@Composable
+private fun NxUnknownMicroRow(reference: NxReference) {
+    Column(
+        Modifier.fillMaxWidth().background(NxBg, RoundedCornerShape(14.dp)).padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Column(Modifier.weight(1f)) {
+                Text(reference.label, color = NxInk, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                Text("No reliable value in today's food data", color = NxMuted, fontSize = 8.sp)
+            }
+            Text("Unknown", color = NxPurple, fontSize = 10.sp, fontWeight = FontWeight.Black)
+        }
     }
 }
 
@@ -856,24 +873,22 @@ private fun NxGoalField(label: String, value: String, modifier: Modifier = Modif
 }
 
 private suspend fun nxLoadGoals(): NxGoals = NxGoals(
-    kcal = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_kcal")?.value,
-    protein = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_protein_g")?.value,
-    carbs = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_carbs_g")?.value,
-    fat = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_fat_g")?.value,
-    fibre = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_fibre_g")?.value
+    kcal = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_kcal")?.value?.takeIf { it > 0.0 },
+    protein = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_protein_g")?.value?.takeIf { it > 0.0 },
+    carbs = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_carbs_g")?.value?.takeIf { it > 0.0 },
+    fat = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_fat_g")?.value?.takeIf { it > 0.0 },
+    fibre = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_fibre_g")?.value?.takeIf { it > 0.0 }
 )
 
 private suspend fun nxSaveGoals(goals: NxGoals) {
-    val existing = NativeDataHub.latestForDomain(HealthDomain.NUTRITION).filter { it.metric.startsWith("nutrition_goal_") }
-    if (existing.isNotEmpty()) NativeDataHub.deleteValues(existing)
-
     suspend fun save(metric: String, value: Double?, unit: String) {
-        if (value != null) NativeDataHub.saveMetric(
+        NativeDataHub.saveMetric(
             domain = HealthDomain.NUTRITION,
             metric = metric,
-            value = value,
+            value = value ?: 0.0,
             unit = unit,
-            source = "native-nutrition-goals"
+            source = "native-nutrition-goals",
+            metadata = mapOf("enabled" to (value != null).toString())
         )
     }
     save("nutrition_goal_kcal", goals.kcal, "kcal")
