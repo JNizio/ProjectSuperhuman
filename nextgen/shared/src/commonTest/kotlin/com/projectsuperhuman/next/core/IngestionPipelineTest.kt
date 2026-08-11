@@ -113,6 +113,12 @@ class IngestionPipelineTest {
             override suspend fun latest(domain: HealthDomain, metric: String): HealthValue? = null
             override suspend fun between(domain: HealthDomain, metric: String, fromEpochMs: Long, toEpochMs: Long): List<HealthValue> = emptyList()
             override suspend fun domainBetween(domain: HealthDomain, fromEpochMs: Long, toEpochMs: Long): List<HealthValue> = emptyList()
+            override suspend fun dailyAggregates(
+                domain: HealthDomain,
+                metric: String,
+                fromDayEpoch: Long,
+                toDayEpoch: Long
+            ): List<DailyAggregatePoint> = emptyList()
         }
     }
 }
