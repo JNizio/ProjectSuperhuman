@@ -78,10 +78,24 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
     var dashboardView by remember { mutableStateOf(HistoryDataView.INTERPRETED) }
 
     suspend fun refreshHistory() {
-        nights = NativeHistoricalSleepStore.loadAll()
-        if (selectedDate == null) selectedDate = nights.maxByOrNull { it.endEpochMs }?.wakeDate
-        selectedDate?.let { month = YearMonth.from(it) }
-        status = if (nights.isEmpty()) "No historical sleep records yet" else "${nights.size} sleep records available"
+        val targetMonth = month
+        status = "Loading ${targetMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))}…"
+        val loaded = NativeHistoricalSleepStore.loadMonth(targetMonth)
+        nights = loaded
+
+        val visibleNights = loaded.filter { YearMonth.from(it.wakeDate) == targetMonth }
+        val selectedStillVisible = selectedDate?.let { date ->
+            YearMonth.from(date) == targetMonth && visibleNights.any { it.wakeDate == date }
+        } == true
+        if (!selectedStillVisible) {
+            selectedDate = visibleNights.maxByOrNull { it.endEpochMs }?.wakeDate
+        }
+
+        status = if (visibleNights.isEmpty()) {
+            "No sleep records in ${targetMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))}"
+        } else {
+            "${visibleNights.size} sleep records in ${targetMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))}"
+        }
     }
 
     suspend fun sync() {
@@ -115,8 +129,17 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
 
     LaunchedEffect(Unit) {
         connected = SleepHealthConnect.hasPermission(context)
-        refreshHistory()
+        NativeHistoricalSleepStore.loadLatestWakeDate()?.let { latestDate ->
+            selectedDate = latestDate
+            month = YearMonth.from(latestDate)
+        }
         if (connected) sync()
+    }
+
+    // The calendar now loads only the visible month. Switching months triggers one
+    // bounded indexed query instead of keeping every historical night in memory.
+    LaunchedEffect(month) {
+        refreshHistory()
     }
 
     val selected = nights.firstOrNull { it.wakeDate == selectedDate }
@@ -370,12 +393,19 @@ private fun SleepCalendarCard(
     onNext: () -> Unit,
     onSelect: (LocalDate) -> Unit
 ) {
-    val firstDay = month.atDay(1)
-    val leading = firstDay.dayOfWeek.value - DayOfWeek.MONDAY.value
-    val cells = buildList<LocalDate?> {
-        repeat(leading) { add(null) }
-        for (day in 1..month.lengthOfMonth()) add(month.atDay(day))
-        while (size % 7 != 0) add(null)
+    val cells = remember(month) {
+        val firstDay = month.atDay(1)
+        val leading = firstDay.dayOfWeek.value - DayOfWeek.MONDAY.value
+        buildList<LocalDate?> {
+            repeat(leading) { add(null) }
+            for (day in 1..month.lengthOfMonth()) add(month.atDay(day))
+            while (size % 7 != 0) add(null)
+        }
+    }
+    val nightByDate = remember(month, nights) {
+        nights.asSequence()
+            .filter { YearMonth.from(it.wakeDate) == month }
+            .associateBy { it.wakeDate }
     }
     val nightByDate = nights.associateBy { it.wakeDate }
 
@@ -734,27 +764,45 @@ private fun BrushlessPurple(): androidx.compose.ui.graphics.Brush =
     androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF4939A9), Color(0xFF6F5BE1)))
 
 private object NativeHistoricalSleepStore {
-    suspend fun loadAll(): List<HistoricalSleepNight> {
+    private const val baselineDays = 10L
+
+    suspend fun loadLatestWakeDate(): LocalDate? {
+        val latest = NativeDataHub.pageForMetric(
+            com.projectsuperhuman.next.core.HealthDomain.SLEEP,
+            "sleep_total_minutes",
+            limit = 1
+        ).firstOrNull() ?: return null
+        val end = latest.metadata["nightEnd"]?.toLongOrNull() ?: return null
+        return Instant.ofEpochMilli(end).atZone(ZoneId.systemDefault()).toLocalDate()
+    }
+
+    suspend fun loadMonth(month: YearMonth): List<HistoricalSleepNight> {
+        val zone = ZoneId.systemDefault()
+        val from = month.atDay(1).minusDays(baselineDays)
+            .atStartOfDay(zone).toInstant().toEpochMilli()
+        val to = month.plusMonths(1).atDay(1)
+            .atStartOfDay(zone).toInstant().toEpochMilli() - 1L
         val values = NativeDataHub.domainBetween(
             com.projectsuperhuman.next.core.HealthDomain.SLEEP,
-            0L,
-            Long.MAX_VALUE
-        ).filter { it.metric.startsWith("sleep_") }
+            from,
+            to
+        ).asSequence()
+            .filter { it.metric.startsWith("sleep_") }
+            .filter { it.metadata["nightEnd"] != null }
+            .toList()
 
-        val nights = values
-            .filter { it.metric == "sleep_total_minutes" && it.metadata["nightEnd"] != null }
+        return values
             .groupBy { it.metadata["nightEnd"]!! }
-            .mapNotNull { (nightEndRaw, _) ->
+            .mapNotNull { (nightEndRaw, metrics) ->
                 val end = nightEndRaw.toLongOrNull() ?: return@mapNotNull null
-                val metrics = values.filter { it.metadata["nightEnd"] == nightEndRaw }
-                val metric = { name: String -> metrics.firstOrNull { it.metric == name } }
-                val start = metric("sleep_start_epoch_ms")?.value?.toLong()
-                    ?: metrics.firstOrNull { it.metric == "sleep_start_epoch_ms" }?.value?.toLong()
-                    ?: return@mapNotNull null
+                val byMetric = metrics.associateBy { it.metric }
+                val metric = { name: String -> byMetric[name] }
+                val start = metric("sleep_start_epoch_ms")?.value?.toLong() ?: return@mapNotNull null
                 val timeline = metric("sleep_stage_timeline")?.metadata?.get("segments")
                 val snapshot = NativeSleepSnapshot(
                     score = metric("sleep_score")?.value?.roundToInt(),
                     totalMinutes = metric("sleep_total_minutes")?.value?.roundToInt(),
+                    sleepTimeMinutes = metric("sleep_time_minutes")?.value?.roundToInt(),
                     awakeMinutes = metric("sleep_awake_minutes")?.value?.roundToInt(),
                     lightMinutes = metric("sleep_light_minutes")?.value?.roundToInt(),
                     deepMinutes = metric("sleep_deep_minutes")?.value?.roundToInt(),
@@ -768,13 +816,12 @@ private object NativeHistoricalSleepStore {
                     recentAverageScore = null
                 )
                 HistoricalSleepNight(
-                    wakeDate = Instant.ofEpochMilli(end).atZone(ZoneId.systemDefault()).toLocalDate(),
+                    wakeDate = Instant.ofEpochMilli(end).atZone(zone).toLocalDate(),
                     endEpochMs = end,
                     snapshot = snapshot
                 )
             }
+            .distinctBy { it.endEpochMs }
             .sortedByDescending { it.endEpochMs }
-
-        return nights.distinctBy { it.endEpochMs }
     }
 }
