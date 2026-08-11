@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 
-# Revalidation after target persistence and unknown-micronutrient hardening.
+# Validation after readability-focused native Nutrition redesign.
 jobs:
   compile:
     runs-on: ubuntu-latest
