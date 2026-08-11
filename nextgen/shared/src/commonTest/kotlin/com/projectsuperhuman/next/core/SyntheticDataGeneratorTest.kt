@@ -44,6 +44,35 @@ class SyntheticDataGeneratorTest {
     }
 
     @Test
+    fun oneYearPresetProducesCompleteDailyHistoryAcrossPrimaryModules() = runBlocking {
+        val gateway = RecordingGateway()
+        val result = SyntheticDataGenerator(DataIngestionPipeline(gateway)) { 1_786_425_600_000L }
+            .generate(SyntheticGenerationConfig(days = 365, seed = 20260811, batchSize = 750))
+
+        assertEquals(365, result.requestedDays)
+        assertEquals(0, result.rejected)
+
+        fun metric(domain: HealthDomain, name: String): List<HealthValue> =
+            gateway.saved.getValue(domain).filter { it.metric == name }
+
+        val sleepNights = metric(HealthDomain.SLEEP, "sleep_total_minutes")
+        assertEquals(365, sleepNights.size)
+        assertEquals(365, sleepNights.mapNotNull { it.metadata["nightEnd"] }.distinct().size)
+        assertTrue(sleepNights.all { !it.metadata["nightStart"].isNullOrBlank() })
+        assertEquals(365, metric(HealthDomain.SLEEP, "sleep_start_epoch_ms").size)
+        assertEquals(365, metric(HealthDomain.SLEEP, "sleep_end_epoch_ms").size)
+        assertEquals(365, metric(HealthDomain.SLEEP, "sleep_stage_timeline").size)
+
+        assertEquals(365, metric(HealthDomain.BODY, "body_weight_kg").size)
+        assertEquals(365, metric(HealthDomain.BODY, "body_fat_pct").size)
+        assertEquals(365, metric(HealthDomain.EXERCISE, "steps").size)
+        assertEquals(365, metric(HealthDomain.EXERCISE, "active_calories_kcal").size)
+        assertEquals(365 * 3, metric(HealthDomain.NUTRITION, "food_kcal").size)
+        assertEquals(365, metric(HealthDomain.HYDRATION, "water_total_l").size)
+        assertEquals(365, metric(HealthDomain.MINDFULNESS, "mood_score").size)
+    }
+
+    @Test
     fun scenarioContainsUsefulCorrelationsAndSparseClinicalData() = runBlocking {
         val gateway = RecordingGateway()
         SyntheticDataGenerator(DataIngestionPipeline(gateway)) { 1_786_425_600_000L }
