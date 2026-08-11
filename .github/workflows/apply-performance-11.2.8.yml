@@ -1,0 +1,267 @@
+name: Apply Project Superhuman 11.2.8 performance optimisations
+
+on:
+  push:
+    branches: [ "11.2" ]
+    paths:
+      - '.github/workflows/apply-performance-11.2.8.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  apply-performance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 11.2
+        uses: actions/checkout@v4
+        with:
+          ref: '11.2'
+          fetch-depth: 0
+
+      - name: Port performance optimisations safely
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          # ---- Version: 11.2.8 ----
+          gradle = Path('nextgen/androidApp/build.gradle.kts')
+          text = gradle.read_text()
+          text = re.sub(r'versionCode\s*=\s*\d+', 'versionCode = 11208', text, count=1)
+          text = re.sub(r'versionName\s*=\s*"[^"]+"', 'versionName = "11.2.8"', text, count=1)
+          gradle.write_text(text)
+
+          # ---- Hydration: replace dozens of per-day SQL reads with two batched range reads ----
+          hydration = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeHydration.kt')
+          text = hydration.read_text()
+          hydration_fn = r'''private suspend fun loadHydrationSnapshot(): HydrationSnapshot {
+              val zone = ZoneId.systemDefault()
+              val today = LocalDate.now(zone)
+              val now = System.currentTimeMillis()
+              val todayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
+              val goal = NativeDataHub.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
+
+              val month = YearMonth.from(today)
+              val historyStart = today.minusDays(6)
+              val rangeStartDate = minOf(month.atDay(1), historyStart)
+              val rangeStart = rangeStartDate.atStartOfDay(zone).toInstant().toEpochMilli()
+
+              // One indexed read per metric for the complete visible range. This keeps Hydration
+              // work bounded even when the user has years of stored data.
+              val intakeRows = NativeDataHub.between("water_intake_ml", rangeStart, now)
+              val compatibilityRows = NativeDataHub.between("water_total_l", rangeStart, now)
+              fun dateOf(epochMs: Long): LocalDate = Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
+              val intakeByDay = intakeRows.groupBy { dateOf(it.timestampEpochMs) }
+              val compatibilityByDay = compatibilityRows.groupBy { dateOf(it.timestampEpochMs) }
+
+              fun totalFor(date: LocalDate): Int {
+                  val events = intakeByDay[date].orEmpty()
+                  return if (events.isNotEmpty()) {
+                      events.sumOf { it.value }.roundToInt().coerceAtLeast(0)
+                  } else {
+                      compatibilityByDay[date].orEmpty().maxByOrNull { it.timestampEpochMs }
+                          ?.value?.times(1000.0)?.roundToInt()?.coerceAtLeast(0) ?: 0
+                  }
+              }
+
+              val todayEvents = intakeByDay[today].orEmpty().sortedBy { it.timestampEpochMs }
+              val todayMl = totalFor(today).coerceIn(0, goal)
+
+              val history = (6 downTo 0).map { offset ->
+                  val date = today.minusDays(offset.toLong())
+                  HydrationDay(date, totalFor(date))
+              }
+
+              val calendarTotals = (1..month.lengthOfMonth()).associate { day ->
+                  val date = month.atDay(day)
+                  date to totalFor(date)
+              }
+
+              val lastPositive = todayEvents.lastOrNull { it.value > 0 }
+              return HydrationSnapshot(
+                  todayMl = todayMl,
+                  goalMl = goal,
+                  lastDrinkMl = lastPositive?.value?.roundToInt(),
+                  lastDrinkEpochMs = lastPositive?.timestampEpochMs,
+                  history = history,
+                  calendarTotals = calendarTotals
+              )
+          }'''
+          pattern = re.compile(r'private suspend fun loadHydrationSnapshot\(\): HydrationSnapshot \{.*?\n\}\n\nprivate fun formatClock', re.S)
+          if not pattern.search(text):
+              raise SystemExit('Hydration loader pattern not found; refusing unsafe patch')
+          text = pattern.sub(hydration_fn + '\n\nprivate fun formatClock', text, count=1)
+          hydration.write_text(text)
+
+          # ---- Sleep History: load only visible month (+ baseline), not lifetime history ----
+          sleep = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt')
+          text = sleep.read_text()
+
+          old_refresh = '''    suspend fun refreshHistory() {
+                  nights = NativeHistoricalSleepStore.loadAll()
+                  if (selectedDate == null) selectedDate = nights.maxByOrNull { it.endEpochMs }?.wakeDate
+                  selectedDate?.let { month = YearMonth.from(it) }
+                  status = if (nights.isEmpty()) "No historical sleep records yet" else "${nights.size} sleep records available"
+              }'''
+          new_refresh = '''    suspend fun refreshHistory() {
+                  val targetMonth = month
+                  status = "Loading ${targetMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))}…"
+                  val loaded = NativeHistoricalSleepStore.loadMonth(targetMonth)
+                  nights = loaded
+
+                  val visibleNights = loaded.filter { YearMonth.from(it.wakeDate) == targetMonth }
+                  val selectedStillVisible = selectedDate?.let { date ->
+                      YearMonth.from(date) == targetMonth && visibleNights.any { it.wakeDate == date }
+                  } == true
+                  if (!selectedStillVisible) {
+                      selectedDate = visibleNights.maxByOrNull { it.endEpochMs }?.wakeDate
+                  }
+
+                  status = if (visibleNights.isEmpty()) {
+                      "No sleep records in ${targetMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))}"
+                  } else {
+                      "${visibleNights.size} sleep records in ${targetMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))}"
+                  }
+              }'''
+          if old_refresh not in text:
+              raise SystemExit('Sleep refresh block not found; refusing unsafe patch')
+          text = text.replace(old_refresh, new_refresh, 1)
+
+          old_effect = '''    LaunchedEffect(Unit) {
+                  connected = SleepHealthConnect.hasPermission(context)
+                  refreshHistory()
+                  if (connected) sync()
+              }'''
+          new_effect = '''    LaunchedEffect(Unit) {
+                  connected = SleepHealthConnect.hasPermission(context)
+                  NativeHistoricalSleepStore.loadLatestWakeDate()?.let { latestDate ->
+                      selectedDate = latestDate
+                      month = YearMonth.from(latestDate)
+                  }
+                  if (connected) sync()
+              }
+
+              // The calendar now loads only the visible month. Switching months triggers one
+              // bounded indexed query instead of keeping every historical night in memory.
+              LaunchedEffect(month) {
+                  refreshHistory()
+              }'''
+          if old_effect not in text:
+              raise SystemExit('Sleep launch effect block not found; refusing unsafe patch')
+          text = text.replace(old_effect, new_effect, 1)
+
+          # Memoize calendar cells and date lookup so recomposition does not repeatedly scan nights.
+          old_cells = '''    val firstDay = month.atDay(1)
+              val leading = firstDay.dayOfWeek.value - DayOfWeek.MONDAY.value
+              val cells = buildList<LocalDate?> {
+                  repeat(leading) { add(null) }
+                  for (day in 1..month.lengthOfMonth()) add(month.atDay(day))
+                  while (size % 7 != 0) add(null)
+              }'''
+          new_cells = '''    val cells = remember(month) {
+                  val firstDay = month.atDay(1)
+                  val leading = firstDay.dayOfWeek.value - DayOfWeek.MONDAY.value
+                  buildList<LocalDate?> {
+                      repeat(leading) { add(null) }
+                      for (day in 1..month.lengthOfMonth()) add(month.atDay(day))
+                      while (size % 7 != 0) add(null)
+                  }
+              }
+              val nightByDate = remember(month, nights) {
+                  nights.asSequence()
+                      .filter { YearMonth.from(it.wakeDate) == month }
+                      .associateBy { it.wakeDate }
+              }'''
+          if old_cells not in text:
+              raise SystemExit('Sleep calendar cell block not found; refusing unsafe patch')
+          text = text.replace(old_cells, new_cells, 1)
+          text = text.replace('val night = nights.firstOrNull { it.wakeDate == date }', 'val night = nightByDate[date]')
+
+          # Replace lifetime loader with bounded month loader while preserving newer 11.2 fields.
+          store_pattern = re.compile(r'private object NativeHistoricalSleepStore \{.*?\n\}', re.S)
+          store_replacement = r'''private object NativeHistoricalSleepStore {
+              private const val baselineDays = 10L
+
+              suspend fun loadLatestWakeDate(): LocalDate? {
+                  val latest = NativeDataHub.pageForMetric(
+                      com.projectsuperhuman.next.core.HealthDomain.SLEEP,
+                      "sleep_total_minutes",
+                      limit = 1
+                  ).firstOrNull() ?: return null
+                  val end = latest.metadata["nightEnd"]?.toLongOrNull() ?: return null
+                  return Instant.ofEpochMilli(end).atZone(ZoneId.systemDefault()).toLocalDate()
+              }
+
+              suspend fun loadMonth(month: YearMonth): List<HistoricalSleepNight> {
+                  val zone = ZoneId.systemDefault()
+                  val from = month.atDay(1).minusDays(baselineDays)
+                      .atStartOfDay(zone).toInstant().toEpochMilli()
+                  val to = month.plusMonths(1).atDay(1)
+                      .atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+                  val values = NativeDataHub.domainBetween(
+                      com.projectsuperhuman.next.core.HealthDomain.SLEEP,
+                      from,
+                      to
+                  ).asSequence()
+                      .filter { it.metric.startsWith("sleep_") }
+                      .filter { it.metadata["nightEnd"] != null }
+                      .toList()
+
+                  return values
+                      .groupBy { it.metadata["nightEnd"]!! }
+                      .mapNotNull { (nightEndRaw, metrics) ->
+                          val end = nightEndRaw.toLongOrNull() ?: return@mapNotNull null
+                          val byMetric = metrics.associateBy { it.metric }
+                          val metric = { name: String -> byMetric[name] }
+                          val start = metric("sleep_start_epoch_ms")?.value?.toLong() ?: return@mapNotNull null
+                          val timeline = metric("sleep_stage_timeline")?.metadata?.get("segments")
+                          val snapshot = NativeSleepSnapshot(
+                              score = metric("sleep_score")?.value?.roundToInt(),
+                              totalMinutes = metric("sleep_total_minutes")?.value?.roundToInt(),
+                              sleepTimeMinutes = metric("sleep_time_minutes")?.value?.roundToInt(),
+                              awakeMinutes = metric("sleep_awake_minutes")?.value?.roundToInt(),
+                              lightMinutes = metric("sleep_light_minutes")?.value?.roundToInt(),
+                              deepMinutes = metric("sleep_deep_minutes")?.value?.roundToInt(),
+                              remMinutes = metric("sleep_rem_minutes")?.value?.roundToInt(),
+                              efficiencyPct = metric("sleep_efficiency_pct")?.value?.roundToInt(),
+                              startEpochMs = start,
+                              endEpochMs = end,
+                              stageSegments = parseSleepStageSegments(timeline),
+                              sessionsImported = 1,
+                              recentAverageMinutes = null,
+                              recentAverageScore = null
+                          )
+                          HistoricalSleepNight(
+                              wakeDate = Instant.ofEpochMilli(end).atZone(zone).toLocalDate(),
+                              endEpochMs = end,
+                              snapshot = snapshot
+                          )
+                      }
+                      .distinctBy { it.endEpochMs }
+                      .sortedByDescending { it.endEpochMs }
+              }
+          }'''
+          matches = list(store_pattern.finditer(text))
+          if len(matches) != 1:
+              raise SystemExit(f'Expected one NativeHistoricalSleepStore, found {len(matches)}')
+          text = store_pattern.sub(store_replacement, text, count=1)
+          sleep.write_text(text)
+
+          # Add an implementation note so future work keeps the bounded-loading contract.
+          notes = Path('nextgen/PERFORMANCE_11_2_8.md')
+          notes.write_text('''# Project Superhuman 11.2.8 performance pass\n\n- Sleep history is month-scoped with a 10-day look-back for the 7-night baseline.\n- Month switches perform bounded indexed Data Vault reads instead of lifetime scans.\n- Sleep calendar cells/date lookup are memoized.\n- Hydration monthly + 7-day history is built from two batched range reads.\n- Existing 11.2 Data Vault indexing, pagination and daily aggregates are retained unchanged.\n- Full-history reads remain reserved for backup/export/admin paths.\n''')
+          PY
+
+      - name: Commit 11.2.8
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add nextgen/androidApp/build.gradle.kts \
+                  nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeHydration.kt \
+                  nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt \
+                  nextgen/PERFORMANCE_11_2_8.md
+          git commit -m "Project Superhuman 11.2.8 performance pass [skip ci]"
+          git push origin HEAD:11.2
