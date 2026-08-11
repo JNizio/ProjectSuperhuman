@@ -1,7 +1,10 @@
 package com.projectsuperhuman.next
 
+import android.content.Context
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -13,15 +16,25 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.projectsuperhuman.next.core.HealthDomain
 import java.time.LocalDate
 import java.time.ZoneId
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -48,6 +61,31 @@ data class NativeHomeSnapshot(
     val mindfulnessMinutesToday: Int = 0
 )
 
+private enum class HomeTile(val storageKey: String) {
+    HYDRATION("hydration"),
+    CLINICAL("clinical"),
+    EXERCISE("exercise"),
+    BODY("body"),
+    SLEEP("sleep"),
+    NUTRITION("nutrition"),
+    QUICK_LINKS("quick_links"),
+    BLOOD_PRESSURE("blood_pressure")
+}
+
+private val defaultHomeTileOrder = listOf(
+    HomeTile.HYDRATION,
+    HomeTile.CLINICAL,
+    HomeTile.EXERCISE,
+    HomeTile.BODY,
+    HomeTile.SLEEP,
+    HomeTile.NUTRITION,
+    HomeTile.QUICK_LINKS,
+    HomeTile.BLOOD_PRESSURE
+)
+
+private const val HOME_PREFS = "project_superhuman_home"
+private const val HOME_TILE_ORDER_KEY = "tile_order_v1"
+
 @Composable
 internal fun NativeLiveHome(
     openClinical: () -> Unit,
@@ -60,7 +98,11 @@ internal fun NativeLiveHome(
     openMindfulness: () -> Unit,
     topContent: @Composable () -> Unit = {}
 ) {
+    val context = LocalContext.current
     var snapshot by remember { mutableStateOf(NativeHomeSnapshot()) }
+    val tileOrder = remember {
+        mutableStateListOf<HomeTile>().apply { addAll(loadHomeTileOrder(context)) }
+    }
     LaunchedEffect(Unit) { snapshot = loadNativeHomeSnapshot() }
 
     Column(
@@ -73,22 +115,125 @@ internal fun NativeLiveHome(
             Modifier.fillMaxWidth().padding(horizontal = 17.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
+            // The Today hero stays fixed at the top; only module tiles can be reordered.
             LegacyHomeHero(snapshot)
-            PremiumHomeHydrationTile(snapshot, openHydration)
-            LegacyClinicalCard(snapshot, openClinical)
-            LegacyTrainingCard(snapshot, openExercise)
-            LegacyBodyCard(snapshot, Modifier.fillMaxWidth(), openBody)
-            HomeSleepInsightTile(snapshot, openSleep)
-            LegacyNutritionCard(snapshot, openNutrition)
-            LegacyHomeLinks(
-                openMindfulness = openMindfulness,
-                openExercise = openExercise,
-                openInsights = openClinical
-            )
-            LegacyBloodPressureLink(openBloodPressure)
+
+            tileOrder.forEach { tile ->
+                key(tile) {
+                    ReorderableHomeTile(
+                        tile = tile,
+                        order = tileOrder,
+                        onOrderChanged = { saveHomeTileOrder(context, tileOrder) }
+                    ) {
+                        when (tile) {
+                            HomeTile.HYDRATION -> PremiumHomeHydrationTile(snapshot, openHydration)
+                            HomeTile.CLINICAL -> LegacyClinicalCard(snapshot, openClinical)
+                            HomeTile.EXERCISE -> LegacyTrainingCard(snapshot, openExercise)
+                            HomeTile.BODY -> LegacyBodyCard(snapshot, Modifier.fillMaxWidth(), openBody)
+                            HomeTile.SLEEP -> HomeSleepInsightTile(snapshot, openSleep)
+                            HomeTile.NUTRITION -> LegacyNutritionCard(snapshot, openNutrition)
+                            HomeTile.QUICK_LINKS -> LegacyHomeLinks(
+                                openMindfulness = openMindfulness,
+                                openExercise = openExercise,
+                                openInsights = openClinical
+                            )
+                            HomeTile.BLOOD_PRESSURE -> LegacyBloodPressureLink(openBloodPressure)
+                        }
+                    }
+                }
+            }
             Spacer(Modifier.height(24.dp))
         }
     }
+}
+
+@Composable
+private fun ReorderableHomeTile(
+    tile: HomeTile,
+    order: MutableList<HomeTile>,
+    onOrderChanged: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val haptics = LocalHapticFeedback.current
+    var dragging by remember { mutableStateOf(false) }
+    var dragOffsetY by remember { mutableStateOf(0f) }
+    var tileHeightPx by remember { mutableStateOf(0) }
+
+    Box(
+        Modifier.fillMaxWidth()
+            .onGloballyPositioned { tileHeightPx = it.size.height }
+            .zIndex(if (dragging) 10f else 0f)
+            .graphicsLayer {
+                translationY = dragOffsetY
+                scaleX = if (dragging) 1.018f else 1f
+                scaleY = if (dragging) 1.018f else 1f
+                alpha = if (dragging) 0.96f else 1f
+            }
+            .pointerInput(tile) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = {
+                        dragging = true
+                        dragOffsetY = 0f
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
+                    onDragCancel = {
+                        dragging = false
+                        dragOffsetY = 0f
+                    },
+                    onDragEnd = {
+                        dragging = false
+                        dragOffsetY = 0f
+                        onOrderChanged()
+                    },
+                    onDrag = { change, dragAmount ->
+                        change.consume()
+                        dragOffsetY += dragAmount.y
+
+                        val currentIndex = order.indexOf(tile)
+                        if (currentIndex < 0 || tileHeightPx <= 0) return@detectDragGesturesAfterLongPress
+
+                        // A little under half a tile gives deliberate movement without feeling sticky.
+                        val threshold = tileHeightPx * 0.42f
+                        if (abs(dragOffsetY) < threshold) return@detectDragGesturesAfterLongPress
+
+                        val targetIndex = when {
+                            dragOffsetY > 0f && currentIndex < order.lastIndex -> currentIndex + 1
+                            dragOffsetY < 0f && currentIndex > 0 -> currentIndex - 1
+                            else -> currentIndex
+                        }
+
+                        if (targetIndex != currentIndex) {
+                            order.removeAt(currentIndex)
+                            order.add(targetIndex, tile)
+                            dragOffsetY = 0f
+                            onOrderChanged()
+                        }
+                    }
+                )
+            }
+    ) {
+        content()
+    }
+}
+
+private fun loadHomeTileOrder(context: Context): List<HomeTile> {
+    val saved = context.getSharedPreferences(HOME_PREFS, Context.MODE_PRIVATE)
+        .getString(HOME_TILE_ORDER_KEY, null)
+        .orEmpty()
+
+    val parsed = saved.split(',')
+        .mapNotNull { key -> HomeTile.entries.firstOrNull { it.storageKey == key.trim() } }
+        .distinct()
+
+    // If a future release adds a tile, preserve the user's order and append the new tile safely.
+    return (parsed + defaultHomeTileOrder.filterNot(parsed::contains)).ifEmpty { defaultHomeTileOrder }
+}
+
+private fun saveHomeTileOrder(context: Context, order: List<HomeTile>) {
+    context.getSharedPreferences(HOME_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putString(HOME_TILE_ORDER_KEY, order.joinToString(",") { it.storageKey })
+        .apply()
 }
 
 private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
