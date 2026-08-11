@@ -16,6 +16,7 @@ kotlin {
 android {
     namespace = "com.projectsuperhuman.next"
     compileSdk = 36
+    ndkVersion = "27.3.13750724"
 
     signingConfigs {
         create("projectSuperhuman") {
@@ -30,8 +31,19 @@ android {
         applicationId = "com.projectsuperhuman.next"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11216
-        versionName = "11.2.16"
+        versionCode = 11217
+        versionName = "11.2.17"
+
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     compileOptions {
