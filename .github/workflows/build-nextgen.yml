@@ -12,7 +12,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build-nextgen:
@@ -40,10 +40,18 @@ jobs:
       - name: Compile performance APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload performance APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ProjectSuperhuman-Performance-Preview
-          path: nextgen/androidApp/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 30
+      - name: Publish preview APK as prerelease asset
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          APK=$(find nextgen/androidApp/build/outputs/apk/debug -name '*.apk' -type f | head -n 1)
+          test -n "$APK"
+          TAG="performance-preview-${GITHUB_SHA::8}"
+          cp "$APK" ProjectSuperhuman-Performance-Preview.apk
+          gh release create "$TAG" ProjectSuperhuman-Performance-Preview.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Project Superhuman Performance Preview" \
+            --notes "Compiled preview from the app-wide data performance optimization branch." \
+            --prerelease
