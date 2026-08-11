@@ -16,12 +16,25 @@ interface ModuleDataPort {
     suspend fun count(): Long
 }
 
+data class DailyAggregatePoint(
+    val dayEpoch: Long,
+    val domain: HealthDomain,
+    val metric: String,
+    val count: Long,
+    val min: Double?,
+    val max: Double?,
+    val average: Double?,
+    val sum: Double?,
+    val first: Double?,
+    val last: Double?
+)
+
 /**
  * Read-only cross-domain contract intended for the Interpretation Engine.
  *
- * Interpretation should request a bounded window or aggregates rather than
- * loading the complete raw archive. This is the key rule that keeps analysis
- * viable when the vault contains millions of observations.
+ * Interpretation should request a bounded raw window or precomputed aggregates rather
+ * than loading the complete archive. This is the key rule that keeps analysis viable
+ * when the vault contains millions of observations.
  */
 interface InterpretationDataPort {
     suspend fun latest(domain: HealthDomain, metric: String): HealthValue?
@@ -37,6 +50,13 @@ interface InterpretationDataPort {
         fromEpochMs: Long,
         toEpochMs: Long
     ): List<HealthValue>
+
+    suspend fun dailyAggregates(
+        domain: HealthDomain,
+        metric: String,
+        fromDayEpoch: Long,
+        toDayEpoch: Long
+    ): List<DailyAggregatePoint>
 }
 
 /**
