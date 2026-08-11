@@ -60,6 +60,22 @@ jobs:
           grep -q "Raw query window is too large" \
             nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/HealthQueryEngine.kt
 
+      - name: Verify Step 5 intelligence boundary exists
+        shell: bash
+        run: |
+          grep -q "class InterpretationEngine" \
+            nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/IntelligenceEngine.kt
+          grep -q "class InterventionEngine" \
+            nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/IntelligenceEngine.kt
+          grep -q "class InsightsEngine" \
+            nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/IntelligenceEngine.kt
+          grep -q "Association does not establish causation" \
+            nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/IntelligenceEngine.kt
+          grep -q "fun interpretationEngine" \
+            nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt
+          ! grep -q "SqlHealthRepository" \
+            nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/IntelligenceEngine.kt
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
