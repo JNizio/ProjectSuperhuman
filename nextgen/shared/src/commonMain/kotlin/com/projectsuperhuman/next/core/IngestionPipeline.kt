@@ -81,7 +81,9 @@ class DataIngestionPipeline(
                 if (canonicalMetric != raw.metric) put("originalMetric", raw.metric)
                 if (canonicalUnit != raw.unit || canonicalValue != raw.value) put("originalUnit", raw.unit)
                 if (canonicalValue != raw.value) put("originalValue", raw.value.toString())
-                if (definition == null) putIfAbsent("metricRegistryStatus", "unregistered")
+                if (definition == null && !containsKey("metricRegistryStatus")) {
+                    put("metricRegistryStatus", "unregistered")
+                }
             }
 
             normalised += raw.copy(
@@ -92,8 +94,6 @@ class DataIngestionPipeline(
             )
         }
 
-        // In-batch deduplication. Persistent source-record deduplication is still enforced
-        // by the Data Vault's source/sourceRecordId unique index.
         val seen = mutableSetOf<String>()
         val unique = normalised.filter { value -> seen.add(dedupeKey(value)) }
         val deduplicated = normalised.size - unique.size
