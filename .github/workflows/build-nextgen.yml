@@ -58,5 +58,10 @@ jobs:
         shell: bash
         run: test -s nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
 
-# APK artifact upload intentionally disabled while GitHub Actions storage is constrained.
-# Release publishing can be used separately for downloadable builds.
+      - name: Upload temporary APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProjectSuperhuman-11.2-APK
+          path: nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+          if-no-files-found: error
+          retention-days: 1
