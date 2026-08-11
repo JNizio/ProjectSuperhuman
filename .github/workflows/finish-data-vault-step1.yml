@@ -8,11 +8,14 @@ on:
       - 'nextgen/shared/src/commonMain/sqldelight/com/projectsuperhuman/next/db/HealthStore.sq'
       - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/DataVaultContracts.kt'
       - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/SuperhumanCore.kt'
+      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/MetricRegistry.kt'
+      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/IngestionPipeline.kt'
       - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlHealthRepository.kt'
       - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlDataVaultGateway.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHealthConnect.kt'
   workflow_dispatch:
 
 permissions:
@@ -39,6 +42,16 @@ jobs:
           grep -q "class SqlDataVaultGateway" \
             nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlDataVaultGateway.kt
           grep -q "gateway.module" \
+            nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt
+
+      - name: Verify Step 3 ingestion boundary exists
+        shell: bash
+        run: |
+          grep -q "object CoreMetricRegistry" \
+            nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/MetricRegistry.kt
+          grep -q "class DataIngestionPipeline" \
+            nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/IngestionPipeline.kt
+          grep -q "ingestion.ingestValues" \
             nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt
 
       - name: Set up Java 17
