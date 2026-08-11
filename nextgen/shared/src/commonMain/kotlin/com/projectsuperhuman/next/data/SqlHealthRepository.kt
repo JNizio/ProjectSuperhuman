@@ -43,6 +43,16 @@ class SqlHealthRepository(
     ): List<HealthValue> =
         q.betweenByMetric(metric, fromEpochMs, toEpochMs, ::mapHealthValue).executeAsList()
 
+    fun recent(metric: String, limit: Int): List<HealthValue> =
+        q.recentByMetric(metric, limit.coerceAtLeast(1).toLong(), ::mapHealthValue).executeAsList()
+
+    fun betweenForDomain(
+        domain: HealthDomain,
+        fromEpochMs: Long,
+        toEpochMs: Long
+    ): List<HealthValue> =
+        q.betweenForDomain(domain.name, fromEpochMs, toEpochMs, ::mapHealthValue).executeAsList()
+
     override suspend fun latestForDomain(domain: HealthDomain): List<HealthValue> =
         q.latestForDomain(domain.name, domain.name, ::mapHealthValue).executeAsList()
 

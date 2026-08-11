@@ -505,11 +505,10 @@ private object NativeSleepStore {
     suspend fun loadLatest(): NativeSleepSnapshot {
         val values = NativeDataHub.latestForDomain(HealthDomain.SLEEP)
         fun metric(name: String): HealthValue? = values.firstOrNull { it.metric == name }
-        val all = NativeDataHub.allValuesAsync().filter { it.domain == HealthDomain.SLEEP }
+        val totalSeries = NativeDataHub.recent("sleep_total_minutes", 7)
+        val scoreSeries = NativeDataHub.recent("sleep_score", 7)
         val latestEnd = metric("sleep_end_epoch_ms")?.value?.toLong()
         val latestStageRaw = metric("sleep_stage_timeline")?.metadata?.get("segments")
-        val totalSeries = all.filter { it.metric == "sleep_total_minutes" }
-        val scoreSeries = all.filter { it.metric == "sleep_score" }
         return NativeSleepSnapshot(
             score = metric("sleep_score")?.value?.roundToInt(),
             totalMinutes = metric("sleep_total_minutes")?.value?.roundToInt(),
@@ -522,8 +521,8 @@ private object NativeSleepStore {
             endEpochMs = latestEnd,
             stageSegments = parseSleepStageSegments(latestStageRaw),
             sessionsImported = metric("sleep_sessions_imported")?.value?.roundToInt() ?: 0,
-            recentAverageMinutes = totalSeries.takeLast(7).map { it.value }.average().takeIf { !it.isNaN() }?.roundToInt(),
-            recentAverageScore = scoreSeries.takeLast(7).map { it.value }.average().takeIf { !it.isNaN() }?.roundToInt()
+            recentAverageMinutes = totalSeries.map { it.value }.average().takeIf { !it.isNaN() }?.roundToInt(),
+            recentAverageScore = scoreSeries.map { it.value }.average().takeIf { !it.isNaN() }?.roundToInt()
         )
     }
 }

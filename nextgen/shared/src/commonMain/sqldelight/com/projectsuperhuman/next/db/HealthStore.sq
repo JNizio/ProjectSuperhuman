@@ -90,6 +90,17 @@ SELECT * FROM health_value
 WHERE metric = ? AND timestamp_epoch_ms BETWEEN ? AND ?
 ORDER BY timestamp_epoch_ms ASC;
 
+recentByMetric:
+SELECT * FROM health_value
+WHERE metric = ?
+ORDER BY timestamp_epoch_ms DESC
+LIMIT ?;
+
+betweenForDomain:
+SELECT * FROM health_value
+WHERE domain = ? AND timestamp_epoch_ms BETWEEN ? AND ?
+ORDER BY timestamp_epoch_ms ASC;
+
 latestForDomain:
 SELECT hv.* FROM health_value hv
 JOIN (

@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
+import com.projectsuperhuman.next.core.HealthDomain
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
@@ -49,7 +50,6 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
 private val HistoryPurple = Color(0xFF6753D8)
-private val HistoryBlue = Color(0xFF4777D9)
 private val HistoryInk = Color(0xFF17233A)
 private val HistoryMuted = Color(0xFF718096)
 private val HistoryGood = Color(0xFF42A58C)
@@ -78,10 +78,24 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
     var dashboardView by remember { mutableStateOf(HistoryDataView.INTERPRETED) }
 
     suspend fun refreshHistory() {
-        nights = NativeHistoricalSleepStore.loadAll()
-        if (selectedDate == null) selectedDate = nights.maxByOrNull { it.endEpochMs }?.wakeDate
-        selectedDate?.let { month = YearMonth.from(it) }
-        status = if (nights.isEmpty()) "No historical sleep records yet" else "${nights.size} sleep records available"
+        val targetMonth = month
+        status = "Loading ${targetMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))}…"
+        val loaded = NativeHistoricalSleepStore.loadMonth(targetMonth)
+        nights = loaded
+
+        val visibleNights = loaded.filter { YearMonth.from(it.wakeDate) == targetMonth }
+        val selectedStillVisible = selectedDate?.let { date ->
+            YearMonth.from(date) == targetMonth && visibleNights.any { it.wakeDate == date }
+        } == true
+        if (!selectedStillVisible) {
+            selectedDate = visibleNights.maxByOrNull { it.endEpochMs }?.wakeDate
+        }
+
+        status = if (visibleNights.isEmpty()) {
+            "No sleep records in ${targetMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))}"
+        } else {
+            "${visibleNights.size} sleep records in ${targetMonth.format(DateTimeFormatter.ofPattern("MMMM yyyy"))}"
+        }
     }
 
     suspend fun sync() {
@@ -115,8 +129,17 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
 
     LaunchedEffect(Unit) {
         connected = SleepHealthConnect.hasPermission(context)
-        refreshHistory()
+        NativeHistoricalSleepStore.loadLatestNight()?.let { latest ->
+            selectedDate = latest.wakeDate
+            month = YearMonth.from(latest.wakeDate)
+        }
         if (connected) sync()
+    }
+
+    // Only the visible month (plus a short baseline window) is loaded. Changing months
+    // triggers a new indexed query instead of keeping the user's whole sleep history in memory.
+    LaunchedEffect(month) {
+        refreshHistory()
     }
 
     val selected = nights.firstOrNull { it.wakeDate == selectedDate }
@@ -136,8 +159,6 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
             onNext = { month = month.plusMonths(1) },
             onSelect = { selectedDate = it }
         )
-
-
         HistorySyncCard(connected, syncing, status, ::connectOrSync)
         Spacer(Modifier.height(24.dp))
     }
@@ -154,7 +175,11 @@ private fun HistorySleepDashboardHero(
     val snapshot = active?.snapshot
     val analysis = snapshot?.let { SleepIntelligenceEngine.analyse(it) }
     val previous = active?.let { chosen ->
-        nights.filter { it.endEpochMs < chosen.endEpochMs }.sortedByDescending { it.endEpochMs }.take(7)
+        nights.asSequence()
+            .filter { it.endEpochMs < chosen.endEpochMs }
+            .sortedByDescending { it.endEpochMs }
+            .take(7)
+            .toList()
     } ?: emptyList()
     val recentMinutes = previous.mapNotNull { it.snapshot.totalMinutes }
     val recentScores = previous.map { SleepIntelligenceEngine.analyse(it.snapshot).recoveryScore }
@@ -342,14 +367,20 @@ private fun SleepCalendarCard(
     onNext: () -> Unit,
     onSelect: (LocalDate) -> Unit
 ) {
-    val firstDay = month.atDay(1)
-    val leading = firstDay.dayOfWeek.value - DayOfWeek.MONDAY.value
-    val cells = buildList<LocalDate?> {
-        repeat(leading) { add(null) }
-        for (day in 1..month.lengthOfMonth()) add(month.atDay(day))
-        while (size % 7 != 0) add(null)
+    val cells = remember(month) {
+        val firstDay = month.atDay(1)
+        val leading = firstDay.dayOfWeek.value - DayOfWeek.MONDAY.value
+        buildList<LocalDate?> {
+            repeat(leading) { add(null) }
+            for (day in 1..month.lengthOfMonth()) add(month.atDay(day))
+            while (size % 7 != 0) add(null)
+        }
     }
-    val nightByDate = nights.associateBy { it.wakeDate }
+    val nightByDate = remember(month, nights) {
+        nights.asSequence()
+            .filter { YearMonth.from(it.wakeDate) == month }
+            .associateBy { it.wakeDate }
+    }
 
     Column(
         Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp))
@@ -454,204 +485,10 @@ private fun scoreColor(score: Int?): Color = when {
 }
 
 @Composable
-private fun HistoricalSleepDetail(snapshot: NativeSleepSnapshot, date: LocalDate) {
-    val analysis = SleepIntelligenceEngine.analyse(snapshot)
-    var view by remember(date) { mutableStateOf(HistoryDataView.INTERPRETED) }
-
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        SleepViewToggle(view = view, onChange = { view = it })
-
-        when (view) {
-            HistoryDataView.INTERPRETED -> InterpretedSleepView(snapshot, date, analysis)
-            HistoryDataView.RAW -> RawSleepView(snapshot, date, analysis)
-        }
-    }
-}
-
-@Composable
-private fun SleepViewToggle(view: HistoryDataView, onChange: (HistoryDataView) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp))
-            .border(1.dp, HistoryBorder, RoundedCornerShape(18.dp)).padding(5.dp),
-        horizontalArrangement = Arrangement.spacedBy(5.dp)
-    ) {
-        SleepViewTab("INTERPRETED", view == HistoryDataView.INTERPRETED, Modifier.weight(1f)) {
-            onChange(HistoryDataView.INTERPRETED)
-        }
-        SleepViewTab("RAW DATA", view == HistoryDataView.RAW, Modifier.weight(1f)) {
-            onChange(HistoryDataView.RAW)
-        }
-    }
-}
-
-@Composable
-private fun SleepViewTab(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(
-        modifier.background(if (selected) HistoryPurple else Color.Transparent, RoundedCornerShape(14.dp))
-            .superhumanClickable(onClick = onClick).padding(vertical = 10.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            label,
-            color = if (selected) Color.White else HistoryMuted,
-            fontSize = 8.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = .4.sp
-        )
-    }
-}
-
-@Composable
-private fun InterpretedSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysis: SleepIntelligenceResult) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(
-            Modifier.fillMaxWidth().background(BrushlessPurple(), RoundedCornerShape(24.dp)).padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(13.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f).padding(end = 10.dp)) {
-                    Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), color = Color.White.copy(alpha = .70f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    Text(analysis.headline, color = Color.White, fontSize = 19.sp, lineHeight = 23.sp, fontWeight = FontWeight.Black)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(analysis.recoveryScore.toString(), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
-                    Text("interpreted score", color = Color.White.copy(alpha = .68f), fontSize = 8.sp)
-                }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                HistoryHeroStat("Asleep", formatHistoryMinutes(snapshot.totalMinutes), Modifier.weight(1f))
-                HistoryHeroStat("Deep", formatHistoryMinutes(snapshot.deepMinutes), Modifier.weight(1f))
-                HistoryHeroStat("REM", formatHistoryMinutes(snapshot.remMinutes), Modifier.weight(1f))
-            }
-        }
-
-        InfoCard("Smart interpretation", analysis.insight) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                HistoryMiniStat(analysis.durationScore.toString(), "duration")
-                HistoryMiniStat(analysis.continuityScore.toString(), "continuity")
-                HistoryMiniStat(analysis.stageBalanceScore.toString(), "stage balance")
-            }
-            Box(Modifier.fillMaxWidth().background(HistoryPurple.copy(alpha = .08f), RoundedCornerShape(14.dp)).padding(11.dp)) {
-                Text("Focus: ${analysis.priority}", color = HistoryPurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        InfoCard("How this differs from raw data", "The interpreted view keeps the recorded sleep data intact, then layers Project Superhuman's sleep engine on top to estimate recovery quality and highlight the most useful next action.") { }
-
-        ConfidenceCard(analysis)
-    }
-}
-
-@Composable
-private fun RawSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysis: SleepIntelligenceResult) {
-    val start = snapshot.startEpochMs?.let(::historyTime)
-    val end = snapshot.endEpochMs?.let(::historyTime)
-
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(
-            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
-                .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(11.dp)
-        ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(Modifier.weight(1f)) {
-                    Text("Raw sleep record", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                    Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), color = HistoryMuted, fontSize = 9.sp)
-                    if (start != null && end != null) Text("$start – $end", color = HistoryMuted, fontSize = 9.sp)
-                }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(snapshot.score?.toString() ?: "—", color = HistoryPurple, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                    Text("source score", color = HistoryMuted, fontSize = 8.sp)
-                }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                HistoryMiniStat(formatHistoryMinutes(snapshot.totalMinutes), "asleep")
-                HistoryMiniStat("${snapshot.efficiencyPct ?: analysis.efficiencyPct}%", "efficiency")
-                HistoryMiniStat(formatHistoryMinutes(snapshot.awakeMinutes), "awake")
-            }
-        }
-
-        SleepArchitectureDiagram(snapshot.stageSegments, snapshot.startEpochMs, snapshot.endEpochMs)
-
-        Column(
-            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
-                .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(5.dp)
-        ) {
-            Text("Recorded stage balance", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("Direct values from the imported sleep record — no interpretation applied.", color = HistoryMuted, fontSize = 9.sp)
-            HistoryStageRow("Light", snapshot.lightMinutes, HistoryBlue)
-            HistoryStageRow("Deep", snapshot.deepMinutes, HistoryGood)
-            HistoryStageRow("REM", snapshot.remMinutes, HistoryPurple)
-            HistoryStageRow("Awake", snapshot.awakeMinutes, HistoryWarn)
-            Spacer(Modifier.height(4.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                HistoryMiniStat(snapshot.stageSegments.size.toString(), "stage segments")
-                HistoryMiniStat(snapshot.sessionsImported.toString(), "sessions imported")
-                HistoryMiniStat(formatHistoryMinutes(snapshot.recentAverageMinutes), "recent avg")
-            }
-        }
-
-        ConfidenceCard(analysis)
-    }
-}
-
-@Composable
-private fun InfoCard(title: String, body: String, content: @Composable () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
-            .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Text(title, color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-        Text(body, color = HistoryMuted, fontSize = 10.sp, lineHeight = 15.sp)
-        content()
-    }
-}
-
-@Composable
-private fun ConfidenceCard(analysis: SleepIntelligenceResult) {
-    Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
-            .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp)
-    ) {
-        Text("Data confidence", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-        Text("Confidence is based on the information available from the source records.", color = HistoryMuted, fontSize = 9.sp)
-        analysis.confidence.forEach { item ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(item.metric.replaceFirstChar { it.uppercase() }, color = HistoryInk, fontSize = 9.sp, modifier = Modifier.weight(1f))
-                Text("${item.score}%", color = HistoryInk, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.width(8.dp))
-                Text(item.label, color = if (item.score >= 75) HistoryGood else HistoryWarn, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
 private fun HistoryHeroStat(label: String, value: String, modifier: Modifier) {
     Column(modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(16.dp)).padding(10.dp)) {
         Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
         Text(label, color = Color.White.copy(alpha = .62f), fontSize = 8.sp)
-    }
-}
-
-@Composable
-private fun HistoryMiniStat(value: String, label: String) {
-    Column {
-        Text(value, color = HistoryInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text(label, color = HistoryMuted, fontSize = 8.sp)
-    }
-}
-
-@Composable
-private fun HistoryStageRow(name: String, minutes: Int?, accent: Color) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(8.dp).height(8.dp).background(accent, CircleShape))
-        Spacer(Modifier.width(9.dp))
-        Text(name, color = HistoryInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        Text(formatHistoryMinutes(minutes), color = HistoryMuted, fontSize = 10.sp)
     }
 }
 
@@ -682,14 +519,6 @@ private fun HistorySyncCard(connected: Boolean, syncing: Boolean, status: String
     }
 }
 
-@Composable
-private fun EmptyHistoryCard(hasHistory: Boolean) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(18.dp)) {
-        Text(if (hasHistory) "No sleep on this date" else "No sleep history yet", color = HistoryInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text(if (hasHistory) "Choose a highlighted date in the calendar to inspect that sleep episode." else "Sync Health Connect after a recorded night and previous nights will appear here.", color = HistoryMuted, fontSize = 10.sp, lineHeight = 15.sp)
-    }
-}
-
 private fun formatHistoryMinutes(minutes: Int?): String {
     if (minutes == null) return "—"
     val h = minutes / 60
@@ -697,30 +526,35 @@ private fun formatHistoryMinutes(minutes: Int?): String {
     return if (h > 0) "${h}h ${m}m" else "${m}m"
 }
 
-private fun historyTime(epochMs: Long): String = Instant.ofEpochMilli(epochMs)
-    .atZone(ZoneId.systemDefault())
-    .toLocalTime()
-    .format(DateTimeFormatter.ofPattern("HH:mm"))
-
-private fun BrushlessPurple(): androidx.compose.ui.graphics.Brush =
-    androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF4939A9), Color(0xFF6F5BE1)))
-
 private object NativeHistoricalSleepStore {
-    suspend fun loadAll(): List<HistoricalSleepNight> {
-        val values = NativeDataHub.allValuesAsync()
-            .filter { it.domain == com.projectsuperhuman.next.core.HealthDomain.SLEEP }
-            .filter { it.metric.startsWith("sleep_") }
+    private const val baselineDays = 10L
 
-        val nights = values
-            .filter { it.metric == "sleep_total_minutes" && it.metadata["nightEnd"] != null }
+    suspend fun loadLatestNight(): HistoricalSleepNight? {
+        val latestTotal = NativeDataHub.latest("sleep_total_minutes") ?: return null
+        val end = latestTotal.metadata["nightEnd"]?.toLongOrNull() ?: return null
+        val wakeDate = Instant.ofEpochMilli(end).atZone(ZoneId.systemDefault()).toLocalDate()
+        return loadMonth(YearMonth.from(wakeDate)).firstOrNull { it.endEpochMs == end }
+    }
+
+    suspend fun loadMonth(month: YearMonth): List<HistoricalSleepNight> {
+        val zone = ZoneId.systemDefault()
+        // Include a short look-back window so the dashboard can calculate its seven-night
+        // baseline even when the selected night is near the start of the visible month.
+        val from = month.atDay(1).minusDays(baselineDays).atStartOfDay(zone).toInstant().toEpochMilli()
+        val to = month.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+        val values = NativeDataHub.betweenForDomain(HealthDomain.SLEEP, from, to)
+            .asSequence()
+            .filter { it.metric.startsWith("sleep_") }
+            .filter { it.metadata["nightEnd"] != null }
+            .toList()
+
+        return values
             .groupBy { it.metadata["nightEnd"]!! }
-            .mapNotNull { (nightEndRaw, _) ->
+            .mapNotNull { (nightEndRaw, metrics) ->
                 val end = nightEndRaw.toLongOrNull() ?: return@mapNotNull null
-                val metrics = values.filter { it.metadata["nightEnd"] == nightEndRaw }
-                val metric = { name: String -> metrics.firstOrNull { it.metric == name } }
-                val start = metric("sleep_start_epoch_ms")?.value?.toLong()
-                    ?: metrics.firstOrNull { it.metric == "sleep_start_epoch_ms" }?.value?.toLong()
-                    ?: return@mapNotNull null
+                val byMetric = metrics.associateBy { it.metric }
+                val metric = { name: String -> byMetric[name] }
+                val start = metric("sleep_start_epoch_ms")?.value?.toLong() ?: return@mapNotNull null
                 val timeline = metric("sleep_stage_timeline")?.metadata?.get("segments")
                 val snapshot = NativeSleepSnapshot(
                     score = metric("sleep_score")?.value?.roundToInt(),
@@ -738,13 +572,12 @@ private object NativeHistoricalSleepStore {
                     recentAverageScore = null
                 )
                 HistoricalSleepNight(
-                    wakeDate = Instant.ofEpochMilli(end).atZone(ZoneId.systemDefault()).toLocalDate(),
+                    wakeDate = Instant.ofEpochMilli(end).atZone(zone).toLocalDate(),
                     endEpochMs = end,
                     snapshot = snapshot
                 )
             }
+            .distinctBy { it.endEpochMs }
             .sortedByDescending { it.endEpochMs }
-
-        return nights.distinctBy { it.endEpochMs }
     }
 }
