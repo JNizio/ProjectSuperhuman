@@ -43,6 +43,7 @@ class SyntheticDataGenerator(
         val firstAnchor = now - (config.days - 1L) * DAY_MS
         var weightKg = 82.4 + random.centered(0.8)
         var bodyFatPct = 18.5 + random.centered(0.9)
+        val syntheticHeightM = 1.78
         val batch = ArrayList<HealthValue>(config.batchSize + 128)
         var generated = 0
         var accepted = 0
@@ -204,7 +205,7 @@ class SyntheticDataGenerator(
                     workoutVolume += volume
                     add(
                         dayIndex, anchor, HealthDomain.EXERCISE, "exercise_set", volume, "kg-reps",
-                        activityTs - (exerciseIds.size - setIndex) * 4L * 60L * 1000L,
+                        activityTs - (exerciseIds.size - setIndex) * 4L * MINUTE_MS,
                         setIndex,
                         mapOf(
                             "exerciseId" to exerciseId,
@@ -236,15 +237,42 @@ class SyntheticDataGenerator(
                 add(dayIndex, anchor, HealthDomain.NUTRITION, "food_protein", dailyProtein * split, "g", anchor - mealHours[mealIndex] * HOUR_MS, mealIndex, meta)
             }
 
-            // Body: slow energy-balance drift plus measurement noise.
+            // Body: slow energy-balance drift plus a complete synthetic BIA-style scale reading.
             val maintenanceKcal = 2_250.0 + activeCalories * 0.48
             val dailyWeightDelta = ((dailyKcal - maintenanceKcal) / 7_700.0).coerceIn(-0.12, 0.12)
             weightKg = (weightKg + dailyWeightDelta + random.centered(0.035)).coerceIn(68.0, 105.0)
             bodyFatPct = (bodyFatPct + dailyWeightDelta * 0.12 - activity * 0.004 + random.centered(0.025)).coerceIn(10.0, 32.0)
+            val fatMassKg = weightKg * bodyFatPct / 100.0
+            val fatFreeMassKg = weightKg - fatMassKg
+            val waterPct = (73.0 * (1.0 - bodyFatPct / 100.0) + random.centered(0.35)).coerceIn(45.0, 70.0)
+            val waterL = weightKg * waterPct / 100.0
+            val musclePct = (100.0 - bodyFatPct - 3.8 + random.centered(0.18)).coerceIn(45.0, 86.0)
+            val muscleMassKg = weightKg * musclePct / 100.0
+            val skeletalMusclePct = (musclePct * 0.569 + random.centered(0.12)).coerceIn(25.0, 55.0)
+            val skeletalMuscleMassKg = weightKg * skeletalMusclePct / 100.0
+            val visceralFat = (bodyFatPct * 0.394 + random.centered(0.35)).coerceIn(1.0, 30.0).roundToInt().toDouble()
+            val bmi = weightKg / (syntheticHeightM * syntheticHeightM)
+            val ffmi = fatFreeMassKg / (syntheticHeightM * syntheticHeightM)
+            val fmi = fatMassKg / (syntheticHeightM * syntheticHeightM)
+            val impedanceOhm = (520.0 + (bodyFatPct - 18.5) * 4.0 - (waterPct - 58.0) * 5.0 + random.centered(18.0)).coerceIn(300.0, 900.0)
             val waistCm = (82.0 + (weightKg - 78.0) * 0.72 + bodyFatPct * 0.30 + random.centered(0.7)).coerceIn(72.0, 115.0)
             val bodyTs = anchor - 7L * HOUR_MS
-            add(dayIndex, anchor, HealthDomain.BODY, "body_weight_kg", weightKg, "kg", bodyTs)
-            add(dayIndex, anchor, HealthDomain.BODY, "body_fat_pct", bodyFatPct, "%", bodyTs)
+            val bodyMeta = mapOf("measurementType" to "synthetic-bia", "syntheticScale" to "true")
+            add(dayIndex, anchor, HealthDomain.BODY, "body_weight_kg", weightKg, "kg", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_impedance_ohm", impedanceOhm, "ohm", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_fat_pct", bodyFatPct, "%", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_fat_mass_kg", fatMassKg, "kg", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_fat_free_mass_kg", fatFreeMassKg, "kg", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_water_pct", waterPct, "%", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_water_l", waterL, "L", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_muscle_pct", musclePct, "%", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_muscle_mass_kg", muscleMassKg, "kg", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_skeletal_muscle_pct", skeletalMusclePct, "%", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_skeletal_muscle_mass_kg", skeletalMuscleMassKg, "kg", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_visceral_fat_estimate", visceralFat, "index", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_bmi", bmi, "kg/m2", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_ffmi", ffmi, "kg/m2", bodyTs, metadata = bodyMeta)
+            add(dayIndex, anchor, HealthDomain.BODY, "body_fmi", fmi, "kg/m2", bodyTs, metadata = bodyMeta)
             if (dayIndex % 7 == 0 || dayIndex == config.days - 1) {
                 add(dayIndex, anchor, HealthDomain.BODY, "body_waist_cm", waistCm, "cm", bodyTs)
             }
@@ -282,7 +310,7 @@ class SyntheticDataGenerator(
                     mapOf("drinkSource" to "Synthetic water", "entryType" to "intake")
                 )
             }
-            add(dayIndex, anchor, HealthDomain.HYDRATION, "water_total_l", hydrationMl / 1_000.0, "L", anchor - 30L * 60L * 1000L)
+            add(dayIndex, anchor, HealthDomain.HYDRATION, "water_total_l", hydrationMl / 1_000.0, "L", anchor - 30L * MINUTE_MS)
 
             // Clinical markers are intentionally sparse and conservative: monthly-like snapshots, not daily pseudo-labs.
             if (dayIndex % 30 == 0 || dayIndex == config.days - 1) {
