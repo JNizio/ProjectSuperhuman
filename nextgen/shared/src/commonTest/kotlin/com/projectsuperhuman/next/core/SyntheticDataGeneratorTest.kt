@@ -63,8 +63,29 @@ class SyntheticDataGeneratorTest {
         assertEquals(365, metric(HealthDomain.SLEEP, "sleep_end_epoch_ms").size)
         assertEquals(365, metric(HealthDomain.SLEEP, "sleep_stage_timeline").size)
 
-        assertEquals(365, metric(HealthDomain.BODY, "body_weight_kg").size)
-        assertEquals(365, metric(HealthDomain.BODY, "body_fat_pct").size)
+        val dailyBodyMetrics = listOf(
+            "body_weight_kg",
+            "body_impedance_ohm",
+            "body_fat_pct",
+            "body_fat_mass_kg",
+            "body_fat_free_mass_kg",
+            "body_water_pct",
+            "body_water_l",
+            "body_muscle_pct",
+            "body_muscle_mass_kg",
+            "body_skeletal_muscle_pct",
+            "body_skeletal_muscle_mass_kg",
+            "body_visceral_fat_estimate",
+            "body_bmi",
+            "body_ffmi",
+            "body_fmi"
+        )
+        dailyBodyMetrics.forEach { name ->
+            val rows = metric(HealthDomain.BODY, name)
+            assertEquals(365, rows.size, "$name should cover every generated day")
+            assertTrue(rows.none { it.metadata["metricRegistryStatus"] == "unregistered" }, "$name should be a registered app metric")
+        }
+
         assertEquals(365, metric(HealthDomain.EXERCISE, "steps").size)
         assertEquals(365, metric(HealthDomain.EXERCISE, "active_calories_kcal").size)
         assertEquals(365 * 3, metric(HealthDomain.NUTRITION, "food_kcal").size)
