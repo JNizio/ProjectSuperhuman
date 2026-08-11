@@ -1,4 +1,4 @@
-name: Validate Project Superhuman 11.2.8
+name: Validate Project Superhuman 11.2.9
 
 on:
   push:
@@ -9,7 +9,6 @@ on:
 permissions:
   contents: read
 
-# Validation run 2: after resolving the Sleep calendar map conflict.
 jobs:
   compile:
     runs-on: ubuntu-latest
@@ -31,5 +30,5 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Compile 11.2.8
+      - name: Compile 11.2.9
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
