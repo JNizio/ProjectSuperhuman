@@ -284,31 +284,40 @@ private suspend fun loadHydrationSnapshot(): HydrationSnapshot {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     val now = System.currentTimeMillis()
-    val start = today.atStartOfDay(zone).toInstant().toEpochMilli()
+    val todayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
     val goal = NativeDataHub.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
-    val todayEvents = NativeDataHub.between("water_intake_ml", start, now).sortedBy { it.timestampEpochMs }
-    val eventTotal = todayEvents.sumOf { it.value }.roundToInt().coerceAtLeast(0)
-    val compatibilityTotal = NativeDataHub.latest("water_total_l")?.takeIf { it.timestampEpochMs >= start }?.value?.times(1000.0)?.roundToInt() ?: 0
-    val todayMl = (if (todayEvents.isNotEmpty()) eventTotal else compatibilityTotal).coerceIn(0, goal)
 
-    suspend fun totalFor(date: LocalDate): Int {
-        val from = date.atStartOfDay(zone).toInstant().toEpochMilli()
-        val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1
-        val events = NativeDataHub.between("water_intake_ml", from, to)
+    val month = YearMonth.from(today)
+    val historyStart = today.minusDays(6)
+    val rangeStartDate = minOf(month.atDay(1), historyStart)
+    val rangeStart = rangeStartDate.atStartOfDay(zone).toInstant().toEpochMilli()
+
+    // Load each metric once for the complete visible month/history window, then aggregate in memory.
+    // This replaces dozens of per-day SQL queries during every Hydration refresh.
+    val intakeRows = NativeDataHub.between("water_intake_ml", rangeStart, now)
+    val compatibilityRows = NativeDataHub.between("water_total_l", rangeStart, now)
+    fun dateOf(epochMs: Long): LocalDate = Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
+    val intakeByDay = intakeRows.groupBy { dateOf(it.timestampEpochMs) }
+    val compatibilityByDay = compatibilityRows.groupBy { dateOf(it.timestampEpochMs) }
+
+    fun totalFor(date: LocalDate): Int {
+        val events = intakeByDay[date].orEmpty()
         return if (events.isNotEmpty()) {
             events.sumOf { it.value }.roundToInt().coerceAtLeast(0)
         } else {
-            NativeDataHub.between("water_total_l", from, to).maxByOrNull { it.timestampEpochMs }
+            compatibilityByDay[date].orEmpty().maxByOrNull { it.timestampEpochMs }
                 ?.value?.times(1000.0)?.roundToInt()?.coerceAtLeast(0) ?: 0
         }
     }
+
+    val todayEvents = intakeByDay[today].orEmpty().sortedBy { it.timestampEpochMs }
+    val todayMl = totalFor(today).coerceIn(0, goal)
 
     val history = (6 downTo 0).map { offset ->
         val date = today.minusDays(offset.toLong())
         HydrationDay(date, totalFor(date))
     }
 
-    val month = YearMonth.from(today)
     val calendarTotals = (1..month.lengthOfMonth()).associate { day ->
         val date = month.atDay(day)
         date to totalFor(date)
