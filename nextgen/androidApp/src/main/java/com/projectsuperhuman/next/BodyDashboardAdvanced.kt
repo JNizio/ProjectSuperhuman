@@ -31,6 +31,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.next.core.HealthDomain
@@ -39,8 +40,9 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 import java.util.Date
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.ZoneId
 import kotlin.math.abs
-import kotlin.math.roundToInt
 
 private val DashInk = Color(0xFF0B1F35)
 private val DashMuted = Color(0xFF64748B)
@@ -63,6 +65,11 @@ private data class TrendMetric(
     val decimals: Int = 1
 )
 
+private data class TrendRange(
+    val title: String,
+    val days: Long
+)
+
 private val trendMetrics = listOf(
     TrendMetric("Weight", "body_weight_kg", "kg"),
     TrendMetric("Body fat", "body_fat_pct", "%"),
@@ -71,6 +78,12 @@ private val trendMetrics = listOf(
     TrendMetric("Skeletal muscle", "body_skeletal_muscle_pct", "%"),
     TrendMetric("Visceral fat", "body_visceral_fat_estimate", "", 0),
     TrendMetric("BMI", "body_bmi", "", 1)
+)
+
+private val trendRanges = listOf(
+    TrendRange("30D", 30L),
+    TrendRange("90D", 90L),
+    TrendRange("1Y", 365L)
 )
 
 private val activityLabels = listOf("Sedentary", "Lightly active", "Moderately active", "Very active", "Athlete")
@@ -173,19 +186,34 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
 @Composable
 internal fun BodyOverTimeSection() {
     var selected by remember { mutableStateOf(trendMetrics.first()) }
+    var range by remember { mutableStateOf(trendRanges[1]) }
     var history by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
 
-    LaunchedEffect(selected.metric) {
+    LaunchedEffect(selected.metric, range.days) {
         val now = System.currentTimeMillis()
-        history = NativeDataHub.between(selected.metric, now - 365L * 24L * 60L * 60L * 1000L, now)
+        val raw = NativeDataHub.between(
+            selected.metric,
+            now - range.days * 24L * 60L * 60L * 1000L,
+            now
+        ).sortedBy { it.timestampEpochMs }
+
+        // A trend point represents the latest reading on that local day. This prevents
+        // multiple scale readings on one day from visually crowding out the date axis.
+        history = raw
+            .groupBy {
+                Instant.ofEpochMilli(it.timestampEpochMs)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+            }
+            .values
+            .mapNotNull { day -> day.maxByOrNull { it.timestampEpochMs } }
             .sortedBy { it.timestampEpochMs }
-            .takeLast(24)
     }
 
     Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column {
             Text("Change over time", color = DashInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("Switch metrics to see how your body is changing", color = DashMuted, fontSize = 9.sp)
+            Text("Switch metrics and tap any date to inspect that reading", color = DashMuted, fontSize = 9.sp)
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -202,6 +230,21 @@ internal fun BodyOverTimeSection() {
             }
         }
 
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            trendRanges.forEach { item ->
+                val active = item.days == range.days
+                Box(
+                    Modifier.weight(1f)
+                        .background(if (active) DashBlue.copy(alpha = .11f) else Color(0xFFF7F9FC), RoundedCornerShape(11.dp))
+                        .clickable { range = item }
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(item.title, color = if (active) DashBlue else DashMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+
         if (history.size < 2) {
             Box(Modifier.fillMaxWidth().background(Color(0xFFF7F9FC), RoundedCornerShape(16.dp)).padding(18.dp), contentAlignment = Alignment.Center) {
                 Text("More readings will build your ${selected.title.lowercase()} trend.", color = DashMuted, fontSize = 10.sp)
@@ -212,26 +255,56 @@ internal fun BodyOverTimeSection() {
             val max = values.maxOrNull() ?: 1.0
             val span = (max - min).coerceAtLeast(.1)
             val change = values.last() - values.first()
+
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 Column {
                     Text(formatMetric(values.last(), selected), color = DashInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
                     Text("Latest", color = DashMuted, fontSize = 8.sp)
                 }
-                Text(changeText(change, selected), color = if (abs(change) < .01) DashMuted else DashBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(changeText(change, selected), color = if (abs(change) < .01) DashMuted else DashBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    Text("${range.title} change", color = DashMuted, fontSize = 7.sp)
+                }
             }
-            var selectedIndex by remember(selected.metric, history.size) { mutableStateOf(history.lastIndex) }
-            val dateFormat = remember { SimpleDateFormat("d MMM", Locale.getDefault()) }
+
+            var selectedIndex by remember(
+                selected.metric,
+                range.days,
+                history.size,
+                history.firstOrNull()?.timestampEpochMs,
+                history.lastOrNull()?.timestampEpochMs
+            ) { mutableStateOf(history.lastIndex) }
+
+            val selectedDateFormat = remember { SimpleDateFormat("d MMM yyyy", Locale.getDefault()) }
+            val axisDateFormat = remember(range.days) {
+                SimpleDateFormat(if (range.days >= 365L) "MMM yy" else "d MMM", Locale.getDefault())
+            }
             val selectedPoint = history.getOrNull(selectedIndex) ?: history.last()
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(dateFormat.format(Date(selectedPoint.timestampEpochMs)), color = DashMuted, fontSize = 8.sp)
-                Text(formatMetric(selectedPoint.value, selected), color = DashBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
+
+            Row(
+                Modifier.fillMaxWidth().background(Color(0xFFF7F9FC), RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text("Selected day", color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                    Text(selectedDateFormat.format(Date(selectedPoint.timestampEpochMs)), color = DashInk, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                }
+                Text(formatMetric(selectedPoint.value, selected), color = DashBlue, fontSize = 14.sp, fontWeight = FontWeight.Black)
             }
+
+            val firstTimestamp = history.first().timestampEpochMs
+            val lastTimestamp = history.last().timestampEpochMs
+
             Canvas(
-                Modifier.fillMaxWidth().height(150.dp).pointerInput(history, selected.metric) {
+                Modifier.fillMaxWidth().height(158.dp).pointerInput(history, selected.metric, range.days) {
                     detectTapGestures { tap ->
-                        if (history.size > 1 && size.width > 0) {
-                            val fraction = (tap.x / size.width).coerceIn(0f, 1f)
-                            selectedIndex = (fraction * (history.size - 1)).roundToInt().coerceIn(0, history.lastIndex)
+                        if (history.size > 1 && size.width > 12f) {
+                            val fraction = ((tap.x - 6f) / (size.width - 12f)).coerceIn(0f, 1f)
+                            val target = firstTimestamp + ((lastTimestamp - firstTimestamp) * fraction).toLong()
+                            selectedIndex = history.indices.minByOrNull { index ->
+                                abs(history[index].timestampEpochMs - target)
+                            } ?: history.lastIndex
                         }
                     }
                 }
@@ -240,23 +313,63 @@ internal fun BodyOverTimeSection() {
                     val left = 6f
                     val right = size.width - 6f
                     val top = 12f
-                    val bottom = size.height - 16f
-                    fun xFor(i: Int) = left + (right - left) * i / (history.size - 1).toFloat()
+                    val bottom = size.height - 12f
+                    val timeSpan = (lastTimestamp - firstTimestamp).coerceAtLeast(1L)
+                    fun xFor(point: HealthValue) = left + (right - left) *
+                        ((point.timestampEpochMs - firstTimestamp).toDouble() / timeSpan.toDouble()).toFloat()
                     fun yFor(v: Double) = bottom - ((v - min) / span).toFloat() * (bottom - top)
+
+                    repeat(3) { row ->
+                        val y = top + (bottom - top) * row / 2f
+                        drawLine(DashBorder, Offset(left, y), Offset(right, y), strokeWidth = 1.5f)
+                    }
+
                     val path = Path()
                     history.forEachIndexed { index, point ->
-                        val x = xFor(index); val y = yFor(point.value)
+                        val x = xFor(point)
+                        val y = yFor(point.value)
                         if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
                     }
                     drawPath(path, DashBlue, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 4f))
+
+                    val dotStep = (history.size / 90).coerceAtLeast(1)
                     history.forEachIndexed { index, point ->
-                        val x = xFor(index); val y = yFor(point.value)
-                        drawCircle(if (index == selectedIndex) DashBlue else DashBlue.copy(alpha = .45f), radius = if (index == selectedIndex) 8f else 5f, center = Offset(x, y))
-                        if (index == selectedIndex) drawCircle(Color.White, radius = 3f, center = Offset(x, y))
+                        if (index % dotStep == 0 || index == selectedIndex || index == history.lastIndex) {
+                            val x = xFor(point)
+                            val y = yFor(point.value)
+                            drawCircle(
+                                if (index == selectedIndex) DashBlue else DashBlue.copy(alpha = .50f),
+                                radius = if (index == selectedIndex) 8f else 3.5f,
+                                center = Offset(x, y)
+                            )
+                            if (index == selectedIndex) drawCircle(Color.White, radius = 3f, center = Offset(x, y))
+                        }
+                    }
+
+                    history.getOrNull(selectedIndex)?.let { point ->
+                        val x = xFor(point)
+                        drawLine(DashBlue.copy(alpha = .18f), Offset(x, top), Offset(x, bottom), strokeWidth = 2f)
                     }
                 }
             }
-            Text("Tap a point to inspect that reading", color = DashMuted, fontSize = 8.sp)
+
+            val tickIndices = listOf(0, history.lastIndex / 3, (history.lastIndex * 2) / 3, history.lastIndex).distinct()
+            Row(Modifier.fillMaxWidth()) {
+                tickIndices.forEachIndexed { tickPosition, index ->
+                    Text(
+                        axisDateFormat.format(Date(history[index].timestampEpochMs)),
+                        modifier = Modifier.weight(1f),
+                        color = DashMuted,
+                        fontSize = 7.sp,
+                        textAlign = when (tickPosition) {
+                            0 -> TextAlign.Start
+                            tickIndices.lastIndex -> TextAlign.End
+                            else -> TextAlign.Center
+                        }
+                    )
+                }
+            }
+            Text("Tap anywhere on the chart — the nearest recorded day will be selected", color = DashMuted, fontSize = 8.sp)
         }
     }
 }
