@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,12 +38,14 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.projectsuperhuman.next.core.HealthDomain
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
@@ -85,7 +88,8 @@ private enum class HomeTile(val storageKey: String) {
 
 private data class HomeTileBounds(
     val top: Float,
-    val height: Float
+    val height: Float,
+    val windowTop: Float
 )
 
 private val defaultHomeTileOrder = listOf(
@@ -118,6 +122,14 @@ internal fun NativeLiveHome(
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
     val spacingPx = with(density) { 14.dp.toPx() }
+    val edgeScrollZonePx = with(density) { 92.dp.toPx() }
+    val edgeScrollMinStepPx = with(density) { 2.5.dp.toPx() }
+    val edgeScrollMaxStepPx = with(density) { 15.dp.toPx() }
+    val homeScrollState = rememberScrollState()
+
+    var viewportTopY by remember { mutableFloatStateOf(0f) }
+    var viewportBottomY by remember { mutableFloatStateOf(0f) }
+    var fingerWindowY by remember { mutableFloatStateOf(Float.NaN) }
 
     var snapshot by remember { mutableStateOf(NativeHomeSnapshot()) }
     val tileOrder = remember {
@@ -198,14 +210,53 @@ internal fun NativeLiveHome(
             draggingTile = null
             dragOffsetY = 0f
             dragTargetIndex = -1
+            fingerWindowY = Float.NaN
             settling = false
+        }
+    }
+
+    // While a tile is held near an edge, move the scroll container underneath it. The amount
+    // consumed by the scroll is added back to the dragged tile's translation so the exact grab
+    // point stays under the finger rather than drifting as the page moves.
+    LaunchedEffect(draggingTile, settling) {
+        while (draggingTile != null && !settling) {
+            delay(16)
+            val tile = draggingTile ?: break
+            val fingerY = fingerWindowY
+            if (fingerY.isNaN() || viewportBottomY <= viewportTopY) continue
+
+            val bottomStart = viewportBottomY - edgeScrollZonePx
+            val topEnd = viewportTopY + edgeScrollZonePx
+            val signedIntensity = when {
+                fingerY > bottomStart && homeScrollState.canScrollForward ->
+                    ((fingerY - bottomStart) / edgeScrollZonePx).coerceIn(0f, 1f)
+                fingerY < topEnd && homeScrollState.canScrollBackward ->
+                    -((topEnd - fingerY) / edgeScrollZonePx).coerceIn(0f, 1f)
+                else -> 0f
+            }
+
+            if (signedIntensity == 0f) continue
+            val intensity = kotlin.math.abs(signedIntensity)
+            val step = edgeScrollMinStepPx +
+                (edgeScrollMaxStepPx - edgeScrollMinStepPx) * intensity * intensity
+            val requested = if (signedIntensity > 0f) step else -step
+            val consumed = homeScrollState.scrollBy(requested)
+
+            if (consumed != 0f && draggingTile == tile && !settling) {
+                dragOffsetY += consumed
+                dragTargetIndex = targetIndexFor(tile, dragOffsetY)
+            }
         }
     }
 
     Column(
         Modifier.fillMaxSize()
             .background(Color(0xFFF8FBFD))
-            .verticalScroll(rememberScrollState())
+            .onGloballyPositioned { coordinates ->
+                viewportTopY = coordinates.positionInWindow().y
+                viewportBottomY = viewportTopY + coordinates.size.height
+            }
+            .verticalScroll(homeScrollState)
     ) {
         topContent()
         Column(
@@ -234,18 +285,20 @@ internal fun NativeLiveHome(
                         dragOffsetY = if (tile == draggingTile) dragOffsetY else 0f,
                         neighbourShiftY = neighbourShift,
                         enabled = !settling || tile == draggingTile,
-                        onMeasured = { top, height ->
-                            tileBounds[tile] = HomeTileBounds(top = top, height = height)
+                        onMeasured = { top, height, windowTop ->
+                            tileBounds[tile] = HomeTileBounds(top = top, height = height, windowTop = windowTop)
                         },
-                        onDragStart = {
+                        onDragStart = { localFingerY ->
                             if (!settling) {
                                 draggingTile = tile
                                 dragOffsetY = 0f
                                 dragTargetIndex = tileOrder.indexOf(tile)
+                                fingerWindowY = (tileBounds[tile]?.windowTop ?: viewportTopY) + localFingerY
                             }
                         },
                         onDragDelta = { deltaY ->
                             if (draggingTile == tile && !settling) {
+                                fingerWindowY += deltaY
                                 dragOffsetY += deltaY
                                 dragTargetIndex = targetIndexFor(tile, dragOffsetY)
                             }
@@ -282,8 +335,8 @@ private fun ReorderableHomeTile(
     dragOffsetY: Float,
     neighbourShiftY: Float,
     enabled: Boolean,
-    onMeasured: (top: Float, height: Float) -> Unit,
-    onDragStart: () -> Unit,
+    onMeasured: (top: Float, height: Float, windowTop: Float) -> Unit,
+    onDragStart: (localFingerY: Float) -> Unit,
     onDragDelta: (Float) -> Unit,
     onDragEnd: () -> Unit,
     onDragCancel: () -> Unit,
@@ -316,11 +369,15 @@ private fun ReorderableHomeTile(
     Box(
         Modifier.fillMaxWidth()
             .onGloballyPositioned { coordinates ->
-                currentOnMeasured(coordinates.positionInParent().y, coordinates.size.height.toFloat())
+                currentOnMeasured(
+                    coordinates.positionInParent().y,
+                    coordinates.size.height.toFloat(),
+                    coordinates.positionInWindow().y
+                )
             }
             .zIndex(if (isDragging) 20f else 0f)
             .graphicsLayer {
-                // During a drag this is the raw finger delta, so the exact point picked up stays under the finger.
+                // During a drag this is the raw finger delta plus any compensating auto-scroll.
                 translationY = if (isDragging) dragOffsetY else animatedNeighbourOffset
                 scaleX = animatedScale
                 scaleY = animatedScale
@@ -330,8 +387,8 @@ private fun ReorderableHomeTile(
             .pointerInput(tile, enabled) {
                 if (!enabled) return@pointerInput
                 detectDragGesturesAfterLongPress(
-                    onDragStart = {
-                        currentOnDragStart()
+                    onDragStart = { startOffset ->
+                        currentOnDragStart(startOffset.y)
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
                     onDragCancel = { currentOnDragCancel() },
