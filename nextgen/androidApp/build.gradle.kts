@@ -31,8 +31,8 @@ android {
         applicationId = "com.projectsuperhuman.next"
         minSdk = 26
         targetSdk = 35
-        versionCode = 11219
-        versionName = "11.2.19"
+        versionCode = 11220
+        versionName = "11.2.20"
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
@@ -79,6 +79,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.health.connect:connect-client:1.1.0")
+    implementation("androidx.work:work-runtime:2.11.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.google.zxing:core:3.5.4")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")

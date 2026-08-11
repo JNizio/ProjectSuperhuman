@@ -68,9 +68,11 @@ private data class MiniMetricSnapshot(
     val heartRateTimestampMs: Long? = null,
     val steps: Int? = null,
     val stepsRecentAverage: Int? = null,
+    val stepsSourceUpdatedAtMs: Long? = null,
     val bloodOxygenPct: Int? = null,
     val bloodOxygenTimestampMs: Long? = null,
-    val caloriesBurned: Int? = null,
+    val caloriesActiveBurned: Int? = null,
+    val caloriesTotalBurned: Int? = null,
     val caloriesEaten: Int? = null
 )
 
@@ -81,7 +83,8 @@ private data class MiniMetricDetailData(
     val primaryValue: String = "—",
     val secondaryLabel: String = "RANGE",
     val secondaryValue: String = "—",
-    val sourceValue: String = "Samsung",
+    val tertiaryLabel: String = "SOURCE",
+    val tertiaryValue: String = "Samsung",
     val history: List<Double?> = emptyList(),
     val hasSamsungData: Boolean = false
 )
@@ -168,7 +171,7 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
             MiniMetricsHealthConnect.sync(context)
             metrics = loadMiniMetricSnapshot()
             while (true) {
-                delay(30_000L)
+                delay(10_000L)
                 MiniMetricsHealthConnect.syncCurrent(context)
                 metrics = loadMiniMetricSnapshot()
             }
@@ -191,7 +194,10 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
                 metric = HomeMiniMetric.STEPS,
                 value = metrics.steps?.let(::compactCount) ?: "—",
                 unit = "",
-                status = if (metrics.steps != null) metrics.stepsRecentAverage?.let { "recent avg ${compactCount(it)}" } ?: "today · auto refresh" else "Tap to connect",
+                status = if (metrics.steps != null) {
+                    val age = freshnessLabel(metrics.stepsSourceUpdatedAtMs)
+                    metrics.stepsRecentAverage?.let { "$age · avg ${compactCount(it)}" } ?: age
+                } else "Tap to connect",
                 accent = MiniSteps,
                 modifier = Modifier.weight(.75f),
                 style = MiniVisualStyle.DOTS,
@@ -212,10 +218,12 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
             )
             MiniMetricCard(
                 metric = HomeMiniMetric.CALORIES,
-                value = metrics.caloriesBurned?.let(::compactCount) ?: "—",
-                unit = if (metrics.caloriesBurned != null) "kcal" else "",
-                status = if (metrics.caloriesBurned != null) {
-                    "${compactCount(metrics.caloriesEaten ?: 0)} eaten"
+                value = metrics.caloriesActiveBurned?.let(::compactCount) ?: "—",
+                unit = if (metrics.caloriesActiveBurned != null) "kcal" else "",
+                status = if (metrics.caloriesActiveBurned != null) {
+                    val eaten = compactCount(metrics.caloriesEaten ?: 0)
+                    val total = metrics.caloriesTotalBurned?.let(::compactCount)
+                    if (total != null) "$eaten eaten · $total total" else "$eaten eaten"
                 } else {
                     metrics.caloriesEaten?.let { "${compactCount(it)} eaten · connect burn" } ?: "Tap to connect"
                 },
@@ -340,6 +348,8 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
     var detail by remember(metric) { mutableStateOf(MiniMetricDetailData()) }
     var syncing by remember(metric) { mutableStateOf(false) }
     var connected by remember(metric) { mutableStateOf(false) }
+    var backgroundAvailable by remember(metric) { mutableStateOf(false) }
+    var backgroundEnabled by remember(metric) { mutableStateOf(false) }
     var status by remember(metric) { mutableStateOf("Checking Samsung Health…") }
 
     suspend fun refresh() {
@@ -360,14 +370,18 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = PermissionController.createRequestPermissionResultContract()
-    ) { granted ->
-        if (permission != null && permission in granted) {
-            connected = true
-            status = "Connected to Samsung Health through Health Connect"
-            scope.launch { sync() }
-        } else if (permission != null) {
-            connected = false
-            status = "Access wasn’t enabled"
+    ) { _ ->
+        scope.launch {
+            connected = MiniMetricsHealthConnect.hasPermission(context, metric)
+            backgroundAvailable = MiniMetricsHealthConnect.backgroundReadAvailable(context)
+            backgroundEnabled = MiniMetricsHealthConnect.hasBackgroundReadPermission(context)
+            if (backgroundEnabled) MiniMetricsBackgroundSync.ensureScheduled(context)
+            status = when {
+                connected && backgroundEnabled -> "Samsung Health connected · background sync enabled"
+                connected -> "Samsung Health connected through Health Connect"
+                else -> "Access wasn’t enabled"
+            }
+            if (connected) sync()
         }
     }
 
@@ -376,7 +390,7 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
             when (MiniMetricsHealthConnect.availability(context)) {
                 HealthConnectClient.SDK_AVAILABLE -> {
                     if (MiniMetricsHealthConnect.hasPermission(context, metric)) sync()
-                    else if (permission != null) permissionLauncher.launch(setOf(permission))
+                    else if (permission != null) permissionLauncher.launch(MiniMetricsHealthConnect.requestPermissionsFor(context, metric))
                 }
                 HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ->
                     status = "Health Connect needs an update"
@@ -385,12 +399,20 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
         }
     }
 
+    fun enableBackgroundSync() {
+        if (backgroundAvailable) permissionLauncher.launch(setOf(MiniMetricsHealthConnect.backgroundReadPermission))
+    }
+
     LaunchedEffect(metric) {
         refresh()
         val available = MiniMetricsHealthConnect.availability(context) == HealthConnectClient.SDK_AVAILABLE
         connected = available && MiniMetricsHealthConnect.hasPermission(context, metric)
+        backgroundAvailable = available && MiniMetricsHealthConnect.backgroundReadAvailable(context)
+        backgroundEnabled = available && MiniMetricsHealthConnect.hasBackgroundReadPermission(context)
+        if (backgroundEnabled) MiniMetricsBackgroundSync.ensureScheduled(context)
         status = when {
             !available -> "Health Connect isn’t available on this device"
+            connected && backgroundEnabled -> "Samsung Health connected · background sync enabled"
             connected -> "Samsung Health connected through Health Connect"
             else -> "Connect this metric from Samsung Health"
         }
@@ -400,9 +422,9 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
     LaunchedEffect(metric, connected, isForeground) {
         if (!connected || !isForeground) return@LaunchedEffect
         val intervalMs = when (metric) {
-            HomeMiniMetric.HEART_RATE, HomeMiniMetric.STEPS -> 15_000L
-            HomeMiniMetric.BLOOD_OXYGEN -> 30_000L
-            HomeMiniMetric.CALORIES -> 30_000L
+            HomeMiniMetric.HEART_RATE, HomeMiniMetric.STEPS -> 5_000L
+            HomeMiniMetric.BLOOD_OXYGEN -> 15_000L
+            HomeMiniMetric.CALORIES -> 10_000L
         }
         while (true) {
             delay(intervalMs)
@@ -425,7 +447,7 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MetricStat(detail.primaryLabel, detail.primaryValue, Modifier.weight(1f))
                 MetricStat(detail.secondaryLabel, detail.secondaryValue, Modifier.weight(1f))
-                MetricStat("SOURCE", detail.sourceValue, Modifier.weight(1f))
+                MetricStat(detail.tertiaryLabel, detail.tertiaryValue, Modifier.weight(1f))
             }
             MiniMetricHistoryCard(metric, detail.history, accent)
             if (metric == HomeMiniMetric.HEART_RATE) {
@@ -437,7 +459,10 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
             connected = connected,
             syncing = syncing,
             status = status,
-            onClick = ::connectOrSync
+            backgroundAvailable = backgroundAvailable,
+            backgroundEnabled = backgroundEnabled,
+            onClick = ::connectOrSync,
+            onEnableBackground = ::enableBackgroundSync
         )
         Spacer(Modifier.height(18.dp))
     }
@@ -502,7 +527,7 @@ private fun MiniMetricHero(metric: HomeMiniMetric, detail: MiniMetricDetailData,
                 HomeMiniMetric.HEART_RATE -> "Latest Fit3 / Samsung Health heart-rate reading"
                 HomeMiniMetric.STEPS -> "Samsung Health steps accumulated today"
                 HomeMiniMetric.BLOOD_OXYGEN -> "Latest blood-oxygen reading shared by Samsung Health"
-                HomeMiniMetric.CALORIES -> "Total energy burned today compared with food logged in Project Superhuman"
+                HomeMiniMetric.CALORIES -> "Active Fit3 / Samsung burn today compared with food logged in Project Superhuman"
             },
             color = MiniMuted,
             fontSize = 10.sp,
@@ -537,7 +562,7 @@ private fun MiniMetricHistoryCard(metric: HomeMiniMetric, history: List<Double?>
                 HomeMiniMetric.HEART_RATE -> "Daily average heart rate"
                 HomeMiniMetric.STEPS -> "Daily steps"
                 HomeMiniMetric.BLOOD_OXYGEN -> "Daily average SpO₂"
-                HomeMiniMetric.CALORIES -> "Daily calories burned"
+                HomeMiniMetric.CALORIES -> "Daily active calories burned"
             },
             color = MiniNavy,
             fontSize = 15.sp,
@@ -586,7 +611,10 @@ private fun HealthConnectMiniCard(
     connected: Boolean,
     syncing: Boolean,
     status: String,
-    onClick: () -> Unit
+    backgroundAvailable: Boolean,
+    backgroundEnabled: Boolean,
+    onClick: () -> Unit,
+    onEnableBackground: () -> Unit
 ) {
     Column(
         Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
@@ -603,21 +631,34 @@ private fun HealthConnectMiniCard(
         Spacer(Modifier.height(4.dp))
         Text(status, color = MiniMuted, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(11.dp))
-        Box(
-            Modifier.background(Color(0xFFE8F3FA), RoundedCornerShape(14.dp))
-                .clickable(enabled = !syncing, onClick = onClick)
-                .padding(horizontal = 14.dp, vertical = 10.dp)
-        ) {
-            Text(
-                when {
-                    syncing -> "SYNCING…"
-                    connected -> "SYNC NOW"
-                    else -> "CONNECT"
-                },
-                color = Color(0xFF0D6CB4),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black
-            )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.background(Color(0xFFE8F3FA), RoundedCornerShape(14.dp))
+                    .clickable(enabled = !syncing, onClick = onClick)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Text(
+                    when {
+                        syncing -> "SYNCING…"
+                        connected -> "SYNC NOW"
+                        else -> "CONNECT"
+                    },
+                    color = Color(0xFF0D6CB4),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            if (connected && backgroundAvailable && !backgroundEnabled) {
+                Box(
+                    Modifier.background(Color(0xFFF1F5F8), RoundedCornerShape(14.dp))
+                        .clickable(enabled = !syncing, onClick = onEnableBackground)
+                        .padding(horizontal = 12.dp, vertical = 10.dp)
+                ) {
+                    Text("BACKGROUND", color = MiniNavy, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                }
+            } else if (connected && backgroundEnabled) {
+                Text("15 min background sync", color = MiniMuted, fontSize = 8.sp)
+            }
         }
     }
 }
@@ -679,7 +720,10 @@ private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
     val stepsRecentAverage = completedStepDays.takeIf { it.isNotEmpty() }?.map { it.value }?.average()?.roundToInt()
     val oxygen = latestSamsung(NativeDataHub.between(HealthDomain.BODY, "blood_oxygen_percent", sevenDaysAgo, now))
 
-    val caloriesBurned = latestSamsung(
+    val caloriesActiveBurned = latestSamsung(
+        NativeDataHub.between(HealthDomain.EXERCISE, "calories_burned_active_kcal", todayStart, now)
+    )?.value
+    val caloriesTotalBurned = latestSamsung(
         NativeDataHub.between(HealthDomain.EXERCISE, "calories_burned_total_kcal", todayStart, now)
     )?.value
     val caloriesEaten = NativeDataHub.between(HealthDomain.NUTRITION, "food_kcal", todayStart, now)
@@ -690,9 +734,11 @@ private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
         heartRateTimestampMs = heart?.timestampEpochMs,
         steps = steps?.value?.roundToInt(),
         stepsRecentAverage = stepsRecentAverage,
+        stepsSourceUpdatedAtMs = steps?.metadata?.get("sourceLastModifiedMs")?.toLongOrNull(),
         bloodOxygenPct = oxygen?.value?.roundToInt(),
         bloodOxygenTimestampMs = oxygen?.timestampEpochMs,
-        caloriesBurned = caloriesBurned?.roundToInt(),
+        caloriesActiveBurned = caloriesActiveBurned?.roundToInt(),
+        caloriesTotalBurned = caloriesTotalBurned?.roundToInt(),
         caloriesEaten = caloriesEaten.takeIf { it > 0.0 }?.roundToInt()
     )
 }
@@ -776,19 +822,21 @@ private suspend fun loadMiniMetricDetail(metric: HomeMiniMetric): MiniMetricDeta
                 return total.takeIf { it > 0.0 }
             }
 
-            val history = dates.map { summary(HealthDomain.EXERCISE, "calories_burned_total_kcal", it) }
+            val history = dates.map { summary(HealthDomain.EXERCISE, "calories_burned_active_kcal", it) }
             val current = history.lastOrNull()
+            val totalToday = summary(HealthDomain.EXERCISE, "calories_burned_total_kcal", today)
             val eatenToday = eaten(today)
             MiniMetricDetailData(
                 current = current,
                 unit = "kcal",
-                primaryLabel = "BURNED",
+                primaryLabel = "ACTIVE",
                 primaryValue = current?.roundToInt()?.let { "${compactCount(it)} kcal" } ?: "—",
                 secondaryLabel = "EATEN",
                 secondaryValue = eatenToday?.roundToInt()?.let { "${compactCount(it)} kcal" } ?: "0 kcal",
-                sourceValue = "Samsung + diary",
+                tertiaryLabel = "TOTAL",
+                tertiaryValue = totalToday?.roundToInt()?.let { "${compactCount(it)} kcal" } ?: "—",
                 history = history,
-                hasSamsungData = history.any { it != null }
+                hasSamsungData = history.any { it != null } || totalToday != null
             )
         }
     }

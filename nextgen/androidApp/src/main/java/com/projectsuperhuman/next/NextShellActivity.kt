@@ -44,6 +44,7 @@ class NextShellActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         NativeDataHub.initialize(this)
+        MiniMetricsBackgroundSync.ensureScheduled(this)
         enableEdgeToEdge()
         setContent {
             MaterialTheme {
