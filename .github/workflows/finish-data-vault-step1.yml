@@ -5,17 +5,13 @@ on:
     branches: ['11.2']
     paths:
       - '.github/workflows/finish-data-vault-step1.yml'
+      - 'nextgen/shared/build.gradle.kts'
       - 'nextgen/shared/src/commonMain/sqldelight/com/projectsuperhuman/next/db/HealthStore.sq'
-      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/DataVaultContracts.kt'
-      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/SuperhumanCore.kt'
-      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/MetricRegistry.kt'
-      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/IngestionPipeline.kt'
-      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlHealthRepository.kt'
-      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlDataVaultGateway.kt'
-      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt'
-      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt'
-      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt'
-      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHealthConnect.kt'
+      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/**'
+      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/**'
+      - 'nextgen/shared/src/commonTest/kotlin/com/projectsuperhuman/next/**'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/**'
+      - 'nextgen/androidApp/build.gradle.kts'
   workflow_dispatch:
 
 permissions:
@@ -65,5 +61,15 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
+      - name: Run shared regression tests
+        run: gradle --no-daemon --build-cache -p nextgen :shared:testDebugUnitTest
+
       - name: Compile Android app
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:compileDebugKotlin
+
+      - name: Assemble full debug APK
+        run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
+
+      - name: Verify APK was produced
+        shell: bash
+        run: test -s nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
