@@ -161,6 +161,7 @@ private fun HistorySleepDashboardHero(
     val avgMinutes = recentMinutes.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
     val avgScore = recentScores.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
     val totalMinutes = snapshot?.totalMinutes
+    val sleepTimeMinutes = snapshot?.sleepTimeMinutes ?: totalMinutes?.let { it + (snapshot.awakeMinutes ?: 0) }
     val deltaMinutes = if (totalMinutes != null && avgMinutes != null) totalMinutes - avgMinutes else null
     val sleepScore = analysis?.recoveryScore ?: snapshot?.score
     val deepRem = snapshot?.let { (it.deepMinutes ?: 0) + (it.remMinutes ?: 0) }
@@ -201,6 +202,32 @@ private fun HistorySleepDashboardHero(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f).padding(end = 14.dp)) {
                     Text(formatHistoryMinutes(totalMinutes), color = Color.White, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black)
+                    Text("Actual sleep", color = Color.White.copy(alpha = .60f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(5.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(10.dp))
+                                .padding(horizontal = 8.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                "Sleep time  ${formatHistoryMinutes(sleepTimeMinutes)}",
+                                color = Color.White.copy(alpha = .92f),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Box(
+                            Modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(10.dp))
+                                .padding(horizontal = 8.dp, vertical = 5.dp)
+                        ) {
+                            Text(
+                                "Actual  ${formatHistoryMinutes(totalMinutes)}",
+                                color = Color.White.copy(alpha = .92f),
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(5.dp))
                     Text(analysis?.headline ?: "Your night sky is still gathering data", color = Color.White.copy(alpha = .86f), fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold)
                 }
@@ -249,7 +276,8 @@ private fun HistorySleepDashboardHero(
                     Text("RAW HEALTH CONNECT DATA", color = Color.White.copy(alpha = .65f), fontSize = 8.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.height(4.dp))
                     Text(formatHistoryMinutes(totalMinutes), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
-                    Text("recorded sleep", color = Color.White.copy(alpha = .62f), fontSize = 8.sp)
+                    Text("actual sleep", color = Color.White.copy(alpha = .62f), fontSize = 8.sp)
+                    Text("Sleep time ${formatHistoryMinutes(sleepTimeMinutes)}", color = Color.White.copy(alpha = .82f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text("SOURCE SCORE", color = Color.White.copy(alpha = .62f), fontSize = 8.sp, fontWeight = FontWeight.Black)
