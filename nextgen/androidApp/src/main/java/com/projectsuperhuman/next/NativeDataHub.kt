@@ -1,8 +1,10 @@
 package com.projectsuperhuman.next
 
 import android.content.Context
+import com.projectsuperhuman.next.core.DataIngestionPipeline
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
+import com.projectsuperhuman.next.core.IngestionResult
 import com.projectsuperhuman.next.core.ModuleDataPort
 import com.projectsuperhuman.next.data.DatabaseDriverFactory
 import com.projectsuperhuman.next.data.SqlDataVaultGateway
@@ -14,9 +16,9 @@ import kotlinx.coroutines.withContext
 /**
  * Android access point into the Project Superhuman Data Vault.
  *
- * Normal module traffic routes through [SqlDataVaultGateway]. The repository is
- * retained here only for administrative/compatibility operations such as full
- * backup/export, restore, diagnostics and targeted maintenance.
+ * Normal module traffic routes through [SqlDataVaultGateway] and the shared
+ * ingestion pipeline. The repository is retained only for administrative /
+ * compatibility operations such as full backup/export, restore and diagnostics.
  */
 internal data class DataVaultDiagnostics(
     val totalRecords: Long,
@@ -27,6 +29,7 @@ internal data class DataVaultDiagnostics(
 internal object NativeDataHub {
     private lateinit var repository: SqlHealthRepository
     private lateinit var gateway: SqlDataVaultGateway
+    private lateinit var ingestion: DataIngestionPipeline
 
     fun initialize(context: Context) {
         if (::repository.isInitialized) return
@@ -34,6 +37,7 @@ internal object NativeDataHub {
         repository = SqlHealthRepository(database) { System.currentTimeMillis() }
         repository.ensureLargeHistoryIndexes()
         gateway = SqlDataVaultGateway(repository)
+        ingestion = DataIngestionPipeline(gateway)
     }
 
     /** Preferred dependency for a module engine. The returned port is domain-scoped. */
@@ -91,16 +95,18 @@ internal object NativeDataHub {
         repository.latestForDomain(domain)
     }
 
+    /**
+     * Standardised write entry point for native modules and importers.
+     * Validation, canonical units, in-batch deduplication and domain routing happen here.
+     */
+    suspend fun ingestValues(values: List<HealthValue>): IngestionResult = withContext(Dispatchers.IO) {
+        ingestion.ingestValues(values)
+    }
+
+    /** Legacy call shape retained while modules migrate; now uses the same safe pipeline. */
     suspend fun saveValues(values: List<HealthValue>) = withContext(Dispatchers.IO) {
-        if (values.isEmpty()) return@withContext
-        val domains = values.asSequence().map { it.domain }.distinct().take(2).toList()
-        if (domains.size == 1) {
-            gateway.module(domains.first()).save(values)
-        } else {
-            // Mixed-domain batches are reserved for compatibility import/restore
-            // paths until every importer is split into explicit module ports.
-            repository.save(values)
-        }
+        ingestion.ingestValues(values)
+        Unit
     }
 
     /** Compatibility/export helpers. Do not use for normal screens or analytics. */
@@ -144,6 +150,7 @@ internal object NativeDataHub {
         )
     }
 
+    /** Restore deliberately bypasses normalisation so a backup is restored byte-for-byte semantically. */
     suspend fun restoreValues(values: List<HealthValue>, replace: Boolean = false) = withContext(Dispatchers.IO) {
         if (replace) repository.clearValues()
         repository.save(values)
@@ -157,7 +164,7 @@ internal object NativeDataHub {
         source: String = "native-compose",
         metadata: Map<String, String> = emptyMap()
     ) = withContext(Dispatchers.IO) {
-        gateway.module(domain).save(
+        ingestion.ingestValues(
             listOf(
                 HealthValue(
                     domain = domain,
@@ -170,6 +177,7 @@ internal object NativeDataHub {
                 )
             )
         )
+        Unit
     }
 
     suspend fun saveFood(food: NativeFood, grams: Double, meal: String = "Diary") = withContext(Dispatchers.IO) {
@@ -187,11 +195,12 @@ internal object NativeDataHub {
             "fibre" to (food.fibre * factor).toString(),
             "sugar" to (food.sugar * factor).toString()
         )
-        gateway.module(HealthDomain.NUTRITION).save(
+        ingestion.ingestValues(
             listOf(
                 HealthValue(HealthDomain.NUTRITION, "food_kcal", food.kcal * factor, "kcal", now, "native-nutrition", common),
                 HealthValue(HealthDomain.NUTRITION, "food_protein", food.protein * factor, "g", now, "native-nutrition", common)
             )
         )
+        Unit
     }
 }
