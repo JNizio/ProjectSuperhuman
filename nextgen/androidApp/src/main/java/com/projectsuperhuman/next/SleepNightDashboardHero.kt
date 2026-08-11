@@ -39,6 +39,7 @@ internal fun SleepNightDashboardHero(s: NativeSleepSnapshot?) {
     val analysis = s?.let { SleepIntelligenceEngine.analyse(it) }
     val score = analysis?.recoveryScore ?: s?.score
     val total = s?.totalMinutes
+    val sleepTime = total?.let { it + (s.awakeMinutes ?: 0) }
     val recentMinutes = s?.recentAverageMinutes
     val recentScore = s?.recentAverageScore
     val durationDelta = if (total != null && recentMinutes != null) total - recentMinutes else null
@@ -130,11 +131,11 @@ internal fun SleepNightDashboardHero(s: NativeSleepSnapshot?) {
                 horizontalArrangement = Arrangement.spacedBy(9.dp)
             ) {
                 NightMetric(
-                    label = "LAST NIGHT",
+                    label = "ACTUAL SLEEP",
                     value = minutesCompact(total),
                     detail = when {
                         sleepBlockCount > 1 -> "$sleepBlockCount blocks · ${minutesCompact(gapMinutes)} gap"
-                        durationDelta == null -> "sleep"
+                        durationDelta == null -> "classified asleep"
                         durationDelta > 0 -> "+${minutesCompact(durationDelta)} vs usual"
                         durationDelta < 0 -> "−${minutesCompact(abs(durationDelta))} vs usual"
                         else -> "same as usual"
@@ -142,9 +143,13 @@ internal fun SleepNightDashboardHero(s: NativeSleepSnapshot?) {
                     modifier = Modifier.weight(1f)
                 )
                 NightMetric(
-                    label = "RECENT AVG",
-                    value = minutesCompact(recentMinutes),
-                    detail = recentScore?.let { "score $it" } ?: "building baseline",
+                    label = "SLEEP TIME",
+                    value = minutesCompact(sleepTime),
+                    detail = if ((s?.awakeMinutes ?: 0) > 0) {
+                        "includes ${minutesCompact(s?.awakeMinutes)} awake"
+                    } else {
+                        "recorded sleep blocks"
+                    },
                     modifier = Modifier.weight(1f)
                 )
                 NightMetric(
@@ -154,6 +159,14 @@ internal fun SleepNightDashboardHero(s: NativeSleepSnapshot?) {
                     } else "—",
                     detail = analysis?.let { "${it.deepPct}% + ${it.remPct}%" } ?: "recovery stages",
                     modifier = Modifier.weight(1f)
+                )
+            }
+
+            if (recentMinutes != null) {
+                Text(
+                    "Recent actual-sleep average ${minutesCompact(recentMinutes)}${recentScore?.let { " · recent score $it" } ?: ""}",
+                    color = Color.White.copy(alpha = .58f),
+                    fontSize = 8.sp
                 )
             }
 
