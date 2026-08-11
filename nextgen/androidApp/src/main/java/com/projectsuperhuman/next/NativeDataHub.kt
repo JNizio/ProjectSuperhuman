@@ -20,6 +20,8 @@ import com.projectsuperhuman.next.data.SqlHealthRepository
 import com.projectsuperhuman.next.data.createSuperhumanDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * Android access point into the Project Superhuman Data Vault.
@@ -175,6 +177,14 @@ internal object NativeDataHub {
         repository.delete(target)
     }
 
+    /**
+     * Small batch delete for one logical diary item. This intentionally stays targeted rather than
+     * loading/re-writing the nutrition archive; each row still goes through repository aggregate repair.
+     */
+    suspend fun deleteValues(targets: List<HealthValue>) = withContext(Dispatchers.IO) {
+        targets.forEach(repository::delete)
+    }
+
     suspend fun clearDomain(domain: HealthDomain) = withContext(Dispatchers.IO) {
         repository.clearDomain(domain)
     }
@@ -228,27 +238,85 @@ internal object NativeDataHub {
         Unit
     }
 
-    suspend fun saveFood(food: NativeFood, grams: Double, meal: String = "Diary") = withContext(Dispatchers.IO) {
-        val factor = grams.coerceAtLeast(1.0) / 100.0
+    /**
+     * Persist one food diary item as a linked set of nutrition observations.
+     *
+     * All rows share `diaryEntryId`, so a meal can be removed cleanly. Macros and any verified
+     * Open Food Facts micronutrients become first-class time-series metrics ready for future
+     * correlations (for example magnesium vs. sleep), instead of being trapped in UI metadata.
+     */
+    suspend fun saveFood(food: NativeFood, grams: Double, meal: String = "Snack") = withContext(Dispatchers.IO) {
+        val safeGrams = grams.coerceIn(1.0, 5_000.0)
+        val factor = safeGrams / 100.0
         val now = System.currentTimeMillis()
+        val foodHash = abs(food.id.hashCode().toLong())
+        val entryId = "nutrition-$now-$foodHash-${(safeGrams * 10.0).roundToInt()}"
+        val protein = food.protein * factor
+        val carbs = food.carbs * factor
+        val fat = food.fat * factor
+        val fibre = food.fibre * factor
+        val sugar = food.sugar * factor
+
         val common = mapOf(
+            "diaryEntryId" to entryId,
             "foodId" to food.id,
             "name" to food.name,
-            "grams" to grams.toString(),
+            "grams" to safeGrams.toString(),
             "meal" to meal,
             "sourceName" to food.source,
             "barcode" to (food.barcode ?: ""),
-            "carbs" to (food.carbs * factor).toString(),
-            "fat" to (food.fat * factor).toString(),
-            "fibre" to (food.fibre * factor).toString(),
-            "sugar" to (food.sugar * factor).toString()
+            "brand" to food.brand,
+            "quantity" to food.quantity,
+            "servingSize" to food.servingSize,
+            "protein" to protein.toString(),
+            "carbs" to carbs.toString(),
+            "fat" to fat.toString(),
+            "fibre" to fibre.toString(),
+            "sugar" to sugar.toString(),
+            "micronutrientCount" to food.micronutrients.size.toString()
         )
-        ingestion.ingestValues(
-            listOf(
-                HealthValue(HealthDomain.NUTRITION, "food_kcal", food.kcal * factor, "kcal", now, "native-nutrition", common),
-                HealthValue(HealthDomain.NUTRITION, "food_protein", food.protein * factor, "g", now, "native-nutrition", common)
+
+        fun row(metric: String, value: Double, unit: String, extra: Map<String, String> = emptyMap()): HealthValue =
+            HealthValue(
+                domain = HealthDomain.NUTRITION,
+                metric = metric,
+                value = value,
+                unit = unit,
+                timestampEpochMs = now,
+                source = "native-nutrition",
+                metadata = common + extra + ("sourceRecordId" to "nutrition:$entryId:$metric")
             )
-        )
+
+        val values = buildList {
+            add(row("food_kcal", food.kcal * factor, "kcal"))
+            add(row("food_protein", protein, "g"))
+            add(row("food_carbs", carbs, "g"))
+            add(row("food_fat", fat, "g"))
+            add(row("food_fibre", fibre, "g"))
+            add(row("food_sugar", sugar, "g"))
+
+            food.micronutrients.values.forEach { nutrient ->
+                val suffix = when (nutrient.unit) {
+                    "µg", "μg", "mcg" -> "ug"
+                    else -> nutrient.unit.lowercase().replace("%", "pct")
+                }
+                val metricId = nutrient.id.lowercase().replace('-', '_').replace(' ', '_')
+                add(
+                    row(
+                        metric = "food_${metricId}_$suffix",
+                        value = nutrient.valuePer100 * factor,
+                        unit = nutrient.unit,
+                        extra = mapOf(
+                            "nutrientId" to nutrient.id,
+                            "nutrientLabel" to nutrient.label,
+                            "per100" to nutrient.valuePer100.toString()
+                        )
+                    )
+                )
+            }
+        }
+
+        ingestion.ingestValues(values)
         Unit
     }
 }
