@@ -49,10 +49,12 @@ jobs:
       - name: Build 11.2.3 APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Upload 11.2.3 APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ProjectSuperhuman-11.2.3-SplitSleep
-          path: nextgen/androidApp/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
-          retention-days: 30
+      - name: Publish 11.2.3 APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          APK=$(find nextgen/androidApp/build/outputs/apk/debug -name '*.apk' | head -n 1)
+          cp "$APK" ProjectSuperhuman-11.2.3.apk
+          gh release view v11.2.3 >/dev/null 2>&1 || gh release create v11.2.3 --title "Project Superhuman 11.2.3" --notes "Split-sleep accuracy update: separate sleep blocks, interruption-aware scoring, and both Sleep time and Actual sleep shown."
+          gh release upload v11.2.3 ProjectSuperhuman-11.2.3.apk --clobber
