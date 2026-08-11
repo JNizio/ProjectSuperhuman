@@ -9,7 +9,12 @@ import com.projectsuperhuman.next.data.createSuperhumanDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-/** Android entry point into the shared SQLDelight data layer. */
+/**
+ * Android gateway into the Project Superhuman Data Vault.
+ *
+ * New module code should prefer domain-scoped and paged methods below. Full-
+ * archive reads are kept only for backup/export and migration compatibility.
+ */
 internal object NativeDataHub {
     private lateinit var repository: SqlHealthRepository
 
@@ -17,14 +22,63 @@ internal object NativeDataHub {
         if (::repository.isInitialized) return
         val database = createSuperhumanDatabase(DatabaseDriverFactory(context.applicationContext))
         repository = SqlHealthRepository(database) { System.currentTimeMillis() }
+        // Safe, non-destructive index upgrade for existing installs.
+        repository.ensureLargeHistoryIndexes()
     }
 
     suspend fun latest(metric: String): HealthValue? = withContext(Dispatchers.IO) {
         repository.latest(metric)
     }
 
+    suspend fun latest(domain: HealthDomain, metric: String): HealthValue? = withContext(Dispatchers.IO) {
+        repository.latest(domain, metric)
+    }
+
     suspend fun between(metric: String, fromEpochMs: Long, toEpochMs: Long): List<HealthValue> = withContext(Dispatchers.IO) {
         repository.between(metric, fromEpochMs, toEpochMs)
+    }
+
+    suspend fun between(
+        domain: HealthDomain,
+        metric: String,
+        fromEpochMs: Long,
+        toEpochMs: Long
+    ): List<HealthValue> = withContext(Dispatchers.IO) {
+        repository.between(domain, metric, fromEpochMs, toEpochMs)
+    }
+
+    suspend fun domainBetween(
+        domain: HealthDomain,
+        fromEpochMs: Long,
+        toEpochMs: Long
+    ): List<HealthValue> = withContext(Dispatchers.IO) {
+        repository.domainBetween(domain, fromEpochMs, toEpochMs)
+    }
+
+    suspend fun pageForDomain(
+        domain: HealthDomain,
+        limit: Int = 250,
+        offset: Int = 0
+    ): List<HealthValue> = withContext(Dispatchers.IO) {
+        repository.pageForDomain(
+            domain,
+            limit.coerceIn(1, 5_000).toLong(),
+            offset.coerceAtLeast(0).toLong()
+        )
+    }
+
+    suspend fun pageForMetric(
+        domain: HealthDomain,
+        metric: String,
+        limit: Int = 250,
+        offset: Int = 0
+    ): List<HealthValue> = withContext(Dispatchers.IO) {
+        repository.pageForMetric(
+            domain,
+            metric,
+            limit.coerceIn(1, 5_000).toLong(),
+            offset.coerceAtLeast(0).toLong()
+        )
     }
 
     suspend fun latestForDomain(domain: HealthDomain): List<HealthValue> = withContext(Dispatchers.IO) {
@@ -35,7 +89,7 @@ internal object NativeDataHub {
         repository.save(values)
     }
 
-    /** Compatibility helpers kept for older call sites. Prefer the suspend variants below in UI code. */
+    /** Compatibility/export helpers. Do not use for normal screens or analytics. */
     fun allValues(): List<HealthValue> = repository.allValues()
     fun clearValues() = repository.clearValues()
     fun storedValueCount(): Long = repository.count()
@@ -48,21 +102,21 @@ internal object NativeDataHub {
         repository.clearValues()
     }
 
+    /** Indexed single-row delete; never rewrites the archive. */
     suspend fun deleteValue(target: HealthValue) = withContext(Dispatchers.IO) {
-        val remaining = repository.allValues().filterNot { value ->
-            value.domain == target.domain &&
-                value.metric == target.metric &&
-                value.timestampEpochMs == target.timestampEpochMs &&
-                value.source == target.source &&
-                value.value == target.value &&
-                value.unit == target.unit
-        }
-        repository.clearValues()
-        repository.save(remaining)
+        repository.delete(target)
+    }
+
+    suspend fun clearDomain(domain: HealthDomain) = withContext(Dispatchers.IO) {
+        repository.clearDomain(domain)
     }
 
     suspend fun storedValueCountAsync(): Long = withContext(Dispatchers.IO) {
         repository.count()
+    }
+
+    suspend fun storedValueCount(domain: HealthDomain): Long = withContext(Dispatchers.IO) {
+        repository.count(domain)
     }
 
     suspend fun restoreValues(values: List<HealthValue>, replace: Boolean = false) = withContext(Dispatchers.IO) {
