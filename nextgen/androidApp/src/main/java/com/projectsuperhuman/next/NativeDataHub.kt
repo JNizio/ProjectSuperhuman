@@ -3,17 +3,20 @@ package com.projectsuperhuman.next
 import android.content.Context
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
+import com.projectsuperhuman.next.core.ModuleDataPort
 import com.projectsuperhuman.next.data.DatabaseDriverFactory
+import com.projectsuperhuman.next.data.SqlDataVaultGateway
 import com.projectsuperhuman.next.data.SqlHealthRepository
 import com.projectsuperhuman.next.data.createSuperhumanDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Android gateway into the Project Superhuman Data Vault.
+ * Android access point into the Project Superhuman Data Vault.
  *
- * New module code should prefer domain-scoped and paged methods below. Full-
- * archive reads are kept only for backup/export and migration compatibility.
+ * Normal module traffic routes through [SqlDataVaultGateway]. The repository is
+ * retained here only for administrative/compatibility operations such as full
+ * backup/export, restore, diagnostics and targeted maintenance.
  */
 internal data class DataVaultDiagnostics(
     val totalRecords: Long,
@@ -23,23 +26,29 @@ internal data class DataVaultDiagnostics(
 
 internal object NativeDataHub {
     private lateinit var repository: SqlHealthRepository
+    private lateinit var gateway: SqlDataVaultGateway
 
     fun initialize(context: Context) {
         if (::repository.isInitialized) return
         val database = createSuperhumanDatabase(DatabaseDriverFactory(context.applicationContext))
         repository = SqlHealthRepository(database) { System.currentTimeMillis() }
-        // Safe, non-destructive index upgrade for existing installs.
         repository.ensureLargeHistoryIndexes()
+        gateway = SqlDataVaultGateway(repository)
     }
 
+    /** Preferred dependency for a module engine. The returned port is domain-scoped. */
+    fun module(domain: HealthDomain): ModuleDataPort = gateway.module(domain)
+
+    /** Compatibility helper for old callers that do not yet supply a domain. */
     suspend fun latest(metric: String): HealthValue? = withContext(Dispatchers.IO) {
         repository.latest(metric)
     }
 
     suspend fun latest(domain: HealthDomain, metric: String): HealthValue? = withContext(Dispatchers.IO) {
-        repository.latest(domain, metric)
+        gateway.module(domain).latest(metric)
     }
 
+    /** Compatibility helper for old callers that do not yet supply a domain. */
     suspend fun between(metric: String, fromEpochMs: Long, toEpochMs: Long): List<HealthValue> = withContext(Dispatchers.IO) {
         repository.between(metric, fromEpochMs, toEpochMs)
     }
@@ -50,7 +59,7 @@ internal object NativeDataHub {
         fromEpochMs: Long,
         toEpochMs: Long
     ): List<HealthValue> = withContext(Dispatchers.IO) {
-        repository.between(domain, metric, fromEpochMs, toEpochMs)
+        gateway.module(domain).between(metric, fromEpochMs, toEpochMs)
     }
 
     suspend fun domainBetween(
@@ -58,7 +67,7 @@ internal object NativeDataHub {
         fromEpochMs: Long,
         toEpochMs: Long
     ): List<HealthValue> = withContext(Dispatchers.IO) {
-        repository.domainBetween(domain, fromEpochMs, toEpochMs)
+        gateway.interpretation.domainBetween(domain, fromEpochMs, toEpochMs)
     }
 
     suspend fun pageForDomain(
@@ -66,11 +75,7 @@ internal object NativeDataHub {
         limit: Int = 250,
         offset: Int = 0
     ): List<HealthValue> = withContext(Dispatchers.IO) {
-        repository.pageForDomain(
-            domain,
-            limit.coerceIn(1, 5_000).toLong(),
-            offset.coerceAtLeast(0).toLong()
-        )
+        gateway.module(domain).page(metric = null, limit = limit, offset = offset)
     }
 
     suspend fun pageForMetric(
@@ -79,12 +84,7 @@ internal object NativeDataHub {
         limit: Int = 250,
         offset: Int = 0
     ): List<HealthValue> = withContext(Dispatchers.IO) {
-        repository.pageForMetric(
-            domain,
-            metric,
-            limit.coerceIn(1, 5_000).toLong(),
-            offset.coerceAtLeast(0).toLong()
-        )
+        gateway.module(domain).page(metric = metric, limit = limit, offset = offset)
     }
 
     suspend fun latestForDomain(domain: HealthDomain): List<HealthValue> = withContext(Dispatchers.IO) {
@@ -92,6 +92,8 @@ internal object NativeDataHub {
     }
 
     suspend fun saveValues(values: List<HealthValue>) = withContext(Dispatchers.IO) {
+        // Compatibility path for mixed-domain import/restore code. New module code
+        // should use module(domain).save(...) so domain isolation is enforced.
         repository.save(values)
     }
 
@@ -122,12 +124,12 @@ internal object NativeDataHub {
     }
 
     suspend fun storedValueCount(domain: HealthDomain): Long = withContext(Dispatchers.IO) {
-        repository.count(domain)
+        gateway.module(domain).count()
     }
 
     /** Cheap indexed health check; never materialises stored HealthValue rows. */
     suspend fun diagnostics(): DataVaultDiagnostics = withContext(Dispatchers.IO) {
-        val counts = HealthDomain.entries.associateWith { repository.count(it) }
+        val counts = HealthDomain.entries.associateWith { gateway.module(it).count() }
         val latest = HealthDomain.entries.associateWith { repository.latestTimestamp(it) }
         DataVaultDiagnostics(
             totalRecords = repository.count(),
@@ -149,7 +151,7 @@ internal object NativeDataHub {
         source: String = "native-compose",
         metadata: Map<String, String> = emptyMap()
     ) = withContext(Dispatchers.IO) {
-        repository.save(
+        gateway.module(domain).save(
             listOf(
                 HealthValue(
                     domain = domain,
@@ -179,7 +181,7 @@ internal object NativeDataHub {
             "fibre" to (food.fibre * factor).toString(),
             "sugar" to (food.sugar * factor).toString()
         )
-        repository.save(
+        gateway.module(HealthDomain.NUTRITION).save(
             listOf(
                 HealthValue(HealthDomain.NUTRITION, "food_kcal", food.kcal * factor, "kcal", now, "native-nutrition", common),
                 HealthValue(HealthDomain.NUTRITION, "food_protein", food.protein * factor, "g", now, "native-nutrition", common)
