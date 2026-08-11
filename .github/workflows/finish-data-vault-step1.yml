@@ -22,6 +22,27 @@ jobs:
       - name: Apply Step 1 hardening patch
         run: python3 .github/scripts/finish_data_vault_step1.py
 
+      - name: Verify no Sleep all-values hot path remains
+        shell: bash
+        run: |
+          ! grep -R "NativeDataHub.allValuesAsync" \
+            nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt \
+            nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Compile Android app
+        run: gradle --no-daemon --build-cache -p nextgen :androidApp:compileDebugKotlin
+
       - name: Commit hardened Data Vault paths
         shell: bash
         run: |
@@ -30,16 +51,7 @@ jobs:
           if ! git diff --quiet; then
             git add \
               nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt \
-              nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt \
-              nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt \
-              nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlHealthRepository.kt
+              nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt
             git commit -m "Finish Data Vault Step 1 hardening [skip ci]"
             git push origin HEAD:11.2
           fi
-
-      - name: Verify no Sleep all-values hot path remains
-        shell: bash
-        run: |
-          ! grep -R "NativeDataHub.allValuesAsync" \
-            nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt \
-            nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt
