@@ -292,8 +292,11 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
     suspend fun sync() {
         syncing = true
         val result = MiniMetricsHealthConnect.sync(context)
+        val advanced = if (metric == HomeMiniMetric.HEART_RATE && result.success) {
+            HeartRateAdvancedHealthConnect.sync(context)
+        } else null
         syncing = false
-        status = result.message
+        status = advanced?.message ?: result.message
         connected = permission != null && MiniMetricsHealthConnect.hasPermission(context, metric)
         refresh()
     }
@@ -361,6 +364,9 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
                 MetricStat("SOURCE", detail.sourceValue, Modifier.weight(1f))
             }
             MiniMetricHistoryCard(metric, detail.history, accent)
+            if (metric == HomeMiniMetric.HEART_RATE) {
+                AdvancedHeartRateSection(syncing = syncing, refreshSignal = status)
+            }
         }
 
         if (metric != HomeMiniMetric.STRESS) {
