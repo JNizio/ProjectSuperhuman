@@ -7,7 +7,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,6 +46,7 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
     val animatedFraction by animateFloatAsState(targetFraction, tween(500), label = "home-water-progress")
     val pct = (animatedFraction * 100).roundToInt()
     val remaining = (goalMl - shownMl).coerceAtLeast(0)
+    val shape = RoundedCornerShape(27.dp)
 
     val context = LocalContext.current
     val waterImage = remember {
@@ -58,10 +58,10 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
     Box(
         Modifier.fillMaxWidth()
             .height(158.dp)
-            .clip(RoundedCornerShape(27.dp))
+            .clip(shape)
             .background(Color(0xFFFCFDFE))
-            .border(1.dp, Color(0xFFE1E9EF), RoundedCornerShape(27.dp))
-            .clickable(onClick = onClick)
+            .border(1.dp, Color(0xFFE1E9EF), shape)
+            .superhumanHomeTileClickable(onClick = onClick)
     ) {
         if (waterImage != null) {
             Image(

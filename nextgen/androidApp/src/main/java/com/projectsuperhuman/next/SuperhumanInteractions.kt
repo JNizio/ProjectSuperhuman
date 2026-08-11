@@ -2,6 +2,7 @@ package com.projectsuperhuman.next
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
@@ -42,6 +44,37 @@ internal fun Modifier.superhumanClickable(
             indication = null,
             onClick = onClick
         )
+}
+
+/**
+ * Home dashboard cards deliberately do not scale when pressed. A restrained grey tint gives
+ * immediate feedback while keeping imagery, borders and card geometry perfectly stationary.
+ */
+internal fun Modifier.superhumanHomeTileClickable(
+    enabled: Boolean = true,
+    onClick: () -> Unit
+): Modifier = composed {
+    val interactionSource = remember { MutableInteractionSource() }
+    val pressed by interactionSource.collectIsPressedAsState()
+    val overlayAlpha by animateFloatAsState(
+        targetValue = if (pressed && enabled) 0.075f else 0f,
+        animationSpec = tween(durationMillis = if (pressed) 90 else 170),
+        label = "superhuman-home-highlight"
+    )
+
+    this
+        .clickable(
+            enabled = enabled,
+            interactionSource = interactionSource,
+            indication = null,
+            onClick = onClick
+        )
+        .drawWithContent {
+            drawContent()
+            if (overlayAlpha > 0f) {
+                drawRect(Color(0xFF64748B).copy(alpha = overlayAlpha))
+            }
+        }
 }
 
 /**
