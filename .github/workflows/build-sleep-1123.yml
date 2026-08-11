@@ -1,13 +1,14 @@
-name: Build sleep 11.2.3
+name: Build sleep 11.2.4
 
 on:
   push:
     branches: ['11.2']
     paths:
-      - '.github/scripts/sleep_1123_multisession.py'
+      - '.github/scripts/sleep_1124_distinct_times.py'
       - '.github/workflows/build-sleep-1123.yml'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHealthConnect.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepNightDashboardHero.kt'
-      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepIntelligenceEngine.kt'
   workflow_dispatch:
 
 permissions:
@@ -20,8 +21,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Apply 11.2.3 multi-session sleep changes
-        run: python3 .github/scripts/sleep_1123_multisession.py
+      - name: Apply 11.2.4 distinct sleep-time changes
+        run: python3 .github/scripts/sleep_1124_distinct_times.py
 
       - name: Commit sleep changes
         shell: bash
@@ -29,10 +30,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet; then
-            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepIntelligenceEngine.kt \
+            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHealthConnect.kt \
+                    nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt \
                     nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepNightDashboardHero.kt \
                     nextgen/androidApp/build.gradle.kts
-            git commit -m "Handle split sleep sessions in 11.2.3 [skip ci]"
+            git commit -m "Persist distinct sleep time in 11.2.4 [skip ci]"
             git push origin HEAD:11.2
           fi
 
@@ -47,18 +49,18 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Build 11.2.3 APK
+      - name: Build 11.2.4 APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Publish 11.2.3 APK release
+      - name: Publish 11.2.4 APK release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           APK=$(find nextgen/androidApp/build/outputs/apk/debug -name '*.apk' | head -n 1)
-          cp "$APK" ProjectSuperhuman-11.2.3.apk
-          gh release view v11.2.3 >/dev/null 2>&1 || gh release create v11.2.3 --title "Project Superhuman 11.2.3" --notes "Split-sleep accuracy update: separate sleep blocks, interruption-aware scoring, and both Sleep time and Actual sleep shown."
-          gh release upload v11.2.3 ProjectSuperhuman-11.2.3.apk --clobber
+          cp "$APK" ProjectSuperhuman-11.2.4.apk
+          gh release view v11.2.4 >/dev/null 2>&1 || gh release create v11.2.4 --title "Project Superhuman 11.2.4" --notes "Sleep data correction: stores and displays distinct Sleep time and Actual sleep metrics, including source-reported unknown/awake intervals, while preserving split-sleep continuity handling."
+          gh release upload v11.2.4 ProjectSuperhuman-11.2.4.apk --clobber
 
       - name: Prune old Project Superhuman APK artifacts
         if: success()
@@ -68,38 +70,16 @@ jobs:
         run: |
           python3 - <<'PY'
           import json, os, subprocess, urllib.request
-
           repo = os.environ['GITHUB_REPOSITORY']
           token = os.environ['GH_TOKEN']
           req = urllib.request.Request(
               f'https://api.github.com/repos/{repo}/actions/artifacts?per_page=100',
-              headers={
-                  'Authorization': f'Bearer {token}',
-                  'Accept': 'application/vnd.github+json',
-                  'X-GitHub-Api-Version': '2022-11-28',
-              },
+              headers={'Authorization': f'Bearer {token}','Accept': 'application/vnd.github+json','X-GitHub-Api-Version': '2022-11-28'},
           )
           with urllib.request.urlopen(req) as r:
               artifacts = json.load(r).get('artifacts', [])
-
-          apk_artifacts = [
-              a for a in artifacts
-              if not a.get('expired', False)
-              and (
-                  'ProjectSuperhuman' in a.get('name', '')
-                  or 'APK' in a.get('name', '').upper()
-                  or 'apk' in a.get('name', '').lower()
-              )
-          ]
-          apk_artifacts.sort(key=lambda a: a.get('created_at', ''), reverse=True)
-
-          # Keep the two newest APK artifacts as a rollback buffer.
+          apk_artifacts = [a for a in artifacts if not a.get('expired', False) and ('ProjectSuperhuman' in a.get('name','') or 'apk' in a.get('name','').lower())]
+          apk_artifacts.sort(key=lambda a: a.get('created_at',''), reverse=True)
           for artifact in apk_artifacts[2:]:
-              aid = artifact['id']
-              name = artifact.get('name', str(aid))
-              print(f'Deleting old APK artifact: {name} ({aid})')
-              subprocess.run(
-                  ['gh', 'api', '--method', 'DELETE', f'/repos/{repo}/actions/artifacts/{aid}'],
-                  check=True,
-              )
+              subprocess.run(['gh','api','--method','DELETE',f"/repos/{repo}/actions/artifacts/{artifact['id']}"], check=True)
           PY
