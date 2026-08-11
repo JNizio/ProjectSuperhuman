@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -60,7 +61,7 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
             .clip(RoundedCornerShape(27.dp))
             .background(Color(0xFFFCFDFE))
             .border(1.dp, Color(0xFFE1E9EF), RoundedCornerShape(27.dp))
-            .superhumanClickable(onClick = onClick)
+            .clickable(onClick = onClick)
     ) {
         if (waterImage != null) {
             Image(
