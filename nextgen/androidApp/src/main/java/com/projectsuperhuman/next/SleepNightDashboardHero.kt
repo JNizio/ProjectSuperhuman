@@ -43,9 +43,13 @@ internal fun SleepNightDashboardHero(s: NativeSleepSnapshot?) {
     val recentScore = s?.recentAverageScore
     val durationDelta = if (total != null && recentMinutes != null) total - recentMinutes else null
     val scoreDelta = if (score != null && recentScore != null) score - recentScore else null
+    val gapSegments = s?.stageSegments.orEmpty().filter { it.type == "gap" }
+    val gapMinutes = gapSegments.sumOf { ((it.endMs - it.startMs) / 60_000L).coerceAtLeast(0L) }.toInt()
+    val sleepBlockCount = if (s?.totalMinutes != null) gapSegments.size + 1 else 0
 
     val historicalMessage = when {
         s == null || total == null -> "Connect sleep data to unlock your nightly intelligence."
+        sleepBlockCount > 1 -> "Your sleep was split into $sleepBlockCount blocks with ${minutesCompact(gapMinutes)} between them."
         durationDelta != null && durationDelta >= 30 -> "You slept ${minutesCompact(durationDelta)} longer than your recent average."
         durationDelta != null && durationDelta <= -30 -> "You slept ${minutesCompact(abs(durationDelta))} less than your recent average."
         durationDelta != null -> "Your sleep duration was close to your recent baseline."
@@ -129,6 +133,7 @@ internal fun SleepNightDashboardHero(s: NativeSleepSnapshot?) {
                     label = "LAST NIGHT",
                     value = minutesCompact(total),
                     detail = when {
+                        sleepBlockCount > 1 -> "$sleepBlockCount blocks · ${minutesCompact(gapMinutes)} gap"
                         durationDelta == null -> "sleep"
                         durationDelta > 0 -> "+${minutesCompact(durationDelta)} vs usual"
                         durationDelta < 0 -> "−${minutesCompact(abs(durationDelta))} vs usual"

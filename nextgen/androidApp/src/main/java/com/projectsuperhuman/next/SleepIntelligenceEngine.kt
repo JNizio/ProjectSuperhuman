@@ -54,11 +54,16 @@ internal object SleepIntelligenceEngine {
         val stageCoverage = if (recordedSleep > 0) {
             (stageTotal.toDouble() / recordedSleep.toDouble()).coerceIn(0.0, 1.0)
         } else 0.0
+        val gapSegments = snapshot.stageSegments.filter { it.type == "gap" }
+        val gapMinutes = gapSegments.sumOf { ((it.endMs - it.startMs) / 60_000L).coerceAtLeast(0L) }.toInt()
 
         // We only compensate for source uncertainty. We do NOT invent sleep minutes.
         // Unclassified time remains unknown and lowers confidence instead.
         val interpretedSleep = recordedSleep
-        val opportunity = (recordedSleep + recordedAwake).coerceAtLeast(recordedSleep)
+        // Distinct Health Connect records can belong to one human night. Time between
+        // those blocks is real lost sleep opportunity even when the source does not label
+        // it as an Awake stage (Samsung commonly behaves this way).
+        val opportunity = (recordedSleep + recordedAwake + gapMinutes).coerceAtLeast(recordedSleep)
         val efficiency = if (opportunity > 0) {
             (recordedSleep * 100.0 / opportunity).roundToInt().coerceIn(0, 100)
         } else 0
@@ -153,11 +158,14 @@ internal object SleepIntelligenceEngine {
     }
 
     private fun continuityScore(efficiency: Int, snapshot: NativeSleepSnapshot): Int {
-        val interruptionCount = snapshot.stageSegments.count {
+        val awakeInterruptions = snapshot.stageSegments.count {
             it.type == "awake" && (it.endMs - it.startMs) >= 5 * 60_000L
         }
-        val penalty = min(20, interruptionCount * 4)
-        return (efficiency - penalty).coerceIn(0, 100)
+        val gaps = snapshot.stageSegments.filter { it.type == "gap" }
+        val gapMinutes = gaps.sumOf { ((it.endMs - it.startMs) / 60_000L).coerceAtLeast(0L) }.toInt()
+        val interruptionPenalty = min(20, (awakeInterruptions + gaps.size) * 4)
+        val longGapPenalty = min(18, gapMinutes / 6)
+        return (efficiency - interruptionPenalty - longGapPenalty).coerceIn(0, 100)
     }
 
     private fun stageBalance(deepPct: Int, remPct: Int, coverage: Double): Int {
@@ -181,6 +189,7 @@ internal object SleepIntelligenceEngine {
         if (snapshot.stageSegments.isEmpty()) score -= 10
         if (stageCoverage < 0.75) score -= 12
         if (snapshot.stageSegments.count { it.type == "awake" } > 8) score -= 4
+        if (snapshot.stageSegments.any { it.type == "gap" }) score -= 3
         return score.coerceIn(40, 96)
     }
 
