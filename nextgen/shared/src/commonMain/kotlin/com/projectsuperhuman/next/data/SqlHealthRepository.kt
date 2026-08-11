@@ -104,7 +104,7 @@ class SqlHealthRepository(
     fun count(domain: HealthDomain): Long = q.countValuesForDomain(domain.name).executeAsOne()
 
     fun latestTimestamp(domain: HealthDomain): Long? =
-        q.latestTimestampForDomain(domain.name) { timestamp -> timestamp }.executeAsOne()
+        q.latestTimestampForDomain(domain.name).executeAsOneOrNull()
 
     /** Indexed targeted delete instead of clearing and rewriting the entire archive. */
     fun delete(value: HealthValue) {
