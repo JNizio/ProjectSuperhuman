@@ -10,6 +10,10 @@ import com.projectsuperhuman.next.core.InsightsEngine
 import com.projectsuperhuman.next.core.InterpretationEngine
 import com.projectsuperhuman.next.core.InterventionEngine
 import com.projectsuperhuman.next.core.ModuleDataPort
+import com.projectsuperhuman.next.core.SYNTHETIC_DATA_SOURCE
+import com.projectsuperhuman.next.core.SyntheticDataGenerator
+import com.projectsuperhuman.next.core.SyntheticGenerationConfig
+import com.projectsuperhuman.next.core.SyntheticGenerationResult
 import com.projectsuperhuman.next.data.DatabaseDriverFactory
 import com.projectsuperhuman.next.data.SqlDataVaultGateway
 import com.projectsuperhuman.next.data.SqlHealthRepository
@@ -34,6 +38,7 @@ internal object NativeDataHub {
     private lateinit var repository: SqlHealthRepository
     private lateinit var gateway: SqlDataVaultGateway
     private lateinit var ingestion: DataIngestionPipeline
+    private lateinit var syntheticGenerator: SyntheticDataGenerator
     private lateinit var queries: HealthQueryEngine
     private lateinit var interpretations: InterpretationEngine
     private lateinit var interventions: InterventionEngine
@@ -46,6 +51,7 @@ internal object NativeDataHub {
         repository.ensureLargeHistoryIndexes()
         gateway = SqlDataVaultGateway(repository)
         ingestion = DataIngestionPipeline(gateway)
+        syntheticGenerator = SyntheticDataGenerator(ingestion) { System.currentTimeMillis() }
         queries = HealthQueryEngine(gateway.interpretation)
         interpretations = InterpretationEngine(queries) { System.currentTimeMillis() }
         interventions = InterventionEngine(queries) { System.currentTimeMillis() }
@@ -127,6 +133,28 @@ internal object NativeDataHub {
     suspend fun saveValues(values: List<HealthValue>) = withContext(Dispatchers.IO) {
         ingestion.ingestValues(values)
         Unit
+    }
+
+    /**
+     * Developer-only test history. Generation deliberately uses [DataIngestionPipeline], so
+     * synthetic traffic exercises validation, normalisation, deduplication, module routing and
+     * incremental daily aggregate maintenance exactly like normal app data.
+     */
+    suspend fun generateSyntheticTestData(days: Int): SyntheticGenerationResult = withContext(Dispatchers.IO) {
+        syntheticGenerator.generate(SyntheticGenerationConfig(days = days))
+    }
+
+    /** Cheap indexed count for Settings diagnostics; no synthetic rows are materialised. */
+    suspend fun syntheticTestDataCount(): Long = withContext(Dispatchers.IO) {
+        repository.countSource(SYNTHETIC_DATA_SOURCE)
+    }
+
+    /**
+     * Administrative source-scoped cleanup. The exact synthetic source is deleted and affected
+     * aggregates are rebuilt; genuine rows from every other source are left untouched.
+     */
+    suspend fun clearSyntheticTestData(): Long = withContext(Dispatchers.IO) {
+        repository.deleteSource(SYNTHETIC_DATA_SOURCE)
     }
 
     /** Compatibility/export helpers. Do not use for normal screens or analytics. */

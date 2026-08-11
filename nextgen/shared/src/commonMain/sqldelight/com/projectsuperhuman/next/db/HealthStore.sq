@@ -83,6 +83,12 @@ ensureDomainSourceTimeIndex:
 CREATE INDEX IF NOT EXISTS health_value_domain_source_time_idx
 ON health_value(domain, source, timestamp_epoch_ms DESC);
 
+-- Developer/test cleanup is source-scoped. This avoids touching genuine rows and keeps
+-- large synthetic archives fast to count/delete without scanning unrelated user history.
+ensureSourceTimeIndex:
+CREATE INDEX IF NOT EXISTS health_value_source_time_idx
+ON health_value(source, timestamp_epoch_ms DESC);
+
 upsertHealthValue:
 INSERT OR REPLACE INTO health_value(
   id, domain, metric, numeric_value, unit, timestamp_epoch_ms, source,
@@ -128,6 +134,11 @@ WHERE domain = ? AND metric = ?
 ORDER BY timestamp_epoch_ms DESC
 LIMIT ? OFFSET ?;
 
+valuesForSource:
+SELECT * FROM health_value
+WHERE source = ?
+ORDER BY timestamp_epoch_ms ASC;
+
 latestForDomain:
 SELECT hv.* FROM health_value hv
 JOIN (
@@ -149,6 +160,9 @@ SELECT COUNT(*) FROM health_value;
 countValuesForDomain:
 SELECT COUNT(*) FROM health_value WHERE domain = ?;
 
+countValuesForSource:
+SELECT COUNT(*) FROM health_value WHERE source = ?;
+
 latestTimestampForDomain:
 SELECT timestamp_epoch_ms FROM health_value
 WHERE domain = ?
@@ -164,6 +178,9 @@ DELETE FROM health_value WHERE id = ?;
 deleteDomainValues:
 DELETE FROM health_value WHERE domain = ?;
 
+deleteSourceValues:
+DELETE FROM health_value WHERE source = ?;
+
 upsertRange:
 INSERT OR REPLACE INTO clinical_range(metric, unit, low, high, source, observed_epoch_ms)
 VALUES (?, ?, ?, ?, ?, ?);
@@ -176,6 +193,10 @@ INSERT OR REPLACE INTO daily_aggregate(
   day_epoch, domain, metric, count, min_value, max_value, avg_value, sum_value,
   first_value, last_value, updated_epoch_ms
 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteAggregate:
+DELETE FROM daily_aggregate
+WHERE day_epoch = ? AND domain = ? AND metric = ?;
 
 aggregatesBetween:
 SELECT * FROM daily_aggregate

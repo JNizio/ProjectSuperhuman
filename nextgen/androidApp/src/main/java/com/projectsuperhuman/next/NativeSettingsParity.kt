@@ -54,15 +54,21 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var storedCount by remember { mutableStateOf(0L) }
-    var status by remember { mutableStateOf("Data Vault ready") }
+    var syntheticCount by remember { mutableStateOf(0L) }
+    var syntheticDays by remember { mutableStateOf(90) }
+    var syntheticBusy by remember { mutableStateOf(false) }
+    var syntheticStatus by remember { mutableStateOf("Synthetic history is isolated from genuine data by source.") }
     var pendingExport by remember { mutableStateOf<String?>(null) }
+    var status by remember { mutableStateOf("Data Vault ready") }
     var confirmReset by remember { mutableStateOf(false) }
+    var confirmSyntheticClear by remember { mutableStateOf(false) }
 
-    suspend fun refreshCount() {
+    suspend fun refreshCounts() {
         storedCount = NativeDataHub.storedValueCountAsync()
+        syntheticCount = NativeDataHub.syntheticTestDataCount()
     }
 
-    LaunchedEffect(Unit) { refreshCount() }
+    LaunchedEffect(Unit) { refreshCounts() }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -110,7 +116,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                         status = "Backup contained no health values"
                     } else {
                         NativeDataHub.restoreValues(values, replace = false)
-                        refreshCount()
+                        refreshCounts()
                         status = "Restored ${values.size} value${if (values.size == 1) "" else "s"}. Existing data was kept."
                     }
                 }.onFailure {
@@ -163,13 +169,106 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                     scope.launch {
                         NativeDataHub.clearValuesAsync()
                         confirmReset = false
-                        refreshCount()
+                        confirmSyntheticClear = false
+                        refreshCounts()
                         status = "Native database cleared"
+                        syntheticStatus = "No synthetic test data stored."
                     }
                 }
             }
             Spacer(Modifier.height(10.dp))
             Text(status, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
+        }
+
+        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Developer test data", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text("$syntheticCount clearly tagged synthetic values stored", color = SettingsMuted, fontSize = 10.sp)
+                }
+                Text("SYNTHETIC", color = SettingsBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+            Spacer(Modifier.height(7.dp))
+            Text(
+                "Build correlated fake history for dashboards, trends, Data Vault aggregation and the Interpretation Engine. " +
+                    "Generation uses the normal ingestion pipeline; real user records are never overwritten or cleared.",
+                color = SettingsMuted,
+                fontSize = 9.sp,
+                lineHeight = 14.sp
+            )
+            Spacer(Modifier.height(12.dp))
+            Text("HISTORY SPAN", color = SettingsMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                listOf(30 to "30D", 90 to "90D", 180 to "180D", 365 to "1Y").forEach { (days, label) ->
+                    SyntheticSpanButton(
+                        label = label,
+                        selected = syntheticDays == days,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (!syntheticBusy) {
+                            syntheticDays = days
+                            confirmSyntheticClear = false
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            VaultButton(
+                if (syntheticBusy) "Generating synthetic history…" else "Generate $syntheticDays days",
+                "Sleep, nutrition, body, exercise, mindfulness, hydration, clinical and wearable-style metrics",
+                SettingsBlue
+            ) {
+                if (!syntheticBusy) {
+                    scope.launch {
+                        syntheticBusy = true
+                        confirmSyntheticClear = false
+                        syntheticStatus = "Generating $syntheticDays days through the Data Vault ingestion pipeline…"
+                        try {
+                            val result = NativeDataHub.generateSyntheticTestData(syntheticDays)
+                            refreshCounts()
+                            syntheticStatus = if (result.rejected == 0) {
+                                "Generated ${result.accepted} synthetic values across $syntheticDays days. " +
+                                    "${result.deduplicated} in-batch duplicate${if (result.deduplicated == 1) " was" else "s were"} skipped."
+                            } else {
+                                "Generated ${result.accepted} values; ${result.rejected} were rejected by normal ingestion validation."
+                            }
+                        } catch (t: Throwable) {
+                            syntheticStatus = "Synthetic generation failed safely: ${t.message ?: "unknown error"}"
+                        } finally {
+                            syntheticBusy = false
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(9.dp))
+            VaultButton(
+                if (confirmSyntheticClear) "Tap again to clear synthetic data" else "Clear synthetic test data",
+                if (confirmSyntheticClear) "Only Project Superhuman synthetic-source records will be removed" else "Genuine user data and other imported sources are preserved",
+                SettingsRed
+            ) {
+                if (syntheticBusy) return@VaultButton
+                if (!confirmSyntheticClear) {
+                    confirmSyntheticClear = true
+                    syntheticStatus = "Synthetic cleanup armed. Tap the red button once more to confirm."
+                } else {
+                    scope.launch {
+                        syntheticBusy = true
+                        try {
+                            val removed = NativeDataHub.clearSyntheticTestData()
+                            refreshCounts()
+                            syntheticStatus = "Cleared $removed synthetic value${if (removed == 1L) "" else "s"}. Genuine data was untouched."
+                            confirmSyntheticClear = false
+                        } catch (t: Throwable) {
+                            syntheticStatus = "Synthetic cleanup failed safely: ${t.message ?: "unknown error"}"
+                        } finally {
+                            syntheticBusy = false
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(syntheticStatus, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
         }
 
         SettingsSection("Health integrations", "Health Connect sleep is native. Device-specific integrations can be added behind the same repository.")
@@ -191,6 +290,24 @@ private fun VaultButton(title: String, subtitle: String, accent: Color, onClick:
             Text(subtitle, color = Color.White.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
         }
         Text("→", color = Color.White, fontSize = 22.sp)
+    }
+}
+
+@Composable
+private fun SyntheticSpanButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .background(if (selected) SettingsBlue else SettingsBg, RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = if (selected) Color.White else SettingsNavy,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Black
+        )
     }
 }
 

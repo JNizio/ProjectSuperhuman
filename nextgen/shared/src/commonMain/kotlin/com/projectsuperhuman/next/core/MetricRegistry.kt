@@ -62,10 +62,32 @@ object CoreMetricRegistry : MetricRegistry {
         MetricDefinition("food_kcal", HealthDomain.NUTRITION, "kcal", aggregation = MetricAggregation.SUM, minAccepted = 0.0),
         MetricDefinition("food_protein", HealthDomain.NUTRITION, "g", aggregation = MetricAggregation.SUM, minAccepted = 0.0),
 
-        // Exercise
+        // Body / scale
+        MetricDefinition("body_weight_kg", HealthDomain.BODY, "kg", aggregation = MetricAggregation.AVERAGE, minAccepted = 20.0, maxAccepted = 400.0),
+        MetricDefinition("body_fat_pct", HealthDomain.BODY, "%", aggregation = MetricAggregation.AVERAGE, minAccepted = 1.0, maxAccepted = 75.0),
+        MetricDefinition("body_waist_cm", HealthDomain.BODY, "cm", aggregation = MetricAggregation.AVERAGE, minAccepted = 30.0, maxAccepted = 300.0),
+        MetricDefinition("body_goal_weight_kg", HealthDomain.BODY, "kg", aggregation = MetricAggregation.LAST, minAccepted = 20.0, maxAccepted = 400.0),
+
+        // Exercise / future wearable-style streams
         MetricDefinition("exercise_set", HealthDomain.EXERCISE, "kg-reps", aggregation = MetricAggregation.SUM, minAccepted = 0.0),
         MetricDefinition("workout_session", HealthDomain.EXERCISE, "sets", aggregation = MetricAggregation.SUM, minAccepted = 0.0),
-        MetricDefinition("workout_volume", HealthDomain.EXERCISE, "kg-reps", aggregation = MetricAggregation.SUM, minAccepted = 0.0)
+        MetricDefinition("workout_volume", HealthDomain.EXERCISE, "kg-reps", aggregation = MetricAggregation.SUM, minAccepted = 0.0),
+        MetricDefinition("steps", HealthDomain.EXERCISE, "count", aggregation = MetricAggregation.SUM, minAccepted = 0.0, maxAccepted = 200_000.0),
+        MetricDefinition("active_calories_kcal", HealthDomain.EXERCISE, "kcal", aggregation = MetricAggregation.SUM, minAccepted = 0.0, maxAccepted = 10_000.0),
+        MetricDefinition("exercise_minutes", HealthDomain.EXERCISE, "min", aggregation = MetricAggregation.SUM, minAccepted = 0.0, maxAccepted = 1440.0),
+        MetricDefinition("resting_heart_rate_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.AVERAGE, minAccepted = 20.0, maxAccepted = 250.0),
+        MetricDefinition("heart_rate_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.MIN_MAX_AVG, minAccepted = 20.0, maxAccepted = 260.0),
+
+        // Hydration. Intake events are signed because corrections subtract from a day.
+        MetricDefinition("water_intake_ml", HealthDomain.HYDRATION, "ml", aggregation = MetricAggregation.SUM, minAccepted = -10_000.0, maxAccepted = 10_000.0),
+        MetricDefinition("water_total_l", HealthDomain.HYDRATION, "L", aggregation = MetricAggregation.LAST, minAccepted = 0.0, maxAccepted = 10.0),
+        MetricDefinition("hydration_goal_ml", HealthDomain.HYDRATION, "ml", aggregation = MetricAggregation.LAST, minAccepted = 500.0, maxAccepted = 10_000.0),
+
+        // Mindfulness / self-report
+        MetricDefinition("mindfulness_session_minutes", HealthDomain.MINDFULNESS, "min", aggregation = MetricAggregation.SUM, minAccepted = 0.0, maxAccepted = 240.0),
+        MetricDefinition("stress_before", HealthDomain.MINDFULNESS, "0-10", aggregation = MetricAggregation.AVERAGE, minAccepted = 0.0, maxAccepted = 10.0),
+        MetricDefinition("stress_after", HealthDomain.MINDFULNESS, "0-10", aggregation = MetricAggregation.AVERAGE, minAccepted = 0.0, maxAccepted = 10.0),
+        MetricDefinition("mood_score", HealthDomain.MINDFULNESS, "0-10", aggregation = MetricAggregation.AVERAGE, minAccepted = 0.0, maxAccepted = 10.0)
     )
 
     private val byDomainAndName: Map<Pair<HealthDomain, String>, MetricDefinition> = buildMap {

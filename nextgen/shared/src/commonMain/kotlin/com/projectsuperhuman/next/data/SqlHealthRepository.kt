@@ -23,6 +23,7 @@ class SqlHealthRepository(
     fun ensureLargeHistoryIndexes() {
         q.ensureDomainMetricTimeIndex()
         q.ensureDomainSourceTimeIndex()
+        q.ensureSourceTimeIndex()
     }
 
     override suspend fun save(values: List<HealthValue>) {
@@ -130,12 +131,29 @@ class SqlHealthRepository(
 
     fun count(domain: HealthDomain): Long = q.countValuesForDomain(domain.name).executeAsOne()
 
+    fun countSource(source: String): Long = q.countValuesForSource(source).executeAsOne()
+
     fun latestTimestamp(domain: HealthDomain): Long? =
         q.latestTimestampForDomain(domain.name).executeAsOneOrNull()
 
     /** Indexed targeted delete instead of clearing and rewriting the entire archive. */
     fun delete(value: HealthValue) {
         q.deleteHealthValueById(stableId(value))
+        refreshDailyAggregates(listOf(value), nowEpochMs())
+    }
+
+    /**
+     * Administrative targeted delete for one exact source. Used by developer/test tooling so
+     * synthetic observations can be removed without loading or rewriting genuine user data.
+     * Affected daily aggregates are rebuilt from whatever real observations remain.
+     */
+    fun deleteSource(source: String): Long {
+        require(source.isNotBlank()) { "source must not be blank" }
+        val targets = q.valuesForSource(source, ::mapHealthValue).executeAsList()
+        if (targets.isEmpty()) return 0L
+        q.deleteSourceValues(source)
+        refreshDailyAggregates(targets, nowEpochMs())
+        return targets.size.toLong()
     }
 
     private fun refreshDailyAggregates(values: List<HealthValue>, updatedEpochMs: Long) {
@@ -149,7 +167,9 @@ class SqlHealthRepository(
                 val start = dayEpoch * DAY_MS
                 val end = start + DAY_MS - 1L
                 val rows = q.betweenByDomainMetric(domain.name, metric, start, end, ::mapHealthValue).executeAsList()
-                if (rows.isNotEmpty()) {
+                if (rows.isEmpty()) {
+                    q.deleteAggregate(dayEpoch, domain.name, metric)
+                } else {
                     q.upsertAggregate(
                         day_epoch = dayEpoch,
                         domain = domain.name,
