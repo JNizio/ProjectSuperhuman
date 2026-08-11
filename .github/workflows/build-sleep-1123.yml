@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/scripts/sleep_1123_multisession.py'
       - '.github/workflows/build-sleep-1123.yml'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepNightDashboardHero.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepIntelligenceEngine.kt'
   workflow_dispatch:
 
 permissions:
