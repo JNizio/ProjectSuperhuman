@@ -6,6 +6,9 @@ import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthQueryEngine
 import com.projectsuperhuman.next.core.HealthValue
 import com.projectsuperhuman.next.core.IngestionResult
+import com.projectsuperhuman.next.core.InsightsEngine
+import com.projectsuperhuman.next.core.InterpretationEngine
+import com.projectsuperhuman.next.core.InterventionEngine
 import com.projectsuperhuman.next.core.ModuleDataPort
 import com.projectsuperhuman.next.data.DatabaseDriverFactory
 import com.projectsuperhuman.next.data.SqlDataVaultGateway
@@ -32,6 +35,9 @@ internal object NativeDataHub {
     private lateinit var gateway: SqlDataVaultGateway
     private lateinit var ingestion: DataIngestionPipeline
     private lateinit var queries: HealthQueryEngine
+    private lateinit var interpretations: InterpretationEngine
+    private lateinit var interventions: InterventionEngine
+    private lateinit var insights: InsightsEngine
 
     fun initialize(context: Context) {
         if (::repository.isInitialized) return
@@ -41,6 +47,9 @@ internal object NativeDataHub {
         gateway = SqlDataVaultGateway(repository)
         ingestion = DataIngestionPipeline(gateway)
         queries = HealthQueryEngine(gateway.interpretation)
+        interpretations = InterpretationEngine(queries) { System.currentTimeMillis() }
+        interventions = InterventionEngine(queries) { System.currentTimeMillis() }
+        insights = InsightsEngine()
     }
 
     /** Preferred dependency for a module engine. The returned port is domain-scoped. */
@@ -48,6 +57,11 @@ internal object NativeDataHub {
 
     /** Read-only Step 4 API for Interpretation/Insights code. */
     fun queryEngine(): HealthQueryEngine = queries
+
+    /** Step 5 derived-evidence engines. None of these receive direct SQL access. */
+    fun interpretationEngine(): InterpretationEngine = interpretations
+    fun interventionEngine(): InterventionEngine = interventions
+    fun insightsEngine(): InsightsEngine = insights
 
     /** Compatibility helper for old callers that do not yet supply a domain. */
     suspend fun latest(metric: String): HealthValue? = withContext(Dispatchers.IO) {
