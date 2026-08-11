@@ -3,6 +3,7 @@ package com.projectsuperhuman.next
 import android.content.Context
 import com.projectsuperhuman.next.core.DataIngestionPipeline
 import com.projectsuperhuman.next.core.HealthDomain
+import com.projectsuperhuman.next.core.HealthQueryEngine
 import com.projectsuperhuman.next.core.HealthValue
 import com.projectsuperhuman.next.core.IngestionResult
 import com.projectsuperhuman.next.core.ModuleDataPort
@@ -30,6 +31,7 @@ internal object NativeDataHub {
     private lateinit var repository: SqlHealthRepository
     private lateinit var gateway: SqlDataVaultGateway
     private lateinit var ingestion: DataIngestionPipeline
+    private lateinit var queries: HealthQueryEngine
 
     fun initialize(context: Context) {
         if (::repository.isInitialized) return
@@ -38,10 +40,14 @@ internal object NativeDataHub {
         repository.ensureLargeHistoryIndexes()
         gateway = SqlDataVaultGateway(repository)
         ingestion = DataIngestionPipeline(gateway)
+        queries = HealthQueryEngine(gateway.interpretation)
     }
 
     /** Preferred dependency for a module engine. The returned port is domain-scoped. */
     fun module(domain: HealthDomain): ModuleDataPort = gateway.module(domain)
+
+    /** Read-only Step 4 API for Interpretation/Insights code. */
+    fun queryEngine(): HealthQueryEngine = queries
 
     /** Compatibility helper for old callers that do not yet supply a domain. */
     suspend fun latest(metric: String): HealthValue? = withContext(Dispatchers.IO) {
