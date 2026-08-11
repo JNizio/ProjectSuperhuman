@@ -1,4 +1,4 @@
-name: Validate Project Superhuman 11.2.13
+name: Validate Project Superhuman 11.2.16
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
 permissions:
   contents: read
 
-# Validation after edge auto-scroll was added to finger-anchored home tile dragging.
+# Validation after Samsung Health / Health Connect mini-module integration.
 jobs:
   compile:
     runs-on: ubuntu-latest
@@ -31,5 +31,5 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
-      - name: Compile 11.2.13
+      - name: Compile 11.2.16
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
