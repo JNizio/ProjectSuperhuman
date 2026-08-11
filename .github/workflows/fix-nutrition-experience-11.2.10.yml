@@ -1,0 +1,163 @@
+name: Harden nutrition experience 11.2.10
+
+on:
+  push:
+    branches: [ "11.2" ]
+    paths:
+      - '.github/workflows/fix-nutrition-experience-11.2.10.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 11.2
+        uses: actions/checkout@v4
+        with:
+          ref: '11.2'
+      - name: Apply nutrition persistence and unknown-data fixes
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeNutritionExperience.kt')
+          s = p.read_text()
+
+          old_goals = '''private suspend fun nxLoadGoals(): NxGoals = NxGoals(
+              kcal = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_kcal")?.value,
+              protein = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_protein_g")?.value,
+              carbs = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_carbs_g")?.value,
+              fat = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_fat_g")?.value,
+              fibre = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_fibre_g")?.value
+          )
+
+          private suspend fun nxSaveGoals(goals: NxGoals) {
+              val existing = NativeDataHub.latestForDomain(HealthDomain.NUTRITION).filter { it.metric.startsWith("nutrition_goal_") }
+              if (existing.isNotEmpty()) NativeDataHub.deleteValues(existing)
+
+              suspend fun save(metric: String, value: Double?, unit: String) {
+                  if (value != null) NativeDataHub.saveMetric(
+                      domain = HealthDomain.NUTRITION,
+                      metric = metric,
+                      value = value,
+                      unit = unit,
+                      source = "native-nutrition-goals"
+                  )
+              }
+              save("nutrition_goal_kcal", goals.kcal, "kcal")
+              save("nutrition_goal_protein_g", goals.protein, "g")
+              save("nutrition_goal_carbs_g", goals.carbs, "g")
+              save("nutrition_goal_fat_g", goals.fat, "g")
+              save("nutrition_goal_fibre_g", goals.fibre, "g")
+          }
+          '''
+
+          new_goals = '''private suspend fun nxLoadGoals(): NxGoals = NxGoals(
+              kcal = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_kcal")?.value?.takeIf { it > 0.0 },
+              protein = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_protein_g")?.value?.takeIf { it > 0.0 },
+              carbs = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_carbs_g")?.value?.takeIf { it > 0.0 },
+              fat = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_fat_g")?.value?.takeIf { it > 0.0 },
+              fibre = NativeDataHub.latest(HealthDomain.NUTRITION, "nutrition_goal_fibre_g")?.value?.takeIf { it > 0.0 }
+          )
+
+          private suspend fun nxSaveGoals(goals: NxGoals) {
+              suspend fun save(metric: String, value: Double?, unit: String) {
+                  NativeDataHub.saveMetric(
+                      domain = HealthDomain.NUTRITION,
+                      metric = metric,
+                      value = value ?: 0.0,
+                      unit = unit,
+                      source = "native-nutrition-goals",
+                      metadata = mapOf("enabled" to (value != null).toString())
+                  )
+              }
+              save("nutrition_goal_kcal", goals.kcal, "kcal")
+              save("nutrition_goal_protein_g", goals.protein, "g")
+              save("nutrition_goal_carbs_g", goals.carbs, "g")
+              save("nutrition_goal_fat_g", goals.fat, "g")
+              save("nutrition_goal_fibre_g", goals.fibre, "g")
+          }
+          '''
+          if old_goals not in s:
+              raise SystemExit('goal block not found')
+          s = s.replace(old_goals, new_goals)
+
+          old_highlight = '''        val microById = day.micros.associateBy { it.id }
+                  val highlighted = nxHighlightOrder.mapNotNull { id -> microById[id]?.let { id to it } }
+                  if (highlighted.isNotEmpty()) {
+                      Column(
+                          Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+                              .border(1.dp, NxBorder, RoundedCornerShape(22.dp)).padding(14.dp),
+                          verticalArrangement = Arrangement.spacedBy(8.dp)
+                      ) {
+                          Text("NEEDS ATTENTION", color = NxMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                          highlighted
+                              .sortedBy { (id, micro) -> nxReferenceById[id]?.let { micro.value / it.value } ?: 99.0 }
+                              .forEach { (_, micro) -> NxMicroRow(micro, entryCount) }
+                      }
+                  }
+          '''
+
+          new_highlight = '''        val microById = day.micros.associateBy { it.id }
+                  if (day.entries.isNotEmpty()) {
+                      Column(
+                          Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+                              .border(1.dp, NxBorder, RoundedCornerShape(22.dp)).padding(14.dp),
+                          verticalArrangement = Arrangement.spacedBy(8.dp)
+                      ) {
+                          Text("KEY NUTRIENTS", color = NxMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                          nxHighlightOrder.forEach { id ->
+                              val micro = microById[id]
+                              if (micro != null) NxMicroRow(micro, entryCount)
+                              else nxReferenceById[id]?.let { NxUnknownMicroRow(it) }
+                          }
+                      }
+                  }
+          '''
+          if old_highlight not in s:
+              raise SystemExit('highlight block not found')
+          s = s.replace(old_highlight, new_highlight)
+
+          needle = '''    }
+          }
+
+          @Composable
+          private fun NxInsights(day: NxDay, goals: NxGoals, onGoalsSaved: (NxGoals) -> Unit) {
+          '''
+          insert = '''    }
+          }
+
+          @Composable
+          private fun NxUnknownMicroRow(reference: NxReference) {
+              Column(
+                  Modifier.fillMaxWidth().background(NxBg, RoundedCornerShape(14.dp)).padding(10.dp),
+                  verticalArrangement = Arrangement.spacedBy(4.dp)
+              ) {
+                  Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                      Column(Modifier.weight(1f)) {
+                          Text(reference.label, color = NxInk, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                          Text("No reliable value in today's food data", color = NxMuted, fontSize = 8.sp)
+                      }
+                      Text("Unknown", color = NxPurple, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                  }
+              }
+          }
+
+          @Composable
+          private fun NxInsights(day: NxDay, goals: NxGoals, onGoalsSaved: (NxGoals) -> Unit) {
+          '''
+          if needle not in s:
+              raise SystemExit('micro insertion point not found')
+          s = s.replace(needle, insert, 1)
+          p.write_text(s)
+          PY
+      - name: Commit fixes
+        shell: bash
+        run: |
+          git config user.name "Jakub Nizio"
+          git config user.email "79284160+JNizio@users.noreply.github.com"
+          git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeNutritionExperience.kt
+          git commit -m "Harden 11.2.10 nutrition targets and data confidence"
+          git push origin HEAD:11.2
