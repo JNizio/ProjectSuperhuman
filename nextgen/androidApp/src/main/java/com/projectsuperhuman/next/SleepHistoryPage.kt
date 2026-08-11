@@ -407,7 +407,6 @@ private fun SleepCalendarCard(
             .filter { YearMonth.from(it.wakeDate) == month }
             .associateBy { it.wakeDate }
     }
-    val nightByDate = nights.associateBy { it.wakeDate }
 
     Column(
         Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp))
