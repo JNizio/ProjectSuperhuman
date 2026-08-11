@@ -179,7 +179,7 @@ INSERT OR REPLACE INTO daily_aggregate(
 
 aggregatesBetween:
 SELECT * FROM daily_aggregate
-WHERE metric = ? AND day_epoch BETWEEN ? AND ?
+WHERE domain = ? AND metric = ? AND day_epoch BETWEEN ? AND ?
 ORDER BY day_epoch ASC;
 
 upsertCheckpoint:
