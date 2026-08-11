@@ -1,14 +1,12 @@
-name: Build sleep 11.2.4
+name: Build sleep 11.2.5
 
 on:
   push:
     branches: ['11.2']
     paths:
-      - '.github/scripts/sleep_1124_distinct_times.py'
+      - '.github/scripts/sleep_1125_history_dashboard_times.py'
       - '.github/workflows/build-sleep-1123.yml'
-      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHealthConnect.kt'
-      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt'
-      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepNightDashboardHero.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt'
   workflow_dispatch:
 
 permissions:
@@ -21,8 +19,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Apply 11.2.4 distinct sleep-time changes
-        run: python3 .github/scripts/sleep_1124_distinct_times.py
+      - name: Apply 11.2.5 live dashboard sleep-time changes
+        run: python3 .github/scripts/sleep_1125_history_dashboard_times.py
 
       - name: Commit sleep changes
         shell: bash
@@ -30,11 +28,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           if ! git diff --quiet; then
-            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHealthConnect.kt \
-                    nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt \
-                    nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepNightDashboardHero.kt \
+            git add nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt \
                     nextgen/androidApp/build.gradle.kts
-            git commit -m "Persist distinct sleep time in 11.2.4 [skip ci]"
+            git commit -m "Show distinct sleep time and actual sleep in live dashboard 11.2.5 [skip ci]"
             git push origin HEAD:11.2
           fi
 
@@ -49,18 +45,26 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Build 11.2.4 APK
+      - name: Build 11.2.5 APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
-      - name: Publish 11.2.4 APK release
+      - name: Publish 11.2.5 APK release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           APK=$(find nextgen/androidApp/build/outputs/apk/debug -name '*.apk' | head -n 1)
-          cp "$APK" ProjectSuperhuman-11.2.4.apk
-          gh release view v11.2.4 >/dev/null 2>&1 || gh release create v11.2.4 --title "Project Superhuman 11.2.4" --notes "Sleep data correction: stores and displays distinct Sleep time and Actual sleep metrics, including source-reported unknown/awake intervals, while preserving split-sleep continuity handling."
-          gh release upload v11.2.4 ProjectSuperhuman-11.2.4.apk --clobber
+          cp "$APK" ProjectSuperhuman-11.2.5.apk
+          gh release view v11.2.5 >/dev/null 2>&1 || gh release create v11.2.5 --title "Project Superhuman 11.2.5" --notes "Visible sleep dashboard fix: the live blue Sleep Dashboard now shows both Sleep time and Actual sleep, using the distinct metrics added in 11.2.4."
+          gh release upload v11.2.5 ProjectSuperhuman-11.2.5.apk --clobber
+
+      - name: Remove obsolete 11.2.4 release
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release delete v11.2.4 --yes --cleanup-tag || true
 
       - name: Prune old Project Superhuman APK artifacts
         if: success()
