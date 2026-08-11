@@ -506,11 +506,14 @@ private object NativeSleepStore {
     suspend fun loadLatest(): NativeSleepSnapshot {
         val values = NativeDataHub.latestForDomain(HealthDomain.SLEEP)
         fun metric(name: String): HealthValue? = values.firstOrNull { it.metric == name }
-        val all = NativeDataHub.domainBetween(HealthDomain.SLEEP, 0L, Long.MAX_VALUE)
+        val totalSeries = NativeDataHub.pageForMetric(
+            HealthDomain.SLEEP, "sleep_total_minutes", limit = 32
+        )
+        val scoreSeries = NativeDataHub.pageForMetric(
+            HealthDomain.SLEEP, "sleep_score", limit = 32
+        )
         val latestEnd = metric("sleep_end_epoch_ms")?.value?.toLong()
         val latestStageRaw = metric("sleep_stage_timeline")?.metadata?.get("segments")
-        val totalSeries = all.filter { it.metric == "sleep_total_minutes" }
-        val scoreSeries = all.filter { it.metric == "sleep_score" }
         return NativeSleepSnapshot(
             score = metric("sleep_score")?.value?.roundToInt(),
             totalMinutes = metric("sleep_total_minutes")?.value?.roundToInt(),
