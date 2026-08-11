@@ -56,7 +56,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS
+    HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, HEART_RATE, STEPS, BLOOD_OXYGEN, STRESS
 }
 
 @Composable
@@ -80,6 +80,14 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                         openNutrition = { page = ShellPage.NUTRITION },
                         openExercise = { page = ShellPage.EXERCISE },
                         openMindfulness = { page = ShellPage.MINDFULNESS },
+                        openMiniMetric = { metric ->
+                            page = when (metric) {
+                                HomeMiniMetric.HEART_RATE -> ShellPage.HEART_RATE
+                                HomeMiniMetric.STEPS -> ShellPage.STEPS
+                                HomeMiniMetric.BLOOD_OXYGEN -> ShellPage.BLOOD_OXYGEN
+                                HomeMiniMetric.STRESS -> ShellPage.STRESS
+                            }
+                        },
                         topContent = {
                             NativeTopBar(
                                 title = "PROJECT SUPERHUMAN",
@@ -96,6 +104,10 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                     ShellPage.NUTRITION -> NativeNutritionExperienceV2Page { page = ShellPage.HOME }
                     ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openCompatibility)
+                    ShellPage.HEART_RATE -> NativeMiniMetricPlaceholderPage(HomeMiniMetric.HEART_RATE) { page = ShellPage.HOME }
+                    ShellPage.STEPS -> NativeMiniMetricPlaceholderPage(HomeMiniMetric.STEPS) { page = ShellPage.HOME }
+                    ShellPage.BLOOD_OXYGEN -> NativeMiniMetricPlaceholderPage(HomeMiniMetric.BLOOD_OXYGEN) { page = ShellPage.HOME }
+                    ShellPage.STRESS -> NativeMiniMetricPlaceholderPage(HomeMiniMetric.STRESS) { page = ShellPage.HOME }
                 }
             }
 
@@ -112,39 +124,48 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
 
 @Composable
 private fun NativeTopBar(title: String, onSettings: () -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        modifier.fillMaxWidth().height(92.dp).padding(horizontal = 22.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+    Box(
+        modifier.fillMaxWidth().height(92.dp).padding(horizontal = 22.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.width(54.dp).height(54.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                if (title == "PROJECT SUPERHUMAN") {
-                    Image(
-                        painter = painterResource(id = R.drawable.superhuman_logo_foreground),
-                        contentDescription = "Project Superhuman",
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Fit
-                    )
-                } else {
-                    Text("PS", color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = .5.sp)
-                }
-            }
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(title, color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 14.sp, letterSpacing = 1.8.sp)
-                Text(
-                    if (title == "PROJECT SUPERHUMAN") "Human performance system" else "App & data controls",
-                    color = ShellMuted,
-                    fontSize = 11.sp
+        Box(
+            Modifier.width(54.dp).height(54.dp).align(Alignment.CenterStart),
+            contentAlignment = Alignment.Center
+        ) {
+            if (title == "PROJECT SUPERHUMAN") {
+                Image(
+                    painter = painterResource(id = R.drawable.superhuman_logo_foreground),
+                    contentDescription = "Project Superhuman",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit
                 )
+            } else {
+                Text("PS", color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = .5.sp)
             }
         }
+
+        Column(
+            Modifier.align(Alignment.Center),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                title,
+                color = ShellNavy,
+                fontWeight = FontWeight.Black,
+                fontSize = 14.sp,
+                letterSpacing = 1.8.sp,
+                maxLines = 1
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                if (title == "PROJECT SUPERHUMAN") "Human performance system" else "App & data controls",
+                color = ShellMuted,
+                fontSize = 11.sp,
+                maxLines = 1
+            )
+        }
+
         Box(
-            Modifier.superhumanTopButton(onClick = onSettings),
+            Modifier.superhumanTopButton(onClick = onSettings).align(Alignment.CenterEnd),
             contentAlignment = Alignment.Center
         ) {
             Text(if (title == "SETTINGS") "×" else "⚙", color = ShellNavy, fontSize = 21.sp, fontWeight = FontWeight.Bold)

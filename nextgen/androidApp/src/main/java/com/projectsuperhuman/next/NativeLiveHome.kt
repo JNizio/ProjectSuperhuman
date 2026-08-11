@@ -114,6 +114,7 @@ internal fun NativeLiveHome(
     openNutrition: () -> Unit,
     openExercise: () -> Unit,
     openMindfulness: () -> Unit,
+    openMiniMetric: (HomeMiniMetric) -> Unit,
     topContent: @Composable () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -261,8 +262,9 @@ internal fun NativeLiveHome(
             Modifier.fillMaxWidth().padding(horizontal = 17.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // The Today hero stays fixed at the top; only module tiles can be reordered.
-            LegacyHomeHero(snapshot)
+            // Lightweight fixed glance area. Core modules below remain reorderable.
+            HomeDateStrip()
+            HomeMiniMetricsGrid(openMiniMetric)
 
             tileOrder.forEach { tile ->
                 key(tile) {
