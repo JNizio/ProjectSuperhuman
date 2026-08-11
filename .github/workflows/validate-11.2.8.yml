@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
 
+# Validation run 2: after resolving the Sleep calendar map conflict.
 jobs:
   compile:
     runs-on: ubuntu-latest
