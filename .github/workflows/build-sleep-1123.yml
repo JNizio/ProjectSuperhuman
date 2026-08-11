@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: write
+  actions: write
 
 jobs:
   patch-build:
@@ -58,3 +59,47 @@ jobs:
           cp "$APK" ProjectSuperhuman-11.2.3.apk
           gh release view v11.2.3 >/dev/null 2>&1 || gh release create v11.2.3 --title "Project Superhuman 11.2.3" --notes "Split-sleep accuracy update: separate sleep blocks, interruption-aware scoring, and both Sleep time and Actual sleep shown."
           gh release upload v11.2.3 ProjectSuperhuman-11.2.3.apk --clobber
+
+      - name: Prune old Project Superhuman APK artifacts
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess, urllib.request
+
+          repo = os.environ['GITHUB_REPOSITORY']
+          token = os.environ['GH_TOKEN']
+          req = urllib.request.Request(
+              f'https://api.github.com/repos/{repo}/actions/artifacts?per_page=100',
+              headers={
+                  'Authorization': f'Bearer {token}',
+                  'Accept': 'application/vnd.github+json',
+                  'X-GitHub-Api-Version': '2022-11-28',
+              },
+          )
+          with urllib.request.urlopen(req) as r:
+              artifacts = json.load(r).get('artifacts', [])
+
+          apk_artifacts = [
+              a for a in artifacts
+              if not a.get('expired', False)
+              and (
+                  'ProjectSuperhuman' in a.get('name', '')
+                  or 'APK' in a.get('name', '').upper()
+                  or 'apk' in a.get('name', '').lower()
+              )
+          ]
+          apk_artifacts.sort(key=lambda a: a.get('created_at', ''), reverse=True)
+
+          # Keep the two newest APK artifacts as a rollback buffer.
+          for artifact in apk_artifacts[2:]:
+              aid = artifact['id']
+              name = artifact.get('name', str(aid))
+              print(f'Deleting old APK artifact: {name} ({aid})')
+              subprocess.run(
+                  ['gh', 'api', '--method', 'DELETE', f'/repos/{repo}/actions/artifacts/{aid}'],
+                  check=True,
+              )
+          PY
