@@ -58,10 +58,21 @@ jobs:
         shell: bash
         run: test -s nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
 
-      - name: Upload temporary APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ProjectSuperhuman-11.2-APK
-          path: nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
-          if-no-files-found: error
-          retention-days: 1
+      - name: Publish APK handoff release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="chatgpt-build-11.2"
+          APK="nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk"
+          OUT="ProjectSuperhuman-11.2-debug.apk"
+          cp "$APK" "$OUT"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$OUT" --clobber
+          else
+            gh release create "$TAG" "$OUT" \
+              --target "$GITHUB_SHA" \
+              --title "Project Superhuman 11.2 build" \
+              --notes "APK handoff build for Project Superhuman 11.2." \
+              --prerelease
+          fi
