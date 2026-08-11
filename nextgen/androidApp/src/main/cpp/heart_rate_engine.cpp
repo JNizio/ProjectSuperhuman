@@ -116,17 +116,36 @@ int unusualSampleCount(const std::vector<Point>& points, const std::vector<doubl
     deviations.reserve(values.size());
     for (const double value : values) deviations.push_back(std::abs(value - centre));
     const double robustSigma = 1.4826 * median(deviations);
-    const double absoluteThreshold = std::max(18.0, robustSigma * 4.0);
+    const double globalThreshold = std::max(18.0, robustSigma * 4.0);
+    const double localThreshold = std::max(15.0, robustSigma * 3.0);
 
+    // Only isolated/transient departures are flagged. A sustained elevated segment is
+    // usually exercise or activity, not a sensor outlier, so it deliberately does not
+    // become an "unusual sample" merely for sitting far above the daily median.
     int count = 0;
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        bool unusual = std::abs(values[i] - centre) > absoluteThreshold;
-        if (i > 0) {
-            const auto gap = points[i].timeMs - points[i - 1].timeMs;
-            const double delta = std::abs(values[i] - values[i - 1]);
-            if (gap > 0 && gap <= 5 * kMinuteMs && delta >= 30.0) unusual = true;
-        }
-        if (unusual) ++count;
+    for (std::size_t i = 1; i + 1 < values.size(); ++i) {
+        const auto previousGap = points[i].timeMs - points[i - 1].timeMs;
+        const auto nextGap = points[i + 1].timeMs - points[i].timeMs;
+        if (previousGap <= 0 || nextGap <= 0) continue;
+
+        const double neighbourCentre = (values[i - 1] + values[i + 1]) / 2.0;
+        const double globalDeviation = std::abs(values[i] - centre);
+        const double localDeviation = std::abs(values[i] - neighbourCentre);
+        const bool neighboursAgree = std::abs(values[i - 1] - values[i + 1]) <= 16.0;
+        const bool isolatedOutlier =
+            previousGap <= 10 * kMinuteMs &&
+            nextGap <= 10 * kMinuteMs &&
+            neighboursAgree &&
+            globalDeviation > globalThreshold &&
+            localDeviation > localThreshold;
+
+        const bool rapidTransient =
+            previousGap <= 5 * kMinuteMs &&
+            nextGap <= 5 * kMinuteMs &&
+            std::abs(values[i] - values[i - 1]) >= 25.0 &&
+            std::abs(values[i + 1] - values[i - 1]) <= 12.0;
+
+        if (isolatedOutlier || rapidTransient) ++count;
     }
     return count;
 }
