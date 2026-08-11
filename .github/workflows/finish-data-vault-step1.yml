@@ -1,4 +1,4 @@
-name: Finish Data Vault Step 1
+name: Data Vault Architecture Verify
 
 on:
   push:
@@ -6,7 +6,11 @@ on:
     paths:
       - '.github/workflows/finish-data-vault-step1.yml'
       - 'nextgen/shared/src/commonMain/sqldelight/com/projectsuperhuman/next/db/HealthStore.sq'
+      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/DataVaultContracts.kt'
+      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/core/SuperhumanCore.kt'
       - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlHealthRepository.kt'
+      - 'nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlDataVaultGateway.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt'
   workflow_dispatch:
@@ -15,7 +19,7 @@ permissions:
   contents: read
 
 jobs:
-  finish-step-1:
+  verify-data-vault:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +32,14 @@ jobs:
           ! grep -R "NativeDataHub.allValuesAsync" \
             nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeSleepParity.kt \
             nextgen/androidApp/src/main/java/com/projectsuperhuman/next/SleepHistoryPage.kt
+
+      - name: Verify gateway implementation exists
+        shell: bash
+        run: |
+          grep -q "class SqlDataVaultGateway" \
+            nextgen/shared/src/commonMain/kotlin/com/projectsuperhuman/next/data/SqlDataVaultGateway.kt
+          grep -q "gateway.module" \
+            nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
