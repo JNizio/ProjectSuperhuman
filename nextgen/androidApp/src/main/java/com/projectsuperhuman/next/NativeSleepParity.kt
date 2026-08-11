@@ -506,7 +506,7 @@ private object NativeSleepStore {
     suspend fun loadLatest(): NativeSleepSnapshot {
         val values = NativeDataHub.latestForDomain(HealthDomain.SLEEP)
         fun metric(name: String): HealthValue? = values.firstOrNull { it.metric == name }
-        val all = NativeDataHub.allValuesAsync().filter { it.domain == HealthDomain.SLEEP }
+        val all = NativeDataHub.domainBetween(HealthDomain.SLEEP, 0L, Long.MAX_VALUE)
         val latestEnd = metric("sleep_end_epoch_ms")?.value?.toLong()
         val latestStageRaw = metric("sleep_stage_timeline")?.metadata?.get("segments")
         val totalSeries = all.filter { it.metric == "sleep_total_minutes" }

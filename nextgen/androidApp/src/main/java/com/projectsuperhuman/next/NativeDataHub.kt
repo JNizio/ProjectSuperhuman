@@ -15,6 +15,12 @@ import kotlinx.coroutines.withContext
  * New module code should prefer domain-scoped and paged methods below. Full-
  * archive reads are kept only for backup/export and migration compatibility.
  */
+internal data class DataVaultDiagnostics(
+    val totalRecords: Long,
+    val recordsByDomain: Map<HealthDomain, Long>,
+    val latestTimestampByDomain: Map<HealthDomain, Long?>
+)
+
 internal object NativeDataHub {
     private lateinit var repository: SqlHealthRepository
 
@@ -117,6 +123,17 @@ internal object NativeDataHub {
 
     suspend fun storedValueCount(domain: HealthDomain): Long = withContext(Dispatchers.IO) {
         repository.count(domain)
+    }
+
+    /** Cheap indexed health check; never materialises stored HealthValue rows. */
+    suspend fun diagnostics(): DataVaultDiagnostics = withContext(Dispatchers.IO) {
+        val counts = HealthDomain.entries.associateWith { repository.count(it) }
+        val latest = HealthDomain.entries.associateWith { repository.latestTimestamp(it) }
+        DataVaultDiagnostics(
+            totalRecords = repository.count(),
+            recordsByDomain = counts,
+            latestTimestampByDomain = latest
+        )
     }
 
     suspend fun restoreValues(values: List<HealthValue>, replace: Boolean = false) = withContext(Dispatchers.IO) {

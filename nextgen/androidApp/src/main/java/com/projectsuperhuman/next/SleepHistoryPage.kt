@@ -735,9 +735,11 @@ private fun BrushlessPurple(): androidx.compose.ui.graphics.Brush =
 
 private object NativeHistoricalSleepStore {
     suspend fun loadAll(): List<HistoricalSleepNight> {
-        val values = NativeDataHub.allValuesAsync()
-            .filter { it.domain == com.projectsuperhuman.next.core.HealthDomain.SLEEP }
-            .filter { it.metric.startsWith("sleep_") }
+        val values = NativeDataHub.domainBetween(
+            com.projectsuperhuman.next.core.HealthDomain.SLEEP,
+            0L,
+            Long.MAX_VALUE
+        ).filter { it.metric.startsWith("sleep_") }
 
         val nights = values
             .filter { it.metric == "sleep_total_minutes" && it.metadata["nightEnd"] != null }
