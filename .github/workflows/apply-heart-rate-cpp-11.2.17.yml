@@ -27,44 +27,48 @@ jobs:
           path = Path('nextgen/androidApp/src/main/java/com/projectsuperhuman/next/HomeMiniMetrics.kt')
           text = path.read_text()
 
-          old_sync = '''    suspend fun sync() {
-              syncing = true
-              val result = MiniMetricsHealthConnect.sync(context)
-              syncing = false
-              status = result.message
-              connected = permission != null && MiniMetricsHealthConnect.hasPermission(context, metric)
-              refresh()
-          }
-          '''
-          new_sync = '''    suspend fun sync() {
-              syncing = true
-              val result = MiniMetricsHealthConnect.sync(context)
-              val advanced = if (metric == HomeMiniMetric.HEART_RATE && result.success) {
-                  HeartRateAdvancedHealthConnect.sync(context)
-              } else null
-              syncing = false
-              status = advanced?.message ?: result.message
-              connected = permission != null && MiniMetricsHealthConnect.hasPermission(context, metric)
-              refresh()
-          }
-          '''
+          old_sync = "\n".join([
+              "    suspend fun sync() {",
+              "        syncing = true",
+              "        val result = MiniMetricsHealthConnect.sync(context)",
+              "        syncing = false",
+              "        status = result.message",
+              "        connected = permission != null && MiniMetricsHealthConnect.hasPermission(context, metric)",
+              "        refresh()",
+              "    }",
+          ])
+          new_sync = "\n".join([
+              "    suspend fun sync() {",
+              "        syncing = true",
+              "        val result = MiniMetricsHealthConnect.sync(context)",
+              "        val advanced = if (metric == HomeMiniMetric.HEART_RATE && result.success) {",
+              "            HeartRateAdvancedHealthConnect.sync(context)",
+              "        } else null",
+              "        syncing = false",
+              "        status = advanced?.message ?: result.message",
+              "        connected = permission != null && MiniMetricsHealthConnect.hasPermission(context, metric)",
+              "        refresh()",
+              "    }",
+          ])
           if old_sync not in text:
               raise SystemExit('Expected mini metric sync block not found')
           text = text.replace(old_sync, new_sync, 1)
 
-          old_history = '''            MiniMetricHistoryCard(metric, detail.history, accent)
-          }
-
-          if (metric != HomeMiniMetric.STRESS) {
-          '''
-          new_history = '''            MiniMetricHistoryCard(metric, detail.history, accent)
-              if (metric == HomeMiniMetric.HEART_RATE) {
-                  AdvancedHeartRateSection(syncing = syncing, refreshSignal = status)
-              }
-          }
-
-          if (metric != HomeMiniMetric.STRESS) {
-          '''
+          old_history = "\n".join([
+              "            MiniMetricHistoryCard(metric, detail.history, accent)",
+              "        }",
+              "",
+              "        if (metric != HomeMiniMetric.STRESS) {",
+          ])
+          new_history = "\n".join([
+              "            MiniMetricHistoryCard(metric, detail.history, accent)",
+              "            if (metric == HomeMiniMetric.HEART_RATE) {",
+              "                AdvancedHeartRateSection(syncing = syncing, refreshSignal = status)",
+              "            }",
+              "        }",
+              "",
+              "        if (metric != HomeMiniMetric.STRESS) {",
+          ])
           if old_history not in text:
               raise SystemExit('Expected history insertion point not found')
           text = text.replace(old_history, new_history, 1)
