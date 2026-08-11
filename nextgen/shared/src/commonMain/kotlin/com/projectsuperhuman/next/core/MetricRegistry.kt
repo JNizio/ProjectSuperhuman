@@ -62,9 +62,22 @@ object CoreMetricRegistry : MetricRegistry {
         MetricDefinition("food_kcal", HealthDomain.NUTRITION, "kcal", aggregation = MetricAggregation.SUM, minAccepted = 0.0),
         MetricDefinition("food_protein", HealthDomain.NUTRITION, "g", aggregation = MetricAggregation.SUM, minAccepted = 0.0),
 
-        // Body / scale
+        // Body / scale. These are stable metrics emitted by the native smart-scale path.
         MetricDefinition("body_weight_kg", HealthDomain.BODY, "kg", aggregation = MetricAggregation.AVERAGE, minAccepted = 20.0, maxAccepted = 400.0),
         MetricDefinition("body_fat_pct", HealthDomain.BODY, "%", aggregation = MetricAggregation.AVERAGE, minAccepted = 1.0, maxAccepted = 75.0),
+        MetricDefinition("body_fat_mass_kg", HealthDomain.BODY, "kg", aggregation = MetricAggregation.AVERAGE, minAccepted = 0.0, maxAccepted = 250.0),
+        MetricDefinition("body_fat_free_mass_kg", HealthDomain.BODY, "kg", aggregation = MetricAggregation.AVERAGE, minAccepted = 0.0, maxAccepted = 300.0),
+        MetricDefinition("body_water_pct", HealthDomain.BODY, "%", aggregation = MetricAggregation.AVERAGE, minAccepted = 20.0, maxAccepted = 80.0),
+        MetricDefinition("body_water_l", HealthDomain.BODY, "L", aggregation = MetricAggregation.AVERAGE, minAccepted = 5.0, maxAccepted = 200.0),
+        MetricDefinition("body_muscle_pct", HealthDomain.BODY, "%", aggregation = MetricAggregation.AVERAGE, minAccepted = 10.0, maxAccepted = 95.0),
+        MetricDefinition("body_muscle_mass_kg", HealthDomain.BODY, "kg", aggregation = MetricAggregation.AVERAGE, minAccepted = 5.0, maxAccepted = 300.0),
+        MetricDefinition("body_skeletal_muscle_pct", HealthDomain.BODY, "%", aggregation = MetricAggregation.AVERAGE, minAccepted = 5.0, maxAccepted = 70.0),
+        MetricDefinition("body_skeletal_muscle_mass_kg", HealthDomain.BODY, "kg", aggregation = MetricAggregation.AVERAGE, minAccepted = 3.0, maxAccepted = 200.0),
+        MetricDefinition("body_visceral_fat_estimate", HealthDomain.BODY, "index", aggregation = MetricAggregation.AVERAGE, minAccepted = 1.0, maxAccepted = 30.0),
+        MetricDefinition("body_bmi", HealthDomain.BODY, "kg/m2", aggregation = MetricAggregation.AVERAGE, minAccepted = 8.0, maxAccepted = 80.0),
+        MetricDefinition("body_ffmi", HealthDomain.BODY, "kg/m2", aggregation = MetricAggregation.AVERAGE, minAccepted = 5.0, maxAccepted = 50.0),
+        MetricDefinition("body_fmi", HealthDomain.BODY, "kg/m2", aggregation = MetricAggregation.AVERAGE, minAccepted = 0.0, maxAccepted = 50.0),
+        MetricDefinition("body_impedance_ohm", HealthDomain.BODY, "ohm", aggregation = MetricAggregation.AVERAGE, minAccepted = 100.0, maxAccepted = 2_000.0),
         MetricDefinition("body_waist_cm", HealthDomain.BODY, "cm", aggregation = MetricAggregation.AVERAGE, minAccepted = 30.0, maxAccepted = 300.0),
         MetricDefinition("body_goal_weight_kg", HealthDomain.BODY, "kg", aggregation = MetricAggregation.LAST, minAccepted = 20.0, maxAccepted = 400.0),
 
