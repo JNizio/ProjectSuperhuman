@@ -1,5 +1,6 @@
 package com.projectsuperhuman.next.data
 
+import com.projectsuperhuman.next.core.DailyAggregatePoint
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthRepository
 import com.projectsuperhuman.next.core.HealthValue
@@ -44,6 +45,7 @@ class SqlHealthRepository(
                 )
             }
         }
+        refreshDailyAggregates(values, now)
     }
 
     override suspend fun latest(metric: String): HealthValue? =
@@ -88,6 +90,31 @@ class SqlHealthRepository(
     override suspend fun latestForDomain(domain: HealthDomain): List<HealthValue> =
         q.latestForDomain(domain.name, domain.name, ::mapHealthValue).executeAsList()
 
+    suspend fun dailyAggregates(
+        domain: HealthDomain,
+        metric: String,
+        fromDayEpoch: Long,
+        toDayEpoch: Long
+    ): List<DailyAggregatePoint> = q.aggregatesBetween(
+        domain.name,
+        metric,
+        fromDayEpoch,
+        toDayEpoch
+    ) { dayEpoch, rowDomain, rowMetric, count, minValue, maxValue, avgValue, sumValue, firstValue, lastValue, _ ->
+        DailyAggregatePoint(
+            dayEpoch = dayEpoch,
+            domain = runCatching { HealthDomain.valueOf(rowDomain) }.getOrDefault(domain),
+            metric = rowMetric,
+            count = count,
+            min = minValue,
+            max = maxValue,
+            average = avgValue,
+            sum = sumValue,
+            first = firstValue,
+            last = lastValue
+        )
+    }.executeAsList()
+
     /** Compatibility/export path only. Avoid in screens and interpretation hot paths. */
     fun allValues(): List<HealthValue> = q.allHealthValues(::mapHealthValue).executeAsList()
 
@@ -109,6 +136,36 @@ class SqlHealthRepository(
     /** Indexed targeted delete instead of clearing and rewriting the entire archive. */
     fun delete(value: HealthValue) {
         q.deleteHealthValueById(stableId(value))
+    }
+
+    private fun refreshDailyAggregates(values: List<HealthValue>, updatedEpochMs: Long) {
+        val affected = values.asSequence()
+            .map { Triple(it.timestampEpochMs.floorDiv(DAY_MS), it.domain, it.metric) }
+            .distinct()
+            .toList()
+
+        q.transaction {
+            affected.forEach { (dayEpoch, domain, metric) ->
+                val start = dayEpoch * DAY_MS
+                val end = start + DAY_MS - 1L
+                val rows = q.betweenByDomainMetric(domain.name, metric, start, end, ::mapHealthValue).executeAsList()
+                if (rows.isNotEmpty()) {
+                    q.upsertAggregate(
+                        day_epoch = dayEpoch,
+                        domain = domain.name,
+                        metric = metric,
+                        count = rows.size.toLong(),
+                        min_value = rows.minOf { it.value },
+                        max_value = rows.maxOf { it.value },
+                        avg_value = rows.map { it.value }.average(),
+                        sum_value = rows.sumOf { it.value },
+                        first_value = rows.first().value,
+                        last_value = rows.last().value,
+                        updated_epoch_ms = updatedEpochMs
+                    )
+                }
+            }
+        }
     }
 
     private fun mapHealthValue(
@@ -190,5 +247,9 @@ class SqlHealthRepository(
             else if (c == '=') return index
         }
         return -1
+    }
+
+    private companion object {
+        const val DAY_MS = 86_400_000L
     }
 }
