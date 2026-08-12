@@ -40,11 +40,6 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-/*
- * Project Superhuman legacy-home visual vocabulary.
- * Keep imagery/gradients/card treatment here instead of scattering them through feature logic.
- * Legacy assets are intentionally loaded from app/src/main/assets (wired in androidApp/build.gradle.kts).
- */
 private val HomeNavy = Color(0xFF123D70)
 private val HomeBlue = Color(0xFF0D6CB4)
 private val HomeCyan = Color(0xFF20A7C4)
@@ -57,19 +52,10 @@ private val HomeCard = Color(0xFFFCFDFE)
 private val HomeBorder = Color(0xFFE3EAF0)
 
 @Composable
-private fun LegacyAssetImage(
-    assetName: String,
-    modifier: Modifier,
-    contentScale: ContentScale = ContentScale.Crop,
-    alpha: Float = 1f
-) {
+private fun LegacyAssetImage(assetName: String, modifier: Modifier, contentScale: ContentScale = ContentScale.Crop, alpha: Float = 1f) {
     val context = LocalContext.current
-    val bitmap = remember(assetName) {
-        runCatching { context.assets.open(assetName).use(BitmapFactory::decodeStream)?.asImageBitmap() }.getOrNull()
-    }
-    if (bitmap != null) {
-        Image(bitmap = bitmap, contentDescription = null, modifier = modifier, contentScale = contentScale, alpha = alpha)
-    }
+    val bitmap = remember(assetName) { runCatching { context.assets.open(assetName).use(BitmapFactory::decodeStream)?.asImageBitmap() }.getOrNull() }
+    if (bitmap != null) Image(bitmap = bitmap, contentDescription = null, modifier = modifier, contentScale = contentScale, alpha = alpha)
 }
 
 @Composable
@@ -88,12 +74,7 @@ internal fun LegacyHomeHero(snapshot: NativeHomeSnapshot) {
         snapshot.workoutsToday == 0 -> "Recovery data looks ready. Training is the clearest next performance signal."
         else -> "Your core signals are moving. Keep logging the things that change today."
     }
-
-    Box(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(
-            Brush.linearGradient(listOf(Color(0xFF0965A7), Color(0xFF13A7C3)))
-        )
-    ) {
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.linearGradient(listOf(Color(0xFF0965A7), Color(0xFF13A7C3))))) {
         Canvas(Modifier.fillMaxSize()) {
             val centre = Offset(size.width * .88f, size.height * .26f)
             drawCircle(Color.White.copy(alpha = .055f), radius = size.width * .42f, center = centre, style = Stroke(width = 1.5f))
@@ -102,16 +83,12 @@ internal fun LegacyHomeHero(snapshot: NativeHomeSnapshot) {
         Column(Modifier.padding(horizontal = 20.dp, vertical = 19.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("TODAY • $today", color = Color.White.copy(alpha = .78f), fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                Box(Modifier.width(42.dp).height(42.dp).background(Color.White.copy(alpha = .12f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
-                    Text("PS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                }
+                Box(Modifier.width(42.dp).height(42.dp).background(Color.White.copy(alpha = .12f), RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) { Text("PS", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black) }
             }
             Spacer(Modifier.height(9.dp))
             Text(target, color = Color.White, fontSize = 25.sp, lineHeight = 28.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(18.dp))
-            Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(Color.White.copy(alpha = .19f))) {
-                Box(Modifier.fillMaxWidth((hydrationPct / 100f).coerceAtLeast(.01f)).height(5.dp).background(Color.White))
-            }
+            Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(Color.White.copy(alpha = .19f))) { Box(Modifier.fillMaxWidth((hydrationPct / 100f).coerceAtLeast(.01f)).height(5.dp).background(Color.White)) }
             Spacer(Modifier.height(15.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 HeroSignal("HYDRATION", "$hydrationPct%")
@@ -137,10 +114,7 @@ private fun HeroSignal(label: String, value: String) {
 internal fun LegacyHydrationCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val ml = (snapshot.waterLitres * 1000).roundToInt()
     val pct = ((snapshot.waterLitres / 3.6) * 100).roundToInt().coerceIn(0, 100)
-    Box(
-        Modifier.fillMaxWidth().height(145.dp).clip(RoundedCornerShape(25.dp)).background(HomeCard)
-            .border(1.dp, HomeBorder, RoundedCornerShape(25.dp)).clickable(onClick = onClick)
-    ) {
+    Box(Modifier.fillMaxWidth().height(145.dp).clip(RoundedCornerShape(25.dp)).background(HomeCard).border(1.dp, HomeBorder, RoundedCornerShape(25.dp)).clickable(onClick = onClick)) {
         LegacyAssetImage("dashboard_water.png", Modifier.width(170.dp).fillMaxSize().align(Alignment.CenterEnd), alpha = .88f)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(HomeCard, HomeCard.copy(alpha = .96f), Color.Transparent))))
         Row(Modifier.fillMaxSize().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -163,9 +137,7 @@ internal fun LegacyHydrationCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                 Text("$ml ml", color = HomeNavy, fontSize = 23.sp, fontWeight = FontWeight.Black)
                 Text("3,600 ml daily target", color = HomeMuted, fontSize = 10.sp)
                 Spacer(Modifier.height(12.dp))
-                Box(Modifier.background(Color(0xFFE5F3FA), RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 9.dp)) {
-                    Text("Open tracker", color = HomeBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                }
+                Box(Modifier.background(Color(0xFFE5F3FA), RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 9.dp)) { Text("Open tracker", color = HomeBlue, fontSize = 9.sp, fontWeight = FontWeight.Black) }
             }
         }
     }
@@ -174,10 +146,7 @@ internal fun LegacyHydrationCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
 @Composable
 internal fun LegacyClinicalCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val normal = (snapshot.clinicalMarkers - snapshot.clinicalAlerts).coerceAtLeast(0)
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(HomeCard)
-            .border(1.dp, HomeBorder, RoundedCornerShape(25.dp)).clickable(onClick = onClick).padding(18.dp)
-    ) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(HomeCard).border(1.dp, HomeBorder, RoundedCornerShape(25.dp)).clickable(onClick = onClick).padding(18.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("CLINICAL", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             Text("→", color = Color(0xFF8CA6B5), fontSize = 23.sp)
@@ -205,51 +174,18 @@ internal fun LegacyClinicalCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
 @Composable
 internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val trained = snapshot.workoutsToday > 0
-    val volumeLabel = if (snapshot.workoutVolumeToday >= 1000) {
-        String.format(Locale.US, "%.1fk", snapshot.workoutVolumeToday / 1000.0)
-    } else snapshot.workoutVolumeToday.toString()
-
-    Box(
-        Modifier.fillMaxWidth().height(178.dp).clip(RoundedCornerShape(27.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF071D38), Color(0xFF0A3561), Color(0xFF0C5A7B))))
-            .border(1.dp, Color(0xFF164E72), RoundedCornerShape(27.dp)).clickable(onClick = onClick)
-    ) {
-        LegacyAssetImage(
-            "dashboard_training.png",
-            Modifier.width(250.dp).fillMaxSize().align(Alignment.CenterEnd),
-            alpha = .34f
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(
-                    listOf(
-                        Color(0xFF071D38),
-                        Color(0xFF071D38).copy(alpha = .96f),
-                        Color(0xFF0A2F56).copy(alpha = .70f),
-                        Color.Transparent
-                    )
-                )
-            )
-        )
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(Color(0xFF54D6C2).copy(alpha = .07f), size.width * .22f, Offset(size.width * .82f, size.height * .08f))
-            drawCircle(Color.White.copy(alpha = .035f), size.width * .16f, Offset(size.width * .70f, size.height * .88f))
-        }
-
+    val volumeLabel = if (snapshot.workoutVolumeToday >= 1000) String.format(Locale.US, "%.1fk", snapshot.workoutVolumeToday / 1000.0) else snapshot.workoutVolumeToday.toString()
+    Box(Modifier.fillMaxWidth().height(178.dp).clip(RoundedCornerShape(27.dp)).background(Brush.linearGradient(listOf(Color(0xFF071D38), Color(0xFF0A3561), Color(0xFF0C5A7B)))).border(1.dp, Color(0xFF164E72), RoundedCornerShape(27.dp)).clickable(onClick = onClick)) {
+        LegacyAssetImage("dashboard_training.png", Modifier.width(250.dp).fillMaxSize().align(Alignment.CenterEnd), alpha = .34f)
+        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF071D38), Color(0xFF071D38).copy(alpha = .96f), Color(0xFF0A2F56).copy(alpha = .70f), Color.Transparent))))
         Column(Modifier.fillMaxSize().padding(horizontal = 19.dp, vertical = 17.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("TRAINING", color = Color.White.copy(alpha = .66f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                Box(Modifier.width(34.dp).height(34.dp).background(Color.White.copy(alpha = .10f), CircleShape), contentAlignment = Alignment.Center) {
-                    Text("→", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                }
+                Box(Modifier.width(34.dp).height(34.dp).background(Color.White.copy(alpha = .10f), CircleShape), contentAlignment = Alignment.Center) { Text("→", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold) }
             }
             Spacer(Modifier.height(3.dp))
             Text(if (trained) "Workout complete" else "Ready to train", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
-            Text(
-                if (trained) "${snapshot.workoutsToday} workout${if (snapshot.workoutsToday == 1) "" else "s"} logged today"
-                else "Start a workout, routine or exercise session",
-                color = Color.White.copy(alpha = .67f), fontSize = 9.sp
-            )
+            Text(if (trained) "${snapshot.workoutsToday} workout${if (snapshot.workoutsToday == 1) "" else "s"} logged today" else "Start a workout, routine or exercise session", color = Color.White.copy(alpha = .67f), fontSize = 9.sp)
             Spacer(Modifier.height(13.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 TrainingStat(snapshot.workoutsToday.toString(), "WORKOUTS", Modifier.weight(1f))
@@ -257,11 +193,7 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
                 TrainingStat(volumeLabel, "VOLUME KG", Modifier.weight(1f))
             }
             Spacer(Modifier.height(10.dp))
-            Box(
-                Modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 7.dp)
-            ) {
-                Text(if (trained) "View training hub  →" else "Start workout  →", color = Color(0xFF66DBC8), fontSize = 8.sp, fontWeight = FontWeight.Black)
-            }
+            Box(Modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 7.dp)) { Text(if (trained) "View training hub  →" else "Start workout  →", color = Color(0xFF66DBC8), fontSize = 8.sp, fontWeight = FontWeight.Black) }
         }
     }
 }
@@ -277,10 +209,7 @@ private fun TrainingStat(value: String, label: String, modifier: Modifier = Modi
 
 @Composable
 internal fun LegacyBodyCard(snapshot: NativeHomeSnapshot, modifier: Modifier, onClick: () -> Unit) {
-    Column(
-        modifier.height(148.dp).clip(RoundedCornerShape(23.dp)).background(HomeCard)
-            .border(1.dp, HomeBorder, RoundedCornerShape(23.dp)).clickable(onClick = onClick).padding(15.dp)
-    ) {
+    Column(modifier.height(148.dp).clip(RoundedCornerShape(23.dp)).background(HomeCard).border(1.dp, HomeBorder, RoundedCornerShape(23.dp)).clickable(onClick = onClick).padding(15.dp)) {
         LegacyCardHeader("BODY")
         Spacer(Modifier.height(8.dp))
         Text(snapshot.bodyWeightKg?.let { "%.1f kg".format(it) } ?: "—", color = Color(0xFF443A79), fontSize = 20.sp, fontWeight = FontWeight.Black)
@@ -292,11 +221,7 @@ internal fun LegacyBodyCard(snapshot: NativeHomeSnapshot, modifier: Modifier, on
 }
 
 @Composable
-internal fun HomeBodyMindfulnessRow(
-    snapshot: NativeHomeSnapshot,
-    openBody: () -> Unit,
-    openMindfulness: () -> Unit
-) {
+internal fun HomeBodyMindfulnessRow(snapshot: NativeHomeSnapshot, openBody: () -> Unit, openMindfulness: () -> Unit) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         LegacyBodyCard(snapshot, Modifier.weight(1f), openBody)
         LegacyMindfulnessCard(snapshot, Modifier.weight(1f), openMindfulness)
@@ -306,23 +231,14 @@ internal fun HomeBodyMindfulnessRow(
 @Composable
 private fun LegacyMindfulnessCard(snapshot: NativeHomeSnapshot, modifier: Modifier, onClick: () -> Unit) {
     val minutes = snapshot.mindfulnessMinutesToday
-    Column(
-        modifier.height(148.dp).clip(RoundedCornerShape(23.dp)).background(Color(0xFFF4FAFB))
-            .border(1.dp, Color(0xFFDCECEF), RoundedCornerShape(23.dp)).clickable(onClick = onClick).padding(15.dp)
-    ) {
+    Column(modifier.height(148.dp).clip(RoundedCornerShape(23.dp)).background(Color(0xFFF4FAFB)).border(1.dp, Color(0xFFDCECEF), RoundedCornerShape(23.dp)).clickable(onClick = onClick).padding(15.dp)) {
         LegacyCardHeader("MINDFULNESS")
         Spacer(Modifier.height(8.dp))
         Text(if (minutes > 0) "$minutes min" else "Ready", color = Color(0xFF176B72), fontSize = 20.sp, fontWeight = FontWeight.Black)
         Text(if (minutes > 0) "mindful time today" else "Breathe · reflect · reset", color = HomeMuted, fontSize = 8.sp)
         Spacer(Modifier.height(13.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.Bottom) {
-            listOf(12, 20, 30, 22, 15).forEachIndexed { index, height ->
-                Box(
-                    Modifier.weight(1f).height(height.dp).background(
-                        if (minutes > 0 && index < 3) Color(0xFF5CB7AE) else Color(0xFFD9ECEB), RoundedCornerShape(8.dp)
-                    )
-                )
-            }
+            listOf(12, 20, 30, 22, 15).forEachIndexed { index, height -> Box(Modifier.weight(1f).height(height.dp).background(if (minutes > 0 && index < 3) Color(0xFF5CB7AE) else Color(0xFFD9ECEB), RoundedCornerShape(8.dp))) }
         }
     }
 }
@@ -330,10 +246,7 @@ private fun LegacyMindfulnessCard(snapshot: NativeHomeSnapshot, modifier: Modifi
 @Composable
 private fun BodySparkline(values: List<Double>) {
     Canvas(Modifier.fillMaxWidth().height(42.dp)) {
-        if (values.size < 2) {
-            drawLine(Color(0xFFD7D0F0), Offset(0f, size.height * .65f), Offset(size.width, size.height * .65f), strokeWidth = 3f)
-            return@Canvas
-        }
+        if (values.size < 2) { drawLine(Color(0xFFD7D0F0), Offset(0f, size.height * .65f), Offset(size.width, size.height * .65f), strokeWidth = 3f); return@Canvas }
         val min = values.minOrNull() ?: return@Canvas
         val max = values.maxOrNull() ?: return@Canvas
         val range = (max - min).coerceAtLeast(.2)
@@ -353,10 +266,7 @@ private fun BodySparkline(values: List<Double>) {
 
 @Composable
 internal fun LegacySleepCard(snapshot: NativeHomeSnapshot, modifier: Modifier, onClick: () -> Unit) {
-    Box(
-        modifier.height(148.dp).clip(RoundedCornerShape(23.dp)).background(HomeCard)
-            .border(1.dp, HomeBorder, RoundedCornerShape(23.dp)).clickable(onClick = onClick)
-    ) {
+    Box(modifier.height(148.dp).clip(RoundedCornerShape(23.dp)).background(HomeCard).border(1.dp, HomeBorder, RoundedCornerShape(23.dp)).clickable(onClick = onClick)) {
         LegacyAssetImage("dashboard_sleep.png", Modifier.width(115.dp).fillMaxSize().align(Alignment.CenterEnd), alpha = .62f)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(HomeCard, HomeCard.copy(alpha = .93f), Color.Transparent))))
         Column(Modifier.fillMaxSize().padding(15.dp)) {
@@ -384,10 +294,7 @@ private fun LegacyCardHeader(label: String) {
 
 @Composable
 internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
-    Box(
-        Modifier.fillMaxWidth().height(132.dp).clip(RoundedCornerShape(24.dp)).background(HomeCard)
-            .border(1.dp, HomeBorder, RoundedCornerShape(24.dp)).clickable(onClick = onClick)
-    ) {
+    Box(Modifier.fillMaxWidth().height(132.dp).clip(RoundedCornerShape(24.dp)).background(HomeCard).border(1.dp, HomeBorder, RoundedCornerShape(24.dp)).clickable(onClick = onClick)) {
         LegacyAssetImage("dashboard_nutrition.png", Modifier.width(235.dp).fillMaxSize().align(Alignment.CenterEnd), alpha = .72f)
         Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(HomeCard, HomeCard.copy(alpha = .96f), HomeCard.copy(alpha = .35f), Color.Transparent))))
         Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -399,20 +306,14 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
             Text("${snapshot.caloriesToday} kcal", color = HomeNavy, fontSize = 21.sp, fontWeight = FontWeight.Black)
             Text(if (snapshot.caloriesToday > 0) "${snapshot.proteinToday} g protein logged today" else "Estimated daily energy target", color = HomeMuted, fontSize = 9.sp)
             Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                NutritionChip("MACRO")
-                NutritionChip("MICRO")
-                NutritionChip("COMPOUNDS")
-            }
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { NutritionChip("MACRO"); NutritionChip("MICRO"); NutritionChip("COMPOUNDS") }
         }
     }
 }
 
 @Composable
 private fun NutritionChip(label: String) {
-    Box(Modifier.background(Color(0xFFE9F3F7).copy(alpha = .9f), RoundedCornerShape(12.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-        Text(label, color = HomeNavy, fontSize = 7.sp, fontWeight = FontWeight.Black)
-    }
+    Box(Modifier.background(Color(0xFFE9F3F7).copy(alpha = .9f), RoundedCornerShape(12.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) { Text(label, color = HomeNavy, fontSize = 7.sp, fontWeight = FontWeight.Black) }
 }
 
 @Composable
@@ -422,9 +323,7 @@ internal fun LegacyHomeLinks(openMindfulness: () -> Unit, openExercise: () -> Un
         HomeLinkCard("Training progress →", "PRs, volume and weekly muscle work.", Modifier.weight(1f), openExercise)
     }
     Spacer(Modifier.height(2.dp))
-    Row(Modifier.fillMaxWidth()) {
-        HomeLinkCard("Superhuman Insights →", "See how sleep and body trends interact.", Modifier.fillMaxWidth(.52f), openInsights)
-    }
+    Row(Modifier.fillMaxWidth()) { HomeLinkCard("Superhuman Insights →", "See how sleep and body trends interact.", Modifier.fillMaxWidth(.52f), openInsights) }
 }
 
 @Composable
@@ -438,11 +337,5 @@ private fun HomeLinkCard(title: String, subtitle: String, modifier: Modifier, on
 
 @Composable
 internal fun LegacyBloodPressureLink(onClick: () -> Unit) {
-    Text(
-        "Blood pressure tools",
-        color = HomeMuted,
-        fontSize = 9.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.clickable(onClick = onClick).padding(vertical = 8.dp)
-    )
+    Text("Blood pressure tools", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable(onClick = onClick).padding(vertical = 8.dp))
 }
