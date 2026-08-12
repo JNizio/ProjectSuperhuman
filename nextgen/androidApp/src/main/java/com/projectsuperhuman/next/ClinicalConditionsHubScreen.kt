@@ -48,7 +48,7 @@ private val ClinicalHubLab = Color(0xFF7158D9)
 /**
  * Clinical landing screen. Conditions and laboratory history are peers rather than making
  * lab import look like a header action. Search uses the human-friendly layer over ICD-11,
- * while the canonical ICD condition remains the record that is stored in the Data Vault.
+ * while broad / subtype-unknown conditions are deliberately preserved as broad profile context.
  */
 @Composable
 internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
@@ -88,7 +88,7 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
 
     LaunchedEffect(query, catalogueCount) {
         results = if (query.trim().length < 2) emptyList() else withContext(Dispatchers.IO) {
-            ClinicalConditionSearchEngine.search(vault, query)
+            ClinicalConditionHierarchy.search(vault, query)
         }
     }
 
@@ -120,7 +120,7 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
             Text("CONDITION VAULT", color = ClinicalHubBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text("Add conditions you have", color = ClinicalHubNavy, fontSize = 22.sp, fontWeight = FontWeight.Black)
             Text(
-                "Search naturally. Everyday names, abbreviations, common synonyms and ICD-11 codes all lead to the same structured clinical record.",
+                "Search naturally. Everyday names, abbreviations, common synonyms and ICD-11 codes all lead to structured clinical context.",
                 color = ClinicalHubMuted, fontSize = 10.sp, lineHeight = 15.sp
             )
             Text(catalogueState, color = ClinicalHubBlue, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
@@ -133,7 +133,7 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
                 placeholder = { Text("e.g. colon cancer, high blood pressure, IBS") }
             )
             Text(
-                "Common names are shown first. The formal ICD-11 name stays underneath when it differs.",
+                "If you know the condition but not the exact type, choose the general option. More specific ICD-11 types stay underneath.",
                 color = ClinicalHubMuted,
                 fontSize = 8.sp,
                 lineHeight = 12.sp
@@ -151,36 +151,50 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
                 if (results.isEmpty()) {
                     Text("No matching condition found. Try a simpler everyday name or an ICD-11 code.", color = ClinicalHubMuted, fontSize = 10.sp)
                 } else {
-                    results.forEach { result ->
-                        val condition = result.condition
-                        val alreadyAdded = active.any { it.id == condition.id || (it.code.isNotBlank() && it.code == condition.code) }
-                        Row(
-                            Modifier.fillMaxWidth()
-                                .background(ClinicalHubBg, RoundedCornerShape(14.dp))
-                                .clickable(enabled = !alreadyAdded) {
+                    val generalResult = results.firstOrNull { ClinicalConditionHierarchy.isGeneral(it.condition) }
+                    val specificResults = results.filterNot { ClinicalConditionHierarchy.isGeneral(it.condition) }
+
+                    if (generalResult != null) {
+                        Text("GENERAL CONDITION", color = ClinicalHubBlue, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        val generalAlreadyAdded = active.any { it.id == generalResult.condition.id }
+                        ConditionSearchResultRow(
+                            result = generalResult,
+                            alreadyAdded = generalAlreadyAdded,
+                            general = true,
+                            onAdd = {
+                                scope.launch {
+                                    ClinicalConditionProfileStore.add(generalResult.condition)
+                                    refreshProfile()
+                                }
+                            }
+                        )
+                    }
+
+                    if (specificResults.isNotEmpty()) {
+                        if (generalResult != null) {
+                            Spacer(Modifier.height(3.dp))
+                            Text("MORE SPECIFIC TYPES", color = ClinicalHubMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                        }
+                        specificResults.forEach { result ->
+                            val condition = result.condition
+                            val alreadyAdded = active.any { it.id == condition.id || (it.code.isNotBlank() && it.code == condition.code) }
+                            ConditionSearchResultRow(
+                                result = result,
+                                alreadyAdded = alreadyAdded,
+                                general = false,
+                                onAdd = {
                                     scope.launch {
+                                        // If the user upgrades from a broad condition to a specific ICD type
+                                        // from the same search, remove the broad placeholder so the profile does
+                                        // not claim both "type unknown" and "type known" at once.
+                                        val generalId = generalResult?.condition?.id
+                                        if (generalId != null) {
+                                            active.firstOrNull { it.id == generalId }?.let { ClinicalConditionProfileStore.remove(it) }
+                                        }
                                         ClinicalConditionProfileStore.add(condition)
                                         refreshProfile()
                                     }
-                                }.padding(11.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text(result.displayTitle, color = ClinicalHubNavy, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-                                if (!result.displayTitle.equals(result.officialTitle, ignoreCase = true)) {
-                                    Text(result.officialTitle, color = ClinicalHubMuted, fontSize = 8.sp, lineHeight = 11.sp)
                                 }
-                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text(condition.code, color = ClinicalHubMuted, fontSize = 7.sp)
-                                    Text("·", color = ClinicalHubMuted, fontSize = 7.sp)
-                                    Text(result.matchLabel, color = ClinicalHubBlue, fontSize = 7.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                            Text(
-                                if (alreadyAdded) "ADDED" else "+ ADD",
-                                color = if (alreadyAdded) ClinicalHubGood else ClinicalHubBlue,
-                                fontSize = 8.sp,
-                                fontWeight = FontWeight.Black
                             )
                         }
                     }
@@ -195,17 +209,22 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
             ) {
                 Text("MY CONDITIONS", color = ClinicalHubMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                 active.forEach { condition ->
-                    val friendly = ClinicalConditionSearchEngine.friendlyTitle(condition.title)
+                    val general = ClinicalConditionHierarchy.isGeneral(condition)
+                    val friendly = if (general) condition.title else ClinicalConditionSearchEngine.friendlyTitle(condition.title)
                     Row(
                         Modifier.fillMaxWidth().background(ClinicalHubGood.copy(alpha = .06f), RoundedCornerShape(14.dp)).padding(11.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(friendly, color = ClinicalHubNavy, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-                            if (!friendly.equals(condition.title, ignoreCase = true)) {
-                                Text(condition.title, color = ClinicalHubMuted, fontSize = 8.sp, lineHeight = 11.sp)
+                            if (general) {
+                                Text("General condition · exact subtype not specified", color = ClinicalHubBlue, fontSize = 8.sp, lineHeight = 11.sp)
+                            } else {
+                                if (!friendly.equals(condition.title, ignoreCase = true)) {
+                                    Text(condition.title, color = ClinicalHubMuted, fontSize = 8.sp, lineHeight = 11.sp)
+                                }
+                                Text(condition.code.ifBlank { "Clinical condition" }, color = ClinicalHubMuted, fontSize = 8.sp)
                             }
-                            Text(condition.code.ifBlank { "Clinical condition" }, color = ClinicalHubMuted, fontSize = 8.sp)
                         }
                         Text(
                             "Remove",
@@ -235,14 +254,71 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Black
             )
+            val generalCount = active.count { ClinicalConditionHierarchy.isGeneral(it) }
             Text(
-                "Condition records are stored as first-class Clinical profile data. Recommendation and insight code can query this context to avoid treating generic guidance as one-size-fits-all. The app does not infer a diagnosis from measurements or silently add a condition.",
+                if (generalCount > 0) {
+                    "$generalCount condition${if (generalCount == 1) " is" else "s are"} stored at general level. Superhuman should use family-level context only and must not assume an unrecorded subtype."
+                } else {
+                    "Condition records are stored as first-class Clinical profile data. Recommendation and insight code can query this context to avoid treating generic guidance as one-size-fits-all. The app does not infer a diagnosis from measurements or silently add a condition."
+                },
                 color = ClinicalHubMuted,
                 fontSize = 9.sp,
                 lineHeight = 14.sp
             )
         }
         Spacer(Modifier.height(18.dp))
+    }
+}
+
+@Composable
+private fun ConditionSearchResultRow(
+    result: ClinicalConditionSearchResult,
+    alreadyAdded: Boolean,
+    general: Boolean,
+    onAdd: () -> Unit
+) {
+    val condition = result.condition
+    Row(
+        Modifier.fillMaxWidth()
+            .background(
+                if (general) ClinicalHubBlue.copy(alpha = .055f) else ClinicalHubBg,
+                RoundedCornerShape(14.dp)
+            )
+            .then(
+                if (general) Modifier.border(1.dp, ClinicalHubBlue.copy(alpha = .16f), RoundedCornerShape(14.dp))
+                else Modifier
+            )
+            .clickable(enabled = !alreadyAdded, onClick = onAdd)
+            .padding(11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(result.displayTitle, color = ClinicalHubNavy, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+            if (general) {
+                Text(
+                    "Choose this if you know you have the condition but do not know the exact type.",
+                    color = ClinicalHubMuted,
+                    fontSize = 8.sp,
+                    lineHeight = 11.sp
+                )
+                Text("Subtype unknown · family-level context", color = ClinicalHubBlue, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+            } else {
+                if (!result.displayTitle.equals(result.officialTitle, ignoreCase = true)) {
+                    Text(result.officialTitle, color = ClinicalHubMuted, fontSize = 8.sp, lineHeight = 11.sp)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(condition.code, color = ClinicalHubMuted, fontSize = 7.sp)
+                    Text("·", color = ClinicalHubMuted, fontSize = 7.sp)
+                    Text(result.matchLabel, color = ClinicalHubBlue, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+        Text(
+            if (alreadyAdded) "ADDED" else "+ ADD",
+            color = if (alreadyAdded) ClinicalHubGood else ClinicalHubBlue,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Black
+        )
     }
 }
 
