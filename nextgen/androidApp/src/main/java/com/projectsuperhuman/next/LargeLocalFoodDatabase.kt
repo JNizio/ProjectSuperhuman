@@ -95,8 +95,8 @@ internal object LargeLocalFoodDatabase {
             ensureStarted(app)
             val q = normalize(query)
             if (q.length < 2) return@withContext emptyList()
-            val contains = "%${escapeLike(q)}%"
-            val prefix = "${escapeLike(q)}%"
+            val contains = "%$q%"
+            val prefix = "$q%"
 
             LargeFoodDb(app).use { helper ->
                 helper.readableDatabase.rawQuery(
@@ -104,11 +104,11 @@ internal object LargeLocalFoodDatabase {
                     SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
                            unit, source, search_text, brand, micronutrients_json
                     FROM food_reference
-                    WHERE normalized_name LIKE ? ESCAPE '\\' OR search_text LIKE ? ESCAPE '\\'
+                    WHERE normalized_name LIKE ? OR search_text LIKE ?
                     ORDER BY
                         CASE
                             WHEN normalized_name = ? THEN 0
-                            WHEN normalized_name LIKE ? ESCAPE '\\' THEN 1
+                            WHEN normalized_name LIKE ? THEN 1
                             ELSE 2
                         END,
                         micronutrient_count DESC,
@@ -148,7 +148,8 @@ internal object LargeLocalFoodDatabase {
         metaFlag(context, FNDDS_META) && metaFlag(context, SR_META)
 
     private fun countBlocking(context: Context): Int = LargeFoodDb(context).use { helper ->
-        DatabaseUtils.queryNumEntries(helper.readableDatabase, "food_reference").coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+        DatabaseUtils.queryNumEntries(helper.readableDatabase, "food_reference")
+            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     }
 
     private fun metaFlag(context: Context, key: String): Boolean = LargeFoodDb(context).use { helper ->
@@ -166,11 +167,48 @@ internal object LargeLocalFoodDatabase {
     }
 
     /**
-     * A few high-value entries are bundled as tiny label-backed records so searches such as "skyr"
-     * are useful immediately, before the larger USDA import has finished. Values are per 100 g.
-     * The source name deliberately stays visible rather than pretending these are universal values.
+     * High-value foods are bundled as tiny label-backed records so searches such as "skyr" and
+     * "sourdough" work immediately, before the larger USDA import has finished. Values are per
+     * 100 g. Only micronutrients actually present on the source label (or sodium derived from the
+     * label's salt value) are recorded; missing micronutrients stay unknown rather than guessed.
      */
     private fun priorityFoods(): List<NativeFood> = listOf(
+        NativeFood(
+            id = "priority:piatnica-skyr-natural-0",
+            name = "Piątnica Skyr Naturalny, 0% fat",
+            country = "PL",
+            kcal = 64.0,
+            protein = 12.0,
+            carbs = 4.1,
+            fat = 0.0,
+            fibre = 0.0,
+            sugar = 4.1,
+            unit = "100 g",
+            source = "Piątnica label reference",
+            searchText = "piatnica skyr natural naturalny plain zero fat 0% yoghurt yogurt",
+            brand = "Piątnica",
+            micronutrients = mapOf(
+                "sodium" to NativeNutrient("sodium", "Sodium", 40.0, "mg")
+            )
+        ),
+        NativeFood(
+            id = "priority:piatnica-skyr-drinking-18",
+            name = "Piątnica Skyr drinking natural, 1.8% fat",
+            country = "PL",
+            kcal = 64.0,
+            protein = 7.6,
+            carbs = 4.3,
+            fat = 1.8,
+            fibre = 0.0,
+            sugar = 3.9,
+            unit = "100 g",
+            source = "Piątnica label reference",
+            searchText = "piatnica skyr drinking pitny natural naturalny 1.8% low fat yoghurt yogurt",
+            brand = "Piątnica",
+            micronutrients = mapOf(
+                "sodium" to NativeNutrient("sodium", "Sodium", 40.0, "mg")
+            )
+        ),
         NativeFood(
             id = "priority:siggis-skyr-plain-nonfat",
             name = "Skyr, plain, nonfat (0% fat)",
@@ -206,7 +244,6 @@ internal object LargeLocalFoodDatabase {
             searchText = "skyr plain natural low fat fat free 0.2% icelandic yoghurt yogurt",
             brand = "Arla",
             micronutrients = mapOf(
-                // Label salt 0.14 g/100 g, converted with the standard salt ≈ sodium × 2.5 relation.
                 "sodium" to NativeNutrient("sodium", "Sodium", 56.0, "mg")
             )
         ),
@@ -245,8 +282,79 @@ internal object LargeLocalFoodDatabase {
             searchText = "skyr creamy full fat 5% icelandic yoghurt yogurt",
             brand = "Arla",
             micronutrients = mapOf(
-                // Label salt 0.13 g/100 g -> about 52 mg sodium.
                 "sodium" to NativeNutrient("sodium", "Sodium", 52.0, "mg")
+            )
+        ),
+        NativeFood(
+            id = "priority:waitrose-white-sourdough",
+            name = "White sourdough bread",
+            country = "UK",
+            kcal = 240.0,
+            protein = 9.6,
+            carbs = 47.0,
+            fat = 0.8,
+            fibre = 3.2,
+            sugar = 2.3,
+            unit = "100 g",
+            source = "Waitrose No.1 label reference",
+            searchText = "sourdough bread white loaf chleb na zakwasie",
+            brand = "Waitrose No.1",
+            micronutrients = mapOf(
+                "sodium" to NativeNutrient("sodium", "Sodium", 444.0, "mg")
+            )
+        ),
+        NativeFood(
+            id = "priority:bertinet-wholemeal-sourdough",
+            name = "Wholemeal sourdough bread",
+            country = "UK",
+            kcal = 205.0,
+            protein = 7.1,
+            carbs = 37.0,
+            fat = 1.5,
+            fibre = 7.5,
+            sugar = 2.0,
+            unit = "100 g",
+            source = "Bertinet Bakery label reference",
+            searchText = "sourdough bread wholemeal whole wheat wholegrain chleb na zakwasie",
+            brand = "Bertinet Bakery",
+            micronutrients = mapOf(
+                "sodium" to NativeNutrient("sodium", "Sodium", 560.0, "mg")
+            )
+        ),
+        NativeFood(
+            id = "priority:bertinet-seeded-sourdough",
+            name = "Seeded sourdough bread",
+            country = "UK",
+            kcal = 232.0,
+            protein = 9.5,
+            carbs = 36.0,
+            fat = 4.1,
+            fibre = 6.7,
+            sugar = 1.2,
+            unit = "100 g",
+            source = "Bertinet Bakery label reference",
+            searchText = "sourdough bread seeded seeds wholegrain chleb na zakwasie",
+            brand = "Bertinet Bakery",
+            micronutrients = mapOf(
+                "sodium" to NativeNutrient("sodium", "Sodium", 400.0, "mg")
+            )
+        ),
+        NativeFood(
+            id = "priority:waitrose-spelt-sourdough",
+            name = "Spelt sourdough bread",
+            country = "UK",
+            kcal = 241.0,
+            protein = 9.4,
+            carbs = 46.0,
+            fat = 1.2,
+            fibre = 4.3,
+            sugar = 1.0,
+            unit = "100 g",
+            source = "Waitrose No.1 label reference",
+            searchText = "sourdough bread spelt orkisz chleb na zakwasie",
+            brand = "Waitrose No.1",
+            micronutrients = mapOf(
+                "sodium" to NativeNutrient("sodium", "Sodium", 308.0, "mg")
             )
         )
     )
@@ -617,16 +725,20 @@ internal object LargeLocalFoodDatabase {
 
     private fun normalize(value: String): String = value
         .lowercase(Locale.ROOT)
+        .replace('ą', 'a')
+        .replace('ć', 'c')
+        .replace('ę', 'e')
+        .replace('ł', 'l')
+        .replace('ń', 'n')
+        .replace('ó', 'o')
+        .replace('ś', 's')
+        .replace('ź', 'z')
+        .replace('ż', 'z')
         .replace('µ', 'u')
         .replace('μ', 'u')
-        .replace(Regex("[^a-z0-9%]+"), " ")
+        .replace(Regex("[^a-z0-9]+"), " ")
         .trim()
         .replace(Regex("\\s+"), " ")
-
-    private fun escapeLike(value: String): String = value
-        .replace("\\", "\\\\")
-        .replace("%", "\\%")
-        .replace("_", "\\_")
 
     private fun normalizeUnit(raw: String): String = raw.trim().lowercase(Locale.ROOT)
         .replace("µ", "u")
