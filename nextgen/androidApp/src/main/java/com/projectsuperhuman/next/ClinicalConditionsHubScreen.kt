@@ -140,42 +140,8 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
             )
         }
 
-        if (active.isNotEmpty()) {
-            Column(
-                Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
-                Text("MY CONDITIONS", color = ClinicalHubMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                active.forEach { condition ->
-                    val friendly = ClinicalConditionSearchEngine.friendlyTitle(condition.title)
-                    Row(
-                        Modifier.fillMaxWidth().background(ClinicalHubGood.copy(alpha = .06f), RoundedCornerShape(14.dp)).padding(11.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(friendly, color = ClinicalHubNavy, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-                            if (!friendly.equals(condition.title, ignoreCase = true)) {
-                                Text(condition.title, color = ClinicalHubMuted, fontSize = 8.sp, lineHeight = 11.sp)
-                            }
-                            Text(condition.code.ifBlank { "Clinical condition" }, color = ClinicalHubMuted, fontSize = 8.sp)
-                        }
-                        Text(
-                            "Remove",
-                            color = Color(0xFFA95C5C),
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable {
-                                scope.launch {
-                                    ClinicalConditionProfileStore.remove(condition)
-                                    refreshProfile()
-                                }
-                            }.padding(8.dp)
-                        )
-                    }
-                }
-            }
-        }
-
+        // Search results stay directly attached to the search card so the interaction reads
+        // as one continuous flow: search -> choose -> add. Saved conditions come afterwards.
         if (query.trim().length >= 2) {
             Column(
                 Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp),
@@ -217,6 +183,42 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
                                 fontWeight = FontWeight.Black
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        if (active.isNotEmpty()) {
+            Column(
+                Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Text("MY CONDITIONS", color = ClinicalHubMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                active.forEach { condition ->
+                    val friendly = ClinicalConditionSearchEngine.friendlyTitle(condition.title)
+                    Row(
+                        Modifier.fillMaxWidth().background(ClinicalHubGood.copy(alpha = .06f), RoundedCornerShape(14.dp)).padding(11.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(friendly, color = ClinicalHubNavy, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                            if (!friendly.equals(condition.title, ignoreCase = true)) {
+                                Text(condition.title, color = ClinicalHubMuted, fontSize = 8.sp, lineHeight = 11.sp)
+                            }
+                            Text(condition.code.ifBlank { "Clinical condition" }, color = ClinicalHubMuted, fontSize = 8.sp)
+                        }
+                        Text(
+                            "Remove",
+                            color = Color(0xFFA95C5C),
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable {
+                                scope.launch {
+                                    ClinicalConditionProfileStore.remove(condition)
+                                    refreshProfile()
+                                }
+                            }.padding(8.dp)
+                        )
                     }
                 }
             }
