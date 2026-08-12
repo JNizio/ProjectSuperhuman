@@ -137,6 +137,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var startedAt by remember { mutableLongStateOf(0L) }
     var restSeconds by remember { mutableIntStateOf(0) }
     var restTarget by remember { mutableIntStateOf(120) }
+    var restEndsAt by remember { mutableLongStateOf(0L) }
     var routines by remember { mutableStateOf(loadRoutines(context)) }
     var routineName by remember { mutableStateOf("") }
     var routineSelection by remember { mutableStateOf<List<String>>(emptyList()) }
@@ -147,6 +148,31 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     suspend fun refresh() {
         val now = System.currentTimeMillis()
         recent = NativeDataHub.between("exercise_set", now - 365L * 86400000L, now).sortedByDescending { it.timestampEpochMs }.take(400)
+    }
+
+    fun writeActiveDraft() {
+        if (startedAt <= 0L) return
+        saveActiveWorkoutDraft(
+            context,
+            ActiveWorkoutDraft(
+                startedAt = startedAt,
+                selectedExerciseId = selected?.id,
+                exerciseIds = workoutExercises.map { it.id },
+                sets = session.map { set ->
+                    ActiveWorkoutSetDraft(
+                        exerciseId = set.exercise.id,
+                        reps = set.reps,
+                        loadKg = set.loadKg,
+                        timestamp = set.timestamp,
+                        type = set.type,
+                        rir = set.rir,
+                        rpe = set.rpe,
+                        supersetTag = set.supersetTag
+                    )
+                },
+                restEndsAt = restEndsAt
+            )
+        )
     }
 
     suspend fun persistSet(set: NativeWorkoutSet) {
@@ -163,24 +189,83 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 
     fun addSet(set: NativeWorkoutSet, startRest: Boolean = true) {
         session.add(set)
-        if (startRest) restSeconds = restTarget
+        if (startRest) {
+            restSeconds = restTarget
+            restEndsAt = System.currentTimeMillis() + restTarget * 1000L
+        }
+        writeActiveDraft()
         scope.launch { persistSet(set) }
     }
 
-    LaunchedEffect(Unit) { catalog = loadRepDb(context); refresh() }
-    LaunchedEffect(restSeconds) { if (restSeconds > 0) { delay(1000); restSeconds -= 1 } }
+    LaunchedEffect(Unit) {
+        catalog = loadRepDb(context)
+        refresh()
+        loadActiveWorkoutDraft(context)?.let { draft ->
+            startedAt = draft.startedAt
+            workoutExercises.clear()
+            workoutExercises.addAll(draft.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } })
+            session.clear()
+            session.addAll(
+                draft.sets.mapNotNull { stored ->
+                    val exercise = catalog.find { it.id == stored.exerciseId } ?: return@mapNotNull null
+                    NativeWorkoutSet(
+                        exercise = exercise,
+                        reps = stored.reps,
+                        loadKg = stored.loadKg,
+                        timestamp = stored.timestamp,
+                        type = stored.type,
+                        rir = stored.rir,
+                        rpe = stored.rpe,
+                        supersetTag = stored.supersetTag
+                    )
+                }
+            )
+            selected = draft.selectedExerciseId?.let { id -> catalog.find { it.id == id } } ?: workoutExercises.firstOrNull()
+            restEndsAt = draft.restEndsAt
+            restSeconds = (((restEndsAt - System.currentTimeMillis()).coerceAtLeast(0L) + 999L) / 1000L).toInt()
+            mode = "workout"
+        }
+    }
+
+    LaunchedEffect(startedAt, workoutExercises.size, session.size, selected?.id, restEndsAt) {
+        if (startedAt > 0L) writeActiveDraft()
+    }
+
+    LaunchedEffect(restSeconds) {
+        if (restSeconds > 0) {
+            delay(1000)
+            restSeconds -= 1
+            if (restSeconds <= 0) restEndsAt = 0L
+        }
+    }
 
     fun startWorkout(exercises: List<NativeExercise> = emptyList()) {
-        session.clear(); workoutExercises.clear(); workoutExercises.addAll(exercises); selected = exercises.firstOrNull(); startedAt = System.currentTimeMillis(); mode = "workout"
+        session.clear()
+        workoutExercises.clear()
+        workoutExercises.addAll(exercises)
+        selected = exercises.firstOrNull()
+        startedAt = System.currentTimeMillis()
+        restSeconds = 0
+        restEndsAt = 0L
+        mode = "workout"
+        writeActiveDraft()
     }
 
     fun finishWorkout() {
-        val now = System.currentTimeMillis(); summarySets = session.size; summaryVolume = session.sumOf { it.volume }; summaryDuration = max(1, ((now - startedAt) / 60000L).toInt())
+        val now = System.currentTimeMillis()
+        val workoutStartedAt = startedAt
+        summarySets = session.size
+        summaryVolume = session.sumOf { it.volume }
+        summaryDuration = max(1, ((now - workoutStartedAt) / 60000L).toInt())
+        restSeconds = 0
+        restEndsAt = 0L
+        clearActiveWorkoutDraft(context)
+        startedAt = 0L
         scope.launch {
             NativeDataHub.saveValues(listOf(HealthValue(HealthDomain.EXERCISE, "workout_session", summarySets.toDouble(), "sets", now, "repdb-exercise", mapOf("volumeKg" to summaryVolume.toString(), "durationMin" to summaryDuration.toString(), "exerciseCount" to workoutExercises.distinctBy { it.id }.size.toString()))))
-            refresh(); mode = "summary"
+            refresh()
+            mode = "summary"
         }
-        restSeconds = 0
     }
 
     val weekRecent = recent.filter { it.timestampEpochMs > System.currentTimeMillis() - 7L * 86400000L }
@@ -190,7 +275,16 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         when (mode) {
             "home" -> {
                 val lastName = recent.firstOrNull()?.metadata?.get("exerciseName") ?: "No workout logged yet"
-                TrainingHero(lastName, weekRecent.size, weekRecent.sumOf { it.value }.roundToInt()) { startWorkout() }
+                TrainingHero(lastName, weekRecent.size, weekRecent.sumOf { it.value }.roundToInt(), startedAt > 0L) {
+                    if (startedAt > 0L) mode = "workout" else startWorkout()
+                }
+                if (startedAt > 0L) {
+                    WideActionTile(
+                        "RESUME ACTIVE WORKOUT",
+                        "${session.size} sets · ${workoutExercises.size} exercises · progress is saved",
+                        ExerciseGreen
+                    ) { mode = "workout" }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
                     TrainingNavTile("R", "ROUTINES", "Saved plans", ExerciseBlue, Modifier.weight(1f)) { mode = "routines" }
                     TrainingNavTile("H", "HISTORY", "Past sessions", ExercisePurple, Modifier.weight(1f)) { mode = "history" }
@@ -211,7 +305,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 HeroStrip("EXERCISE LIBRARY", "${catalog.size} illustrated movements", "Search muscles, equipment and movement patterns", ExerciseBlue)
                 PolishedSection("FIND AN EXERCISE", "Fast local search") {
                     OutlinedTextField(query, { query = it; showCount = 12 }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search exercises") }); Spacer(Modifier.height(8.dp))
-                    filtered.take(showCount).forEach { e -> ExerciseResultRow(e, startedAt > 0L, { selected = e; mode = "detail" }, { if (workoutExercises.none { it.id == e.id }) workoutExercises.add(e); selected = e; mode = "workout" }) }
+                    filtered.take(showCount).forEach { e -> ExerciseResultRow(e, startedAt > 0L, { selected = e; mode = "detail" }, { if (workoutExercises.none { it.id == e.id }) workoutExercises.add(e); selected = e; mode = "workout"; writeActiveDraft() }) }
                     if (filtered.size > showCount) Text("LOAD 12 MORE", color = ExerciseBlue, fontSize = 10.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clickable { showCount += 12 }.padding(12.dp))
                 }
             }
@@ -224,7 +318,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 if (e.instructions.isNotEmpty()) PolishedSection("HOW TO", "Movement sequence") { e.instructions.take(6).forEachIndexed { i, s -> InstructionRow(i + 1, s) } }
                 if (e.tips.isNotEmpty()) PolishedSection("FORM TIPS", "Keep the movement clean") { e.tips.take(3).forEach { TipRow(it) } }
                 WideActionTile(if (startedAt == 0L) "START WITH THIS EXERCISE" else "ADD TO WORKOUT", if (startedAt == 0L) "Begin a new session" else "Add it to the live session", ExerciseNavy) {
-                    if (startedAt == 0L) startWorkout(listOf(e)) else { if (workoutExercises.none { it.id == e.id }) workoutExercises.add(e); selected = e; mode = "workout" }
+                    if (startedAt == 0L) startWorkout(listOf(e)) else { if (workoutExercises.none { it.id == e.id }) workoutExercises.add(e); selected = e; mode = "workout"; writeActiveDraft() }
                 }
             }
             "routines" -> {
@@ -247,7 +341,24 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             }
             "workout" -> {
                 LiveWorkoutHero(session.size, workoutExercises.distinctBy { it.id }.size, startedAt) { finishWorkout() }
-                if (restSeconds > 0) RestTimerTile(restSeconds, { restSeconds = max(0, restSeconds - 15) }, { restSeconds += 15 }, { restSeconds = 0 })
+                if (restSeconds > 0) RestTimerTile(
+                    restSeconds,
+                    {
+                        restSeconds = max(0, restSeconds - 15)
+                        restEndsAt = if (restSeconds > 0) System.currentTimeMillis() + restSeconds * 1000L else 0L
+                        writeActiveDraft()
+                    },
+                    {
+                        restSeconds += 15
+                        restEndsAt = System.currentTimeMillis() + restSeconds * 1000L
+                        writeActiveDraft()
+                    },
+                    {
+                        restSeconds = 0
+                        restEndsAt = 0L
+                        writeActiveDraft()
+                    }
+                )
                 if (workoutExercises.isEmpty()) PolishedSection("BUILD YOUR SESSION", "Choose your first movement") { EmptyState("No exercises yet", "Open the library and add a movement."); Spacer(Modifier.height(8.dp)); WideActionTile("ADD EXERCISE", "Browse the RepDB library", ExerciseBlue) { mode = "library" } }
                 else selected?.let { e ->
                     PolishedSection("ACTIVE EXERCISE", e.name) {
@@ -297,15 +408,15 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 val insight = when { summarySets == 0 -> "No completed sets were recorded."; summaryVolume > baselineVolume / 10.0 && summarySets >= 8 -> "Strong training output. Volume was high relative to your recent logged baseline."; summarySets >= 12 -> "Solid training density. Recovery, sleep and nutrition can now be compared against this session."; else -> "Session captured. More repeated workouts will sharpen progression and recovery insights." }
                 SummaryHero(summarySets, summaryVolume, summaryDuration)
                 PolishedSection("SUPERHUMAN INSIGHT", "Training-context interpretation") { Text(insight, color = ExerciseInk, fontSize = 11.sp, lineHeight = 17.sp); Spacer(Modifier.height(10.dp)); Text("This is a training-context observation, not a medical conclusion.", color = ExerciseMuted, fontSize = 8.sp) }
-                WideActionTile("DONE", "Return to training dashboard", ExerciseNavy) { session.clear(); workoutExercises.clear(); startedAt = 0L; mode = "home" }
+                WideActionTile("DONE", "Return to training dashboard", ExerciseNavy) { session.clear(); workoutExercises.clear(); selected = null; mode = "home" }
             }
         }
         Text("Exercise data & illustrations by RepDB · repdb.co", color = ExerciseMuted, fontSize = 8.sp, modifier = Modifier.padding(6.dp)); Spacer(Modifier.height(18.dp))
     }
 }
 
-@Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) { Text("←", color = ExerciseBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Training" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); Text(if (mode == "workout") "Focused session mode" else "Train · track · progress", color = ExerciseMuted, fontSize = 10.sp) } } }
-@Composable private fun TrainingHero(lastName: String, sets: Int, volume: Int, onStart: () -> Unit) { Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF0A3168), Color(0xFF0D6CB4), Color(0xFF5BA9DB))), RoundedCornerShape(28.dp)).padding(21.dp)) { Text("TRAINING TODAY", color = Color.White.copy(alpha = .72f), fontSize = 9.sp, fontWeight = FontWeight.Black); Text("Ready to train?", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black); Text("Last activity · $lastName", color = Color.White.copy(alpha = .72f), fontSize = 10.sp); Spacer(Modifier.height(14.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { GlassMetric("7D SETS", sets.toString(), Modifier.weight(1f)); GlassMetric("7D VOLUME", "$volume kg", Modifier.weight(1f)) }; Spacer(Modifier.height(15.dp)); Box(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(16.dp)).clickable { onStart() }.padding(15.dp), contentAlignment = Alignment.Center) { Text("START EMPTY WORKOUT", color = ExerciseNavy, fontSize = 12.sp, fontWeight = FontWeight.Black) } } }
+@Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) { Text("←", color = ExerciseBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Training" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); Text(if (mode == "workout") "Focused session mode · saved automatically" else "Train · track · progress", color = ExerciseMuted, fontSize = 10.sp) } } }
+@Composable private fun TrainingHero(lastName: String, sets: Int, volume: Int, activeWorkout: Boolean, onStart: () -> Unit) { Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF0A3168), Color(0xFF0D6CB4), Color(0xFF5BA9DB))), RoundedCornerShape(28.dp)).padding(21.dp)) { Text(if (activeWorkout) "WORKOUT IN PROGRESS" else "TRAINING TODAY", color = Color.White.copy(alpha = .72f), fontSize = 9.sp, fontWeight = FontWeight.Black); Text(if (activeWorkout) "Keep going" else "Ready to train?", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black); Text(if (activeWorkout) "Your active session is saved on this device" else "Last activity · $lastName", color = Color.White.copy(alpha = .72f), fontSize = 10.sp); Spacer(Modifier.height(14.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { GlassMetric("7D SETS", sets.toString(), Modifier.weight(1f)); GlassMetric("7D VOLUME", "$volume kg", Modifier.weight(1f)) }; Spacer(Modifier.height(15.dp)); Box(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(16.dp)).clickable { onStart() }.padding(15.dp), contentAlignment = Alignment.Center) { Text(if (activeWorkout) "RESUME WORKOUT" else "START EMPTY WORKOUT", color = ExerciseNavy, fontSize = 12.sp, fontWeight = FontWeight.Black) } } }
 @Composable private fun GlassMetric(label: String, value: String, modifier: Modifier) { Column(modifier.background(Color.White.copy(alpha = .13f), RoundedCornerShape(14.dp)).padding(10.dp)) { Text(label, color = Color.White.copy(alpha = .62f), fontSize = 7.sp); Text(value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Black) } }
 @Composable private fun TrainingNavTile(mark: String, title: String, subtitle: String, accent: Color, modifier: Modifier, onClick: () -> Unit) { Column(modifier.background(Color.White, RoundedCornerShape(20.dp)).clickable { onClick() }.padding(12.dp)) { Box(Modifier.size(32.dp).background(accent.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) { Text(mark, color = accent, fontWeight = FontWeight.Black) }; Spacer(Modifier.height(9.dp)); Text(title, color = ExerciseNavy, fontSize = 9.sp, fontWeight = FontWeight.Black); Text(subtitle, color = ExerciseMuted, fontSize = 7.sp) } }
 @Composable private fun PolishedSection(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) { Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(23.dp)).border(1.dp, Color(0xFFE9EFF5), RoundedCornerShape(23.dp)).padding(16.dp)) { Text(title, color = ExerciseInk, fontSize = 16.sp, fontWeight = FontWeight.Black); Text(subtitle, color = ExerciseMuted, fontSize = 8.sp); Spacer(Modifier.height(11.dp)); content() } }
@@ -318,7 +429,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 @Composable private fun InstructionRow(n: Int, text: String) { Row(Modifier.padding(vertical = 5.dp)) { Text("$n", color = ExerciseBlue, fontWeight = FontWeight.Black, modifier = Modifier.width(24.dp)); Text(text, color = ExerciseInk, fontSize = 10.sp, lineHeight = 15.sp) } }
 @Composable private fun TipRow(text: String) { Row(Modifier.padding(vertical = 5.dp)) { Text("•", color = ExerciseGreen, modifier = Modifier.width(16.dp)); Text(text, color = ExerciseMuted, fontSize = 9.sp) } }
 @Composable private fun EmptyState(title: String, subtitle: String) { Column(Modifier.fillMaxWidth().background(Color(0xFFF8FAFC), RoundedCornerShape(16.dp)).padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) { Text(title, color = ExerciseInk, fontSize = 11.sp, fontWeight = FontWeight.Black); Text(subtitle, color = ExerciseMuted, fontSize = 8.sp, textAlign = TextAlign.Center) } }
-@Composable private fun LiveWorkoutHero(sets: Int, exercises: Int, startedAt: Long, onFinish: () -> Unit) { val mins = if (startedAt > 0) ((System.currentTimeMillis() - startedAt) / 60000L).coerceAtLeast(0) else 0; Row(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF092D63), Color(0xFF154F8F))), RoundedCornerShape(24.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("LIVE SESSION", color = Color.White.copy(alpha = .65f), fontSize = 8.sp); Text("$sets sets · $exercises exercises", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Black); Text("${mins}m elapsed", color = Color.White.copy(alpha = .65f), fontSize = 8.sp) }; Box(Modifier.background(Color.White, RoundedCornerShape(13.dp)).clickable { onFinish() }.padding(horizontal = 14.dp, vertical = 10.dp)) { Text("FINISH", color = ExerciseNavy, fontSize = 9.sp, fontWeight = FontWeight.Black) } } }
+@Composable private fun LiveWorkoutHero(sets: Int, exercises: Int, startedAt: Long, onFinish: () -> Unit) { val mins = if (startedAt > 0) ((System.currentTimeMillis() - startedAt) / 60000L).coerceAtLeast(0) else 0; Row(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF092D63), Color(0xFF154F8F))), RoundedCornerShape(24.dp)).padding(16.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("LIVE SESSION", color = Color.White.copy(alpha = .65f), fontSize = 8.sp); Text("$sets sets · $exercises exercises", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Black); Text("${mins}m elapsed · autosaved", color = Color.White.copy(alpha = .65f), fontSize = 8.sp) }; Box(Modifier.background(Color.White, RoundedCornerShape(13.dp)).clickable { onFinish() }.padding(horizontal = 14.dp, vertical = 10.dp)) { Text("FINISH", color = ExerciseNavy, fontSize = 9.sp, fontWeight = FontWeight.Black) } } }
 @Composable private fun RestTimerTile(seconds: Int, minus: () -> Unit, plus: () -> Unit, skip: () -> Unit) { Row(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF0E7C70), Color(0xFF2EA995))), RoundedCornerShape(19.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) { Text("REST ${seconds / 60}:${(seconds % 60).toString().padStart(2, '0')}", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f)); Text("−15", color = Color.White, modifier = Modifier.clickable { minus() }.padding(7.dp)); Text("+15", color = Color.White, modifier = Modifier.clickable { plus() }.padding(7.dp)); Text("SKIP", color = Color.White, modifier = Modifier.clickable { skip() }.padding(7.dp)) } }
 @Composable private fun StatusPill(label: String, active: Boolean, onClick: () -> Unit) { Text(label, color = if (active) Color.White else ExerciseBlue, fontSize = 7.sp, fontWeight = FontWeight.Black, modifier = Modifier.background(if (active) ExerciseGreen else ExerciseSoft, RoundedCornerShape(12.dp)).clickable { onClick() }.padding(horizontal = 8.dp, vertical = 6.dp)) }
 @Composable private fun SetTableHeader() { Row { Text("SET", Modifier.width(34.dp), color = ExerciseMuted, fontSize = 7.sp); Text("PREVIOUS", Modifier.weight(1f), color = ExerciseMuted, fontSize = 7.sp); Text("KG", Modifier.width(50.dp), color = ExerciseMuted, fontSize = 7.sp); Text("REPS", Modifier.width(42.dp), color = ExerciseMuted, fontSize = 7.sp); Text("", Modifier.width(46.dp)) } }
