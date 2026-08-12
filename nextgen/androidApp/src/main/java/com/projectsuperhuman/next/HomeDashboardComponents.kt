@@ -209,36 +209,82 @@ private fun TrainingStat(value: String, label: String, modifier: Modifier = Modi
 
 @Composable
 internal fun LegacyBodyCard(snapshot: NativeHomeSnapshot, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.height(148.dp).clip(RoundedCornerShape(23.dp)).background(HomeCard).border(1.dp, HomeBorder, RoundedCornerShape(23.dp)).clickable(onClick = onClick).padding(15.dp)) {
-        LegacyCardHeader("BODY")
-        Spacer(Modifier.height(8.dp))
-        Text(snapshot.bodyWeightKg?.let { "%.1f kg".format(it) } ?: "—", color = Color(0xFF443A79), fontSize = 20.sp, fontWeight = FontWeight.Black)
-        val change = snapshot.bodyWeightChange30d
-        Text(change?.let { "${if (it > 0) "+" else ""}${"%.1f".format(it)} kg · 30d" } ?: "Progress & measurements", color = HomeMuted, fontSize = 8.sp)
-        Spacer(Modifier.height(8.dp))
-        BodySparkline(snapshot.bodyWeightTrend)
+    Row(
+        modifier.height(104.dp)
+            .clip(RoundedCornerShape(23.dp))
+            .background(Brush.horizontalGradient(listOf(Color(0xFFFBFCFF), Color(0xFFF4F1FC))))
+            .border(1.dp, Color(0xFFE5E0F1), RoundedCornerShape(23.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.width(150.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("BODY", color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("→", color = Color(0xFF9AAEBB), fontSize = 18.sp)
+            }
+            Text(snapshot.bodyWeightKg?.let { "%.1f kg".format(it) } ?: "—", color = Color(0xFF443A79), fontSize = 22.sp, fontWeight = FontWeight.Black)
+            val change = snapshot.bodyWeightChange30d
+            Text(change?.let { "${if (it > 0) "+" else ""}${"%.1f".format(it)} kg · 30d" } ?: "Progress & measurements", color = HomeMuted, fontSize = 8.sp)
+        }
+        Spacer(Modifier.width(14.dp))
+        Box(Modifier.weight(1f)) { BodySparkline(snapshot.bodyWeightTrend) }
     }
 }
 
 @Composable
 internal fun HomeBodyMindfulnessRow(snapshot: NativeHomeSnapshot, openBody: () -> Unit, openMindfulness: () -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        LegacyBodyCard(snapshot, Modifier.weight(1f), openBody)
-        LegacyMindfulnessCard(snapshot, Modifier.weight(1f), openMindfulness)
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LegacyBodyCard(snapshot, Modifier.fillMaxWidth(), openBody)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            LegacyMindfulnessCard(snapshot, Modifier.weight(1f), openMindfulness)
+            LegacyBreathworkCard(Modifier.weight(1f), openMindfulness)
+        }
     }
 }
 
 @Composable
 private fun LegacyMindfulnessCard(snapshot: NativeHomeSnapshot, modifier: Modifier, onClick: () -> Unit) {
     val minutes = snapshot.mindfulnessMinutesToday
-    Column(modifier.height(148.dp).clip(RoundedCornerShape(23.dp)).background(Color(0xFFF4FAFB)).border(1.dp, Color(0xFFDCECEF), RoundedCornerShape(23.dp)).clickable(onClick = onClick).padding(15.dp)) {
+    Column(modifier.height(132.dp).clip(RoundedCornerShape(23.dp)).background(Color(0xFFF4FAFB)).border(1.dp, Color(0xFFDCECEF), RoundedCornerShape(23.dp)).clickable(onClick = onClick).padding(15.dp)) {
         LegacyCardHeader("MINDFULNESS")
-        Spacer(Modifier.height(8.dp))
-        Text(if (minutes > 0) "$minutes min" else "Ready", color = Color(0xFF176B72), fontSize = 20.sp, fontWeight = FontWeight.Black)
-        Text(if (minutes > 0) "mindful time today" else "Breathe · reflect · reset", color = HomeMuted, fontSize = 8.sp)
-        Spacer(Modifier.height(13.dp))
+        Spacer(Modifier.height(7.dp))
+        Text(if (minutes > 0) "$minutes min" else "Ready", color = Color(0xFF176B72), fontSize = 19.sp, fontWeight = FontWeight.Black)
+        Text(if (minutes > 0) "mindful time today" else "Meditate · reflect · reset", color = HomeMuted, fontSize = 8.sp)
+        Spacer(Modifier.height(11.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.Bottom) {
-            listOf(12, 20, 30, 22, 15).forEachIndexed { index, height -> Box(Modifier.weight(1f).height(height.dp).background(if (minutes > 0 && index < 3) Color(0xFF5CB7AE) else Color(0xFFD9ECEB), RoundedCornerShape(8.dp))) }
+            listOf(10, 17, 25, 18, 12).forEachIndexed { index, height ->
+                Box(Modifier.weight(1f).height(height.dp).background(if (minutes > 0 && index < 3) Color(0xFF5CB7AE) else Color(0xFFD9ECEB), RoundedCornerShape(8.dp)))
+            }
+        }
+    }
+}
+
+@Composable
+private fun LegacyBreathworkCard(modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.height(132.dp)
+            .clip(RoundedCornerShape(23.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF0A3769), Color(0xFF0D7394), Color(0xFF24AFB0))))
+            .border(1.dp, Color(0xFF3A9BB0), RoundedCornerShape(23.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(Color.White.copy(alpha = .08f), radius = size.minDimension * .32f, center = Offset(size.width * .77f, size.height * .54f))
+            drawCircle(Color.White.copy(alpha = .06f), radius = size.minDimension * .21f, center = Offset(size.width * .77f, size.height * .54f), style = Stroke(width = 2f))
+        }
+        Column(Modifier.fillMaxSize().padding(15.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("BREATHWORK", color = Color.White.copy(alpha = .68f), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("→", color = Color.White.copy(alpha = .72f), fontSize = 18.sp)
+            }
+            Spacer(Modifier.height(8.dp))
+            Text("3 rounds", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Black)
+            Text("30 breaths · guided retention", color = Color.White.copy(alpha = .72f), fontSize = 8.sp)
+            Spacer(Modifier.height(12.dp))
+            Box(Modifier.width(56.dp).height(6.dp).clip(CircleShape).background(Color.White.copy(alpha = .18f))) {
+                Box(Modifier.fillMaxWidth(.66f).fillMaxSize().background(Color(0xFF8DEBDD)))
+            }
         }
     }
 }
