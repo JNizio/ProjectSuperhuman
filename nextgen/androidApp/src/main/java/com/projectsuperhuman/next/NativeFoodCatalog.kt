@@ -130,7 +130,7 @@ internal object NativeFoodCatalog {
                 }
         ).sortedWith(
             compareBy<NativeFood> { foodSearchRank(it, q) }
-                .thenByDescending { it.source.startsWith("Project Superhuman") || it.source.startsWith("USDA") }
+                .thenBy { if (it.source.startsWith("Project Superhuman") || it.source.startsWith("USDA")) 0 else 1 }
                 .thenByDescending { it.micronutrients.size }
                 .thenBy { it.name.lowercase() }
         ).take(limit)
