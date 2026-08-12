@@ -95,27 +95,32 @@ internal object NativeFoodCatalog {
     )
 
     suspend fun all(context: Context): List<NativeFood> = withContext(Dispatchers.IO) {
-        cached ?: loadLocal(context).also { cached = it }
+        FoodNutritionOverrideStore.attach(context)
+        val base = cached ?: loadLocal(context).also { cached = it }
+        FoodNutritionOverrideStore.applyAll(context, base)
     }
 
     /**
      * One native search surface: fast bundled generic foods + Open Food Facts full-text products.
-     * Network failure never blocks local matches.
+     * Network failure never blocks local matches. Any user-edited nutrition values are layered over
+     * the source record before the result reaches the UI.
      */
     suspend fun search(context: Context, query: String, limit: Int = 36): NativeFoodSearchResult {
+        FoodNutritionOverrideStore.attach(context)
         val q = query.trim()
         if (q.length < 2) return NativeFoodSearchResult(emptyList(), remoteAvailable = true, remoteCount = 0)
 
         val local = searchLocal(context, q, limit = 16)
         val remoteResult = searchOpenFoodFacts(q, limit = 24)
-        val merged = (local + remoteResult.first)
-            .distinctBy { it.barcode?.let { code -> "barcode:$code" } ?: "name:${it.name.lowercase()}:${it.source}" }
-            .sortedWith(
-                compareBy<NativeFood> { foodSearchRank(it, q) }
-                    .thenByDescending { it.micronutrients.size }
-                    .thenBy { it.name.lowercase() }
-            )
-            .take(limit)
+        val merged = FoodNutritionOverrideStore.applyAll(
+            context,
+            (local + remoteResult.first)
+                .distinctBy { it.barcode?.let { code -> "barcode:$code" } ?: "name:${it.name.lowercase()}:${it.source}" }
+        ).sortedWith(
+            compareBy<NativeFood> { foodSearchRank(it, q) }
+                .thenByDescending { it.micronutrients.size }
+                .thenBy { it.name.lowercase() }
+        ).take(limit)
 
         return NativeFoodSearchResult(
             foods = merged,
@@ -134,7 +139,7 @@ internal object NativeFoodCatalog {
             val root = conn.inputStream.bufferedReader().use { it.readText() }.let(::JSONObject)
             if (root.optInt("status", 0) != 1) return@withContext null
             val product = root.optJSONObject("product") ?: return@withContext null
-            parseOpenFoodFactsProduct(product, digits)
+            parseOpenFoodFactsProduct(product, digits)?.let(FoodNutritionOverrideStore::applyIfAttached)
         } catch (_: Exception) {
             null
         } finally {
@@ -171,7 +176,7 @@ internal object NativeFoodCatalog {
                 for (i in 0 until products.length()) {
                     val p = products.optJSONObject(i) ?: continue
                     val food = parseOpenFoodFactsProduct(p, p.optString("code")) ?: continue
-                    if (food.name.isNotBlank() && (food.kcal > 0.0 || food.protein > 0.0 || food.micronutrients.isNotEmpty())) add(food)
+                    if (food.name.isNotBlank()) add(food)
                 }
             }
             synchronized(remoteCacheLock) { remoteSearchCache[key] = parsed }
