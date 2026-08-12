@@ -98,7 +98,7 @@ internal object ClinicalConditionHierarchy {
         val display = preferredLabels[query] ?: humanize(rawQuery)
         if (display.isBlank()) return null
 
-        val key = slug(display)
+        val key = generalKey(display)
         if (key.isBlank()) return null
 
         val condition = ClinicalCondition(
@@ -143,6 +143,11 @@ internal object ClinicalConditionHierarchy {
             }
         }
     }
+
+    private fun generalKey(value: String): String = normalize(value)
+        .replace(Regex("[^a-z0-9]+"), "-")
+        .trim('-')
+        .take(80)
 
     private fun normalize(value: String): String = value
         .lowercase(Locale.ROOT)
