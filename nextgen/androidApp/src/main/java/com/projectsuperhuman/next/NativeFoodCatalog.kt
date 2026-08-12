@@ -1,6 +1,7 @@
 package com.projectsuperhuman.next
 
 import android.content.Context
+import android.database.sqlite.SQLiteException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -94,9 +95,23 @@ internal object NativeFoodCatalog {
         NutrientSpec("choline", "choline", "Choline", "mg", 1_000.0)
     )
 
+    /**
+     * The large USDA importer writes in the background. On some Android SQLite builds, opening
+     * another helper while that transaction is active can throw SQLITE_BUSY while applying
+     * PRAGMA journal_mode. Food search must never crash because the optional expanded catalogue is
+     * busy: bundled foods and Open Food Facts remain usable while the importer finishes.
+     */
+    private fun startLargeLocalSafely(context: Context) {
+        try {
+            LargeLocalFoodDatabase.ensureStarted(context)
+        } catch (_: SQLiteException) {
+            // The background importer already owns the DB. Search can continue with other sources.
+        }
+    }
+
     suspend fun all(context: Context): List<NativeFood> = withContext(Dispatchers.IO) {
         FoodNutritionOverrideStore.attach(context)
-        LargeLocalFoodDatabase.ensureStarted(context)
+        startLargeLocalSafely(context)
         val base = cached ?: loadLocal(context).also { cached = it }
         FoodNutritionOverrideStore.applyAll(context, base)
     }
@@ -104,7 +119,12 @@ internal object NativeFoodCatalog {
     /** Number of local reference foods available without depending on an Open Food Facts search. */
     suspend fun localReferenceCount(context: Context): Int {
         val bundled = all(context).size
-        return bundled + LargeLocalFoodDatabase.count(context)
+        val expanded = try {
+            LargeLocalFoodDatabase.count(context)
+        } catch (_: SQLiteException) {
+            0
+        }
+        return bundled + expanded
     }
 
     /**
@@ -114,12 +134,16 @@ internal object NativeFoodCatalog {
      */
     suspend fun search(context: Context, query: String, limit: Int = 36): NativeFoodSearchResult {
         FoodNutritionOverrideStore.attach(context)
-        LargeLocalFoodDatabase.ensureStarted(context)
+        startLargeLocalSafely(context)
         val q = query.trim()
         if (q.length < 2) return NativeFoodSearchResult(emptyList(), remoteAvailable = true, remoteCount = 0)
 
         val bundledLocal = searchLocal(context, q, limit = 14)
-        val expandedLocal = LargeLocalFoodDatabase.search(context, q, limit = 26)
+        val expandedLocal = try {
+            LargeLocalFoodDatabase.search(context, q, limit = 26)
+        } catch (_: SQLiteException) {
+            emptyList()
+        }
         val remoteResult = searchOpenFoodFacts(q, limit = 22)
         val merged = FoodNutritionOverrideStore.applyAll(
             context,
