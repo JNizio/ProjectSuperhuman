@@ -43,8 +43,17 @@ enum class ClinicalHubPage { CONDITIONS, LABS }
 internal fun NativeClinicalPage(onBack: () -> Unit, openLegacy: () -> Unit) {
     var page by remember { mutableStateOf(ClinicalHubPage.CONDITIONS) }
     when (page) {
-        ClinicalHubPage.CONDITIONS -> NativeClinicalConditionsScreen(onBack = onBack) {
-            page = ClinicalHubPage.LABS
+        ClinicalHubPage.CONDITIONS -> Box(Modifier.fillMaxSize()) {
+            NativeClinicalConditionsScreen(onBack = onBack)
+            Box(
+                Modifier.align(Alignment.TopEnd)
+                    .padding(top = 10.dp, end = 18.dp)
+                    .background(ModuleNavy, RoundedCornerShape(14.dp))
+                    .clickable { page = ClinicalHubPage.LABS }
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Text("LAB RESULTS", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            }
         }
         ClinicalHubPage.LABS -> NativeClinicalParityScreen(
             onBack = { page = ClinicalHubPage.CONDITIONS },
