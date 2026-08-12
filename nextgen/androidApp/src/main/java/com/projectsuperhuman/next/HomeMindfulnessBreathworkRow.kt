@@ -32,7 +32,9 @@ internal fun HomeMindfulnessBreathworkRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         MindfulnessHalfTile(snapshot, Modifier.weight(1f), openMindfulness)
-        BreathworkHalfTile(Modifier.weight(1f), openMindfulness)
+        BreathworkHalfTile(Modifier.weight(1f)) {
+            HomeNavigationBridge.openBreathwork?.invoke()
+        }
     }
 }
 
