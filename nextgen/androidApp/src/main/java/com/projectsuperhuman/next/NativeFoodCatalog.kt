@@ -96,28 +96,41 @@ internal object NativeFoodCatalog {
 
     suspend fun all(context: Context): List<NativeFood> = withContext(Dispatchers.IO) {
         FoodNutritionOverrideStore.attach(context)
+        LargeLocalFoodDatabase.ensureStarted(context)
         val base = cached ?: loadLocal(context).also { cached = it }
         FoodNutritionOverrideStore.applyAll(context, base)
     }
 
+    /** Number of local reference foods available without depending on an Open Food Facts search. */
+    suspend fun localReferenceCount(context: Context): Int {
+        val bundled = all(context).size
+        return bundled + LargeLocalFoodDatabase.count(context)
+    }
+
     /**
-     * One native search surface: fast bundled generic foods + Open Food Facts full-text products.
-     * Network failure never blocks local matches. Any user-edited nutrition values are layered over
-     * the source record before the result reaches the UI.
+     * One native search surface: bundled generic foods + the large local USDA-backed reference
+     * library + Open Food Facts branded products. Network failure never blocks either local source.
+     * Any user-edited nutrition values are layered over the source record before it reaches the UI.
      */
     suspend fun search(context: Context, query: String, limit: Int = 36): NativeFoodSearchResult {
         FoodNutritionOverrideStore.attach(context)
+        LargeLocalFoodDatabase.ensureStarted(context)
         val q = query.trim()
         if (q.length < 2) return NativeFoodSearchResult(emptyList(), remoteAvailable = true, remoteCount = 0)
 
-        val local = searchLocal(context, q, limit = 16)
-        val remoteResult = searchOpenFoodFacts(q, limit = 24)
+        val bundledLocal = searchLocal(context, q, limit = 14)
+        val expandedLocal = LargeLocalFoodDatabase.search(context, q, limit = 26)
+        val remoteResult = searchOpenFoodFacts(q, limit = 22)
         val merged = FoodNutritionOverrideStore.applyAll(
             context,
-            (local + remoteResult.first)
-                .distinctBy { it.barcode?.let { code -> "barcode:$code" } ?: "name:${it.name.lowercase()}:${it.source}" }
+            (bundledLocal + expandedLocal + remoteResult.first)
+                .distinctBy { food ->
+                    food.barcode?.let { code -> "barcode:$code" }
+                        ?: "name:${food.name.trim().lowercase()}"
+                }
         ).sortedWith(
             compareBy<NativeFood> { foodSearchRank(it, q) }
+                .thenByDescending { it.source.startsWith("Project Superhuman") || it.source.startsWith("USDA") }
                 .thenByDescending { it.micronutrients.size }
                 .thenBy { it.name.lowercase() }
         ).take(limit)
