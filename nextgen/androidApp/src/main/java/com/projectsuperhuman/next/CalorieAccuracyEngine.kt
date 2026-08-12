@@ -176,12 +176,15 @@ internal object CalorieAccuracyEngine {
         val fullMs = Duration.between(start, end).toMillis().coerceAtLeast(1L)
         val coveragePct = ((coveredMs.toDouble() / fullMs.toDouble()) * 100.0).roundToInt().coerceIn(0, 100)
 
-        val coveredBasal = if (basalAllowed && coverage.isNotEmpty()) {
-            coverage.mapNotNull { aggregateBasal(client, it.start, it.end) }.sum().takeIf { it > 0.0 }
-        } else null
-        val coveredActive = if (activeAllowed && coverage.isNotEmpty()) {
-            coverage.mapNotNull { aggregateActive(client, it.start, it.end) }.sum().takeIf { it >= 0.0 }
-        } else null
+        val basalParts = if (basalAllowed && coverage.isNotEmpty()) {
+            coverage.mapNotNull { aggregateBasal(client, it.start, it.end) }
+        } else emptyList()
+        val coveredBasal = basalParts.takeIf { it.isNotEmpty() }?.sum()?.takeIf { it > 0.0 }
+
+        val activeParts = if (activeAllowed && coverage.isNotEmpty()) {
+            coverage.mapNotNull { aggregateActive(client, it.start, it.end) }
+        } else emptyList()
+        val coveredActive = activeParts.takeIf { it.isNotEmpty() }?.sum()
 
         val inferredActive = if (directActive == null && rawTotal != null && coveredBasal != null) {
             (rawTotal - coveredBasal).coerceAtLeast(0.0)
