@@ -1,3 +1,0 @@
-C:/Users/Jakub/StudioProjects/ProjectSuperhuman/nextgen/androidApp/.cxx/Debug/4p13312k/x86_64/CMakeFiles/psh_heart_rate.dir
-C:/Users/Jakub/StudioProjects/ProjectSuperhuman/nextgen/androidApp/.cxx/Debug/4p13312k/x86_64/CMakeFiles/edit_cache.dir
-C:/Users/Jakub/StudioProjects/ProjectSuperhuman/nextgen/androidApp/.cxx/Debug/4p13312k/x86_64/CMakeFiles/rebuild_cache.dir

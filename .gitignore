@@ -3,3 +3,12 @@
 local.properties
 *.jks
 *.keystore.bak
+.idea/
+**/.idea/
+.kotlin/
+**/.kotlin/
+**/.cxx/
+**/captures/
+*.iml
+.DS_Store
+Thumbs.db

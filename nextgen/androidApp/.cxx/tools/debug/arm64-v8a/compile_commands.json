@@ -1,7 +1,0 @@
-[
-{
-  "directory": "C:/Users/Jakub/StudioProjects/ProjectSuperhuman/nextgen/androidApp/.cxx/Debug/4p13312k/arm64-v8a",
-  "command": "C:\\Users\\Jakub\\AppData\\Local\\Android\\Sdk\\ndk\\27.3.13750724\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin\\clang++.exe --target=aarch64-none-linux-android26 --sysroot=C:/Users/Jakub/AppData/Local/Android/Sdk/ndk/27.3.13750724/toolchains/llvm/prebuilt/windows-x86_64/sysroot -Dpsh_heart_rate_EXPORTS -g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security   -fno-limit-debug-info  -fPIC -Wall -Wextra -Wpedantic -std=c++17 -o CMakeFiles\\psh_heart_rate.dir\\heart_rate_engine.cpp.o -c C:\\Users\\Jakub\\StudioProjects\\ProjectSuperhuman\\nextgen\\androidApp\\src\\main\\cpp\\heart_rate_engine.cpp",
-  "file": "C:\\Users\\Jakub\\StudioProjects\\ProjectSuperhuman\\nextgen\\androidApp\\src\\main\\cpp\\heart_rate_engine.cpp"
-}
-]

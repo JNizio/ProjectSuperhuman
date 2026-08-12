@@ -1,1 +1,0 @@
-C:\Users\Jakub\StudioProjects\ProjectSuperhuman\nextgen\androidApp\src\main\cpp\CMakeLists.txt
