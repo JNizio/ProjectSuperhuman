@@ -13,7 +13,10 @@ import androidx.health.connect.client.HealthConnectClient
 internal object GlobalHealthConnect {
     fun availability(context: Context): Int = HealthConnectClient.getSdkStatus(context)
 
-    fun corePermissions(): Set<String> = MiniMetricsHealthConnect.permissions + SleepHealthConnect.permission
+    fun corePermissions(): Set<String> =
+        MiniMetricsHealthConnect.permissions +
+            SleepHealthConnect.permission +
+            CalorieAccuracyEngine.basalCaloriesPermission
 
     fun requestPermissions(context: Context): Set<String> {
         val core = corePermissions()
@@ -39,8 +42,9 @@ internal object GlobalHealthConnect {
         MiniMetricsHealthConnect.hasBackgroundReadPermission(context)
 
     /**
-     * SleepHealthConnect.sync() is the global orchestration point as well as the sleep importer.
-     * It refreshes sleep, mini metrics and advanced heart-rate analysis in one pass.
+     * SleepHealthConnect.sync() remains the broad wearable orchestration point. Calorie repair is
+     * deliberately run afterwards so its coverage-aware daily totals replace the simpler raw
+     * Samsung calorie summaries written by the mini-metrics importer.
      */
     suspend fun sync(context: Context): GlobalHealthSyncResult {
         if (availability(context) != HealthConnectClient.SDK_AVAILABLE) {
@@ -50,9 +54,14 @@ internal object GlobalHealthConnect {
             return GlobalHealthSyncResult(false, "Connect Health Connect to start syncing")
         }
         val sleep = SleepHealthConnect.sync(context)
+        val calories = CalorieAccuracyEngine.sync(context)
         return GlobalHealthSyncResult(
-            success = sleep.success || hasAnyCorePermission(context),
-            message = sleep.message
+            success = sleep.success || calories.success || hasAnyCorePermission(context),
+            message = when {
+                calories.success && sleep.success -> "Samsung Health data synced · calorie burn calibrated"
+                calories.success -> calories.message
+                else -> sleep.message
+            }
         )
     }
 }
