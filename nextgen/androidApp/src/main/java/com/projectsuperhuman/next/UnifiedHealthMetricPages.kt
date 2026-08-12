@@ -423,7 +423,7 @@ private fun UnifiedStat(label: String, value: String, modifier: Modifier) {
 @Composable
 private fun UnifiedHeader(title: String, subtitle: String, onBack: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(46.dp).height(46.dp).background(Color.White, RoundedCornerShape(16.dp)).border(1.dp, UnifiedBorder, RoundedCornerShape(16.dp)).clickable(onClick = onBack), contentAlignment = Alignment.Center) {
+        Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
             Text("←", color = UnifiedNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(12.dp))
