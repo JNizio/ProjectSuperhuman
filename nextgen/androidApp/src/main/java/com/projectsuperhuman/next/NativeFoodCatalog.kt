@@ -46,6 +46,9 @@ internal data class NativeFoodSearchResult(
 
 internal object NativeFoodCatalog {
     private const val USER_AGENT = "ProjectSuperhuman/11.2.9 (Android; https://github.com/JNizio/ProjectSuperhuman)"
+    private const val FAST_RESULT_COUNT = 8
+    private const val MAX_RESULT_COUNT = 10
+
     @Volatile private var cached: List<NativeFood>? = null
 
     private val remoteSearchCache = object : LinkedHashMap<String, List<NativeFood>>(12, 0.75f, true) {
@@ -128,36 +131,50 @@ internal object NativeFoodCatalog {
     }
 
     /**
-     * One native search surface: bundled generic foods + the large local USDA-backed reference
-     * library + Open Food Facts branded products. Network failure never blocks either local source.
-     * Any user-edited nutrition values are layered over the source record before it reaches the UI.
+     * Fast progressive search.
+     *
+     * A broad query should not build and render dozens of cards or wait on the network when the
+     * local database already has strong matches. We rank a small local candidate set first and only
+     * call Open Food Facts when local coverage is thin or the user typed a more specific multi-word
+     * product query. The UI therefore gets the most useful 8-10 results quickly; typing a more
+     * specific query is the cheap way to drill further into the catalogue.
      */
-    suspend fun search(context: Context, query: String, limit: Int = 36): NativeFoodSearchResult {
+    suspend fun search(context: Context, query: String, limit: Int = MAX_RESULT_COUNT): NativeFoodSearchResult {
         FoodNutritionOverrideStore.attach(context)
         startLargeLocalSafely(context)
         val q = query.trim()
         if (q.length < 2) return NativeFoodSearchResult(emptyList(), remoteAvailable = true, remoteCount = 0)
 
-        val bundledLocal = searchLocal(context, q, limit = 14)
+        val requested = limit.coerceIn(1, MAX_RESULT_COUNT)
+        val bundledLocal = searchLocal(context, q, limit = 10)
         val expandedLocal = try {
-            LargeLocalFoodDatabase.search(context, q, limit = 26)
+            LargeLocalFoodDatabase.search(context, q, limit = 16)
         } catch (_: SQLiteException) {
             emptyList()
         }
-        val remoteResult = searchOpenFoodFacts(q, limit = 22)
+
+        val localCandidates = (bundledLocal + expandedLocal)
+            .distinctBy { food -> food.barcode?.let { "barcode:$it" } ?: "name:${food.name.trim().lowercase()}" }
+            .sortedWith(foodComparator(q))
+
+        // Broad/common searches stay completely local when we already have enough good candidates.
+        // Multi-word queries are more likely to be a specific branded product, so OFF remains useful.
+        val specificProductQuery = q.length >= 6 && q.any(Char::isWhitespace)
+        val shouldQueryRemote = localCandidates.size < FAST_RESULT_COUNT || specificProductQuery
+        val remoteResult = if (shouldQueryRemote) {
+            searchOpenFoodFacts(q, limit = 12)
+        } else {
+            emptyList<NativeFood>() to true
+        }
+
         val merged = FoodNutritionOverrideStore.applyAll(
             context,
-            (bundledLocal + expandedLocal + remoteResult.first)
+            (localCandidates + remoteResult.first)
                 .distinctBy { food ->
                     food.barcode?.let { code -> "barcode:$code" }
                         ?: "name:${food.name.trim().lowercase()}"
                 }
-        ).sortedWith(
-            compareBy<NativeFood> { foodSearchRank(it, q) }
-                .thenBy { if (it.source.startsWith("Project Superhuman") || it.source.startsWith("USDA")) 0 else 1 }
-                .thenByDescending { it.micronutrients.size }
-                .thenBy { it.name.lowercase() }
-        ).take(limit)
+        ).sortedWith(foodComparator(q)).take(requested)
 
         return NativeFoodSearchResult(
             foods = merged,
@@ -184,13 +201,18 @@ internal object NativeFoodCatalog {
         }
     }
 
-    private suspend fun searchLocal(context: Context, query: String, limit: Int): List<NativeFood> {
+    /**
+     * Search only the tiny bundled list here. Do not call [all]: that would apply overrides to the
+     * whole bundled catalogue and touch extra SQLite state before we even know which rows matched.
+     * Overrides are applied once, to the small merged result set, at the end of [search].
+     */
+    private fun searchLocal(context: Context, query: String, limit: Int): List<NativeFood> {
         val q = query.trim().lowercase()
-        return all(context)
-            .asSequence()
+        val base = cached ?: loadLocal(context).also { cached = it }
+        return base.asSequence()
             .map { food -> foodSearchRank(food, q) to food }
             .filter { it.first < 99 }
-            .sortedWith(compareBy<Pair<Int, NativeFood>> { it.first }.thenBy { it.second.name })
+            .sortedWith(compareBy<Pair<Int, NativeFood>> { it.first }.thenBy { sourcePriority(it.second) }.thenBy { it.second.name })
             .take(limit)
             .map { it.second }
             .toList()
@@ -278,6 +300,23 @@ internal object NativeFoodCatalog {
         return out
     }
 
+    private fun foodComparator(query: String): Comparator<NativeFood> =
+        compareBy<NativeFood> { foodSearchRank(it, query) }
+            .thenBy(::sourcePriority)
+            .thenByDescending { it.micronutrients.size }
+            .thenBy { it.name.length }
+            .thenBy { it.name.lowercase() }
+
+    /** Common/curated foods win ties before long-tail reference rows and remote products. */
+    private fun sourcePriority(food: NativeFood): Int = when {
+        food.source.contains("label reference", ignoreCase = true) -> 0
+        food.source.startsWith("Project Superhuman", ignoreCase = true) || food.source.startsWith("Local reference", ignoreCase = true) -> 1
+        food.source.contains("FNDDS", ignoreCase = true) -> 2
+        food.source.startsWith("USDA", ignoreCase = true) -> 3
+        food.source.contains("Open Food Facts", ignoreCase = true) -> 4
+        else -> 3
+    }
+
     private fun foodSearchRank(food: NativeFood, query: String): Int {
         val q = query.trim().lowercase()
         if (q.length < 2) return 99
@@ -324,8 +363,8 @@ internal object NativeFoodCatalog {
 
     private fun openConnection(url: String): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 7_000
-            readTimeout = 9_000
+            connectTimeout = 5_000
+            readTimeout = 7_000
             requestMethod = "GET"
             useCaches = true
             setRequestProperty("Accept", "application/json")
