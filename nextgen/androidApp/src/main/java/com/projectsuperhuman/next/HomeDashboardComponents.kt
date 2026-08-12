@@ -94,7 +94,6 @@ internal fun LegacyHomeHero(snapshot: NativeHomeSnapshot) {
             Brush.linearGradient(listOf(Color(0xFF0965A7), Color(0xFF13A7C3)))
         )
     ) {
-        // Quiet concentric geometry mirrors the legacy hero without turning it into a flat gradient.
         Canvas(Modifier.fillMaxSize()) {
             val centre = Offset(size.width * .88f, size.height * .26f)
             drawCircle(Color.White.copy(alpha = .055f), radius = size.width * .42f, center = centre, style = Stroke(width = 1.5f))
@@ -151,9 +150,7 @@ internal fun LegacyHydrationCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                 Box(Modifier.width(82.dp).height(82.dp), contentAlignment = Alignment.Center) {
                     Canvas(Modifier.fillMaxSize()) {
                         drawCircle(Color(0xFFDDECF3), style = Stroke(width = 9.dp.toPx()))
-                        if (pct > 0) {
-                            drawArc(HomeBlue, -90f, pct * 3.6f, false, style = Stroke(width = 9.dp.toPx()))
-                        }
+                        if (pct > 0) drawArc(HomeBlue, -90f, pct * 3.6f, false, style = Stroke(width = 9.dp.toPx()))
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Text("$pct%", color = HomeNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
@@ -207,34 +204,74 @@ internal fun LegacyClinicalCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
 
 @Composable
 internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
+    val trained = snapshot.workoutsToday > 0
+    val volumeLabel = if (snapshot.workoutVolumeToday >= 1000) {
+        String.format(Locale.US, "%.1fk", snapshot.workoutVolumeToday / 1000.0)
+    } else snapshot.workoutVolumeToday.toString()
+
     Box(
-        Modifier.fillMaxWidth().height(153.dp).clip(RoundedCornerShape(25.dp)).background(Color(0xFFFFF8F3))
-            .border(1.dp, Color(0xFFE9E5DF), RoundedCornerShape(25.dp)).clickable(onClick = onClick)
+        Modifier.fillMaxWidth().height(178.dp).clip(RoundedCornerShape(27.dp))
+            .background(Brush.linearGradient(listOf(Color(0xFF071D38), Color(0xFF0A3561), Color(0xFF0C5A7B))))
+            .border(1.dp, Color(0xFF164E72), RoundedCornerShape(27.dp)).clickable(onClick = onClick)
     ) {
-        LegacyAssetImage("dashboard_training.png", Modifier.width(225.dp).fillMaxSize().align(Alignment.CenterEnd), alpha = .8f)
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFFFFF8F3), Color(0xFFFFF8F3).copy(alpha = .94f), Color.Transparent))))
-        Column(Modifier.fillMaxSize().padding(18.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("TRAINING", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                Text("→", color = Color(0xFF8CA6B5), fontSize = 23.sp)
+        LegacyAssetImage(
+            "dashboard_training.png",
+            Modifier.width(250.dp).fillMaxSize().align(Alignment.CenterEnd),
+            alpha = .34f
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF071D38),
+                        Color(0xFF071D38).copy(alpha = .96f),
+                        Color(0xFF0A2F56).copy(alpha = .70f),
+                        Color.Transparent
+                    )
+                )
+            )
+        )
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(Color(0xFF54D6C2).copy(alpha = .07f), size.width * .22f, Offset(size.width * .82f, size.height * .08f))
+            drawCircle(Color.White.copy(alpha = .035f), size.width * .16f, Offset(size.width * .70f, size.height * .88f))
+        }
+
+        Column(Modifier.fillMaxSize().padding(horizontal = 19.dp, vertical = 17.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("TRAINING", color = Color.White.copy(alpha = .66f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+                Box(Modifier.width(34.dp).height(34.dp).background(Color.White.copy(alpha = .10f), CircleShape), contentAlignment = Alignment.Center) {
+                    Text("→", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                }
             }
-            Text(if (snapshot.workoutsToday > 0) "Training logged" else "Ready when you are", color = Color(0xFF6C4132), fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Text(if (snapshot.workoutsToday > 0) "${snapshot.workoutsToday} workout today" else "No workout logged today", color = HomeMuted, fontSize = 10.sp)
-            Spacer(Modifier.height(15.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(29.dp)) {
-                TrainingStat(snapshot.workoutsToday.toString(), "workouts")
-                TrainingStat(snapshot.workoutSetsToday.toString(), "sets")
-                TrainingStat(snapshot.workoutVolumeToday.toString(), "volume")
+            Spacer(Modifier.height(3.dp))
+            Text(if (trained) "Workout complete" else "Ready to train", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
+            Text(
+                if (trained) "${snapshot.workoutsToday} workout${if (snapshot.workoutsToday == 1) "" else "s"} logged today"
+                else "Start a workout, routine or exercise session",
+                color = Color.White.copy(alpha = .67f), fontSize = 9.sp
+            )
+            Spacer(Modifier.height(13.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                TrainingStat(snapshot.workoutsToday.toString(), "WORKOUTS", Modifier.weight(1f))
+                TrainingStat(snapshot.workoutSetsToday.toString(), "SETS", Modifier.weight(1f))
+                TrainingStat(volumeLabel, "VOLUME KG", Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(10.dp))
+            Box(
+                Modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 7.dp)
+            ) {
+                Text(if (trained) "View training hub  →" else "Start workout  →", color = Color(0xFF66DBC8), fontSize = 8.sp, fontWeight = FontWeight.Black)
             }
         }
     }
 }
 
 @Composable
-private fun TrainingStat(value: String, label: String) {
-    Column {
-        Text(value, color = Color(0xFF704431), fontSize = 17.sp, fontWeight = FontWeight.Black)
-        Text(label, color = HomeMuted, fontSize = 9.sp)
+private fun TrainingStat(value: String, label: String, modifier: Modifier = Modifier) {
+    Column(modifier.background(Color.White.copy(alpha = .075f), RoundedCornerShape(13.dp)).padding(horizontal = 9.dp, vertical = 7.dp)) {
+        Text(label, color = Color.White.copy(alpha = .48f), fontSize = 6.sp, fontWeight = FontWeight.Black, letterSpacing = .55.sp, maxLines = 1)
+        Spacer(Modifier.height(2.dp))
+        Text(value, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black, maxLines = 1)
     }
 }
 
@@ -260,53 +297,30 @@ internal fun HomeBodyMindfulnessRow(
     openBody: () -> Unit,
     openMindfulness: () -> Unit
 ) {
-    Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         LegacyBodyCard(snapshot, Modifier.weight(1f), openBody)
         LegacyMindfulnessCard(snapshot, Modifier.weight(1f), openMindfulness)
     }
 }
 
 @Composable
-private fun LegacyMindfulnessCard(
-    snapshot: NativeHomeSnapshot,
-    modifier: Modifier,
-    onClick: () -> Unit
-) {
+private fun LegacyMindfulnessCard(snapshot: NativeHomeSnapshot, modifier: Modifier, onClick: () -> Unit) {
     val minutes = snapshot.mindfulnessMinutesToday
     Column(
-        modifier.height(148.dp)
-            .clip(RoundedCornerShape(23.dp))
-            .background(Color(0xFFF4FAFB))
-            .border(1.dp, Color(0xFFDCECEF), RoundedCornerShape(23.dp))
-            .clickable(onClick = onClick)
-            .padding(15.dp)
+        modifier.height(148.dp).clip(RoundedCornerShape(23.dp)).background(Color(0xFFF4FAFB))
+            .border(1.dp, Color(0xFFDCECEF), RoundedCornerShape(23.dp)).clickable(onClick = onClick).padding(15.dp)
     ) {
         LegacyCardHeader("MINDFULNESS")
         Spacer(Modifier.height(8.dp))
-        Text(
-            if (minutes > 0) "$minutes min" else "Ready",
-            color = Color(0xFF176B72),
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Black
-        )
-        Text(
-            if (minutes > 0) "mindful time today" else "Breathe · reflect · reset",
-            color = HomeMuted,
-            fontSize = 8.sp
-        )
+        Text(if (minutes > 0) "$minutes min" else "Ready", color = Color(0xFF176B72), fontSize = 20.sp, fontWeight = FontWeight.Black)
+        Text(if (minutes > 0) "mindful time today" else "Breathe · reflect · reset", color = HomeMuted, fontSize = 8.sp)
         Spacer(Modifier.height(13.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.Bottom) {
             listOf(12, 20, 30, 22, 15).forEachIndexed { index, height ->
                 Box(
-                    Modifier.weight(1f)
-                        .height(height.dp)
-                        .background(
-                            if (minutes > 0 && index < 3) Color(0xFF5CB7AE) else Color(0xFFD9ECEB),
-                            RoundedCornerShape(8.dp)
-                        )
+                    Modifier.weight(1f).height(height.dp).background(
+                        if (minutes > 0 && index < 3) Color(0xFF5CB7AE) else Color(0xFFD9ECEB), RoundedCornerShape(8.dp)
+                    )
                 )
             }
         }
