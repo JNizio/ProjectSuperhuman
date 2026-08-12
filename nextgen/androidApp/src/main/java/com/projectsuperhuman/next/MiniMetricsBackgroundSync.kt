@@ -19,6 +19,11 @@ internal class MiniMetricsBackgroundWorker(
         if (!MiniMetricsHealthConnect.hasAnyPermission(applicationContext)) return Result.success()
 
         val result = MiniMetricsHealthConnect.syncCurrent(applicationContext)
+        if (result.success) {
+            // Run after the raw mini-metric refresh so repaired total/active/resting values remain
+            // the newest daily summaries in the Data Vault.
+            CalorieAccuracyEngine.syncCurrent(applicationContext)
+        }
         return when {
             result.success -> Result.success()
             runAttemptCount < 2 -> Result.retry()
