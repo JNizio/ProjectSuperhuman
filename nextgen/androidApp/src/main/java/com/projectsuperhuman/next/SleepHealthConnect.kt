@@ -18,9 +18,6 @@ import kotlinx.coroutines.withTimeout
 internal object SleepHealthConnect {
     val permission: String = HealthPermission.getReadPermission(SleepSessionRecord::class)
 
-    // A real night can be split into multiple records when the user wakes for a while.
-    // We allow a generous interruption window, but only while the blocks still resolve
-    // to the same overnight wake-date and the complete episode remains realistic.
     private val maxInterruptionGap: Duration = Duration.ofHours(6)
     private val maxNightSpan: Duration = Duration.ofHours(18)
     private const val morningContinuationCutoffHour = 12
@@ -35,7 +32,28 @@ internal object SleepHealthConnect {
         }.getOrDefault(false)
     }
 
+    /**
+     * Global manual sync entry point. The sleep screen used to refresh only sleep while the
+     * mini-vital screens refreshed only their own wearable data. Keep the existing public call
+     * site, but make it refresh every supported Health Connect domain in one operation.
+     */
     suspend fun sync(context: Context): SleepSyncResult {
+        val sleep = syncSleepOnly(context)
+        val mini = runCatching { MiniMetricsHealthConnect.sync(context) }.getOrNull()
+        if (mini?.success == true) {
+            runCatching { HeartRateAdvancedHealthConnect.sync(context) }
+        }
+        val anySuccess = sleep.success || mini?.success == true
+        val message = when {
+            anySuccess && sleep.success && mini?.success == true -> "All Health Connect data synced · ${sleep.message}"
+            sleep.success -> "Health Connect synced · ${sleep.message}"
+            mini?.success == true -> "Wearable data synced · ${sleep.message}"
+            else -> sleep.message
+        }
+        return sleep.copy(success = anySuccess, message = message)
+    }
+
+    private suspend fun syncSleepOnly(context: Context): SleepSyncResult {
         if (availability(context) != HealthConnectClient.SDK_AVAILABLE) {
             return SleepSyncResult(false, 0, "Health Connect isn’t available on this device yet")
         }
@@ -74,9 +92,6 @@ internal object SleepHealthConnect {
                             interruptionCount = summary.interruptionCount
                         )
 
-                        // +1 ms intentionally wins over records produced by the older per-session
-                        // importer that used the exact same end timestamp. This keeps the latest
-                        // UI read deterministic without deleting the user's historical data.
                         val timestamp = summary.end.toEpochMilli() + 1L
                         val nightId = "night:${summary.start.toEpochMilli()}:${summary.end.toEpochMilli()}"
                         val baseMeta = mapOf(
@@ -118,12 +133,7 @@ internal object SleepHealthConnect {
                         addMetric("sleep_interruption_count", summary.interruptionCount.toDouble(), "count")
                         addMetric("sleep_longest_interruption_minutes", summary.longestInterruptionMinutes.toDouble(), "min")
                         addMetric("sleep_block_count", night.size.toDouble(), "count")
-                        addMetric(
-                            "sleep_stage_timeline",
-                            1.0,
-                            "timeline",
-                            mapOf("segments" to summary.timeline)
-                        )
+                        addMetric("sleep_stage_timeline", 1.0, "timeline", mapOf("segments" to summary.timeline))
                     }
 
                     add(
@@ -162,12 +172,6 @@ internal object SleepHealthConnect {
         }
     }
 
-    /**
-     * Convert Health Connect's record-level view into human nights. A block that starts
-     * after 18:00 belongs to the following wake-date; morning continuation blocks belong
-     * to the date they end. This lets 22:30–02:00 and 06:00–07:30 resolve to one night,
-     * while keeping a midday nap separate.
-     */
     private fun groupIntoNights(sessions: List<SleepSessionRecord>): List<List<SleepSessionRecord>> {
         if (sessions.isEmpty()) return emptyList()
         val groups = mutableListOf<MutableList<SleepSessionRecord>>()
@@ -207,7 +211,6 @@ internal object SleepHealthConnect {
 
     private data class Breakdown(val awake: Int, val light: Int, val deep: Int, val rem: Int, val unknown: Int) {
         val stagedSleep: Int get() = light + deep + rem
-        val stagedWindow: Int get() = awake + light + deep + rem + unknown
     }
 
     private data class NightSummary(
@@ -241,10 +244,6 @@ internal object SleepHealthConnect {
                 val previous = ordered[index - 1]
                 val gapMinutes = Duration.between(previous.endTime, session.startTime).toMinutes().coerceAtLeast(0).toInt()
                 if (gapMinutes > 0) {
-                    // A gap between Health Connect records is an interruption in the night,
-                    // but it is not necessarily an AWAKE sleep stage. Samsung Health, for
-                    // example, excludes out-of-bed gaps from its Awake total. Keep the gap
-                    // for continuity analysis and the timeline without double-counting it.
                     if (gapMinutes >= 5) interruptionCount += 1
                     longestInterruption = maxOf(longestInterruption, gapMinutes)
                     timeline += "gap,${previous.endTime.toEpochMilli()},${session.startTime.toEpochMilli()}"
@@ -271,9 +270,6 @@ internal object SleepHealthConnect {
             start = ordered.first().startTime,
             end = ordered.last().endTime,
             asleepMinutes = asleep,
-            // Samsung-style sleep time is the complete staged interval inside the
-            // sleep records. Unknown intervals are real source time and must not be
-            // silently discarded just because they cannot be classified as a stage.
             sleepTimeMinutes = if (ordered.any { it.stages.isNotEmpty() }) {
                 (asleep + awake + unknown).coerceAtLeast(asleep)
             } else asleep,
