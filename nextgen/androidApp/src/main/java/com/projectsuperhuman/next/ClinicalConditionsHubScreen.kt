@@ -47,7 +47,8 @@ private val ClinicalHubLab = Color(0xFF7158D9)
 
 /**
  * Clinical landing screen. Conditions and laboratory history are peers rather than making
- * lab import look like a header action. The condition catalogue/profile behaviour is unchanged.
+ * lab import look like a header action. Search uses the human-friendly layer over ICD-11,
+ * while the canonical ICD condition remains the record that is stored in the Data Vault.
  */
 @Composable
 internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
@@ -55,7 +56,7 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
     val scope = rememberCoroutineScope()
     val vault = remember { ClinicalConditionVault(context) }
     var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<ClinicalCondition>>(emptyList()) }
+    var results by remember { mutableStateOf<List<ClinicalConditionSearchResult>>(emptyList()) }
     var active by remember { mutableStateOf<List<ActiveClinicalCondition>>(emptyList()) }
     var catalogueCount by remember { mutableStateOf(0) }
     var catalogueState by remember { mutableStateOf("Preparing local condition index…") }
@@ -87,7 +88,7 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
 
     LaunchedEffect(query, catalogueCount) {
         results = if (query.trim().length < 2) emptyList() else withContext(Dispatchers.IO) {
-            vault.search(query)
+            ClinicalConditionSearchEngine.search(vault, query)
         }
     }
 
@@ -119,7 +120,7 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
             Text("CONDITION VAULT", color = ClinicalHubBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text("Add conditions you have", color = ClinicalHubNavy, fontSize = 22.sp, fontWeight = FontWeight.Black)
             Text(
-                "Search the local clinical index and assign diagnosed or established chronic conditions to your profile. They become structured Data Vault context for future insights and recommendations.",
+                "Search naturally. Everyday names, abbreviations, common synonyms and ICD-11 codes all lead to the same structured clinical record.",
                 color = ClinicalHubMuted, fontSize = 10.sp, lineHeight = 15.sp
             )
             Text(catalogueState, color = ClinicalHubBlue, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
@@ -128,7 +129,14 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
                 onValueChange = { query = it },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                label = { Text("Search condition or ICD-11 code") }
+                label = { Text("Search a condition") },
+                placeholder = { Text("e.g. colon cancer, high blood pressure, IBS") }
+            )
+            Text(
+                "Common names are shown first. The formal ICD-11 name stays underneath when it differs.",
+                color = ClinicalHubMuted,
+                fontSize = 8.sp,
+                lineHeight = 12.sp
             )
         }
 
@@ -139,12 +147,16 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
             ) {
                 Text("MY CONDITIONS", color = ClinicalHubMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                 active.forEach { condition ->
+                    val friendly = ClinicalConditionSearchEngine.friendlyTitle(condition.title)
                     Row(
                         Modifier.fillMaxWidth().background(ClinicalHubGood.copy(alpha = .06f), RoundedCornerShape(14.dp)).padding(11.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
-                            Text(condition.title, color = ClinicalHubNavy, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(friendly, color = ClinicalHubNavy, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                            if (!friendly.equals(condition.title, ignoreCase = true)) {
+                                Text(condition.title, color = ClinicalHubMuted, fontSize = 8.sp, lineHeight = 11.sp)
+                            }
                             Text(condition.code.ifBlank { "Clinical condition" }, color = ClinicalHubMuted, fontSize = 8.sp)
                         }
                         Text(
@@ -169,11 +181,12 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
                 Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("SEARCH RESULTS", color = ClinicalHubMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("BEST MATCHES", color = ClinicalHubMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                 if (results.isEmpty()) {
-                    Text("No matching condition found.", color = ClinicalHubMuted, fontSize = 10.sp)
+                    Text("No matching condition found. Try a simpler everyday name or an ICD-11 code.", color = ClinicalHubMuted, fontSize = 10.sp)
                 } else {
-                    results.forEach { condition ->
+                    results.forEach { result ->
+                        val condition = result.condition
                         val alreadyAdded = active.any { it.id == condition.id || (it.code.isNotBlank() && it.code == condition.code) }
                         Row(
                             Modifier.fillMaxWidth()
@@ -187,8 +200,15 @@ internal fun NativeClinicalHubScreen(onBack: () -> Unit, openLabs: () -> Unit) {
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Column(Modifier.weight(1f)) {
-                                Text(condition.title, color = ClinicalHubNavy, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Text("${condition.code} · ${condition.source}", color = ClinicalHubMuted, fontSize = 7.sp)
+                                Text(result.displayTitle, color = ClinicalHubNavy, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                                if (!result.displayTitle.equals(result.officialTitle, ignoreCase = true)) {
+                                    Text(result.officialTitle, color = ClinicalHubMuted, fontSize = 8.sp, lineHeight = 11.sp)
+                                }
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(condition.code, color = ClinicalHubMuted, fontSize = 7.sp)
+                                    Text("·", color = ClinicalHubMuted, fontSize = 7.sp)
+                                    Text(result.matchLabel, color = ClinicalHubBlue, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                             Text(
                                 if (alreadyAdded) "ADDED" else "+ ADD",
