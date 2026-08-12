@@ -57,7 +57,9 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
     var syntheticCount by remember { mutableStateOf(0L) }
     var syntheticDays by remember { mutableStateOf(90) }
     var syntheticBusy by remember { mutableStateOf(false) }
-    var syntheticStatus by remember { mutableStateOf("Synthetic history is isolated from genuine data by source.") }
+    var syntheticStatus by remember {
+        mutableStateOf("Synthetic history is isolated from genuine data by source.")
+    }
     var pendingExport by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf("Data Vault ready") }
     var confirmReset by remember { mutableStateOf(false) }
@@ -84,7 +86,9 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                 scope.launch {
                     runCatching {
                         withContext(Dispatchers.IO) {
-                            context.contentResolver.openOutputStream(uri, "w")?.bufferedWriter()?.use { it.write(payload) }
+                            context.contentResolver.openOutputStream(uri, "w")
+                                ?.bufferedWriter()
+                                ?.use { it.write(payload) }
                                 ?: error("Could not open selected file")
                         }
                     }.onSuccess {
@@ -107,7 +111,9 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             scope.launch {
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                        val text = context.contentResolver.openInputStream(uri)
+                            ?.bufferedReader()
+                            ?.use { it.readText() }
                             ?: error("Could not read selected backup")
                         decodeBackup(text)
                     }
@@ -127,7 +133,10 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
     }
 
     Column(
-        Modifier.fillMaxSize().background(SettingsBg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
+        Modifier.fillMaxSize()
+            .background(SettingsBg)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Settings", color = SettingsInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
@@ -149,17 +158,24 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                             pendingExport = json
                             exportLauncher.launch("ProjectSuperhuman_backup_${LocalDate.now()}.json")
                         }
-                        .onFailure { status = "Could not prepare backup: ${it.message ?: "unknown error"}" }
+                        .onFailure {
+                            status = "Could not prepare backup: ${it.message ?: "unknown error"}"
+                        }
                 }
             }
             Spacer(Modifier.height(9.dp))
-            VaultButton("Restore / import backup", "Merge a previous native backup without deleting current data", SettingsGreen) {
+            VaultButton(
+                "Restore / import backup",
+                "Merge a previous native backup without deleting current data",
+                SettingsGreen
+            ) {
                 importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
             }
             Spacer(Modifier.height(9.dp))
             VaultButton(
                 if (confirmReset) "Tap again to erase all native data" else "Reset native data",
-                if (confirmReset) "This permanently clears the shared native database" else "Two-tap protection prevents accidental deletion",
+                if (confirmReset) "This permanently clears the shared native database"
+                else "Two-tap protection prevents accidental deletion",
                 SettingsRed
             ) {
                 if (!confirmReset) {
@@ -191,7 +207,8 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             Spacer(Modifier.height(7.dp))
             Text(
                 "Build correlated fake history for dashboards, trends, Data Vault aggregation and the Interpretation Engine. " +
-                    "Generation uses the normal ingestion pipeline; real user records are never overwritten or cleared.",
+                    "Nutrition uses realistic named breakfast, lunch and dinner entries with calories, macros and micronutrients. " +
+                    "Generation uses the normal ingestion pipeline; genuine user records are never overwritten or cleared.",
                 color = SettingsMuted,
                 fontSize = 9.sp,
                 lineHeight = 14.sp
@@ -199,8 +216,14 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             Text("HISTORY SPAN", color = SettingsMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(7.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                listOf(30 to "30D", 90 to "90D", 180 to "180D", 365 to "1Y").forEach { (days, label) ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf(
+                    30 to "30D",
+                    90 to "90D",
+                    180 to "180D",
+                    365 to "1Y",
+                    1825 to "5Y"
+                ).forEach { (days, label) ->
                     SyntheticSpanButton(
                         label = label,
                         selected = syntheticDays == days,
@@ -213,10 +236,19 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                     }
                 }
             }
+            if (syntheticDays == 1825) {
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "5Y creates a large longitudinal test set and may take longer on slower devices.",
+                    color = SettingsMuted,
+                    fontSize = 8.sp,
+                    lineHeight = 12.sp
+                )
+            }
             Spacer(Modifier.height(10.dp))
             VaultButton(
                 if (syntheticBusy) "Generating synthetic history…" else "Generate $syntheticDays days",
-                "Sleep, nutrition, body, exercise, mindfulness, hydration, clinical and wearable-style metrics",
+                "Sleep, real-looking meals + nutrients, body, exercise, mindfulness, hydration, clinical and wearable-style metrics",
                 SettingsBlue
             ) {
                 if (!syntheticBusy) {
@@ -244,7 +276,8 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             Spacer(Modifier.height(9.dp))
             VaultButton(
                 if (confirmSyntheticClear) "Tap again to clear synthetic data" else "Clear synthetic test data",
-                if (confirmSyntheticClear) "Only Project Superhuman synthetic-source records will be removed" else "Genuine user data and other imported sources are preserved",
+                if (confirmSyntheticClear) "Only Project Superhuman synthetic-source records will be removed"
+                else "Genuine user data and other imported sources are preserved",
                 SettingsRed
             ) {
                 if (syntheticBusy) return@VaultButton
@@ -271,10 +304,22 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             Text(syntheticStatus, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
         }
 
-        SettingsSection("Health integrations", "Health Connect sleep is native. Device-specific integrations can be added behind the same repository.")
-        SettingsSection("Permissions", "Camera, barcode/OCR, Bluetooth and health permissions are requested only when the related feature needs them.")
-        SettingsSection("Scientific engine", "Health scores and statuses use stored native metrics and explicit reference ranges; missing clinical ranges are not invented.")
-        SettingsSection("11.0 compatibility", "Core workflows are native-first. Selected advanced legacy tools remain available from their module as a safety fallback during the 11.0 validation cycle.")
+        SettingsSection(
+            "Health integrations",
+            "Health Connect sleep is native. Device-specific integrations can be added behind the same repository."
+        )
+        SettingsSection(
+            "Permissions",
+            "Camera, barcode/OCR, Bluetooth and health permissions are requested only when the related feature needs them."
+        )
+        SettingsSection(
+            "Scientific engine",
+            "Health scores and statuses use stored native metrics and explicit reference ranges; missing clinical ranges are not invented."
+        )
+        SettingsSection(
+            "11.0 compatibility",
+            "Core workflows are native-first. Selected advanced legacy tools remain available from their module as a safety fallback during the 11.0 validation cycle."
+        )
         Spacer(Modifier.height(18.dp))
     }
 }
@@ -282,7 +327,10 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
 @Composable
 private fun VaultButton(title: String, subtitle: String, accent: Color, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(14.dp),
+        Modifier.fillMaxWidth()
+            .background(accent, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
@@ -346,7 +394,9 @@ private fun encodeBackup(values: List<HealthValue>): String {
 
 private fun decodeBackup(raw: String): List<HealthValue> {
     val root = JSONObject(raw)
-    require(root.optString("format") == "project-superhuman-native-backup") { "Not a Project Superhuman native backup" }
+    require(root.optString("format") == "project-superhuman-native-backup") {
+        "Not a Project Superhuman native backup"
+    }
     require(root.optInt("schemaVersion", 0) == 1) { "Unsupported backup version" }
     val items = root.getJSONArray("values")
     val out = ArrayList<HealthValue>(items.length())
