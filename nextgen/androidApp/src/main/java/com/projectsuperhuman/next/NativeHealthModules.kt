@@ -17,6 +17,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -33,9 +37,20 @@ private val ModuleMuted = Color(0xFF64748B)
 private val ModuleGood = Color(0xFF168A78)
 private val ModuleBad = Color(0xFFCA3A3A)
 
+enum class ClinicalHubPage { CONDITIONS, LABS }
+
 @Composable
 internal fun NativeClinicalPage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    NativeClinicalParityScreen(onBack, openLegacy)
+    var page by remember { mutableStateOf(ClinicalHubPage.CONDITIONS) }
+    when (page) {
+        ClinicalHubPage.CONDITIONS -> NativeClinicalConditionsScreen(onBack = onBack) {
+            page = ClinicalHubPage.LABS
+        }
+        ClinicalHubPage.LABS -> NativeClinicalParityScreen(
+            onBack = { page = ClinicalHubPage.CONDITIONS },
+            openLegacy = openLegacy
+        )
+    }
 }
 
 @Composable
