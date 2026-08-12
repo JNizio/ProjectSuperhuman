@@ -29,7 +29,32 @@ internal object ClinicalConditionHierarchy {
         "disease", "disorder", "condition", "syndrome"
     )
 
+    // Common synonyms resolve to one stable broad family ID so, for example, searching
+    // "hypertension" today and "high blood pressure" later does not create two general records.
+    // Everything not listed here still gets the same generic broad-option behaviour from its query.
     private val preferredLabels = mapOf(
+        "hypertension" to "High blood pressure (Hypertension)",
+        "high blood pressure" to "High blood pressure (Hypertension)",
+        "high bp" to "High blood pressure (Hypertension)",
+        "raised blood pressure" to "High blood pressure (Hypertension)",
+        "arthritis" to "Arthritis",
+        "anemia" to "Anaemia",
+        "anaemia" to "Anaemia",
+        "diabetes" to "Diabetes",
+        "heart disease" to "Heart disease",
+        "cardiac disease" to "Heart disease",
+        "kidney disease" to "Kidney disease",
+        "renal disease" to "Kidney disease",
+        "thyroid disease" to "Thyroid disease",
+        "cancer" to "Cancer",
+        "anxiety" to "Anxiety",
+        "depression" to "Depression",
+        "asthma" to "Asthma",
+        "epilepsy" to "Epilepsy",
+        "migraine" to "Migraine",
+        "acid reflux" to "Acid reflux",
+        "reflux" to "Acid reflux",
+        "heartburn" to "Acid reflux",
         "ibs" to "Irritable bowel syndrome (IBS)",
         "gerd" to "Acid reflux (GERD)",
         "gord" to "Acid reflux (GORD)",
@@ -37,12 +62,11 @@ internal object ClinicalConditionHierarchy {
         "adhd" to "ADHD",
         "ckd" to "Chronic kidney disease (CKD)",
         "afib" to "Atrial fibrillation (AFib)",
+        "a fib" to "Atrial fibrillation (AFib)",
         "pcos" to "Polycystic ovary syndrome (PCOS)",
         "ms" to "Multiple sclerosis (MS)",
         "t1d" to "Type 1 diabetes",
-        "t2d" to "Type 2 diabetes",
-        "high bp" to "High blood pressure",
-        "raised blood pressure" to "High blood pressure"
+        "t2d" to "Type 2 diabetes"
     )
 
     fun search(
