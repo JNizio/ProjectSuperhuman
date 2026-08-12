@@ -209,26 +209,80 @@ private fun TrainingStat(value: String, label: String, modifier: Modifier = Modi
 
 @Composable
 internal fun LegacyBodyCard(snapshot: NativeHomeSnapshot, modifier: Modifier, onClick: () -> Unit) {
-    Row(
-        modifier.height(104.dp)
-            .clip(RoundedCornerShape(23.dp))
-            .background(Brush.horizontalGradient(listOf(Color(0xFFFBFCFF), Color(0xFFF4F1FC))))
-            .border(1.dp, Color(0xFFE5E0F1), RoundedCornerShape(23.dp))
+    val hasWeight = snapshot.bodyWeightKg != null
+    val change = snapshot.bodyWeightChange30d
+    Box(
+        modifier.height(118.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Brush.horizontalGradient(listOf(Color(0xFFFBFCFF), Color(0xFFF3F0FB))))
+            .border(1.dp, Color(0xFFE1DCEC), RoundedCornerShape(24.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(Color(0xFF7260BF).copy(alpha = .045f), radius = size.height * .78f, center = Offset(size.width * .92f, size.height * .42f))
+        }
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 17.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.width(165.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("BODY", color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                    Box(Modifier.width(27.dp).height(27.dp).background(Color.White.copy(alpha = .76f), CircleShape), contentAlignment = Alignment.Center) {
+                        Text("→", color = Color(0xFF8F83B5), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    if (hasWeight) "%.1f kg".format(snapshot.bodyWeightKg) else "Set up body",
+                    color = Color(0xFF443A79),
+                    fontSize = if (hasWeight) 23.sp else 18.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    when {
+                        change != null -> "${if (change > 0) "+" else ""}${"%.1f".format(change)} kg · 30 days"
+                        hasWeight -> "Tracking started · build your trend"
+                        else -> "Weight · body fat · measurements"
+                    },
+                    color = HomeMuted,
+                    fontSize = 8.sp
+                )
+                Spacer(Modifier.height(7.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    BodyMiniChip("WEIGHT", if (hasWeight) "LIVE" else "—")
+                    BodyMiniChip("TREND", if (snapshot.bodyWeightTrend.size >= 2) "30D" else "—")
+                }
+            }
+            Spacer(Modifier.width(13.dp))
+            Column(Modifier.weight(1f)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (snapshot.bodyWeightTrend.size >= 2) "30 DAY TREND" else "BODY PROGRESS", color = Color(0xFF9A90B4), fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                    if (!hasWeight) Text("ADD DATA", color = HomePurple, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                }
+                Spacer(Modifier.height(5.dp))
+                Box(Modifier.fillMaxWidth().height(44.dp)) { BodySparkline(snapshot.bodyWeightTrend) }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    if (snapshot.bodyWeightTrend.size >= 2) "Recent weight direction" else if (hasWeight) "Add another measurement to unlock the curve" else "Tap to add your first measurement",
+                    color = HomeMuted,
+                    fontSize = 7.sp,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BodyMiniChip(label: String, value: String) {
+    Row(
+        Modifier.background(Color.White.copy(alpha = .82f), RoundedCornerShape(9.dp)).padding(horizontal = 7.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.width(150.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("BODY", color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("→", color = Color(0xFF9AAEBB), fontSize = 18.sp)
-            }
-            Text(snapshot.bodyWeightKg?.let { "%.1f kg".format(it) } ?: "—", color = Color(0xFF443A79), fontSize = 22.sp, fontWeight = FontWeight.Black)
-            val change = snapshot.bodyWeightChange30d
-            Text(change?.let { "${if (it > 0) "+" else ""}${"%.1f".format(it)} kg · 30d" } ?: "Progress & measurements", color = HomeMuted, fontSize = 8.sp)
-        }
-        Spacer(Modifier.width(14.dp))
-        Box(Modifier.weight(1f)) { BodySparkline(snapshot.bodyWeightTrend) }
+        Text(label, color = Color(0xFF9A90B4), fontSize = 6.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.width(4.dp))
+        Text(value, color = Color(0xFF594B86), fontSize = 6.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -292,7 +346,12 @@ private fun LegacyBreathworkCard(modifier: Modifier, onClick: () -> Unit) {
 @Composable
 private fun BodySparkline(values: List<Double>) {
     Canvas(Modifier.fillMaxWidth().height(42.dp)) {
-        if (values.size < 2) { drawLine(Color(0xFFD7D0F0), Offset(0f, size.height * .65f), Offset(size.width, size.height * .65f), strokeWidth = 3f); return@Canvas }
+        if (values.size < 2) {
+            val y = size.height * .62f
+            drawLine(Color(0xFFD9D1EC), Offset(0f, y), Offset(size.width, y), strokeWidth = 3f)
+            drawCircle(Color(0xFFB9ABD8), 5f, Offset(size.width * .12f, y))
+            return@Canvas
+        }
         val min = values.minOrNull() ?: return@Canvas
         val max = values.maxOrNull() ?: return@Canvas
         val range = (max - min).coerceAtLeast(.2)
