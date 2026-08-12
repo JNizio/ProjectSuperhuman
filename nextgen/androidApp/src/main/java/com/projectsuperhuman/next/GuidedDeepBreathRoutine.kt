@@ -57,20 +57,40 @@ private enum class GuidedBreathPhase {
     READY, BREATHING, RETENTION, RECOVERY_INHALE, RECOVERY_HOLD, COMPLETE
 }
 
-private fun createBreathworkPlayer(context: Context): MediaPlayer? = runCatching {
-    val cacheFile = java.io.File(context.cacheDir, "superhuman_breathwork_soundtrack.mp3")
-    if (!cacheFile.exists() || cacheFile.length() == 0L) {
-        context.assets.open("breathwork_soundtrack.mp3").use { input ->
-            cacheFile.outputStream().use { output -> input.copyTo(output) }
+private fun createBreathworkPlayer(context: Context): MediaPlayer? {
+    // Prefer playing the bundled MP3 directly from the APK. MP3 assets are normally
+    // stored uncompressed by Android, which lets MediaPlayer use the asset descriptor
+    // without a 19 MB synchronous copy on every fresh install.
+    runCatching {
+        context.assets.openFd("breathwork_soundtrack.mp3").use { afd ->
+            return MediaPlayer().apply {
+                setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+                isLooping = true
+                setVolume(0.42f, 0.42f)
+                prepare()
+            }
         }
     }
-    MediaPlayer().apply {
-        setDataSource(cacheFile.absolutePath)
-        isLooping = true
-        setVolume(0.42f, 0.42f)
-        prepare()
-    }
-}.getOrNull()
+
+    // Fallback for packaging variants where openFd cannot address a compressed asset.
+    // Always refresh a suspicious/old cache so installs made while the repo contained
+    // the former empty placeholder cannot permanently poison soundtrack playback.
+    return runCatching {
+        val cacheFile = java.io.File(context.cacheDir, "superhuman_breathwork_soundtrack_v2.mp3")
+        if (!cacheFile.exists() || cacheFile.length() < 1_000_000L) {
+            context.assets.open("breathwork_soundtrack.mp3").use { input ->
+                cacheFile.outputStream().use { output -> input.copyTo(output) }
+            }
+        }
+        check(cacheFile.length() > 1_000_000L) { "Breathwork soundtrack asset is missing or incomplete" }
+        MediaPlayer().apply {
+            setDataSource(cacheFile.absolutePath)
+            isLooping = true
+            setVolume(0.42f, 0.42f)
+            prepare()
+        }
+    }.getOrNull()
+}
 
 @Composable
 internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
@@ -295,7 +315,7 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
                 )
                 if (soundtrack == null) {
                     Spacer(Modifier.height(8.dp))
-                    Text("Soundtrack asset not installed", color = Color.White.copy(alpha = .50f), fontSize = 7.sp)
+                    Text("Soundtrack unavailable in this build", color = Color.White.copy(alpha = .50f), fontSize = 7.sp)
                 }
             }
         }
