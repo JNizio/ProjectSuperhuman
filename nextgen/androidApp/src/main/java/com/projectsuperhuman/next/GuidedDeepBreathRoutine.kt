@@ -1,5 +1,7 @@
 package com.projectsuperhuman.next
 
+import android.content.Context
+import android.media.MediaPlayer
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -21,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -33,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -41,11 +45,9 @@ import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.math.roundToInt
 
 private val BreathNavy = Color(0xFF082D66)
 private val BreathBlue = Color(0xFF0D6CB4)
-private val BreathCyan = Color(0xFF21A8C5)
 private val BreathMint = Color(0xFF55CDB8)
 private val BreathInk = Color(0xFF0B1F35)
 private val BreathMuted = Color(0xFF64748B)
@@ -55,9 +57,27 @@ private enum class GuidedBreathPhase {
     READY, BREATHING, RETENTION, RECOVERY_INHALE, RECOVERY_HOLD, COMPLETE
 }
 
+private fun createBreathworkPlayer(context: Context): MediaPlayer? = runCatching {
+    val cacheFile = java.io.File(context.cacheDir, "superhuman_breathwork_soundtrack.mp3")
+    if (!cacheFile.exists() || cacheFile.length() == 0L) {
+        context.assets.open("breathwork_soundtrack.mp3").use { input ->
+            cacheFile.outputStream().use { output -> input.copyTo(output) }
+        }
+    }
+    MediaPlayer().apply {
+        setDataSource(cacheFile.absolutePath)
+        isLooping = true
+        setVolume(0.42f, 0.42f)
+        prepare()
+    }
+}.getOrNull()
+
 @Composable
 internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val soundtrack = remember { createBreathworkPlayer(context) }
+
     var phase by remember { mutableStateOf(GuidedBreathPhase.READY) }
     var round by remember { mutableIntStateOf(1) }
     var breath by remember { mutableIntStateOf(1) }
@@ -68,6 +88,21 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
     var startedAt by remember { mutableLongStateOf(0L) }
     var saved by remember { mutableStateOf(false) }
 
+    DisposableEffect(soundtrack) {
+        onDispose { runCatching { soundtrack?.release() } }
+    }
+
+    LaunchedEffect(running, phase) {
+        val active = running && phase != GuidedBreathPhase.READY && phase != GuidedBreathPhase.COMPLETE
+        runCatching {
+            if (active) {
+                if (soundtrack?.isPlaying != true) soundtrack?.start()
+            } else if (soundtrack?.isPlaying == true) {
+                soundtrack.pause()
+            }
+        }
+    }
+
     fun reset() {
         phase = GuidedBreathPhase.READY
         round = 1
@@ -77,6 +112,7 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
         running = false
         startedAt = 0L
         saved = false
+        runCatching { soundtrack?.pause(); soundtrack?.seekTo(0) }
     }
 
     fun start() {
@@ -89,11 +125,12 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
         startedAt = System.currentTimeMillis()
         running = true
         saved = false
+        runCatching { soundtrack?.seekTo(0); soundtrack?.start() }
     }
 
     fun nextAfterRecovery() {
-        if (round == 1) {
-            round = 2
+        if (round < 3) {
+            round += 1
             breath = 1
             inhale = true
             secondsLeft = 0
@@ -157,11 +194,13 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
                             "guided-deep-breath",
                             mapOf(
                                 "mode" to "GUIDED_DEEP_BREATH",
-                                "protocol" to "2-round custom deep-breath retention",
+                                "protocol" to "3-round custom deep-breath retention",
                                 "breathsPerRound" to "30",
                                 "round1RetentionSec" to "90",
                                 "round2RetentionSec" to "120",
-                                "recoveryHoldSec" to "20"
+                                "round3RetentionSec" to "120",
+                                "recoveryHoldSec" to "20",
+                                "soundtrack" to if (soundtrack != null) "bundled" else "unavailable"
                             )
                         )
                     )
@@ -171,11 +210,11 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
     }
 
     val bubbleScaleTarget = when (phase) {
-        GuidedBreathPhase.BREATHING -> if (inhale) 1.0f else 0.58f
+        GuidedBreathPhase.BREATHING -> if (inhale) 1.0f else 0.60f
         GuidedBreathPhase.RECOVERY_INHALE -> 1.0f
-        GuidedBreathPhase.RETENTION, GuidedBreathPhase.RECOVERY_HOLD -> 0.72f
-        GuidedBreathPhase.COMPLETE -> 0.78f
-        GuidedBreathPhase.READY -> 0.72f
+        GuidedBreathPhase.RETENTION, GuidedBreathPhase.RECOVERY_HOLD -> 0.76f
+        GuidedBreathPhase.COMPLETE -> 0.82f
+        GuidedBreathPhase.READY -> 0.76f
     }
     val bubbleScale by animateFloatAsState(
         targetValue = bubbleScaleTarget,
@@ -194,7 +233,7 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("Guided breathwork", color = BreathInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                Text("2 rounds · 30 breaths · timed retention", color = BreathMuted, fontSize = 10.sp)
+                Text("3 rounds · 30 breaths · timed retention", color = BreathMuted, fontSize = 10.sp)
             }
         }
 
@@ -202,7 +241,7 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
             Modifier.fillMaxWidth().background(
                 Brush.linearGradient(listOf(Color(0xFF072B5D), Color(0xFF0C6591), Color(0xFF20A8B7))),
                 RoundedCornerShape(28.dp)
-            ).padding(vertical = 26.dp, horizontal = 18.dp),
+            ).padding(vertical = 28.dp, horizontal = 14.dp),
             contentAlignment = Alignment.Center
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -212,21 +251,22 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
                         GuidedBreathPhase.BREATHING -> "ROUND $round · BREATH $breath / 30"
                         GuidedBreathPhase.RETENTION -> "ROUND $round · RETENTION"
                         GuidedBreathPhase.RECOVERY_INHALE -> "RECOVERY BREATH"
-                        GuidedBreathPhase.RECOVERY_HOLD -> "HOLD THE RECOVERY BREATH"
+                        GuidedBreathPhase.RECOVERY_HOLD -> "RECOVERY HOLD"
                         GuidedBreathPhase.COMPLETE -> "ROUTINE COMPLETE"
                     },
-                    color = Color.White.copy(alpha = .72f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp
+                    color = Color.White.copy(alpha = .72f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp,
+                    textAlign = TextAlign.Center
                 )
-                Spacer(Modifier.height(20.dp))
-                Box(Modifier.size(210.dp), contentAlignment = Alignment.Center) {
+                Spacer(Modifier.height(18.dp))
+                Box(Modifier.size(294.dp), contentAlignment = Alignment.Center) {
                     Box(
-                        Modifier.size((190f * bubbleScale).dp)
+                        Modifier.size((272f * bubbleScale).dp)
                             .background(
                                 Brush.radialGradient(listOf(Color(0xFF8AF1DD), Color(0xFF44CDB9), Color(0xFF1684A8))),
                                 CircleShape
                             )
                     )
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(Modifier.width(205.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         val primary = when (phase) {
                             GuidedBreathPhase.READY -> "Begin"
                             GuidedBreathPhase.BREATHING -> if (inhale) "Breathe in" else "Let go"
@@ -234,22 +274,29 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
                             GuidedBreathPhase.RECOVERY_INHALE -> "Deep breath in"
                             GuidedBreathPhase.COMPLETE -> "Done"
                         }
-                        Text(primary, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
-                        if (phase == GuidedBreathPhase.BREATHING) Text(if (inhale) "deep and full" else "relaxed exhale", color = Color.White.copy(alpha = .75f), fontSize = 9.sp)
+                        Text(primary, color = Color.White, fontSize = 22.sp, lineHeight = 25.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+                        if (phase == GuidedBreathPhase.BREATHING) {
+                            Text(if (inhale) "deep and full" else "relaxed exhale", color = Color.White.copy(alpha = .78f), fontSize = 10.sp, textAlign = TextAlign.Center)
+                        }
                     }
                 }
-                Spacer(Modifier.height(13.dp))
+                Spacer(Modifier.height(12.dp))
                 Text(
                     when (phase) {
                         GuidedBreathPhase.READY -> "The bubble expands on the inhale and contracts on the relaxed exhale."
                         GuidedBreathPhase.BREATHING -> "Follow the bubble · no forced exhale"
-                        GuidedBreathPhase.RETENTION -> if (round == 1) "Target 1:30 · stop early whenever you need air" else "Target 2:00 · stop early whenever you need air"
+                        GuidedBreathPhase.RETENTION -> if (round == 1) "Target 1:30 · breathe sooner whenever you need air" else "Target 2:00 · breathe sooner whenever you need air"
                         GuidedBreathPhase.RECOVERY_INHALE -> "Take one full recovery breath"
                         GuidedBreathPhase.RECOVERY_HOLD -> "20 second recovery hold"
-                        GuidedBreathPhase.COMPLETE -> "Two rounds saved to your mindfulness history"
+                        GuidedBreathPhase.COMPLETE -> "Three rounds saved to your mindfulness history"
                     },
-                    color = Color.White.copy(alpha = .78f), fontSize = 9.sp, textAlign = TextAlign.Center
+                    color = Color.White.copy(alpha = .78f), fontSize = 9.sp, textAlign = TextAlign.Center,
+                    modifier = Modifier.width(270.dp)
                 )
+                if (soundtrack == null) {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Soundtrack asset not installed", color = Color.White.copy(alpha = .50f), fontSize = 7.sp)
+                }
             }
         }
 
@@ -259,6 +306,7 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 RoutineLine("ROUND 1", "30 deep breaths → 1:30 retention → 1 deep breath → 0:20 hold")
                 RoutineLine("ROUND 2", "30 deep breaths → 2:00 retention → 1 deep breath → 0:20 hold")
+                RoutineLine("ROUND 3", "30 deep breaths → 2:00 retention → 1 deep breath → 0:20 hold")
                 Spacer(Modifier.height(12.dp))
                 Box(
                     Modifier.fillMaxWidth().background(if (safePositionConfirmed) Color(0xFFE5F7F2) else Color(0xFFFFF4E8), RoundedCornerShape(15.dp))
@@ -276,9 +324,7 @@ internal fun GuidedDeepBreathRoutine(onBack: () -> Unit) {
 
         when {
             phase == GuidedBreathPhase.READY -> BreathAction("START ROUTINE", safePositionConfirmed) { start() }
-            phase == GuidedBreathPhase.COMPLETE -> {
-                BreathAction("DO ANOTHER SESSION", true) { reset() }
-            }
+            phase == GuidedBreathPhase.COMPLETE -> BreathAction("DO ANOTHER SESSION", true) { reset() }
             else -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
                     BreathSmallAction(if (running) "PAUSE" else "RESUME", Modifier.weight(1f)) { running = !running }
