@@ -139,6 +139,9 @@ internal fun UnifiedMiniMetricPage(metric: HomeMiniMetric, onBack: () -> Unit) {
         while (true) {
             delay(10_000L)
             MiniMetricsHealthConnect.syncCurrent(context)
+            if (metric == HomeMiniMetric.CALORIES) {
+                CalorieAccuracyEngine.syncCurrent(context)
+            }
             refreshToken = System.currentTimeMillis().toString()
             refresh()
         }
@@ -259,7 +262,7 @@ private fun CaloriesUnifiedContent(data: UnifiedMetricData) {
         label = "ENERGY TODAY",
         value = total?.roundToInt()?.toString() ?: "—",
         unit = if (total != null) "kcal" else "",
-        caption = if (total != null) "Total energy burned so far from Samsung Health" else "Waiting for Samsung Health total calorie burn",
+        caption = if (total != null) "Samsung Health burn with Health Connect coverage repair when needed" else "Waiting for Samsung Health total calorie burn",
         accent = UnifiedCalories
     )
 
@@ -294,7 +297,7 @@ private fun CaloriesUnifiedContent(data: UnifiedMetricData) {
         }
         if (total != null && active == null) {
             Spacer(Modifier.height(10.dp))
-            Text("Samsung has shared total burn but not an active-calorie value today. Total burn is still valid; the resting/active split stays blank rather than being guessed.", color = UnifiedMuted, fontSize = 8.sp, lineHeight = 12.sp)
+            Text("Samsung has shared total burn but not enough component data for a reliable active/resting split. Total burn remains usable without inventing the missing split.", color = UnifiedMuted, fontSize = 8.sp, lineHeight = 12.sp)
         }
     }
 
