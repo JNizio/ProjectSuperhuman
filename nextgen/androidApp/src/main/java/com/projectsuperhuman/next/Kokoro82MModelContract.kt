@@ -23,7 +23,7 @@ object Kokoro82MModelContract {
     const val INPUT_IDS_REPRESENTATION = "int64[1,N] phoneme-vocabulary token IDs with leading/trailing pad 0"
     const val STYLE_REPRESENTATION = "float32[1,256] selected from the voice style table by phoneme-token length"
     const val SPEED_REPRESENTATION = "float32[1]"
-    const val OUTPUT_REPRESENTATION = "first model output; mono float waveform consumed as audio[0] at 24000 Hz"
+    const val OUTPUT_REPRESENTATION = "float waveform with batch dimension; publisher writes audio[0] at 24000 Hz"
 
     val androidRuntimeAssets = listOf(
         "model.onnx",
