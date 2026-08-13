@@ -100,11 +100,48 @@ class OfflineDeterministicTrudyModelClient : TrudyModelClient {
         if(contexts.isEmpty()) return "I retrieved structured evidence, but there isn't enough bounded context here to produce a reliable personal summary."
         val nonEmpty=contexts.filter { it.currentState.isNotEmpty() || it.derivedFeatures.isNotEmpty() || it.insights.isNotEmpty() }
         if(nonEmpty.isEmpty()) return "There isn't enough stored personal data in the requested area yet to give you a reliable answer."
-        val stale=contexts.filter { it.dataQuality?.isStale==true }.map { it.domain }; val text=question.lowercase()
+        val stale=contexts.filter { it.dataQuality?.isStale==true }.map { it.domain }
+        val text=question.lowercase()
+        val relevant=if("sleep" in text) nonEmpty.filter { it.domain==HealthDomain.SLEEP }.ifEmpty { nonEmpty } else nonEmpty
+        val insights=relevant.flatMap { it.insights }.filter { it.title.isNotBlank() || it.explanation.isNotBlank() }.sortedByDescending { it.confidence ?: -1.0 }
+        val trends=relevant.flatMap { it.derivedFeatures }.filter { it.change != null && kotlin.math.abs(it.change ?: 0.0) > 0.0001 }.sortedByDescending { kotlin.math.abs(it.change ?: 0.0) }
         return buildString {
-            if("sleep" in text) { val s=nonEmpty.firstOrNull { it.domain==HealthDomain.SLEEP }; if(s==null) append("I don't have enough stored sleep evidence to assess your sleep reliably.") else append("Your sleep context has ${s.currentState.size} current metric(s), ${s.derivedFeatures.size} derived feature(s), and ${s.insights.size} current insight(s).") }
-            else append("The current structured signals to review are: ${nonEmpty.flatMap { it.insights }.take(3).joinToString { it.title }}.")
-            if(stale.isNotEmpty()) append(" Some requested data is stale: ${stale.joinToString { it.name.lowercase() }}.")
+            when {
+                insights.isNotEmpty() -> {
+                    append(when {
+                        "pay attention" in text || "attention" in text || "priority" in text -> "The clearest thing to pay attention to is "
+                        "changed" in text || "today" in text -> "The main thing that stands out is "
+                        "sleep" in text -> "The clearest sleep signal is "
+                        else -> "The clearest signal is "
+                    })
+                    insights.take(3).forEachIndexed { index, insight ->
+                        if(index > 0) append(if(index==1) " Another useful signal: " else " Also: ")
+                        val title=insight.title.trim().trimEnd('.')
+                        val explanation=insight.explanation.trim()
+                        append(title)
+                        if(explanation.isNotBlank() && !explanation.equals(insight.title,ignoreCase=true)) {
+                            append(". ").append(explanation)
+                        } else append('.')
+                        if((insight.confidence ?: 1.0) < 0.45) append(" I have low confidence in this signal so far.")
+                    }
+                }
+                trends.isNotEmpty() -> {
+                    append(if("sleep" in text) "The strongest sleep trend I can see is " else "The strongest trend I can see is ")
+                    trends.take(3).forEachIndexed { index, trend ->
+                        if(index>0) append(" Also, ")
+                        val change=trend.change ?: 0.0
+                        append(trend.metricId.replace('_',' '))
+                            .append(" is trending ")
+                            .append(if(change>0) "higher" else "lower")
+                            .append(" by about ")
+                            .append(fmt(kotlin.math.abs(change)))
+                            .append(if(trend.unit.isBlank()) "" else " ${trend.unit}")
+                    }
+                    append(". These are observed personal trends, not explanations for why they changed.")
+                }
+                else -> append("I have recorded data here, but not enough interpreted evidence yet to turn it into a useful personal insight.")
+            }
+            if(stale.isNotEmpty()) append(" Treat that cautiously because some of the latest requested data is stale.")
         }
     }
     private fun fmt(v:Double)=((v*100).toInt()/100.0).toString()
