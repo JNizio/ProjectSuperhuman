@@ -43,6 +43,7 @@ private val ExerciseGreen = Color(0xFF168A78)
 private val ExerciseBg = Color(0xFFF5F8FC)
 private val ExerciseSoft = Color(0xFFEAF4FF)
 private val ExercisePurple = Color(0xFF6559C7)
+private val ExerciseData = NativeDomainData.forDomain(HealthDomain.EXERCISE)
 
 data class NativeExercise(
     val id: String,
@@ -147,7 +148,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 
     suspend fun refresh() {
         val now = System.currentTimeMillis()
-        recent = NativeDataHub.between("exercise_set", now - 365L * 86400000L, now).sortedByDescending { it.timestampEpochMs }.take(400)
+        recent = ExerciseData.between("exercise_set", now - 365L * 86400000L, now).sortedByDescending { it.timestampEpochMs }.take(400)
     }
 
     fun writeActiveDraft() {
