@@ -15,8 +15,6 @@ import com.projectsuperhuman.next.environment.EnvironmentalCoordinates
 import com.projectsuperhuman.next.environment.EnvironmentalFetchResult
 import com.projectsuperhuman.next.environment.EnvironmentalObservation
 import com.projectsuperhuman.next.environment.OpenMeteoEnvironmentalProvider
-import com.projectsuperhuman.next.environment.coarsened
-import com.projectsuperhuman.next.environment.isValid
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 
@@ -104,6 +102,7 @@ internal class EnvironmentalBackgroundWorker(
     workerParams: WorkerParameters
 ) : CoroutineWorker(appContext, workerParams) {
     override suspend fun doWork(): Result {
+        NativeDataHub.initialize(applicationContext)
         if (EnvironmentalAutoRecorder.rememberedCoordinates(applicationContext) == null) return Result.success()
         val success = EnvironmentalAutoRecorder.recordRememberedLocation(applicationContext)
         return when {
