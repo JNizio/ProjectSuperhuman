@@ -10,8 +10,5 @@ internal fun Modifier.padding(horizontal: Dp, bottom: Dp): Modifier =
 
 @Composable
 internal fun NativeEnvironmentalPage(onBack: () -> Unit) {
-    NativeEnvironmentalPage(
-        onBack = onBack,
-        source = EnvironmentalUiRuntime.source()
-    )
+    NativeEnvironmentalRoute(onBack = onBack)
 }
