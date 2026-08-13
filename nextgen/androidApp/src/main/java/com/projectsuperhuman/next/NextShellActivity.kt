@@ -8,6 +8,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,6 +39,7 @@ import com.projectsuperhuman.m1x.HealthBridge
 private val ShellNavy = Color(0xFF123D70)
 private val ShellBg = Color(0xFFF8FBFD)
 private val ShellMuted = Color(0xFF748294)
+private val ShellTrudy = Color(0xFF1CC8C8)
 
 class NextShellActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,7 +56,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, SETTINGS, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
+    HOME, SETTINGS, TRUDY, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
 }
 
 @Composable
@@ -61,6 +64,8 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
+    val trudyState = remember { TrudyConversationState() }
+    val trudyController = remember { LocalTrudyConversationController() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
 
@@ -86,10 +91,15 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
                             }
                         },
                         topContent = {
-                            NativeTopBar(title = "PROJECT SUPERHUMAN", onSettings = { page = ShellPage.SETTINGS })
+                            NativeTopBar(
+                                title = "PROJECT SUPERHUMAN",
+                                onSettings = { page = ShellPage.SETTINGS },
+                                onTrudy = { page = ShellPage.TRUDY }
+                            )
                         }
                     )
                     ShellPage.SETTINGS -> NativeSettingsParity(noCompatibility)
+                    ShellPage.TRUDY -> NativeTrudy(trudyState, trudyController) { page = ShellPage.HOME }
                     ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.SLEEP -> UnifiedSleepPage({ page = ShellPage.HOME }, openCompatibility)
@@ -114,7 +124,12 @@ private fun SuperhumanShell(openCompatibility: () -> Unit) {
 }
 
 @Composable
-private fun NativeTopBar(title: String, onSettings: () -> Unit, modifier: Modifier = Modifier) {
+private fun NativeTopBar(
+    title: String,
+    onSettings: () -> Unit,
+    modifier: Modifier = Modifier,
+    onTrudy: (() -> Unit)? = null
+) {
     Box(modifier.fillMaxWidth().height(92.dp).padding(horizontal = 22.dp)) {
         Box(Modifier.width(54.dp).height(54.dp).align(Alignment.CenterStart), contentAlignment = Alignment.Center) {
             if (title == "PROJECT SUPERHUMAN") {
@@ -135,8 +150,19 @@ private fun NativeTopBar(title: String, onSettings: () -> Unit, modifier: Modifi
             Text(if (title == "PROJECT SUPERHUMAN") "Human performance system" else "App & data controls", color = ShellMuted, fontSize = 11.sp, maxLines = 1)
         }
 
-        Box(Modifier.superhumanTopButton(onClick = onSettings).align(Alignment.CenterEnd), contentAlignment = Alignment.Center) {
-            Text(if (title == "SETTINGS") "×" else "⚙", color = ShellNavy, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+        Row(
+            Modifier.align(Alignment.CenterEnd),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            onTrudy?.let { openTrudy ->
+                Box(Modifier.superhumanTopButton(onClick = openTrudy), contentAlignment = Alignment.Center) {
+                    Text("T", color = ShellTrudy, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                }
+            }
+            Box(Modifier.superhumanTopButton(onClick = onSettings), contentAlignment = Alignment.Center) {
+                Text(if (title == "SETTINGS") "×" else "⚙", color = ShellNavy, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
