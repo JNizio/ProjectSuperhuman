@@ -75,6 +75,7 @@ android {
         applicationId = "com.projectsuperhuman.next"
         minSdk = 26; targetSdk = 35
         versionCode = 11221; versionName = "11.2.21"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         buildConfigField("String", "TRUDY_RUNTIME_MODE", trudyRuntimeMode.get().asBuildConfigString())
         buildConfigField("String", "TRUDY_HOSTED_PROVIDER_ID", trudyHostedProviderId.get().asBuildConfigString())
@@ -109,6 +110,7 @@ tasks.named("preBuild").configure { dependsOn(syncRepDb) }
 dependencies {
     implementation(project(":shared"))
     implementation(compose.runtime); implementation(compose.foundation); implementation(compose.material3); implementation(compose.ui); implementation(compose.components.resources)
+    implementation("org.jetbrains.compose.ui:ui-tooling-preview:1.11.0")
     implementation("androidx.activity:activity-compose:1.10.1")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.health.connect:connect-client:1.1.0")
@@ -121,6 +123,9 @@ dependencies {
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("org.opencv:opencv:4.13.0")
+    debugImplementation("org.jetbrains.compose.ui:ui-tooling:1.11.0")
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4-android:1.11.2")
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.11.2")
     testImplementation(kotlin("test"))
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }
