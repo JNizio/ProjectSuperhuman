@@ -15,6 +15,8 @@ import com.projectsuperhuman.next.environment.EnvironmentalCoordinates
 import com.projectsuperhuman.next.environment.EnvironmentalFetchResult
 import com.projectsuperhuman.next.environment.EnvironmentalObservation
 import com.projectsuperhuman.next.environment.OpenMeteoEnvironmentalProvider
+import com.projectsuperhuman.next.environment.coarsened
+import com.projectsuperhuman.next.environment.isValid
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 
@@ -52,14 +54,14 @@ internal object EnvironmentalAutoRecorder {
         val repository = CachingEnvironmentalRepository(OpenMeteoEnvironmentalProvider())
         return when (val result = repository.current(coordinates, "local-area", System.currentTimeMillis())) {
             is EnvironmentalFetchResult.Success -> {
-                persistObservation(result.observation)
+                persistObservation(result.observation, rememberedPlace(context))
                 true
             }
             is EnvironmentalFetchResult.Failure -> false
         }
     }
 
-    suspend fun persistObservation(observation: EnvironmentalObservation) {
+    suspend fun persistObservation(observation: EnvironmentalObservation, placeLabel: String? = null) {
         val history = NativeDomainData.forDomain(HealthDomain.ENVIRONMENT)
         val rows = mutableListOf<HealthValue>()
         for (measurement in observation.measurements) {
@@ -68,6 +70,14 @@ internal object EnvironmentalAutoRecorder {
             val exists = history.between(measurement.metricId, bucketStart, bucketEnd)
                 .any { it.source.equals(measurement.provenance.providerId, true) }
             if (exists) continue
+            val metadata = mutableMapOf(
+                "sourceRecordId" to "env-sampled-v2|${measurement.provenance.providerId}|${measurement.metricId}|$bucketStart",
+                "environment.sampleIntervalMs" to SAMPLE_MS.toString(),
+                "environment.fetchedAtEpochMs" to observation.retrievedAtEpochMs.toString(),
+                "environment.evidenceKind" to "observation",
+                "environment.locationGranularity" to "coarse_grid"
+            )
+            placeLabel?.takeIf { it.isNotBlank() }?.let { metadata["environment.placeLabel"] = it.trim() }
             rows += HealthValue(
                 domain = HealthDomain.ENVIRONMENT,
                 metric = measurement.metricId,
@@ -75,13 +85,7 @@ internal object EnvironmentalAutoRecorder {
                 unit = measurement.unit.symbol,
                 timestampEpochMs = measurement.measurementTimeEpochMs,
                 source = measurement.provenance.providerId,
-                metadata = mapOf(
-                    "sourceRecordId" to "env-sampled-v2|${measurement.provenance.providerId}|${measurement.metricId}|$bucketStart",
-                    "environment.sampleIntervalMs" to SAMPLE_MS.toString(),
-                    "environment.fetchedAtEpochMs" to observation.retrievedAtEpochMs.toString(),
-                    "environment.evidenceKind" to "observation",
-                    "environment.locationGranularity" to "coarse_grid"
-                )
+                metadata = metadata
             )
         }
         if (rows.isEmpty()) return
