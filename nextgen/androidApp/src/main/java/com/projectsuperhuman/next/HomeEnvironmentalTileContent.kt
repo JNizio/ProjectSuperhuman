@@ -3,11 +3,14 @@ package com.projectsuperhuman.next
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -21,66 +24,148 @@ import androidx.compose.ui.unit.sp
 
 private val EnvHomeNavy = Color(0xFF123D70)
 private val EnvHomeInk = Color(0xFF0B1F35)
+private val EnvHomeBlue = Color(0xFF0D6CB4)
+private val EnvHomeTeal = Color(0xFF168A78)
 private val EnvHomeMuted = Color(0xFF748294)
-private val EnvHomeBorder = Color(0xFFE1E9EF)
+private val EnvHomeBorder = Color(0xFFDCE8F0)
 
 @Composable
 internal fun EnvironmentalTileData(conditions: EnvironmentalConditionsUi) {
     val headline = conditions.headlineMetric()
     val feelsLike = conditions.metric(EnvironmentalMetricKind.FEELS_LIKE)
-    val supporting = conditions.homeSupportingMetrics()
+    val supporting = listOf(
+        EnvironmentalMetricKind.HUMIDITY,
+        EnvironmentalMetricKind.WIND,
+        EnvironmentalMetricKind.AIR_QUALITY,
+        EnvironmentalMetricKind.UV,
+        EnvironmentalMetricKind.PRECIPITATION
+    ).mapNotNull(conditions::metric).take(3)
 
-    Column {
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(
-                headline?.displayValue() ?: conditions.weatherLabel.orEmpty(),
-                color = EnvHomeNavy,
-                fontSize = if (headline == null) 21.sp else 29.sp,
-                lineHeight = 30.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 1
-            )
-            if (headline != null && !conditions.weatherLabel.isNullOrBlank()) {
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    conditions.weatherLabel.orEmpty(),
-                    color = EnvHomeInk,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 3.dp),
-                    maxLines = 1
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.fillMaxWidth(.72f)) {
+                conditions.locationLabel?.takeIf { it.isNotBlank() }?.let { place ->
+                    Text(
+                        place.uppercase(),
+                        color = EnvHomeTeal,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = .75.sp,
+                        maxLines = 1
+                    )
+                    Spacer(Modifier.height(3.dp))
+                }
+
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        headline?.displayValue() ?: "—",
+                        color = EnvHomeNavy,
+                        fontSize = 33.sp,
+                        lineHeight = 34.sp,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1
+                    )
+                    conditions.weatherLabel?.takeIf { it.isNotBlank() }?.let { label ->
+                        Spacer(Modifier.width(9.dp))
+                        Text(
+                            label,
+                            color = EnvHomeInk,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 4.dp),
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                val secondary = listOfNotNull(
+                    feelsLike?.let { "Feels ${it.displayValue()}" },
+                    conditions.freshnessLabel?.takeIf { it.isNotBlank() }
                 )
+                if (secondary.isNotEmpty()) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(
+                        secondary.joinToString("  •  "),
+                        color = EnvHomeMuted,
+                        fontSize = 8.5.sp,
+                        maxLines = 1
+                    )
+                }
             }
-        }
 
-        val secondaryLine = when {
-            feelsLike != null -> "Feels like ${feelsLike.displayValue()}"
-            !conditions.locationLabel.isNullOrBlank() -> conditions.locationLabel
-            !conditions.freshnessLabel.isNullOrBlank() -> conditions.freshnessLabel
-            else -> null
-        }
-        secondaryLine?.let {
-            Spacer(Modifier.height(3.dp))
-            Text(it, color = EnvHomeMuted, fontSize = 9.sp, lineHeight = 11.sp, maxLines = 1)
+            Box(
+                Modifier.size(58.dp)
+                    .background(Color.White.copy(alpha = .86f), RoundedCornerShape(18.dp))
+                    .border(1.dp, Color.White, RoundedCornerShape(18.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(environmentHomeGlyph(conditions.weatherLabel), fontSize = 28.sp)
+            }
         }
 
         if (supporting.isNotEmpty()) {
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                supporting.forEach { metric ->
-                    Row(
-                        Modifier.background(Color.White.copy(alpha = .78f), RoundedCornerShape(11.dp))
-                            .border(1.dp, EnvHomeBorder.copy(alpha = .8f), RoundedCornerShape(11.dp))
-                            .padding(horizontal = 8.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(metric.label, color = EnvHomeMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.width(5.dp))
-                        Text(metric.displayValue(), color = EnvHomeNavy, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                    }
-                }
+            Spacer(Modifier.height(11.dp))
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                supporting.forEach { metric -> EnvironmentalHomeMetricChip(metric) }
             }
         }
+    }
+}
+
+@Composable
+private fun EnvironmentalHomeMetricChip(metric: EnvironmentalMetricUi) {
+    Column(
+        Modifier.width(88.dp)
+            .background(Color.White.copy(alpha = .88f), RoundedCornerShape(13.dp))
+            .border(1.dp, EnvHomeBorder.copy(alpha = .8f), RoundedCornerShape(13.dp))
+            .padding(horizontal = 9.dp, vertical = 7.dp)
+    ) {
+        Text(
+            compactEnvironmentLabel(metric),
+            color = EnvHomeMuted,
+            fontSize = 6.8.sp,
+            fontWeight = FontWeight.Black,
+            maxLines = 1
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            metric.displayValue(),
+            color = EnvHomeNavy,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Black,
+            maxLines = 1
+        )
+    }
+}
+
+private fun compactEnvironmentLabel(metric: EnvironmentalMetricUi): String = when (metric.kind) {
+    EnvironmentalMetricKind.HUMIDITY -> "HUMIDITY"
+    EnvironmentalMetricKind.WIND -> "WIND"
+    EnvironmentalMetricKind.AIR_QUALITY -> "AIR QUALITY"
+    EnvironmentalMetricKind.UV -> "UV INDEX"
+    EnvironmentalMetricKind.PRECIPITATION -> "RAIN"
+    else -> metric.label.uppercase()
+}
+
+private fun environmentHomeGlyph(label: String?): String {
+    val text = label.orEmpty().lowercase()
+    return when {
+        "thunder" in text -> "⛈"
+        "snow" in text -> "❄"
+        "rain" in text -> "🌧"
+        "drizzle" in text -> "🌦"
+        "fog" in text || "mist" in text -> "🌫"
+        "overcast" in text -> "☁"
+        "cloud" in text -> "⛅"
+        "clear" in text || "sun" in text -> "☀"
+        else -> "◌"
     }
 }
 
