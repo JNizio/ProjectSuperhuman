@@ -5,6 +5,25 @@ enum class TrudyVoiceMode { OFF, KOKORO_LOCAL }
 
 enum class TrudyVoiceRuntimeState { NOT_INSTALLED, INSTALLING, READY, LOADING, SPEAKING, ERROR }
 
+/** Compatibility overload used by the runtime installer; UI keeps the lean progress DTO. */
+fun TrudyVoiceInstallProgress(downloadedBytes: Long, totalBytes: Long?): TrudyVoiceInstallProgress {
+    val fraction = totalBytes?.takeIf { it > 0L }
+        ?.let { (downloadedBytes.toDouble() / it.toDouble()).coerceIn(0.0, 1.0).toFloat() }
+    return TrudyVoiceInstallProgress(
+        fraction = fraction,
+        downloadedBytes = downloadedBytes,
+        totalBytes = totalBytes
+    )
+}
+
+/** Compatibility overload used by the model store; Compose only needs id + label. */
+fun TrudyVoiceOption(
+    id: String,
+    displayName: String,
+    languageTag: String,
+    installed: Boolean
+): TrudyVoiceOption = TrudyVoiceOption(id = id, label = displayName)
+
 /**
  * Canonical model/runtime status. UI-facing progress/voice option DTOs are shared package contracts
  * and intentionally contain no inference implementation details.
