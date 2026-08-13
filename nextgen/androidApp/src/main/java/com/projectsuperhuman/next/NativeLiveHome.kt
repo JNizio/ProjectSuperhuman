@@ -216,9 +216,6 @@ internal fun NativeLiveHome(
         }
     }
 
-    // While a tile is held near an edge, move the scroll container underneath it. The amount
-    // consumed by the scroll is added back to the dragged tile's translation so the exact grab
-    // point stays under the finger rather than drifting as the page moves.
     LaunchedEffect(draggingTile, settling) {
         while (draggingTile != null && !settling) {
             delay(16)
@@ -264,7 +261,6 @@ internal fun NativeLiveHome(
             Modifier.fillMaxWidth().padding(horizontal = 17.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Lightweight fixed glance area. Core modules below remain reorderable.
             HomeDateStrip()
             HomeMiniMetricsGrid(openMiniMetric)
 
@@ -375,7 +371,6 @@ private fun ReorderableHomeTile(
             }
             .zIndex(if (isDragging) 20f else 0f)
             .graphicsLayer {
-                // During a drag this is the raw finger delta plus any compensating auto-scroll.
                 translationY = if (isDragging) dragOffsetY else animatedNeighbourOffset
                 scaleX = animatedScale
                 scaleY = animatedScale
@@ -411,7 +406,6 @@ private fun loadHomeTileOrder(context: Context): List<HomeTile> {
         .mapNotNull { key -> HomeTile.entries.firstOrNull { it.storageKey == key.trim() } }
         .distinct()
 
-    // If a future release adds a tile, preserve the user's order and append the new tile safely.
     return (parsed + defaultHomeTileOrder.filterNot(parsed::contains)).ifEmpty { defaultHomeTileOrder }
 }
 
@@ -437,9 +431,9 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val clinicalData = NativeDomainData.forDomain(HealthDomain.CLINICAL)
     val mindfulnessData = NativeDomainData.forDomain(HealthDomain.MINDFULNESS)
 
-    val sleep = sleepData.history(limit = 250).groupBy { it.metric }.mapNotNull { (_, rows) -> rows.maxByOrNull { it.timestampEpochMs } }
-    val body = bodyData.history(limit = 250).groupBy { it.metric }.mapNotNull { (_, rows) -> rows.maxByOrNull { it.timestampEpochMs } }
-    val clinical = clinicalData.history(limit = 250)
+    val sleep = sleepData.latestState()
+    val body = bodyData.latestState()
+    val clinical = clinicalData.latestState()
     val kcal = nutritionData.between("food_kcal", start, now).sumOf { it.value }.roundToInt()
     val protein = nutritionData.between("food_protein", start, now).sumOf { it.value }.roundToInt()
     val waterGoalMl = hydrationData.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
@@ -456,16 +450,16 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val workouts = exerciseData.between("workout_session", start, now)
     val sets = exerciseData.between("exercise_set", start, now)
     val volumes = exerciseData.between("workout_volume", start, now)
-    val mindfulness = mindfulnessData.between("mindfulness_session_minutes", start, now)
+    val mindfulness = mindfulnessData.latestState()
     val bodyHistory = bodyData.between("body_weight_kg", thirtyDaysAgo, now).sortedBy { it.timestampEpochMs }
 
     fun sleepMetric(name: String) = sleep.firstOrNull { it.metric == name }?.value
     fun sleepText(name: String) = sleep.firstOrNull { it.metric == name }?.metadata?.get("display")
     fun bodyMetric(name: String) = body.firstOrNull { it.metric == name }?.value
 
-    val clinicalLatest = clinical.groupBy { it.metric }.mapNotNull { (_, rows) -> rows.maxByOrNull { it.timestampEpochMs } }
-    val clinicalAlerts = clinicalLatest.count { it.metadata["status"] == "LOW" || it.metadata["status"] == "HIGH" }
+    val clinicalAlerts = clinical.count { it.metadata["status"] == "LOW" || it.metadata["status"] == "HIGH" }
     val mindfulnessToday = mindfulness
+        .filter { it.timestampEpochMs >= start }
         .filter { it.metric.contains("minute", true) || it.unit == "min" }
         .sumOf { it.value }.roundToInt()
 
@@ -487,7 +481,7 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         bodyWeightKg = bodyMetric("body_weight_kg"),
         bodyWeightChange30d = weightChange,
         bodyWeightTrend = trend,
-        clinicalMarkers = clinicalLatest.size,
+        clinicalMarkers = clinical.size,
         clinicalAlerts = clinicalAlerts,
         mindfulnessMinutesToday = mindfulnessToday
     )
