@@ -5,25 +5,10 @@ enum class TrudyVoiceMode { OFF, KOKORO_LOCAL }
 
 enum class TrudyVoiceRuntimeState { NOT_INSTALLED, INSTALLING, READY, LOADING, SPEAKING, ERROR }
 
-data class TrudyVoiceInstallProgress(
-    val downloadedBytes: Long,
-    val totalBytes: Long? = null
-) {
-    init {
-        require(downloadedBytes >= 0L)
-        require(totalBytes == null || totalBytes >= 0L)
-    }
-    val fraction: Float? get() = totalBytes?.takeIf { it > 0L }
-        ?.let { (downloadedBytes.toDouble() / it.toDouble()).coerceIn(0.0, 1.0).toFloat() }
-}
-
-data class TrudyVoiceOption(
-    val id: String,
-    val displayName: String,
-    val languageTag: String,
-    val installed: Boolean
-)
-
+/**
+ * Canonical model/runtime status. UI-facing progress/voice option DTOs are shared package contracts
+ * and intentionally contain no inference implementation details.
+ */
 data class TrudyVoiceStatus(
     val state: TrudyVoiceRuntimeState,
     val modelId: String,
@@ -96,6 +81,10 @@ data class TrudySpeechResult(
 interface TrudySpeechEngine {
     val engineId: String
     suspend fun isAvailable(): Boolean
+
+    /** Explicit first-use preparation hook; default engines require no preparation. */
+    suspend fun prepare() {}
+
     suspend fun synthesize(request: TrudySpeechRequest): TrudySpeechResult
 
     /** Default preserves existing engines; Kokoro overrides this to synthesize bounded chunks. */
