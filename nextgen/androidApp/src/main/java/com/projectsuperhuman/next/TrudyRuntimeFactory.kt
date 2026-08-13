@@ -1,15 +1,19 @@
 package com.projectsuperhuman.next
 
 import com.projectsuperhuman.next.core.ModuleParityService
+import com.projectsuperhuman.next.trudy.CompositeTrudyToolExecutor
+import com.projectsuperhuman.next.trudy.HealthContextPersonalEvidenceSource
 import com.projectsuperhuman.next.trudy.LocalTrudyModelClient
 import com.projectsuperhuman.next.trudy.LocalTrudyModelEngine
 import com.projectsuperhuman.next.trudy.OfflineDeterministicTrudyModelClient
 import com.projectsuperhuman.next.trudy.TrudyConversationService
 import com.projectsuperhuman.next.trudy.TrudyHealthContextService
 import com.projectsuperhuman.next.trudy.TrudyHealthToolService
+import com.projectsuperhuman.next.trudy.TrudyIntelligenceToolService
 import com.projectsuperhuman.next.trudy.TrudyModelClient
 import com.projectsuperhuman.next.trudy.TrudyModelRuntimeMode
 import com.projectsuperhuman.next.trudy.TrudyOrchestrator
+import com.projectsuperhuman.next.trudy.TrudyPersonalEvidenceLibrary
 
 /** Android configuration is read once at composition time; business logic never reads BuildConfig. */
 data class TrudyRuntimeConfig(
@@ -75,7 +79,13 @@ internal object TrudyRuntimeFactory {
                 nowEpochMs = { System.currentTimeMillis() }
             )
             val context = TrudyHealthContextService(parity)
-            val tools = TrudyHealthToolService(context)
+            val healthTools = TrudyHealthToolService(context)
+            val evidenceSource = HealthContextPersonalEvidenceSource(context)
+            val intelligenceTools = TrudyIntelligenceToolService(
+                library = TrudyPersonalEvidenceLibrary(evidenceSource),
+                source = evidenceSource
+            )
+            val tools = CompositeTrudyToolExecutor(listOf(healthTools, intelligenceTools))
             val orchestrator = TrudyOrchestrator(selection.client, tools)
             val service = TrudyConversationService(orchestrator)
             val backend = SharedTrudyBackendAdapter(
