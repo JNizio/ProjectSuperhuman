@@ -24,23 +24,21 @@ import com.projectsuperhuman.next.core.HealthDomain
 /**
  * Shared status card used by native modules.
  *
- * The UI remains intentionally simple, but the read now goes through the same five-surface parity
- * API that Trudy will use. This makes the parity layer a live integration path rather than a dormant
- * abstraction while preserving the existing module screens and their write behaviour.
+ * The UI remains intentionally simple, but the read now goes through the same parity API that
+ * Trudy will use. Only currentState is requested here: the status card does not need history,
+ * features, insights or quality, so it avoids paying for those extra reads on screen entry.
  */
 @Composable
 internal fun SharedDomainStatus(domain: HealthDomain) {
     var summary by remember(domain) { mutableStateOf("Reading shared store…") }
     LaunchedEffect(domain) {
-        val snapshot = NativeModuleParity.snapshot(domain, historyLimit = 1)
-        val current = snapshot.currentState
-        val quality = snapshot.dataQuality
+        val current = NativeModuleParity.currentState(domain)
         summary = if (current.latestByMetric.isEmpty()) {
             "No native records yet. New migrated entries will appear here automatically."
         } else {
             val latest = current.latestByMetric.maxByOrNull { it.timestampEpochMs }
             val latestText = latest?.let { " Latest: ${it.metric} ${formatValue(it.value)} ${it.unit}." } ?: ""
-            "${quality.distinctMetricCount} latest metrics available from the shared Data Vault.$latestText"
+            "${current.latestByMetric.size} latest metrics available from the shared Data Vault.$latestText"
         }
     }
     Column(
