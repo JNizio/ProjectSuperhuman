@@ -155,7 +155,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
         val ml = (goalDraft / 100f).roundToInt() * 100
         scope.launch {
             NativeDataHub.saveMetric(HealthDomain.HYDRATION, "hydration_goal_ml", ml.toDouble(), "ml", "native-hydration")
-            status = "Daily water goal set to ${formatMlHydration(ml)}"
+            status = "Daily goal set to ${formatMlHydration(ml)}"
             refresh()
         }
     }
