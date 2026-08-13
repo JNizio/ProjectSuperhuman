@@ -1,5 +1,8 @@
 package com.projectsuperhuman.next
 
+import android.content.Context
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -9,22 +12,53 @@ class TrudyVoiceService(
     private val audioSink: TrudyAudioSink
 ) {
     private val speakMutex = Mutex()
+    private val stopEpoch = AtomicLong(0L)
+    @Volatile private var state = TrudyVoiceRuntimeState.READY
 
     suspend fun isAvailable(): Boolean = runCatching { engine.isAvailable() }.getOrDefault(false)
+    fun runtimeState(): TrudyVoiceRuntimeState = state
 
-    suspend fun speak(text: String): TrudySpeechDiagnostics = speakMutex.withLock {
+    suspend fun speak(text: String): TrudySpeechDiagnostics {
         require(text.isNotBlank())
-        audioSink.stop()
-        val result = engine.synthesize(
-            TrudySpeechRequest(text = text, voiceId = config.voiceId, speed = config.speed)
-        )
-        audioSink.play(result.audio)
-        result.diagnostics
+        val requestEpoch = stopEpoch.get()
+        return speakMutex.withLock {
+            if (requestEpoch != stopEpoch.get()) throw CancellationException("Speech request was stopped before it started")
+            audioSink.stop()
+            state = TrudyVoiceRuntimeState.LOADING
+            try {
+                var firstAudio = true
+                val diagnostics = engine.synthesizeStreaming(
+                    TrudySpeechRequest(text = text, voiceId = config.voiceId, speed = config.speed)
+                ) { chunk ->
+                    if (requestEpoch != stopEpoch.get()) throw CancellationException("Speech stopped")
+                    if (firstAudio) {
+                        firstAudio = false
+                        state = TrudyVoiceRuntimeState.SPEAKING
+                    }
+                    audioSink.play(chunk.audio)
+                    if (requestEpoch != stopEpoch.get()) throw CancellationException("Speech stopped")
+                }
+                state = TrudyVoiceRuntimeState.READY
+                diagnostics
+            } catch (cancelled: CancellationException) {
+                state = TrudyVoiceRuntimeState.READY
+                throw cancelled
+            } catch (failure: Throwable) {
+                state = TrudyVoiceRuntimeState.ERROR
+                throw failure
+            }
+        }
     }
 
-    fun stop() = audioSink.stop()
+    fun stop() {
+        stopEpoch.incrementAndGet()
+        engine.cancelCurrent()
+        audioSink.stop()
+        state = TrudyVoiceRuntimeState.READY
+    }
 
     suspend fun close() {
+        stop()
         audioSink.close()
         engine.close()
     }
@@ -42,25 +76,27 @@ data class TrudyVoiceRuntimeDiagnostics(
 
 data class TrudyVoiceRuntime(
     val service: TrudyVoiceService?,
-    val diagnostics: TrudyVoiceRuntimeDiagnostics
+    val diagnostics: TrudyVoiceRuntimeDiagnostics,
+    val modelManager: TrudyVoiceModelManager? = null
 )
 
 /**
- * Voice composition root. Kokoro remains optional and lazy: without an installed backend/model,
- * Trudy text mode continues unchanged.
+ * Voice composition root. Construction is lightweight: it never initializes sherpa-onnx and never
+ * downloads a model. Explicit installation is exposed separately through [TrudyVoiceModelManager].
  */
 object TrudyVoiceRuntimeFactory {
     suspend fun create(
         config: TrudyVoiceConfig,
         modelStore: KokoroModelStore? = null,
         kokoroBackend: KokoroInferenceBackend? = null,
-        audioSink: TrudyAudioSink = AndroidTrudyAudioSink()
+        audioSink: TrudyAudioSink = AndroidTrudyAudioSink(),
+        modelManager: TrudyVoiceModelManager? = modelStore as? TrudyVoiceModelManager
     ): TrudyVoiceRuntime {
         if (config.mode == TrudyVoiceMode.OFF) {
-            return unavailable(config, "Voice is disabled.")
+            return unavailable(config, "Voice is disabled.", modelManager)
         }
         if (modelStore == null || kokoroBackend == null) {
-            return unavailable(config, "Kokoro runtime backend is not installed yet.")
+            return unavailable(config, "Kokoro runtime backend is not installed yet.", modelManager)
         }
 
         val engine = KokoroTrudySpeechEngine(config, modelStore, kokoroBackend)
@@ -76,11 +112,32 @@ object TrudyVoiceRuntimeFactory {
                 voiceId = config.voiceId,
                 available = available,
                 reason = if (available) null else "Kokoro model is not installed."
-            )
+            ),
+            modelManager = modelManager
         )
     }
 
-    private fun unavailable(config: TrudyVoiceConfig, reason: String) = TrudyVoiceRuntime(
+    /** Production Android path. Does not load native libraries or touch the network. */
+    suspend fun createAndroid(
+        context: Context,
+        config: TrudyVoiceConfig
+    ): TrudyVoiceRuntime {
+        if (config.mode == TrudyVoiceMode.OFF) return unavailable(config, "Voice is disabled.")
+        val store = AndroidKokoroModelStore(context)
+        return create(
+            config = config,
+            modelStore = store,
+            kokoroBackend = SherpaKokoroInferenceBackend(),
+            audioSink = AndroidTrudyAudioSink(),
+            modelManager = store
+        )
+    }
+
+    private fun unavailable(
+        config: TrudyVoiceConfig,
+        reason: String,
+        modelManager: TrudyVoiceModelManager? = null
+    ) = TrudyVoiceRuntime(
         service = null,
         diagnostics = TrudyVoiceRuntimeDiagnostics(
             requestedMode = config.mode,
@@ -90,6 +147,7 @@ object TrudyVoiceRuntimeFactory {
             voiceId = config.voiceId,
             available = false,
             reason = reason
-        )
+        ),
+        modelManager = modelManager
     )
 }
