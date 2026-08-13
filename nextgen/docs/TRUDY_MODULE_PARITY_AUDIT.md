@@ -26,7 +26,7 @@ Every current `HealthDomain` is exposed by `ModuleParityService` / `NativeModule
 
 ## Android module-facing boundary
 
-`NativeDomainData` is now the preferred Android UI/module read facade. It is constructed with exactly one `HealthDomain` and exposes only:
+`NativeDomainData` is the preferred Android UI/module read facade. It is constructed with exactly one `HealthDomain` and exposes only:
 
 - latest metric
 - bounded metric history
@@ -35,7 +35,7 @@ Every current `HealthDomain` is exposed by `ModuleParityService` / `NativeModule
 - domain record count
 - parity snapshot
 
-The facade delegates to the existing Data Vault/gateway/parity services and exposes no repository or SQLDelight classes. This gives Android feature code a simple migration target without changing write semantics.
+The facade delegates to the existing Data Vault/gateway/parity services and exposes no repository or SQLDelight classes.
 
 Target architecture:
 
@@ -45,27 +45,63 @@ Trudy remains separate:
 
 `Trudy / Interpretation / Experiment Engine -> ModuleParityService / interpretation interfaces`
 
-## Current NativeDataHub call-site audit
+## Prompt 1 production migration status
 
-Repository code search identified the following normal Android callers still using compatibility-style metric-only reads:
+The first normal-screen migration pass is complete for the straightforward routed modules.
 
-- `NativeHydration.kt`
-- `NativeBodyParity.kt`
-- `BodyDashboardAdvanced.kt`
-- `NativeMindfulnessParity.kt`
-- `NativeExerciseParity.kt`
-- `NativeNutrition.kt`
-- `NativeLiveHome.kt`
-- `NativeClinicalParity.kt`
+### Hydration
 
-Broad `allValuesAsync()` reads were found in:
+`NativeHydration.kt` now uses `NativeDomainData(HYDRATION)` for:
 
-- `NativeSettingsParity.kt` — administrative/settings use is compatible with an archive-wide operation.
-- `NativeSleepParity.kt` — production read path; should be migrated to bounded Sleep-domain reads.
-- `SleepHistoryPage.kt` — production read path; should be migrated to bounded Sleep-domain reads.
-- `NativeClinicalParity.kt` has historically used a broad archive read for OCR duplicate checking; this must be reduced to Clinical-domain data.
+- `hydration_goal_ml`
+- `water_intake_ml`
+- `water_total_l`
+- the bounded visible hydration history used for the seven-day and calendar presentations
+- the post-write daily water-total recomputation
 
-These compatibility callers still read the same SQL Data Vault and therefore are not duplicate stores, but they remain migration debt because metric-only access cannot enforce domain isolation.
+Signed intake/correction rows and the existing compatibility daily total remain unchanged. Writes still use the shared ingestion path.
+
+### Body
+
+`NativeBodyParity.kt` now uses `NativeDomainData(BODY)` for bounded weight, body-fat and waist history. `BodyDashboardAdvanced.kt` uses the same domain facade for selectable composition trends.
+
+The existing `latestForDomain(BODY)` calls in Body and OKOK scale setup are intentionally retained because they are already explicitly domain scoped. OKOK capture/ingestion was not changed.
+
+### Mindfulness / Breathwork
+
+`NativeMindfulnessParity.kt` now reads `mindfulness_session_minutes` through `NativeDomainData(MINDFULNESS)`.
+
+The guided Breathwork routine remains a separate user-facing surface but deliberately continues writing its compatibility session record into `MINDFULNESS`. No new Breathwork storage domain was introduced in this pass.
+
+### Exercise / Training
+
+`NativeExerciseParity.kt` now reads completed `exercise_set` history through `NativeDomainData(EXERCISE)`.
+
+`ActiveWorkoutStore` remains untouched because it is transient crash/resume state for an unfinished session rather than longitudinal health history. Completed sets and workout summaries still write through the Data Vault ingestion path.
+
+### Nutrition
+
+The routed production Nutrition screen is `NativeNutritionExperienceV2Page`, opened through `NativeNutritionWithFoodEditorPage` from `NextShellActivity`.
+
+Its health-history reads were already explicitly domain scoped before this pass:
+
+- current-day diary rows use `domainBetween(NUTRITION, ...)`
+- nutrition target lookups use the domain-taking `latest(NUTRITION, metric)` overload
+
+Therefore no risky whole-screen rewrite was needed. Diary writes still use `saveFood`, linked `diaryEntryId` rows remain intact, and the separate food catalogue/local override storage remains reference/product data rather than longitudinal health storage.
+
+Older Nutrition presentation implementations remain in the repository for compatibility/reference, but they are not the shell-routed production Nutrition page and were not opportunistically refactored here.
+
+## Remaining production migration debt
+
+The straightforward module pass intentionally leaves the more complex readers for the next phase:
+
+- `NativeClinicalParity.kt`: OCR duplicate detection and other Clinical reads require careful bounded Clinical-domain migration.
+- `NativeSleepParity.kt` / `SleepHistoryPage.kt`: broad history access must be replaced without altering reconstruction semantics.
+- `NativeLiveHome.kt` and Home-specific aggregation: Home intentionally combines several domains and should use explicit per-domain readers or the Interpretation layer rather than being forced into one domain.
+- `NativeSettingsParity.kt`: archive-wide reads used for backup/export/administrative operations are intentionally allowed and must remain clearly administrative.
+
+Metric-only compatibility helpers remain available inside `NativeDataHub` for untouched legacy callers. New normal feature code should not add new callers.
 
 ## Domain audit
 
@@ -81,55 +117,55 @@ These compatibility callers still read the same SQL Data Vault and therefore are
 
 - The domain participates in all five parity surfaces now, including the no-data/data-quality states.
 - Canonical systolic, diastolic and pulse metric IDs are reserved in `CoreMetricRegistry`, with common legacy aliases.
-- Native BP UI/capture remains deferred and the proven legacy capture path is intentionally retained. Moving that capture path is a product migration task rather than a parity prerequisite.
+- Native BP UI/capture remains deferred and the proven legacy capture path is intentionally retained.
 
 ### Body
 
-- Smart-scale/body observations already write into the shared `BODY` domain.
+- Smart-scale/body observations write into the shared `BODY` domain.
 - Existing body dashboard snapshot/read models remain UI adapters; they are not a second persistence layer.
 - Weight/body-fat/water/muscle/waist metric vocabulary is registered centrally.
-- Samsung blood-oxygen observations are also registered using the IDs already emitted by the current Health Connect importer.
-- `NativeBodyParity.kt` and `BodyDashboardAdvanced.kt` remain priority migration callers for `NativeDomainData(BODY)`.
+- Samsung blood-oxygen observations are registered using the IDs emitted by the current Health Connect importer.
+- Normal routed Body history/trend reads are now domain scoped.
 
 ### Sleep
 
 - Sleep history is persisted in the shared `SLEEP` domain and Health Connect import remains the source adapter.
 - Reconstruction, personal-model and sleep-intelligence classes remain domain algorithms. They may consume shared data but should not become alternate stores.
 - `sleep_time_minutes` is treated as a compatibility alias of `sleep_total_minutes` at the shared metric boundary.
-- `NativeSleepParity.kt` and `SleepHistoryPage.kt` still contain broad archive reads and are high-priority bounded-domain migration targets.
+- `NativeSleepParity.kt` and `SleepHistoryPage.kt` still require careful bounded-domain migration.
 
 ### Nutrition
 
-- Food diary writes already become linked first-class `HealthValue` rows through `NativeDataHub.saveFood` and the shared ingestion pipeline.
+- Food diary writes become linked first-class `HealthValue` rows through `NativeDataHub.saveFood` and the shared ingestion pipeline.
 - Calories, protein, carbohydrate, fat, fibre and sugar have explicit canonical registry definitions.
-- Multiple existing nutrition UI implementations are intentionally retained. Consolidating screens is separate from consolidating persistence.
-- `NativeNutrition.kt` remains a metric-only read migration target; writes must stay through the existing ingestion path.
+- The shell-routed V2 Nutrition page already uses explicit Nutrition-domain reads.
+- Multiple older nutrition UI implementations remain intentionally; consolidating screens is separate from consolidating persistence.
 
 ### Hydration
 
 - Signed `water_intake_ml` events, compatibility daily totals and goals all live in the shared `HYDRATION` domain.
-- Current hydration screen history is a domain-specific presentation built from Data Vault rows.
-- `NativeHydration.kt` is the first recommended normal-screen migration to `NativeDomainData(HYDRATION)`, because its reads are naturally domain-contained and bounded.
+- Current hydration history is a domain-specific presentation built from Data Vault rows.
+- Normal routed Hydration reads are now isolated through `NativeDomainData(HYDRATION)`.
 
 ### Exercise
 
 - Completed sets/workouts and Health Connect activity/vitals write to the shared `EXERCISE` domain.
-- Heart-rate and calorie IDs currently emitted by Samsung Health import are registered centrally, including compatibility aliases.
-- `ActiveWorkoutStore` is intentionally retained: it is transient crash/resume state for an unfinished workout, not a competing longitudinal health archive. Completed workout data still belongs in the Data Vault.
-- `NativeExerciseParity.kt` remains a metric-only read migration target.
+- Heart-rate and calorie IDs emitted by Samsung Health import are registered centrally, including compatibility aliases.
+- `ActiveWorkoutStore` remains transient recovery state only.
+- Normal routed training history now reads through `NativeDomainData(EXERCISE)`.
 
 ### Mindfulness
 
 - Session minutes and current self-report metrics write to the shared `MINDFULNESS` domain.
 - Existing guided-session UI remains presentation logic.
-- Breathwork currently reuses a mindfulness session metric for compatibility. Product design treats Breathwork as a separate user-facing module; adding a distinct storage domain/metric vocabulary should be deliberate schema/domain evolution rather than silently changing old records.
-- `NativeMindfulnessParity.kt` remains a metric-only read migration target.
+- Breathwork currently reuses a mindfulness session metric for compatibility.
+- Normal routed mindfulness history now reads through `NativeDomainData(MINDFULNESS)`.
 
 ## Domain-isolation regression coverage
 
-`ModuleParityTest` now includes a regression case that stores the exact same metric string in BODY and EXERCISE ports with different values. The test proves that each domain-scoped port and parity current-state result sees only its own value. This specifically guards against the collision risk that motivates retiring metric-only global reads.
+`ModuleParityTest` includes a regression case that stores the exact same metric string in BODY and EXERCISE ports with different values. Each domain-scoped port and parity current-state result sees only its own value.
 
-Existing parity tests also cover:
+The test suite also covers:
 
 - all current domains exposing the same five surfaces
 - empty history/data-gap state
@@ -138,6 +174,9 @@ Existing parity tests also cover:
 - cautious trend generation
 - stale data quality
 - read-time legacy alias canonicalisation without rewriting stored rows
+- signed Hydration corrections/history ordering
+- Exercise set-history metadata preservation
+- linked Nutrition diary-history metadata preservation
 
 ## Cross-cutting findings
 
@@ -147,9 +186,7 @@ No current native module screen was found instantiating `SqlHealthRepository`. S
 
 ### Compatibility helpers
 
-Metric-only `NativeDataHub.latest(metric)`, `between(metric, ...)` and archive-wide helpers remain available because removing them before all large UI callers are migrated would create unnecessary regression risk. New feature code should not add callers to them.
-
-Migration should be performed module-by-module using `NativeDomainData`, with compile/regression validation after each group rather than an all-at-once rewrite of large Compose files.
+Metric-only `NativeDataHub.latest(metric)`, `between(metric, ...)` and archive-wide helpers remain available because removing them before the remaining complex callers are migrated would create unnecessary regression risk. New feature code should not add callers to them.
 
 ### Bespoke read models
 
@@ -165,10 +202,9 @@ This gives future features one stable rule:
 
 ## Follow-up migration order
 
-1. Migrate `NativeHydration.kt` and Body readers to `NativeDomainData`.
-2. Migrate Mindfulness, Exercise and Nutrition normal reads.
-3. Replace Clinical OCR full-archive duplicate scanning with bounded/paged Clinical history.
-4. Replace Sleep broad archive reads with bounded Sleep-domain history while preserving reconstruction semantics.
-5. Migrate Home aggregation carefully because Home intentionally combines domains; it should use explicit per-domain readers or the interpretation layer rather than metric-only global helpers.
-6. Keep Settings backup/export operations explicitly administrative and archive-wide.
-7. Build the Experiment Engine and Trudy only against shared contracts; never against module UI classes.
+1. Replace Clinical OCR full-archive duplicate scanning with bounded/paged Clinical history.
+2. Replace Sleep broad archive reads with bounded Sleep-domain history while preserving reconstruction semantics.
+3. Migrate Home aggregation carefully because Home intentionally combines domains; use explicit per-domain readers or the Interpretation layer.
+4. Keep Settings backup/export operations explicitly administrative and archive-wide.
+5. Perform the final compatibility-helper cleanup only after remaining production callers have been migrated.
+6. Build the Experiment Engine and Trudy only against shared contracts; never against module UI classes.
