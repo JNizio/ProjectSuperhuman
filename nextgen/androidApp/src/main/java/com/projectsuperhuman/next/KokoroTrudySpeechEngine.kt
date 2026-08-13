@@ -8,7 +8,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
-/** Model files live in app-private storage and are supplied by a model-store implementation. */
 data class KokoroModelFiles(
     val modelPath: String,
     val voicesPath: String? = null,
@@ -24,18 +23,9 @@ interface KokoroModelStore {
     suspend fun resolve(modelId: String): KokoroModelFiles
 }
 
-data class KokoroInferenceRequest(
-    val text: String,
-    val voiceId: String,
-    val speed: Float
-)
+data class KokoroInferenceRequest(val text: String, val voiceId: String, val speed: Float)
+data class KokoroInferenceOutput(val samples: FloatArray, val sampleRateHz: Int = Kokoro82MModelContract.SAMPLE_RATE_HZ)
 
-data class KokoroInferenceOutput(
-    val samples: FloatArray,
-    val sampleRateHz: Int = Kokoro82MModelContract.SAMPLE_RATE_HZ
-)
-
-/** Runtime-specific implementation point. Sherpa/ONNX/JNI types stay behind this boundary. */
 interface KokoroInferenceBackend {
     val backendId: String
     suspend fun initialize(files: KokoroModelFiles)
@@ -44,11 +34,6 @@ interface KokoroInferenceBackend {
     suspend fun close()
 }
 
-/**
- * Kokoro's raw graph consumes phoneme token IDs. The Android runtime intentionally delegates
- * English G2P/tokenization to sherpa-onnx's eSpeak-ng Kokoro frontend; this interface keeps
- * text normalization/chunking deterministic without pretending that character mapping is G2P.
- */
 interface KokoroTextFrontend {
     val phonemizerId: String
     fun prepare(raw: String): String
@@ -56,19 +41,30 @@ interface KokoroTextFrontend {
 }
 
 class SherpaEspeakKokoroTextFrontend(
-    private val maxChunkChars: Int = 240
+    private val firstChunkChars: Int = 72,
+    private val laterChunkChars: Int = 180
 ) : KokoroTextFrontend {
-    init { require(maxChunkChars >= 80) }
+    init { require(firstChunkChars >= 40); require(laterChunkChars >= firstChunkChars) }
     override val phonemizerId: String = "sherpa-espeak-ng"
-
     override fun prepare(raw: String): String = TrudySpeechText.prepare(raw)
-    override fun chunks(prepared: String): List<String> = KokoroTextChunker.chunk(prepared, maxChunkChars)
+    override fun chunks(prepared: String): List<String> = KokoroTextChunker.progressiveChunk(prepared, firstChunkChars, laterChunkChars)
 }
 
 object KokoroTextChunker {
     private val sentenceBoundary = Regex("(?<=[.!?;:])\\s+")
 
-    fun chunk(text: String, maxChars: Int = 240): List<String> {
+    fun chunk(text: String, maxChars: Int = 240): List<String> = chunkWithLimit(text, maxChars)
+
+    fun progressiveChunk(text: String, firstChunkChars: Int = 72, laterChunkChars: Int = 180): List<String> {
+        val firstPass = chunkWithLimit(text, laterChunkChars)
+        if (firstPass.isEmpty()) return emptyList()
+        val first = firstPass.first()
+        if (first.length <= firstChunkChars) return firstPass
+        val splitFirst = chunkWithLimit(first, firstChunkChars)
+        return splitFirst + firstPass.drop(1)
+    }
+
+    private fun chunkWithLimit(text: String, maxChars: Int): List<String> {
         require(maxChars >= 40)
         val normalized = text.replace(Regex("\\s+"), " ").trim()
         if (normalized.isEmpty()) return emptyList()
@@ -86,19 +82,17 @@ object KokoroTextChunker {
         fun appendWordBounded(part: String) {
             val words = part.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
             for (word in words) {
-                require(word.length <= maxChars) { "A speech token exceeds the safe Kokoro chunk bound" }
-                val extra = if (current.isEmpty()) word.length else word.length + 1
+                val safeWord = if (word.length > maxChars) word.take(maxChars) else word
+                val extra = if (current.isEmpty()) safeWord.length else safeWord.length + 1
                 if (current.length + extra > maxChars) flush()
                 if (current.isNotEmpty()) current.append(' ')
-                current.append(word)
+                current.append(safeWord)
             }
         }
 
         for (sentence in sentences) {
             if (sentence.length > maxChars) {
-                flush()
-                appendWordBounded(sentence)
-                flush()
+                flush(); appendWordBounded(sentence); flush()
             } else {
                 val extra = if (current.isEmpty()) sentence.length else sentence.length + 1
                 if (current.length + extra > maxChars) flush()
@@ -113,20 +107,14 @@ object KokoroTextChunker {
 
 object KokoroAudioSanitizer {
     fun sanitize(samples: FloatArray): FloatArray = FloatArray(samples.size) { index ->
-        val value = samples[index]
-        when {
-            value.isNaN() -> 0f
-            value == Float.POSITIVE_INFINITY -> 1f
-            value == Float.NEGATIVE_INFINITY -> -1f
-            else -> value.coerceIn(-1f, 1f)
+        when (val value = samples[index]) {
+            Float.POSITIVE_INFINITY -> 1f
+            Float.NEGATIVE_INFINITY -> -1f
+            else -> if (value.isNaN()) 0f else value.coerceIn(-1f, 1f)
         }
     }
 }
 
-/**
- * Lazy local Kokoro adapter. Model/runtime initialization happens on first synthesis, not app launch.
- * Initialization and synthesis are serialized so a single native session owns one generation at a time.
- */
 class KokoroTrudySpeechEngine(
     private val config: TrudyVoiceConfig,
     private val modelStore: KokoroModelStore,
@@ -142,16 +130,12 @@ class KokoroTrudySpeechEngine(
     @Volatile private var modelLoadDurationMs: Long? = null
     @Volatile private var modelBytesOnDisk: Long? = null
 
-    override suspend fun isAvailable(): Boolean =
-        config.mode == TrudyVoiceMode.KOKORO_LOCAL && modelStore.isInstalled(config.modelId)
+    override suspend fun isAvailable(): Boolean = config.mode == TrudyVoiceMode.KOKORO_LOCAL && modelStore.isInstalled(config.modelId)
 
     override suspend fun synthesize(request: TrudySpeechRequest): TrudySpeechResult {
         val pieces = mutableListOf<FloatArray>()
         var diagnostics: TrudySpeechDiagnostics? = null
-        synthesizeStreaming(request) { result ->
-            pieces += result.audio.samples
-            diagnostics = result.diagnostics
-        }
+        synthesizeStreaming(request) { result -> pieces += result.audio.samples; diagnostics = result.diagnostics }
         val totalSize = pieces.sumOf { it.size }
         require(totalSize > 0) { "Kokoro returned empty audio" }
         val joined = FloatArray(totalSize)
@@ -161,10 +145,7 @@ class KokoroTrudySpeechEngine(
         return TrudySpeechResult(TrudyPcmAudio(joined, finalDiagnostics.sampleRateHz), finalDiagnostics)
     }
 
-    override suspend fun synthesizeStreaming(
-        request: TrudySpeechRequest,
-        onChunk: suspend (TrudySpeechResult) -> Unit
-    ): TrudySpeechDiagnostics = synthesisMutex.withLock {
+    override suspend fun synthesizeStreaming(request: TrudySpeechRequest, onChunk: suspend (TrudySpeechResult) -> Unit): TrudySpeechDiagnostics = synthesisMutex.withLock {
         require(config.mode == TrudyVoiceMode.KOKORO_LOCAL) { "Kokoro local voice is disabled" }
         val requestEpoch = cancellationEpoch.get()
         ensureNotCancelled(requestEpoch)
@@ -173,44 +154,35 @@ class KokoroTrudySpeechEngine(
         val prepared = textFrontend.prepare(request.text)
         val chunks = textFrontend.chunks(prepared)
         require(chunks.isNotEmpty()) { "No speakable text remains after preprocessing" }
+        DeveloperDiagnostics.log("kokoro.speech.plan", "chars=${prepared.length} chunks=${chunks.size} firstChars=${chunks.first().length}")
 
         var synthesisMs = 0L
         var generatedSamples = 0L
         var sampleRate = Kokoro82MModelContract.SAMPLE_RATE_HZ
-        for (chunk in chunks) {
+        for ((index, chunk) in chunks.withIndex()) {
             currentCoroutineContext().ensureActive()
             ensureNotCancelled(requestEpoch)
             val inferenceStarted = nowMs()
             val output = backend.synthesize(KokoroInferenceRequest(chunk, request.voiceId, request.speed))
-            synthesisMs += (nowMs() - inferenceStarted).coerceAtLeast(0L)
+            val chunkMs = (nowMs() - inferenceStarted).coerceAtLeast(0L)
+            synthesisMs += chunkMs
+            DeveloperDiagnostics.log("kokoro.speech.chunk_ready", "index=$index chars=${chunk.length} synthesisMs=$chunkMs")
             currentCoroutineContext().ensureActive()
             ensureNotCancelled(requestEpoch)
             require(output.samples.isNotEmpty()) { "Kokoro returned empty audio" }
-            require(output.sampleRateHz == Kokoro82MModelContract.SAMPLE_RATE_HZ) {
-                "Unexpected Kokoro sample rate: ${output.sampleRateHz}"
-            }
+            require(output.sampleRateHz == Kokoro82MModelContract.SAMPLE_RATE_HZ) { "Unexpected Kokoro sample rate: ${output.sampleRateHz}" }
             sampleRate = output.sampleRateHz
             val safeSamples = KokoroAudioSanitizer.sanitize(output.samples)
             generatedSamples += safeSamples.size.toLong()
             val audioMs = generatedSamples * 1000L / sampleRate
-            onChunk(
-                TrudySpeechResult(
-                    TrudyPcmAudio(safeSamples, sampleRate),
-                    diagnostics(request, sampleRate, synthesisMs, audioMs)
-                )
-            )
+            onChunk(TrudySpeechResult(TrudyPcmAudio(safeSamples, sampleRate), diagnostics(request, sampleRate, synthesisMs, audioMs)))
             ensureNotCancelled(requestEpoch)
         }
         val audioMs = generatedSamples * 1000L / sampleRate
         diagnostics(request, sampleRate, synthesisMs, audioMs)
     }
 
-    private fun diagnostics(
-        request: TrudySpeechRequest,
-        sampleRate: Int,
-        synthesisMs: Long,
-        audioMs: Long
-    ) = TrudySpeechDiagnostics(
+    private fun diagnostics(request: TrudySpeechRequest, sampleRate: Int, synthesisMs: Long, audioMs: Long) = TrudySpeechDiagnostics(
         engineId = engineId,
         modelId = config.modelId,
         voiceId = request.voiceId,
@@ -250,10 +222,7 @@ class KokoroTrudySpeechEngine(
         }
     }
 
-    override fun cancelCurrent() {
-        cancellationEpoch.incrementAndGet()
-        backend.cancelCurrent()
-    }
+    override fun cancelCurrent() { cancellationEpoch.incrementAndGet(); backend.cancelCurrent() }
 
     override suspend fun close() {
         cancelCurrent()
@@ -276,7 +245,12 @@ object TrudySpeechText {
             .replace(Regex("```[\\s\\S]*?```"), " ")
             .replace(Regex("`([^`]*)`"), "$1")
             .replace(Regex("\\[([^]]+)]\\([^)]*\\)"), "$1")
-            .replace(Regex("[*_#>]"), " ")
+            .replace(Regex("(?i)metric\\(s\\)"), "metrics")
+            .replace(Regex("(?i)feature\\(s\\)"), "features")
+            .replace(Regex("(?i)insight\\(s\\)"), "insights")
+            .replace(Regex("[_/]"), " ")
+            .replace(Regex("\\b([A-Z][A-Z0-9]{2,}(?:\\s+[A-Z0-9]{2,})*)\\b")) { it.value.lowercase().replaceFirstChar(Char::uppercase) }
+            .replace(Regex("[*#>]"), " ")
             .replace(Regex("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
