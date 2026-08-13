@@ -47,6 +47,7 @@ private val BodyInk = Color(0xFF0B1F35)
 private val BodyMuted = Color(0xFF64748B)
 private val BodyBg = Color(0xFFF5F8FC)
 private val BodyBorder = Color(0xFFE7ECF2)
+private val BodyData = NativeDomainData.forDomain(HealthDomain.BODY)
 
 private data class BodySnapshot(
     val weightKg: Double? = null,
@@ -79,9 +80,9 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
         )
         val now = System.currentTimeMillis()
         val from = now - 365L * 24L * 60L * 60L * 1000L
-        weightHistory = NativeDataHub.between("body_weight_kg", from, now).sortedBy { it.timestampEpochMs }.takeLast(30)
-        bodyFatHistory = NativeDataHub.between("body_fat_pct", from, now).sortedBy { it.timestampEpochMs }.takeLast(30)
-        waistHistory = NativeDataHub.between("body_waist_cm", from, now).sortedBy { it.timestampEpochMs }.takeLast(30)
+        weightHistory = BodyData.between("body_weight_kg", from, now).sortedBy { it.timestampEpochMs }.takeLast(30)
+        bodyFatHistory = BodyData.between("body_fat_pct", from, now).sortedBy { it.timestampEpochMs }.takeLast(30)
+        waistHistory = BodyData.between("body_waist_cm", from, now).sortedBy { it.timestampEpochMs }.takeLast(30)
     }
 
     LaunchedEffect(Unit) { refresh() }
