@@ -60,19 +60,9 @@ object KokoroVoiceCatalog {
 
 class KokoroInferenceException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-/**
- * Conservative Android Kokoro runtime.
- *
- * Physical-device diagnostics showed Xiaomi/Android 15 surviving model initialization but dying
- * inside the native callback generation call. For the mobile production path we therefore use the
- * simpler sherpa non-callback GenerationConfig API and a single inference thread. This removes the
- * JNI callback hop during generation and reduces native working-set pressure. Cancellation remains
- * cooperative between chunks: a generation already inside native code is allowed to return, and a
- * cancelled request is discarded immediately afterwards.
- */
 class SherpaKokoroInferenceBackend(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val threads: Int = 1
+    private val threads: Int = 4
 ) : KokoroInferenceBackend {
     override val backendId: String = "sherpa-onnx-${KokoroAndroidRuntimeContract.SHERPA_ONNX_VERSION}"
 
@@ -145,7 +135,6 @@ class SherpaKokoroInferenceBackend(
         val runtime = tts ?: throw KokoroInferenceException("Kokoro runtime is not initialized")
         val voice = KokoroVoiceCatalog.requireVoice(request.voiceId)
         val requestEpoch = cancellationEpoch.get()
-        if (cancellationEpoch.get() != requestEpoch) throw CancellationException("Kokoro synthesis cancelled")
         DeveloperDiagnostics.log(
             "kokoro.synth.begin",
             "chars=${request.text.length} voice=${request.voiceId} speed=${request.speed} threads=$threads path=non_callback"
