@@ -8,5 +8,6 @@ object KokoroAndroidRuntimeContract {
     const val SHERPA_ANDROID_AAR_SHA256 = "03f9c4df965f21c71269365a7951a7f23b5696fddd093fa318c80d65550ab780"
     const val PROVIDER = "cpu"
 
-    val supportedAbis = setOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+    // Must match androidApp defaultConfig.ndk.abiFilters.
+    val supportedAbis = setOf("arm64-v8a", "armeabi-v7a", "x86_64")
 }
