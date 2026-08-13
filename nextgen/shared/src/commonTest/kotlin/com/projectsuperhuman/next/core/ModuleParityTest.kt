@@ -5,6 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ModuleParityTest {
@@ -134,6 +135,38 @@ class ModuleParityTest {
         assertEquals("weight_kg", current.metadata["parityOriginalMetric"])
         assertEquals("body_weight_kg", history.metric)
         assertEquals("weight_kg", port.storedRows.single().metric)
+    }
+
+    @Test
+    fun identicalMetricNamesInDifferentDomainsNeverLeakAcrossModulePorts() = runTest {
+        val sharedMetric = "shared_collision_metric"
+        val bodyPort = FakeModulePort(
+            HealthDomain.BODY,
+            listOf(hv(HealthDomain.BODY, sharedMetric, 11.0, now - hour, "unit"))
+        )
+        val exercisePort = FakeModulePort(
+            HealthDomain.EXERCISE,
+            listOf(hv(HealthDomain.EXERCISE, sharedMetric, 99.0, now, "unit"))
+        )
+        val ports = mapOf(
+            HealthDomain.BODY to bodyPort,
+            HealthDomain.EXERCISE to exercisePort
+        )
+        val service = ModuleParityService(
+            modulePort = { domain -> ports.getValue(domain) },
+            nowEpochMs = { now }
+        )
+
+        val body = service.currentState(HealthDomain.BODY)
+        val exercise = service.currentState(HealthDomain.EXERCISE)
+
+        assertEquals(11.0, body.latestByMetric.single { it.metric == sharedMetric }.value)
+        assertEquals(99.0, exercise.latestByMetric.single { it.metric == sharedMetric }.value)
+        assertTrue(body.latestByMetric.none { it.domain != HealthDomain.BODY })
+        assertTrue(exercise.latestByMetric.none { it.domain != HealthDomain.EXERCISE })
+        assertEquals(11.0, bodyPort.latest(sharedMetric)?.value)
+        assertEquals(99.0, exercisePort.latest(sharedMetric)?.value)
+        assertNull(bodyPort.latest("exercise_only_metric"))
     }
 
     private fun serviceFor(domain: HealthDomain, rows: List<HealthValue>): ModuleParityService {
