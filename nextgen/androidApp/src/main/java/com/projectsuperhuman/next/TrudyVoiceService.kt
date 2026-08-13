@@ -55,7 +55,7 @@ class TrudyVoiceService(
                                 firstAudio = false
                                 state = TrudyVoiceRuntimeState.SPEAKING
                                 onSynthesisComplete(chunk.diagnostics)
-                                DeveloperDiagnostics.log("kokoro.playback.first_audio")
+                                DeveloperDiagnostics.log("voice.playback.first_audio")
                             }
                             audioSink.play(chunk.audio)
                             if (requestEpoch != stopEpoch.get()) throw CancellationException("Speech stopped")
@@ -69,7 +69,7 @@ class TrudyVoiceService(
                             if (requestEpoch != stopEpoch.get()) throw CancellationException("Speech stopped")
                             playbackQueue.send(chunk)
                             DeveloperDiagnostics.log(
-                                "kokoro.playback.chunk_queued",
+                                "voice.playback.chunk_queued",
                                 "audioMs=${chunk.audio.samples.size * 1000L / chunk.audio.sampleRateHz}"
                             )
                         }
@@ -82,8 +82,8 @@ class TrudyVoiceService(
                     if (firstAudio) onSynthesisComplete(diagnostics)
                     state = TrudyVoiceRuntimeState.READY
                     DeveloperDiagnostics.log(
-                        "kokoro.speech.complete",
-                        "synthesisMs=${diagnostics.synthesisDurationMs ?: -1} audioMs=${diagnostics.generatedAudioDurationMs ?: -1}"
+                        "voice.speech.complete",
+                        "engine=${diagnostics.engineId} synthesisMs=${diagnostics.synthesisDurationMs ?: -1} audioMs=${diagnostics.generatedAudioDurationMs ?: -1}"
                     )
                     diagnostics
                 }
@@ -136,7 +136,7 @@ object TrudyVoiceRuntimeFactory {
         modelManager: TrudyVoiceModelManager? = modelStore as? TrudyVoiceModelManager
     ): TrudyVoiceRuntime {
         if (config.mode == TrudyVoiceMode.OFF) return unavailable(config, "Voice is disabled.", modelManager)
-        if (modelStore == null || kokoroBackend == null) return unavailable(config, "Kokoro runtime backend is not installed yet.", modelManager)
+        if (modelStore == null || kokoroBackend == null) return unavailable(config, "Local voice runtime is not installed yet.", modelManager)
         val engine = KokoroTrudySpeechEngine(config, modelStore, kokoroBackend)
         val service = TrudyVoiceService(config, engine, audioSink)
         val available = service.isAvailable()
@@ -149,7 +149,7 @@ object TrudyVoiceRuntimeFactory {
                 modelId = config.modelId,
                 voiceId = config.voiceId,
                 available = available,
-                reason = if (available) null else "Kokoro model is not installed."
+                reason = if (available) null else "Local voice model is not installed."
             ),
             modelManager = modelManager
         )
@@ -157,11 +157,15 @@ object TrudyVoiceRuntimeFactory {
 
     suspend fun createAndroid(context: Context, config: TrudyVoiceConfig): TrudyVoiceRuntime {
         if (config.mode == TrudyVoiceMode.OFF) return unavailable(config, "Voice is disabled.")
-        val store = AndroidKokoroModelStore(context)
+        val store = AndroidKittenModelStore(context)
+        val activeConfig = config.copy(
+            modelId = KittenAndroidDistribution.logicalModelId,
+            voiceId = KittenVoiceCatalog.resolve(config.voiceId).id
+        )
         return create(
-            config = config,
+            config = activeConfig,
             modelStore = store,
-            kokoroBackend = SherpaKokoroInferenceBackend(),
+            kokoroBackend = SherpaKittenInferenceBackend(threads = 4),
             audioSink = AndroidTrudyAudioSink(),
             modelManager = store
         )
