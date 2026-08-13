@@ -1,0 +1,4 @@
+data/split/
+data/exports/
+*.pyc
+__pycache__/
