@@ -82,7 +82,11 @@ class AndroidTrudyAudioSink : TrudyAudioSink {
             // playback head so the final phoneme is not cut off when this chunk is released.
             while (activeTrack === track && offset == pcm.size) {
                 coroutineContext.ensureActive()
-                val played = runCatching { track.playbackHeadPosition.toLong() }.getOrElse { break }
+                val played = try {
+                    track.playbackHeadPosition.toLong()
+                } catch (_: Throwable) {
+                    break
+                }
                 if (played >= pcm.size.toLong()) break
                 delay(10)
             }
