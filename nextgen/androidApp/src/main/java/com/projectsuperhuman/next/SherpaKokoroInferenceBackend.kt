@@ -7,7 +7,7 @@ import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
 import java.io.File
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -63,18 +63,18 @@ object KokoroVoiceCatalog {
 class KokoroInferenceException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
 /**
- * Android-local Kokoro backend using sherpa-onnx v1.13.4. sherpa-onnx owns the ONNX Runtime
- * session and the eSpeak-ng Kokoro frontend; Trudy only passes app-private asset paths.
+ * Android-local Kokoro backend using the pinned sherpa-onnx runtime. sherpa-onnx owns ONNX Runtime
+ * and the eSpeak-ng Kokoro frontend; Trudy only passes validated app-private asset paths.
  */
 class SherpaKokoroInferenceBackend(
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val threads: Int = Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
 ) : KokoroInferenceBackend {
-    override val backendId: String = "sherpa-onnx-1.13.4"
+    override val backendId: String = "sherpa-onnx-${KokoroAndroidRuntimeContract.SHERPA_ONNX_VERSION}"
 
     private val lifecycleMutex = Mutex()
     private val generationMutex = Mutex()
-    private val cancelled = AtomicBoolean(false)
+    private val cancellationEpoch = AtomicLong(0L)
     @Volatile private var tts: OfflineTts? = null
 
     override suspend fun initialize(files: KokoroModelFiles) = lifecycleMutex.withLock {
@@ -100,7 +100,7 @@ class SherpaKokoroInferenceBackend(
                             ),
                             numThreads = threads,
                             debug = false,
-                            provider = "cpu"
+                            provider = KokoroAndroidRuntimeContract.PROVIDER
                         ),
                         maxNumSentences = 1,
                         silenceScale = 0.2f
@@ -116,8 +116,10 @@ class SherpaKokoroInferenceBackend(
         try {
             val sampleRate = withContext(dispatcher) { created.sampleRate() }
             val speakers = withContext(dispatcher) { created.numSpeakers() }
-            require(sampleRate == EXPECTED_SAMPLE_RATE) { "Unexpected Kokoro sample rate: $sampleRate" }
-            require(speakers == EXPECTED_SPEAKERS) { "Kokoro voice table mismatch: expected $EXPECTED_SPEAKERS, found $speakers" }
+            require(sampleRate == Kokoro82MModelContract.SAMPLE_RATE_HZ) { "Unexpected Kokoro sample rate: $sampleRate" }
+            require(speakers == Kokoro82MModelContract.VOICE_COUNT) {
+                "Kokoro voice table mismatch: expected ${Kokoro82MModelContract.VOICE_COUNT}, found $speakers"
+            }
             tts = created
         } catch (failure: Throwable) {
             runCatching { created.release() }
@@ -128,7 +130,7 @@ class SherpaKokoroInferenceBackend(
     override suspend fun synthesize(request: KokoroInferenceRequest): KokoroInferenceOutput = generationMutex.withLock {
         val runtime = tts ?: throw KokoroInferenceException("Kokoro runtime is not initialized")
         val voice = KokoroVoiceCatalog.requireVoice(request.voiceId)
-        cancelled.set(false)
+        val requestEpoch = cancellationEpoch.get()
         val generated = try {
             withContext(dispatcher) {
                 runtime.generateWithConfigAndCallback(
@@ -138,20 +140,19 @@ class SherpaKokoroInferenceBackend(
                         speed = request.speed,
                         sid = voice.speakerId
                     )
-                ) { _ -> if (cancelled.get()) 0 else 1 }
+                ) { _ -> if (cancellationEpoch.get() == requestEpoch) 1 else 0 }
             }
         } catch (cancel: CancellationException) {
-            cancelled.set(true)
             throw cancel
         } catch (failure: Throwable) {
-            if (cancelled.get()) {
+            if (cancellationEpoch.get() != requestEpoch) {
                 val cancelledException = CancellationException("Kokoro synthesis cancelled")
                 cancelledException.initCause(failure)
                 throw cancelledException
             }
             throw KokoroInferenceException("Kokoro synthesis failed", failure)
         }
-        if (cancelled.get()) throw CancellationException("Kokoro synthesis cancelled")
+        if (cancellationEpoch.get() != requestEpoch) throw CancellationException("Kokoro synthesis cancelled")
         if (generated.samples.isEmpty() || generated.sampleRate <= 0) {
             throw KokoroInferenceException("Kokoro returned malformed or empty audio")
         }
@@ -159,7 +160,7 @@ class SherpaKokoroInferenceBackend(
     }
 
     override fun cancelCurrent() {
-        cancelled.set(true)
+        cancellationEpoch.incrementAndGet()
     }
 
     override suspend fun close() {
@@ -174,8 +175,7 @@ class SherpaKokoroInferenceBackend(
     }
 
     private fun validateAbi() {
-        val supported = setOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
-        if (Build.SUPPORTED_ABIS.none { it in supported }) {
+        if (Build.SUPPORTED_ABIS.none { it in KokoroAndroidRuntimeContract.supportedAbis }) {
             throw KokoroInferenceException("This device ABI is not supported by the local Kokoro runtime")
         }
     }
@@ -190,10 +190,5 @@ class SherpaKokoroInferenceBackend(
         val file = path?.let(::File) ?: throw KokoroInferenceException("Missing Kokoro $label path")
         if (!file.isDirectory || file.list()?.isEmpty() != false) throw KokoroInferenceException("Invalid Kokoro $label directory")
         return file
-    }
-
-    private companion object {
-        const val EXPECTED_SAMPLE_RATE = 24_000
-        const val EXPECTED_SPEAKERS = 53
     }
 }
