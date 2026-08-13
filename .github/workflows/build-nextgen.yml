@@ -2,7 +2,7 @@ name: Build Project Superhuman 11
 
 on:
   push:
-    branches: [ main, '11.2' ]
+    branches: [ main, '11.2', 'integration/swarm-01' ]
     paths:
       - 'nextgen/**'
       - 'app/src/main/java/**'
