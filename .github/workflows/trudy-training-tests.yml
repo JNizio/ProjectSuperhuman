@@ -1,0 +1,58 @@
+name: Trudy Training Tests
+
+on:
+  push:
+    branches:
+      - 'trudy/**'
+    paths:
+      - 'nextgen/trudy-training/**'
+      - '.github/workflows/trudy-training-tests.yml'
+  pull_request:
+    paths:
+      - 'nextgen/trudy-training/**'
+      - '.github/workflows/trudy-training-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run Trudy training and promotion tests
+        working-directory: nextgen/trudy-training
+        run: PYTHONPATH=. python -m unittest discover -s tests -v
+      - name: Validate dataset, leakage audit, provenance and adversarial isolation
+        working-directory: nextgen/trudy-training
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/trudy-training-ci
+          PYTHONPATH=. python -m trudy_training.cli generate /tmp/trudy-training-ci/all.jsonl --seed 17 --adversarial-out /tmp/trudy-training-ci/adversarial.jsonl
+          PYTHONPATH=. python -m trudy_training.cli validate /tmp/trudy-training-ci/all.jsonl
+          PYTHONPATH=. python -m trudy_training.cli validate /tmp/trudy-training-ci/adversarial.jsonl
+          PYTHONPATH=. python -m trudy_training.cli audit /tmp/trudy-training-ci/all.jsonl /tmp/trudy-training-ci/audit.json
+          PYTHONPATH=. python -m trudy_training.cli provenance /tmp/trudy-training-ci/all.jsonl /tmp/trudy-training-ci/provenance.json --seed 17
+          PYTHONPATH=. python -m trudy_training.cli split /tmp/trudy-training-ci/all.jsonl /tmp/trudy-training-ci/split
+          PYTHONPATH=. python -m trudy_training.cli export /tmp/trudy-training-ci/split/train.jsonl supervised /tmp/trudy-training-ci/train.sft.jsonl --training
+          python - <<'PY'
+          import json
+          audit=json.load(open('/tmp/trudy-training-ci/audit.json'))
+          assert not audit['duplicate_ids']
+          assert not audit['exact_prompt_duplicate_groups']
+          assert not audit['repeated_evidence_ids']
+          PY
+      - name: Confirm CI does not require ML dependencies or secrets
+        working-directory: nextgen/trudy-training
+        run: |
+          PYTHONPATH=. python - <<'PY'
+          from trudy_training.smoke import optional_ml_stack_status, tokenizer_smoke
+          status=optional_ml_stack_status()
+          assert set(status)=={'torch','transformers','peft'}
+          assert tokenizer_smoke(['ci sample'])['status']=='skipped'
+          print(status)
+          PY

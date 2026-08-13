@@ -11,6 +11,21 @@ plugins {
 
 kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
 
+fun String.asBuildConfigString(): String = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+val trudyRuntimeMode = providers.gradleProperty("TRUDY_RUNTIME_MODE").orElse("DETERMINISTIC")
+val trudyHostedProviderId = providers.gradleProperty("TRUDY_HOSTED_PROVIDER_ID").orElse("hosted")
+val trudyHostedModelId = providers.gradleProperty("TRUDY_HOSTED_MODEL_ID").orElse("")
+val trudyHostedEndpoint = providers.gradleProperty("TRUDY_HOSTED_ENDPOINT").orElse("")
+val trudyLocalModelId = providers.gradleProperty("TRUDY_LOCAL_MODEL_ID").orElse("local")
+
+fun secretProperty(name: String) = providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orNull?.takeIf { it.isNotBlank() }
+val signingStoreFile = secretProperty("SUPERHUMAN_SIGNING_STORE_FILE")
+val signingStorePassword = secretProperty("SUPERHUMAN_SIGNING_STORE_PASSWORD")
+val signingKeyAlias = secretProperty("SUPERHUMAN_SIGNING_KEY_ALIAS")
+val signingKeyPassword = secretProperty("SUPERHUMAN_SIGNING_KEY_PASSWORD")
+val configuredSigning = listOf(signingStoreFile, signingStorePassword, signingKeyAlias, signingKeyPassword).all { it != null }
+
 val repDbAssets = layout.buildDirectory.dir("generated/repdbAssets")
 val syncRepDb by tasks.registering {
     outputs.dir(repDbAssets)
@@ -44,11 +59,13 @@ android {
     compileSdk = 36
     ndkVersion = "27.3.13750724"
     signingConfigs {
-        create("projectSuperhuman") {
-            storeFile = file("../../signing/project-superhuman-v97.keystore")
-            storePassword = "PSH970-LocalFirst-2026-KeepSafe"
-            keyAlias = "project-superhuman"
-            keyPassword = "PSH970-LocalFirst-2026-KeepSafe"
+        if (configuredSigning) {
+            create("projectSuperhuman") {
+                storeFile = file(requireNotNull(signingStoreFile))
+                storePassword = requireNotNull(signingStorePassword)
+                keyAlias = requireNotNull(signingKeyAlias)
+                keyPassword = requireNotNull(signingKeyPassword)
+            }
         }
     }
     defaultConfig {
@@ -56,10 +73,15 @@ android {
         minSdk = 26; targetSdk = 35
         versionCode = 11221; versionName = "11.2.21"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
+        buildConfigField("String", "TRUDY_RUNTIME_MODE", trudyRuntimeMode.get().asBuildConfigString())
+        buildConfigField("String", "TRUDY_HOSTED_PROVIDER_ID", trudyHostedProviderId.get().asBuildConfigString())
+        buildConfigField("String", "TRUDY_HOSTED_MODEL_ID", trudyHostedModelId.get().asBuildConfigString())
+        buildConfigField("String", "TRUDY_HOSTED_ENDPOINT", trudyHostedEndpoint.get().asBuildConfigString())
+        buildConfigField("String", "TRUDY_LOCAL_MODEL_ID", trudyLocalModelId.get().asBuildConfigString())
     }
     externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     sourceSets["main"].apply {
         java.srcDir("../../app/src/main/java")
         res.srcDir("../../app/src/main/res")
@@ -67,8 +89,14 @@ android {
         assets.srcDir(repDbAssets)
     }
     buildTypes {
-        getByName("debug") { signingConfig = signingConfigs.getByName("projectSuperhuman") }
-        getByName("release") { signingConfig = signingConfigs.getByName("projectSuperhuman"); isMinifyEnabled = false; isShrinkResources = false }
+        getByName("debug") {
+            if (configuredSigning) signingConfig = signingConfigs.getByName("projectSuperhuman")
+        }
+        getByName("release") {
+            if (configuredSigning) signingConfig = signingConfigs.getByName("projectSuperhuman")
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
     }
 }
 
@@ -82,9 +110,13 @@ dependencies {
     implementation("androidx.health.connect:connect-client:1.1.0")
     implementation("androidx.work:work-runtime:2.11.2")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("k2-fsa:sherpa-onnx:1.13.4@aar")
+    implementation("org.apache.commons:commons-compress:1.28.0")
     implementation("com.google.zxing:core:3.5.4")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("org.opencv:opencv:4.13.0")
+    testImplementation(kotlin("test"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }

@@ -1,0 +1,21 @@
+{
+  "base_model": "replace-with-open-weight-model-id-or-path",
+  "tokenizer": null,
+  "output_dir": "artifacts/trudy-adapter",
+  "lora_rank": 16,
+  "lora_alpha": 32,
+  "lora_dropout": 0.05,
+  "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj"],
+  "learning_rate": 0.0002,
+  "epochs": 2.0,
+  "batch_size": 1,
+  "gradient_accumulation": 8,
+  "max_sequence_length": 2048,
+  "warmup_ratio": 0.03,
+  "seed": 17,
+  "precision": "bf16",
+  "quantization": "4bit",
+  "gradient_checkpointing": true,
+  "save_steps": 100,
+  "logging_steps": 10
+}

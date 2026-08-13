@@ -1,0 +1,14 @@
+data/split/
+data/exports/
+data/*.jsonl
+artifacts/
+packages/
+reports/
+checkpoints/
+*.safetensors
+*.bin
+*.gguf
+*.onnx
+*.pte
+*.pyc
+__pycache__/
