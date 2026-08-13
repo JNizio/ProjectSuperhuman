@@ -12,14 +12,17 @@ plugins {
 kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
 
 fun String.asBuildConfigString(): String = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+fun secretProperty(name: String) = providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orNull?.takeIf { it.isNotBlank() }
 
-val trudyRuntimeMode = providers.gradleProperty("TRUDY_RUNTIME_MODE").orElse("DETERMINISTIC")
-val trudyHostedProviderId = providers.gradleProperty("TRUDY_HOSTED_PROVIDER_ID").orElse("hosted")
-val trudyHostedModelId = providers.gradleProperty("TRUDY_HOSTED_MODEL_ID").orElse("")
-val trudyHostedEndpoint = providers.gradleProperty("TRUDY_HOSTED_ENDPOINT").orElse("")
+val trudyGeminiApiKey = secretProperty("TRUDY_GEMINI_API_KEY").orEmpty()
+val trudyRuntimeMode = providers.gradleProperty("TRUDY_RUNTIME_MODE")
+    .orElse(if (trudyGeminiApiKey.isNotBlank()) "HOSTED" else "DETERMINISTIC")
+val trudyHostedProviderId = providers.gradleProperty("TRUDY_HOSTED_PROVIDER_ID").orElse("gemini")
+val trudyHostedModelId = providers.gradleProperty("TRUDY_HOSTED_MODEL_ID").orElse("gemini-3.5-flash")
+val trudyHostedEndpoint = providers.gradleProperty("TRUDY_HOSTED_ENDPOINT")
+    .orElse("https://generativelanguage.googleapis.com/v1beta/models")
 val trudyLocalModelId = providers.gradleProperty("TRUDY_LOCAL_MODEL_ID").orElse("local")
 
-fun secretProperty(name: String) = providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orNull?.takeIf { it.isNotBlank() }
 val signingStoreFile = secretProperty("SUPERHUMAN_SIGNING_STORE_FILE")
 val signingStorePassword = secretProperty("SUPERHUMAN_SIGNING_STORE_PASSWORD")
 val signingKeyAlias = secretProperty("SUPERHUMAN_SIGNING_KEY_ALIAS")
@@ -78,6 +81,7 @@ android {
         buildConfigField("String", "TRUDY_HOSTED_MODEL_ID", trudyHostedModelId.get().asBuildConfigString())
         buildConfigField("String", "TRUDY_HOSTED_ENDPOINT", trudyHostedEndpoint.get().asBuildConfigString())
         buildConfigField("String", "TRUDY_LOCAL_MODEL_ID", trudyLocalModelId.get().asBuildConfigString())
+        buildConfigField("String", "TRUDY_GEMINI_API_KEY", trudyGeminiApiKey.asBuildConfigString())
     }
     externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
