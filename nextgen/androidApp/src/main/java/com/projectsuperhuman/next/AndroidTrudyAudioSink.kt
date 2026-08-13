@@ -78,16 +78,21 @@ class AndroidTrudyAudioSink : TrudyAudioSink {
                 offset += written
             }
 
-            // Blocking writes only guarantee delivery into AudioTrack's buffer. Wait for the
-            // playback head so the final phoneme is not cut off when this chunk is released.
+            // Some Android audio drivers can report a playback head that stops short of the exact
+            // submitted sample count. Never let that bookkeeping keep Trudy in a fake tail wait.
+            val expectedAudioMs = pcm.size * 1000L / audio.sampleRateHz
+            val drainDeadlineMs = System.nanoTime() / 1_000_000L + expectedAudioMs + 750L
             while (activeTrack === track && offset == pcm.size) {
                 coroutineContext.ensureActive()
-                val played = try {
-                    track.playbackHeadPosition.toLong()
-                } catch (_: Throwable) {
+                val played = runCatching { track.playbackHeadPosition.toLong() }.getOrElse { break }
+                if (played >= pcm.size.toLong()) break
+                if (System.nanoTime() / 1_000_000L >= drainDeadlineMs) {
+                    DeveloperDiagnostics.log(
+                        "kokoro.playback.drain_timeout",
+                        "played=$played expected=${pcm.size} audioMs=$expectedAudioMs"
+                    )
                     break
                 }
-                if (played >= pcm.size.toLong()) break
                 delay(10)
             }
         } finally {
