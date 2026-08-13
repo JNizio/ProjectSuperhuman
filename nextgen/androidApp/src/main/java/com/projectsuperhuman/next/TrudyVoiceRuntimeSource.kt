@@ -11,7 +11,7 @@ object TrudyVoiceRuntimeSourceFactory {
         val store = AndroidKokoroModelStore(context.applicationContext)
         return create(
             modelStore = store,
-            kokoroBackend = SherpaKokoroInferenceBackend(),
+            kokoroBackend = SherpaKokoroInferenceBackend(threads = 2),
             modelManager = store
         )
     }
