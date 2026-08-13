@@ -242,19 +242,31 @@ class AndroidKokoroModelStore internal constructor(
 
                 val expectedArchiveSha = archiveClient.expectedSha256(distribution)
                 archiveClient.download(distribution, partialArchive) { update ->
-                    progress = update
-                    onProgress(update)
+                    val rawFraction = update.fraction ?: if (update.downloadedBytes != null && update.totalBytes != null) {
+                        update.downloadedBytes.toFloat() / update.totalBytes.toFloat()
+                    } else null
+                    val scaled = rawFraction?.coerceIn(0f, 1f)?.times(0.90f)
+                    val visible = TrudyVoiceInstallProgress(fraction = scaled)
+                    progress = visible
+                    onProgress(visible)
                 }
+
+                emitInstallProgress(0.92f, onProgress)
                 val actualArchiveSha = sha256(partialArchive)
                 if (!actualArchiveSha.equals(expectedArchiveSha, ignoreCase = true)) {
                     partialArchive.delete()
                     throw KokoroInstallException("Kokoro archive checksum validation failed")
                 }
 
+                emitInstallProgress(0.94f, onProgress)
                 extractArchive(partialArchive, stagingDir)
                 val candidate = File(stagingDir, distribution.archiveRoot)
+
+                emitInstallProgress(0.97f, onProgress)
                 validateCandidate(candidate)
                 writeInstallManifest(candidate)
+
+                emitInstallProgress(0.99f, onProgress)
                 promote(candidate)
                 partialArchive.delete()
                 stagingDir.deleteRecursively()
@@ -263,6 +275,8 @@ class AndroidKokoroModelStore internal constructor(
                     activeDir.deleteRecursively()
                     throw KokoroInstallException("Activated Kokoro files failed integrity validation")
                 }
+
+                emitInstallProgress(1.0f, onProgress)
             }
         } catch (cancelled: CancellationException) {
             stagingDir.deleteRecursively()
@@ -275,6 +289,15 @@ class AndroidKokoroModelStore internal constructor(
             progress = null
         }
         status()
+    }
+
+    private suspend fun emitInstallProgress(
+        fraction: Float,
+        onProgress: suspend (TrudyVoiceInstallProgress) -> Unit
+    ) {
+        val update = TrudyVoiceInstallProgress(fraction = fraction.coerceIn(0f, 1f))
+        progress = update
+        onProgress(update)
     }
 
     private fun extractArchive(archive: File, destination: File) {
