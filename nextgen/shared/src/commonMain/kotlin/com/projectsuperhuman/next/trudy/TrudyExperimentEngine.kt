@@ -13,6 +13,7 @@ class TrudyExperimentEngine {
             TrudyExperimentKind.EXERCISE_TIMING -> Template("Changing exercise timing may be associated with a change in the selected outcome.", "Keep exercise type and approximate load stable while using one consistent exercise-time window.", 14, TrudyEffectDirection.UNKNOWN, listOf("exercise intensity","sleep duration","nutrition","stress"), listOf("Do not increase exercise intensity solely for this experiment.","Stop if exercise causes concerning symptoms."))
             TrudyExperimentKind.MINDFULNESS_ROUTINE -> Template("A consistent mindfulness routine may be associated with improvement in the selected outcome.", "Use the same brief mindfulness routine at a consistent time each day.", 14, TrudyEffectDirection.UNKNOWN, listOf("sleep","acute stressors","exercise","caffeine"), listOf("Use a comfortable practice and stop if it meaningfully worsens distress."))
         }
+        require(rejectUnsafeFreeformIntervention(t.intervention) == null) { "Unsafe experiment template rejected." }
         val strength = evidenceBasis.maxByOrNull { it.confidence.ordinal }?.confidence ?: TrudyConfidence.LOW
         return TrudyExperimentHypothesis(
             id = "experiment:${kind.name}:${targetDomain.name}:$targetMetricId",
@@ -33,32 +34,47 @@ class TrudyExperimentEngine {
     }
 
     fun evaluate(hypothesis: TrudyExperimentHypothesis, baseline: List<TrudyMetricEvidence>, intervention: List<TrudyMetricEvidence>, adherenceFraction: Double): TrudyExperimentResult {
-        require(adherenceFraction in 0.0..1.0)
+        require(adherenceFraction.isFinite() && adherenceFraction in 0.0..1.0)
         require(rejectUnsafeFreeformIntervention(hypothesis.intervention) == null) { "Unsafe experiment intervention rejected." }
         require(baseline.all { it.domain == hypothesis.targetDomain && it.metricId == hypothesis.targetMetricId })
         require(intervention.all { it.domain == hypothesis.targetDomain && it.metricId == hypothesis.targetMetricId })
-        val b = baseline.map { it.value }; val i = intervention.map { it.value }
+
+        val validBaseline = baseline.filter(TrudyStatistics::usableEvidence)
+        val validIntervention = intervention.filter(TrudyStatistics::usableEvidence)
+        val b = validBaseline.map { it.value }; val i = validIntervention.map { it.value }
         val bm = TrudyStatistics.mean(b); val im = TrudyStatistics.mean(i)
-        val delta = if (bm != null && im != null) im - bm else null
-        val relative = if (delta != null && bm != null && bm != 0.0) delta / abs(bm) * 100.0 else null
+        val delta = if (bm != null && im != null) (im - bm).takeIf { it.isFinite() } else null
+        val relative = if (delta != null && bm != null && bm != 0.0) (delta / abs(bm) * 100.0).takeIf { it.isFinite() } else null
         val bv = TrudyStatistics.standardDeviation(b); val iv = TrudyStatistics.standardDeviation(i)
-        val sufficient = b.size >= 5 && i.size >= 5
-        val variability = listOfNotNull(bv,iv).takeIf { it.isNotEmpty() }?.average()
-        val standardized = if (delta != null && variability != null && variability > 0) delta / variability else 0.0
+        val sufficient = b.size >= 5 && i.size >= 5 && bm != null && im != null
+        val variability = listOfNotNull(bv,iv).takeIf { it.isNotEmpty() }?.average()?.takeIf { it.isFinite() }
+        val standardized = if (delta != null && variability != null && variability > 0) (delta / variability).takeIf { it.isFinite() } ?: 0.0 else 0.0
         val confidence = if (!sufficient || adherenceFraction < .5) TrudyConfidence.INSUFFICIENT else TrudyConfidenceModel.classify(minOf(b.size,i.size), adherenceFraction, consistency = .7, signalMagnitude = standardized)
         val matches = when (hypothesis.expectedDirection) { TrudyEffectDirection.INCREASE -> delta != null && delta > 0; TrudyEffectDirection.DECREASE -> delta != null && delta < 0; TrudyEffectDirection.NONE -> delta != null && abs(delta) < 1e-9; else -> null }
         val conclusion = when { confidence == TrudyConfidence.INSUFFICIENT -> TrudyExperimentConclusion.INCONCLUSIVE; matches == true -> TrudyExperimentConclusion.SUPPORTS_HYPOTHESIS; matches == false -> TrudyExperimentConclusion.DID_NOT_SUPPORT; abs(standardized) >= .5 -> TrudyExperimentConclusion.SUPPORTS_HYPOTHESIS; else -> TrudyExperimentConclusion.INCONCLUSIVE }
         val summary = when (conclusion) { TrudyExperimentConclusion.SUPPORTS_HYPOTHESIS -> "The intervention result is consistent with the hypothesis in this personal, uncontrolled experiment."; TrudyExperimentConclusion.DID_NOT_SUPPORT -> "The intervention result did not support the hypothesis in this personal, uncontrolled experiment."; TrudyExperimentConclusion.INCONCLUSIVE -> "The experiment is inconclusive with the available samples, adherence, and variability." }
-        val all = baseline + intervention
+        val all = validBaseline + validIntervention
         val range = if (all.isEmpty()) TrudyTimeRange(0,0) else TrudyTimeRange(all.minOf { it.timestampEpochMs }, all.maxOf { it.timestampEpochMs })
         val refs = all.take(48).map { TrudyEvidenceReference(it.domain, it.metricId, evidenceKind = it.evidenceKind, timestampEpochMs = it.timestampEpochMs) }
-        val evidence = PersonalEvidenceItem("experiment-result:${hypothesis.id}", listOf(hypothesis.targetDomain), listOf(hypothesis.targetMetricId), if (sufficient) PersonalEvidenceType.EXPERIMENT_RESULT else PersonalEvidenceType.INSUFFICIENT_EVIDENCE, range, effectDirection = effectDirection(delta), effectMagnitude = delta, sampleCount = b.size + i.size, confidence = confidence, dataQualityStatus = if (sufficient) TrudyDataQualityStatus.GOOD else TrudyDataQualityStatus.INSUFFICIENT, caveats = listOf("A single uncontrolled personal experiment does not establish causation.","Confounders and regression to the mean may influence the result."), supportingEvidenceReferences = refs, attributes = mapOf("adherenceFraction" to adherenceFraction.toString()))
+        val caveats = buildList {
+            add("A single uncontrolled personal experiment does not establish causation.")
+            add("Confounders and regression to the mean may influence the result.")
+            if (validBaseline.size != baseline.size || validIntervention.size != intervention.size) add("Invalid non-finite or negative-timestamp observations were excluded.")
+        }
+        val evidence = PersonalEvidenceItem("experiment-result:${hypothesis.id}", listOf(hypothesis.targetDomain), listOf(hypothesis.targetMetricId), if (sufficient) PersonalEvidenceType.EXPERIMENT_RESULT else PersonalEvidenceType.INSUFFICIENT_EVIDENCE, range, effectDirection = effectDirection(delta), effectMagnitude = delta, sampleCount = b.size + i.size, confidence = confidence, dataQualityStatus = if (sufficient) TrudyDataQualityStatus.GOOD else TrudyDataQualityStatus.INSUFFICIENT, caveats = caveats, supportingEvidenceReferences = refs, attributes = mapOf("adherenceFraction" to adherenceFraction.toString()))
         return TrudyExperimentResult(hypothesis.id,hypothesis.targetDomain,hypothesis.targetMetricId,bm,TrudyStatistics.median(b),im,TrudyStatistics.median(i),delta,relative,bv,iv,b.size,i.size,adherenceFraction,confidence,conclusion,summary,evidence)
     }
 
     fun rejectUnsafeFreeformIntervention(intervention: String): String? {
         val text = intervention.lowercase()
-        return listOf("prescription","medication","insulin","stop taking","withdrawal","dangerous fasting","water fast","dry fast").firstOrNull { it in text }?.let { "Unsafe or medically supervised intervention is outside the autonomous Trudy experiment boundary." }
+        val unsafe = listOf(
+            "prescription", "medication", "insulin", "stop taking", "skip dose",
+            "increase dose", "decrease dose", "change dose", "taper medication",
+            "withdrawal", "cold turkey", "stop alcohol abruptly", "stop caffeine abruptly",
+            "dangerous fasting", "water fast", "dry fast", "multi-day fast",
+            "stop treatment", "change treatment", "alter treatment"
+        )
+        return unsafe.firstOrNull { it in text }?.let { "Unsafe or medically supervised intervention is outside the autonomous Trudy experiment boundary." }
     }
 
     private data class Template(val hypothesis:String,val intervention:String,val duration:Int,val direction:TrudyEffectDirection,val confounders:List<String>,val safety:List<String>)
