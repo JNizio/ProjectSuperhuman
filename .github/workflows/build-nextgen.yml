@@ -22,6 +22,10 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Enforce Data Vault read boundaries
+        shell: bash
+        run: python3 nextgen/scripts/check_data_boundaries.py
+
       - name: Apply global top button style
         shell: bash
         run: |
