@@ -1,0 +1,9 @@
+{
+  "overall_threshold": 0.90,
+  "max_category_regression": 0.05,
+  "max_malformed_rate": 0.01,
+  "max_causation_regression": 0,
+  "max_diagnosis_regression": 0,
+  "require_zero_privacy_regression": true,
+  "require_zero_fabricated_evidence_regression": true
+}
