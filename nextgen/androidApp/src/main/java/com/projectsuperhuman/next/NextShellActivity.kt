@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -42,20 +42,35 @@ private val ShellMuted = Color(0xFF748294)
 private val ShellTrudy = Color(0xFF1CC8C8)
 
 class NextShellActivity : ComponentActivity() {
+    private lateinit var trudyVoiceController: TrudyVoiceController
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         NativeDataHub.initialize(this)
         MiniMetricsBackgroundSync.ensureScheduled(this)
         val trudyRuntime = TrudyRuntimeFactory.create()
+        // Lightweight controller only. The Kokoro runtime itself remains lazy until speech is requested.
+        trudyVoiceController = AndroidTrudyVoiceControllerFactory.create(this)
         enableEdgeToEdge()
         setContent {
             MaterialTheme {
                 SuperhumanShell(
                     openCompatibility = { startActivity(Intent(this, HealthBridge::class.java)) },
-                    trudyController = trudyRuntime.controller
+                    trudyController = trudyRuntime.controller,
+                    trudyVoiceController = trudyVoiceController
                 )
             }
         }
+    }
+
+    override fun onStop() {
+        if (::trudyVoiceController.isInitialized) trudyVoiceController.onTrudyHidden()
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        if (::trudyVoiceController.isInitialized) trudyVoiceController.close()
+        super.onDestroy()
     }
 }
 
@@ -66,7 +81,8 @@ private enum class ShellPage {
 @Composable
 private fun SuperhumanShell(
     openCompatibility: () -> Unit,
-    trudyController: TrudyConversationController
+    trudyController: TrudyConversationController,
+    trudyVoiceController: TrudyVoiceController
 ) {
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
@@ -105,7 +121,12 @@ private fun SuperhumanShell(
                         }
                     )
                     ShellPage.SETTINGS -> NativeSettingsParity(noCompatibility)
-                    ShellPage.TRUDY -> NativeTrudy(trudyState, trudyController) { page = ShellPage.HOME }
+                    ShellPage.TRUDY -> NativeTrudy(
+                        state = trudyState,
+                        controller = trudyController,
+                        voiceController = trudyVoiceController,
+                        onBack = { page = ShellPage.HOME }
+                    )
                     ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.SLEEP -> UnifiedSleepPage({ page = ShellPage.HOME }, openCompatibility)
