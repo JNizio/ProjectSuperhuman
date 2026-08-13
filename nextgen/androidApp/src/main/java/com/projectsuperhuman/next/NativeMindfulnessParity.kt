@@ -58,6 +58,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
     }
 
     val scope = rememberCoroutineScope()
+    val domainData = remember { NativeDomainData.forDomain(HealthDomain.MINDFULNESS) }
     var mode by remember { mutableStateOf(MindMode.BREATHING) }
     var minutesText by remember { mutableStateOf("5") }
     var stressBefore by remember { mutableStateOf("5") }
@@ -72,7 +73,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
     suspend fun refresh() {
         val now = System.currentTimeMillis()
         val day = 24L * 60L * 60L * 1000L
-        val values = NativeDataHub.between("mindfulness_session_minutes", now - 7L * day, now)
+        val values = domainData.between("mindfulness_session_minutes", now - 7L * day, now)
         sevenDayMinutes = values.sumOf { it.value }.roundToInt()
         sessions7d = values.size
         todayMinutes = values.filter { it.timestampEpochMs >= now - day }.sumOf { it.value }.roundToInt()
