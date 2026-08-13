@@ -3,9 +3,8 @@ package com.projectsuperhuman.next
 import android.content.Context
 
 /**
- * Presentation bridge for Trudy's local voice. The production Android path now prefers the much
- * smaller KittenTTS Nano INT8 package; the old Kokoro implementation remains in-tree as a known-good
- * fallback while Kitten is measured on physical devices.
+ * Presentation bridge for Trudy's local voice. The production Android path prefers the small
+ * KittenTTS Nano INT8 package; Kokoro remains available in-tree as a fallback.
  */
 object TrudyVoiceRuntimeSourceFactory {
     fun createAndroid(context: Context): TrudyVoiceRuntimeSource {
@@ -73,7 +72,8 @@ object TrudyVoiceRuntimeSourceFactory {
                 config = runtimeConfig(config),
                 modelStore = modelStore,
                 kokoroBackend = kokoroBackend,
-                modelManager = modelManager
+                modelManager = modelManager,
+                textFrontend = if (normalizeForKitten) SherpaEspeakKittenTextFrontend() else SherpaEspeakKokoroTextFrontend()
             )
 
         override suspend fun install(
