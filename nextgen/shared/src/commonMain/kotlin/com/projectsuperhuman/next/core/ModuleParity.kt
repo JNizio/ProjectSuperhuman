@@ -85,13 +85,19 @@ data class ModuleParitySnapshot(
  *
  * Domain-specific science remains in the Interpretation/Insights engines; this class provides
  * a uniform, safe baseline so no module needs a bespoke API just to become Trudy-ready.
+ *
+ * Read-side canonicalisation is intentionally non-destructive. Legacy metric aliases are exposed
+ * through their current canonical IDs without rewriting historical SQL rows. This keeps old data
+ * readable while all new writes continue through DataIngestionPipeline canonicalisation.
  */
 class ModuleParityService(
     private val modulePort: (HealthDomain) -> ModuleDataPort,
-    private val nowEpochMs: () -> Long
+    private val nowEpochMs: () -> Long,
+    private val registry: MetricRegistry = CoreMetricRegistry
 ) {
     suspend fun currentState(domain: HealthDomain): ModuleCurrentState {
         val rows = modulePort(domain).page(metric = null, limit = MAX_SCAN_ROWS, offset = 0)
+            .map(::canonicalize)
             .sortedByDescending { it.timestampEpochMs }
         val latest = rows.distinctBy { it.metric }
         return ModuleCurrentState(
@@ -112,7 +118,7 @@ class ModuleParityService(
             metric = null,
             limit = safeLimit,
             offset = safeOffset
-        ).sortedByDescending { it.timestampEpochMs }
+        ).map(::canonicalize).sortedByDescending { it.timestampEpochMs }
         return ModuleHistory(domain, rows, safeLimit, safeOffset)
     }
 
@@ -124,7 +130,7 @@ class ModuleParityService(
             metric = null,
             limit = sampleLimit.coerceIn(1, MAX_SCAN_ROWS),
             offset = 0
-        )
+        ).map(::canonicalize)
 
         val features = rows.groupBy { it.metric }
             .mapNotNull { (metric, metricRows) ->
@@ -191,6 +197,7 @@ class ModuleParityService(
         val port = modulePort(domain)
         val recordCount = port.count()
         val recent = port.page(metric = null, limit = MAX_SCAN_ROWS, offset = 0)
+            .map(::canonicalize)
             .sortedByDescending { it.timestampEpochMs }
         val latestTimestamp = recent.firstOrNull()?.timestampEpochMs
         val metricCount = recent.asSequence().map { it.metric }.distinct().count()
@@ -255,6 +262,15 @@ class ModuleParityService(
 
     suspend fun allModules(): Map<HealthDomain, ModuleParitySnapshot> =
         HealthDomain.entries.associateWith { domain -> snapshot(domain) }
+
+    private fun canonicalize(value: HealthValue): HealthValue {
+        val definition = registry.definition(value.domain, value.metric) ?: return value
+        if (definition.id == value.metric) return value
+        return value.copy(
+            metric = definition.id,
+            metadata = value.metadata + ("parityOriginalMetric" to value.metric)
+        )
+    }
 
     private fun formatMagnitude(value: Double): String =
         if (value >= 10.0) value.toInt().toString() else ((value * 10.0).toInt() / 10.0).toString()
