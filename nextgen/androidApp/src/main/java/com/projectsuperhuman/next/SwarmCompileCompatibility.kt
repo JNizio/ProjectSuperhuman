@@ -3,6 +3,7 @@ package com.projectsuperhuman.next
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 
 internal fun Modifier.padding(horizontal: Dp, bottom: Dp): Modifier =
@@ -10,5 +11,10 @@ internal fun Modifier.padding(horizontal: Dp, bottom: Dp): Modifier =
 
 @Composable
 internal fun NativeEnvironmentalPage(onBack: () -> Unit) {
-    NativeEnvironmentalRoute(onBack = onBack)
+    val context = LocalContext.current
+    if (hasEnvironmentalLocationPermission(context)) {
+        NativeEnvironmentalPage(onBack = onBack, source = EnvironmentalUiRuntime.source())
+    } else {
+        NativeEnvironmentalRoute(onBack = onBack)
+    }
 }
