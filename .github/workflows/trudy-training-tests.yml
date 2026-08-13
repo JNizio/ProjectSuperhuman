@@ -1,0 +1,38 @@
+name: Trudy Training Tests
+
+on:
+  push:
+    branches:
+      - 'trudy/**'
+    paths:
+      - 'nextgen/trudy-training/**'
+      - '.github/workflows/trudy-training-tests.yml'
+  pull_request:
+    paths:
+      - 'nextgen/trudy-training/**'
+      - '.github/workflows/trudy-training-tests.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run Trudy training foundation tests
+        working-directory: nextgen/trudy-training
+        run: PYTHONPATH=. python -m unittest discover -s tests -v
+      - name: Validate generated dataset and adversarial isolation
+        working-directory: nextgen/trudy-training
+        run: |
+          mkdir -p /tmp/trudy-training-ci
+          PYTHONPATH=. python -m trudy_training.cli generate /tmp/trudy-training-ci/all.jsonl --seed 17 --adversarial-out /tmp/trudy-training-ci/adversarial.jsonl
+          PYTHONPATH=. python -m trudy_training.cli validate /tmp/trudy-training-ci/all.jsonl
+          PYTHONPATH=. python -m trudy_training.cli validate /tmp/trudy-training-ci/adversarial.jsonl
+          PYTHONPATH=. python -m trudy_training.cli split /tmp/trudy-training-ci/all.jsonl /tmp/trudy-training-ci/split
+          PYTHONPATH=. python -m trudy_training.cli export /tmp/trudy-training-ci/split/train.jsonl supervised /tmp/trudy-training-ci/train.sft.jsonl --training
