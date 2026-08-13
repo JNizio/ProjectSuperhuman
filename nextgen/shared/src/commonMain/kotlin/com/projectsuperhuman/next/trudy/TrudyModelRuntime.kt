@@ -105,7 +105,7 @@ class TrudyPromptFormatter(
             )
         }
         is TrudyToolResult.Failure ->
-            "tool_failure ${result.operation::class.simpleName}: ${result.code} ${result.message.take(MAX_TEXT_CHARS)}"
+            "tool_failure ${result.operation}: ${result.code} ${result.message.take(MAX_TEXT_CHARS)}"
     }
 
     private fun TrudyMetricEvidence.renderCompact(): String =
@@ -300,19 +300,19 @@ class OfflineDeterministicTrudyModelClient : TrudyModelClient {
     }
 }
 
+/** Only citation-bindable evidence is offered back to the model. Data quality stays a warning. */
 internal fun evidenceReferences(result: TrudyToolResult): List<TrudyEvidenceReference> = when (result) {
     is TrudyToolResult.DomainState -> result.evidence.map { it.toReference() }
     is TrudyToolResult.MetricHistory -> result.evidence.map { it.toReference() }
     is TrudyToolResult.DomainHistory -> result.evidence.map { it.toReference() }
     is TrudyToolResult.DerivedFeatures -> result.evidence.map { it.toReference() }
     is TrudyToolResult.Insights -> result.evidence.map { it.toReference() }
-    is TrudyToolResult.DataQuality -> listOf(result.evidence.toReference())
+    is TrudyToolResult.DataQuality -> emptyList()
     is TrudyToolResult.Context -> result.context.domains.flatMap { domain ->
         domain.currentState.map { it.toReference() } +
             domain.history.map { it.toReference() } +
             domain.derivedFeatures.map { it.toReference() } +
-            domain.insights.map { it.toReference() } +
-            listOfNotNull(domain.dataQuality?.toReference())
+            domain.insights.map { it.toReference() }
     }
     is TrudyToolResult.Failure -> emptyList()
 }
@@ -335,12 +335,6 @@ private fun TrudyInsightEvidence.toReference() = TrudyEvidenceReference(
     domain = domain,
     insightId = id,
     evidenceKind = evidenceKind
-)
-
-private fun TrudyDataQualityEvidence.toReference() = TrudyEvidenceReference(
-    domain = domain,
-    evidenceKind = TrudyEvidenceKind.UNCERTAINTY_OR_DATA_GAP,
-    timestampEpochMs = latestTimestampEpochMs
 )
 
 private fun TrudyEvidenceReference.renderKey(): String = buildString {
