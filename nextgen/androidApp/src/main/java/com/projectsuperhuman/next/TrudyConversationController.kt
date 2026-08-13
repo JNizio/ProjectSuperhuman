@@ -29,25 +29,43 @@ sealed interface TrudyControllerResult {
 }
 
 /**
- * Minimal backend contract for the future shared orchestration adapter.
- * This deliberately uses presentation-neutral primitives rather than repository/domain objects.
+ * Presentation-neutral backend contract for Instance A's future orchestration service.
+ * It intentionally contains no Compose, repository, Health Connect, or shared health-domain types.
  */
 interface TrudyConversationBackend {
     suspend fun send(request: TrudyConversationRequest): TrudyBackendResult
 }
 
+data class TrudyBackendEvidence(
+    val id: String,
+    val label: String,
+    val detail: String? = null,
+    val kind: TrudyBackendEvidenceKind = TrudyBackendEvidenceKind.GENERAL
+)
+
+enum class TrudyBackendEvidenceKind { METRIC, DERIVED, DATA_QUALITY, GENERAL }
+
+data class TrudyBackendNotice(
+    val text: String,
+    val caution: Boolean = false
+)
+
+data class TrudyBackendActivity(
+    val label: String
+)
+
 data class TrudyBackendResult(
     val text: String? = null,
-    val evidence: List<TrudyEvidenceItem> = emptyList(),
-    val notices: List<TrudyNotice> = emptyList(),
-    val activity: TrudyActivityStatus? = null,
+    val evidence: List<TrudyBackendEvidence> = emptyList(),
+    val notices: List<TrudyBackendNotice> = emptyList(),
+    val activity: TrudyBackendActivity? = null,
     val errorMessage: String? = null,
     val retryable: Boolean = true
 )
 
 /**
- * Drop-in controller for Instance A's future orchestration service. Only this class needs wiring
- * when a concrete shared backend is available; NativeTrudy remains unchanged.
+ * Drop-in mapper/controller for the future shared orchestration implementation.
+ * Only this adapter needs wiring when the concrete backend exists; NativeTrudy remains unchanged.
  */
 class SharedTrudyConversationController(
     private val backend: TrudyConversationBackend
@@ -68,12 +86,29 @@ class SharedTrudyConversationController(
         return TrudyControllerResult.Success(
             TrudyReply(
                 text = text,
-                evidence = result.evidence,
-                notices = result.notices,
-                activity = result.activity
+                evidence = result.evidence.map { it.toUiEvidence() },
+                notices = result.notices.map {
+                    TrudyNotice(
+                        text = it.text,
+                        level = if (it.caution) TrudyNoticeLevel.CAUTION else TrudyNoticeLevel.INFO
+                    )
+                },
+                activity = result.activity?.let { TrudyActivityStatus(it.label) }
             )
         )
     }
+
+    private fun TrudyBackendEvidence.toUiEvidence() = TrudyEvidenceItem(
+        id = id,
+        label = label,
+        detail = detail,
+        kind = when (kind) {
+            TrudyBackendEvidenceKind.METRIC -> TrudyEvidenceKind.METRIC
+            TrudyBackendEvidenceKind.DERIVED -> TrudyEvidenceKind.DERIVED
+            TrudyBackendEvidenceKind.DATA_QUALITY -> TrudyEvidenceKind.DATA_QUALITY
+            TrudyBackendEvidenceKind.GENERAL -> TrudyEvidenceKind.GENERAL
+        }
+    )
 }
 
 /** Deterministic local fallback. It never reads personal or health data. */

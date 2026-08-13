@@ -134,18 +134,25 @@ class TrudyConversationStateTest {
     }
 
     @Test
-    fun sharedControllerMapsBackendResultWithoutHealthTypes() = runBlocking {
+    fun sharedControllerMapsBackendDtosWithoutHealthOrUiTypesAtBoundary() = runBlocking {
         val controller = SharedTrudyConversationController(object : TrudyConversationBackend {
             override suspend fun send(request: TrudyConversationRequest) = TrudyBackendResult(
                 text = "Backend answer",
-                evidence = listOf(TrudyEvidenceItem("body_weight_kg", "Body · body weight")),
-                notices = listOf(TrudyNotice("Data is stale", TrudyNoticeLevel.INFO))
+                evidence = listOf(
+                    TrudyBackendEvidence(
+                        id = "body_weight_kg",
+                        label = "Body · body weight",
+                        kind = TrudyBackendEvidenceKind.METRIC
+                    )
+                ),
+                notices = listOf(TrudyBackendNotice("Data is stale"))
             )
         })
 
         val result = controller.respondTo(TrudyConversationRequest("Body?")) as TrudyControllerResult.Success
         assertEquals("Backend answer", result.reply.text)
         assertEquals("body_weight_kg", result.reply.evidence.single().id)
+        assertEquals(TrudyEvidenceKind.METRIC, result.reply.evidence.single().kind)
         assertEquals("Data is stale", result.reply.notices.single().text)
     }
 }
