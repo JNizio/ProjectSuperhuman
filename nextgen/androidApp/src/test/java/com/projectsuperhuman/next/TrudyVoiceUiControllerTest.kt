@@ -1,11 +1,11 @@
 package com.projectsuperhuman.next
 
 import java.io.File
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.TestScope
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -127,6 +127,7 @@ class TrudyVoiceUiControllerTest {
         conversation.updateInput("Question")
         val request = assertNotNull(conversation.beginSend())
         conversation.complete(request, TrudyControllerResult.Success(TrudyReply("Successful answer")))
+
         val source = FakeTrudyVoiceRuntimeSource(FakeTrudyVoiceScenario.FAILURE)
         val controller = controller(source)
         runCurrent()
@@ -199,6 +200,7 @@ class TrudyVoiceUiControllerTest {
         val voice = controller(source)
         runCurrent()
         assertEquals(TrudyVoiceUiStatus.UNAVAILABLE, voice.state.value.status)
+
         val conversation = TrudyConversationState()
         conversation.updateInput("How was my sleep?")
         val request = assertNotNull(conversation.beginSend())
