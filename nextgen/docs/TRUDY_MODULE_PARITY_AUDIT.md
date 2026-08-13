@@ -118,15 +118,37 @@ Former metric-only reads for food, hydration, workouts and body history now go t
 
 Home remains read-only and creates no derived persistence store.
 
-## Remaining production migration debt
+## Final cleanup and enforcement pass
 
-The target areas for Prompt 2 no longer require normal metric-only or application-wide archive reads.
+The final routed-production audit found no remaining normal feature/UI dependency on the metric-only compatibility overloads `NativeDataHub.latest(metric)` or `NativeDataHub.between(metric, ...)`, and no routed feature/UI global archive read. The routed mini-metric pages still call `NativeDataHub.between(domain, metric, ...)`; these are explicitly domain scoped and are not violations.
 
-Remaining intentionally separate work:
+`nextgen/scripts/check_data_boundaries.py` now guards the shell-routed and directly adjacent production source set. It rejects new occurrences of:
 
-- `NativeSettingsParity.kt` may use archive-wide reads for backup/export/administrative operations. These are not normal module reads.
-- Compatibility overloads inside `NativeDataHub` remain available until the final cleanup pass, so older non-routed/reference code is not broken opportunistically.
-- The final cleanup should search all remaining production/reference callers before deprecating or removing helpers.
+- string-first `NativeDataHub.latest("metric")`
+- string-first `NativeDataHub.between("metric", ...)`
+- `NativeDataHub.allValues()` / `allValuesAsync()`
+- direct `SqlHealthRepository(...)` construction
+
+The guard intentionally does not scan Settings backup/export code or historical/unrouted screen implementations. This keeps the rule focused on the actual production boundary rather than forcing risky deletion of compatibility code that still has to compile.
+
+`.github/workflows/build-nextgen.yml` runs the architecture guard immediately after checkout, before any generated style normalisation or Android compilation.
+
+### Retained compatibility / administrative APIs
+
+The following `NativeDataHub` APIs remain intentionally defined:
+
+- `latest(metric)` — compatibility only for older/unrouted code; normal routed code must use a domain-safe API.
+- `between(metric, ...)` — compatibility only for older/unrouted code; normal routed code must use a domain-safe API.
+- `allValuesAsync()` / `allValues()` — administrative whole-vault access used by backup/export/restore-style workflows, especially `NativeSettingsParity.kt`; not allowed in normal feature screens.
+- `latestForDomain`, `pageForDomain`, `pageForMetric`, `domainBetween` — explicit domain-scoped infrastructure and valid when used through the facade or an intentionally cross-domain aggregator.
+
+They are retained rather than deleted because the repository still contains older compatibility/reference implementations and administrative operations. Removing them solely to satisfy a text search would create compile/regression risk without improving the routed architecture.
+
+### Routed vs. legacy assessment
+
+`NextShellActivity` is the routing source of truth for the native shell. The production pages it reaches, plus the directly composed Home/Sleep/Clinical helpers, are protected by the source guard.
+
+Older duplicate Nutrition and other historical presentation implementations may remain in the repository. They are not treated as evidence that the routed product still violates domain isolation. Large UI consolidation/deletion remains a separate cleanup task.
 
 ## Domain audit
 
@@ -197,17 +219,19 @@ Remaining intentionally separate work:
 - open-ended Clinical metric IDs remaining visible only in the Clinical port
 - Sleep alias canonicalisation and paged Sleep history ordering/domain isolation
 
-Home's production aggregator itself now makes domain ownership explicit in code rather than relying on metric-name uniqueness. A later extraction into a platform-independent Home query service would make mixed-domain snapshot logic directly common-testable, but that extraction is not required for this conservative migration and was intentionally not introduced as unrelated refactoring.
+Home's production aggregator itself makes domain ownership explicit in code rather than relying on metric-name uniqueness. A later extraction into a platform-independent Home query service would make mixed-domain snapshot logic directly common-testable, but that extraction is not required for this conservative migration and was intentionally not introduced as unrelated refactoring.
+
+The new source-boundary guard adds architecture-level regression coverage on top of these behavior tests: routed UI code cannot silently reintroduce global metric-name-only reads or construct the SQL repository.
 
 ## Cross-cutting findings
 
 ### Direct SQL access
 
-No current native module screen instantiates `SqlHealthRepository`. SQL ownership remains centralised in the shared data layer and Android `NativeDataHub`.
+No current routed native module screen instantiates `SqlHealthRepository`. SQL ownership remains centralised in the shared data layer and Android `NativeDataHub`.
 
 ### Compatibility helpers
 
-Metric-only and archive-wide compatibility helpers remain defined until the final cleanup pass. New normal feature code should not add callers to them.
+Metric-only and archive-wide compatibility helpers remain defined only as compatibility/administrative surface area. The routed production source set is protected from adding new callers by the architecture guard.
 
 ### Bespoke read models
 
@@ -221,10 +245,13 @@ A stable rule follows:
 
 > If a health domain writes canonical `HealthValue` observations through the ingestion pipeline and exposes a domain `ModuleDataPort`, it participates in the common Trudy-facing architecture.
 
-## Final cleanup order
+The final architecture rule is:
 
-1. Search the entire routed production tree for remaining metric-only/global compatibility reads.
-2. Classify administrative/export, migration/reference, and genuine production callers separately.
-3. Deprecate or remove compatibility helpers only when no legitimate production caller depends on them.
-4. Run shared tests and Android compilation when execution infrastructure is available.
-5. Build the Experiment Engine and Trudy only against shared contracts, never module UI classes.
+**Single-domain code reads one domain.**  
+**Cross-domain code declares each domain explicitly.**  
+**Only the data layer owns SQL.**  
+**No normal feature code scans the global health archive.**
+
+## Next architecture work
+
+The Data Vault/domain-read migration is considered complete once the architecture guard and existing tests can execute in CI/local build infrastructure. The next feature work should build the Experiment Engine and Trudy against the shared contracts rather than reopening module storage access.
