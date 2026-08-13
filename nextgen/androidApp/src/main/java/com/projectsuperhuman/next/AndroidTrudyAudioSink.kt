@@ -5,6 +5,7 @@ import android.media.AudioFormat
 import android.media.AudioManager
 import android.media.AudioTrack
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
@@ -27,7 +28,7 @@ object TrudyPcm16 {
     fun convert(samples: FloatArray): ShortArray = ShortArray(samples.size) { sample(samples[it]) }
 }
 
-/** Streams synthesized mono 24 kHz PCM without retaining AudioTrack resources between chunks. */
+/** Streams synthesized mono PCM without retaining AudioTrack resources between utterance chunks. */
 class AndroidTrudyAudioSink : TrudyAudioSink {
     @Volatile private var activeTrack: AudioTrack? = null
 
@@ -67,14 +68,23 @@ class AndroidTrudyAudioSink : TrudyAudioSink {
             val pcm = TrudyPcm16.convert(audio.samples)
             track.play()
             var offset = 0
-            val chunkSamples = (minBuffer / 2).coerceAtLeast(1)
+            val writeChunkSamples = (minBuffer / 2).coerceAtLeast(1)
             while (offset < pcm.size) {
                 coroutineContext.ensureActive()
                 if (activeTrack !== track) break
-                val count = minOf(chunkSamples, pcm.size - offset)
+                val count = minOf(writeChunkSamples, pcm.size - offset)
                 val written = track.write(pcm, offset, count, AudioTrack.WRITE_BLOCKING)
                 if (written <= 0) break
                 offset += written
+            }
+
+            // Blocking writes only guarantee delivery into AudioTrack's buffer. Wait for the
+            // playback head so the final phoneme is not cut off when this chunk is released.
+            while (activeTrack === track && offset == pcm.size) {
+                coroutineContext.ensureActive()
+                val played = runCatching { track.playbackHeadPosition.toLong() }.getOrElse { break }
+                if (played >= pcm.size.toLong()) break
+                delay(10)
             }
         } finally {
             if (activeTrack === track) activeTrack = null
