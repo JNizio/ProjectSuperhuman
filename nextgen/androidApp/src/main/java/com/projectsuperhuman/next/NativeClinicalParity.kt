@@ -80,6 +80,7 @@ data class ClinicalDraft(
 internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val clinicalData = remember { NativeDomainData.forDomain(HealthDomain.CLINICAL) }
     var saved by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var drafts by remember { mutableStateOf<List<ClinicalDraft>>(emptyList()) }
     var importState by remember { mutableStateOf("Choose one or several screenshots.") }
@@ -87,7 +88,7 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var detectedText by remember { mutableStateOf("") }
 
     suspend fun refresh() {
-        saved = NativeDataHub.latestForDomain(HealthDomain.CLINICAL)
+        saved = clinicalData.latestState()
             .filter { it.metric.startsWith("clinical.") }
             .sortedBy { it.metric }
     }
@@ -115,14 +116,14 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     .map { draft ->
                         if (draft.low.isNotBlank() || draft.high.isNotBlank()) draft
                         else {
-                            val previous = NativeDataHub.latest(draft.metric)
+                            val previous = clinicalData.latest(draft.metric)
                             val rememberedLow = previous?.metadata?.get("rangeLow").orEmpty()
                             val rememberedHigh = previous?.metadata?.get("rangeHigh").orEmpty()
                             if (rememberedLow.isBlank() && rememberedHigh.isBlank()) draft
                             else draft.copy(low = rememberedLow, high = rememberedHigh, rangeSource = "remembered")
                         }
                     }
-                val existingClinical = NativeDataHub.allValuesAsync().filter { it.domain == HealthDomain.CLINICAL }
+                val existingClinical = clinicalData.allHistory()
                 val checked = enriched.map { draft ->
                     draft.copy(duplicate = clinicalDuplicate(draft, existingClinical))
                 }
