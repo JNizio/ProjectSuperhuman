@@ -1,5 +1,6 @@
 package com.projectsuperhuman.next
 
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -136,6 +137,7 @@ class KokoroTrudySpeechEngine(
     override val engineId: String = "kokoro-local:${backend.backendId}"
     private val initMutex = Mutex()
     private val synthesisMutex = Mutex()
+    private val cancellationEpoch = AtomicLong(0L)
     @Volatile private var initialized = false
     @Volatile private var modelLoadDurationMs: Long? = null
     @Volatile private var modelBytesOnDisk: Long? = null
@@ -164,7 +166,10 @@ class KokoroTrudySpeechEngine(
         onChunk: suspend (TrudySpeechResult) -> Unit
     ): TrudySpeechDiagnostics = synthesisMutex.withLock {
         require(config.mode == TrudyVoiceMode.KOKORO_LOCAL) { "Kokoro local voice is disabled" }
+        val requestEpoch = cancellationEpoch.get()
+        ensureNotCancelled(requestEpoch)
         ensureInitialized()
+        ensureNotCancelled(requestEpoch)
         val prepared = textFrontend.prepare(request.text)
         val chunks = textFrontend.chunks(prepared)
         require(chunks.isNotEmpty()) { "No speakable text remains after preprocessing" }
@@ -174,8 +179,10 @@ class KokoroTrudySpeechEngine(
         var sampleRate = 24_000
         for (chunk in chunks) {
             currentCoroutineContext().ensureActive()
+            ensureNotCancelled(requestEpoch)
             val output = backend.synthesize(KokoroInferenceRequest(chunk, request.voiceId, request.speed))
             currentCoroutineContext().ensureActive()
+            ensureNotCancelled(requestEpoch)
             require(output.samples.isNotEmpty()) { "Kokoro returned empty audio" }
             require(output.sampleRateHz == 24_000) { "Unexpected Kokoro sample rate: ${output.sampleRateHz}" }
             sampleRate = output.sampleRateHz
@@ -189,6 +196,7 @@ class KokoroTrudySpeechEngine(
                     diagnostics(request, sampleRate, elapsed, audioMs)
                 )
             )
+            ensureNotCancelled(requestEpoch)
         }
         val elapsed = (nowMs() - started).coerceAtLeast(0L)
         val audioMs = generatedSamples * 1000L / sampleRate
@@ -211,6 +219,10 @@ class KokoroTrudySpeechEngine(
         realTimeFactor = if (audioMs > 0L) elapsedMs.toDouble() / audioMs.toDouble() else null,
         modelBytesOnDisk = modelBytesOnDisk
     )
+
+    private fun ensureNotCancelled(requestEpoch: Long) {
+        if (cancellationEpoch.get() != requestEpoch) throw CancellationException("Kokoro speech stopped")
+    }
 
     private suspend fun ensureInitialized() {
         if (initialized) return
@@ -236,7 +248,10 @@ class KokoroTrudySpeechEngine(
         }
     }
 
-    override fun cancelCurrent() = backend.cancelCurrent()
+    override fun cancelCurrent() {
+        cancellationEpoch.incrementAndGet()
+        backend.cancelCurrent()
+    }
 
     override suspend fun close() {
         cancelCurrent()
