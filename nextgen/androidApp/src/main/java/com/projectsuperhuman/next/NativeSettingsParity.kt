@@ -56,6 +56,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
     DeveloperDiagnostics.initialize(context)
     var developerMode by remember { mutableStateOf(DeveloperDiagnostics.isEnabled(context)) }
     var developerEvents by remember { mutableStateOf(DeveloperDiagnostics.latest(context, 18)) }
+    var developerExportStatus by remember { mutableStateOf("") }
     var storedCount by remember { mutableStateOf(0L) }
     var syntheticCount by remember { mutableStateOf(0L) }
     var syntheticDays by remember { mutableStateOf(90) }
@@ -114,6 +115,26 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                         status = "Restored ${values.size} value${if (values.size == 1) "" else "s"}. Existing data was kept."
                     }
                 }.onFailure { status = "Restore failed: ${it.message ?: "invalid backup"}" }
+            }
+        }
+    }
+
+    val developerExportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri: Uri? ->
+        if (uri == null) {
+            developerExportStatus = "Diagnostic export cancelled"
+        } else {
+            scope.launch {
+                runCatching {
+                    withContext(Dispatchers.IO) {
+                        val payload = DeveloperDiagnostics.exportText(context)
+                        context.contentResolver.openOutputStream(uri, "w")?.bufferedWriter()?.use { it.write(payload) }
+                            ?: error("Could not open selected file")
+                    }
+                }.onSuccess {
+                    developerExportStatus = "Diagnostics log saved. Send that .txt file to ChatGPT."
+                }.onFailure {
+                    developerExportStatus = "Could not save diagnostics: ${it.message ?: "unknown error"}"
+                }
             }
         }
     }
@@ -198,9 +219,22 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                     ) { Text("REFRESH LOG", color = SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black) }
                     Box(
                         Modifier.weight(1f).background(Color(0xFFFFF1F1), RoundedCornerShape(12.dp)).clickable {
-                            DeveloperDiagnostics.clear(context); developerEvents = emptyList()
+                            DeveloperDiagnostics.clear(context); developerEvents = emptyList(); developerExportStatus = "Log cleared"
                         }.padding(10.dp), contentAlignment = Alignment.Center
                     ) { Text("CLEAR LOG", color = SettingsRed, fontSize = 9.sp, fontWeight = FontWeight.Black) }
+                }
+                Spacer(Modifier.height(9.dp))
+                VaultButton(
+                    "Save diagnostics log",
+                    "Export device details and the full persistent runtime timeline as a .txt file",
+                    SettingsBlue
+                ) {
+                    developerEvents = DeveloperDiagnostics.latest(context, 18)
+                    developerExportLauncher.launch("ProjectSuperhuman_diagnostics_${LocalDate.now()}.txt")
+                }
+                if (developerExportStatus.isNotBlank()) {
+                    Spacer(Modifier.height(7.dp))
+                    Text(developerExportStatus, color = SettingsMuted, fontSize = 8.sp, lineHeight = 12.sp)
                 }
                 Spacer(Modifier.height(10.dp))
                 Text("DEVICE", color = SettingsMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
