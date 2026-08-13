@@ -49,6 +49,7 @@ private val DashMuted = Color(0xFF64748B)
 private val DashBlue = Color(0xFF0D6CB4)
 private val DashGreen = Color(0xFF168A78)
 private val DashBorder = Color(0xFFE7ECF2)
+private val BodyDashboardData = NativeDomainData.forDomain(HealthDomain.BODY)
 
 private data class BodyProfileUi(
     val heightCm: String = "",
@@ -191,7 +192,7 @@ internal fun BodyOverTimeSection() {
 
     LaunchedEffect(selected.metric, range.days) {
         val now = System.currentTimeMillis()
-        val raw = NativeDataHub.between(
+        val raw = BodyDashboardData.between(
             selected.metric,
             now - range.days * 24L * 60L * 60L * 1000L,
             now
