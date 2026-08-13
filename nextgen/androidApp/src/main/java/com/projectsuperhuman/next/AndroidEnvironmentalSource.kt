@@ -19,6 +19,10 @@ import kotlin.coroutines.resume
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 
+internal fun hasEnvironmentalLocationPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+
 internal class AndroidEnvironmentalSource(
     context: Context,
     private val repository: EnvironmentalRepository = CachingEnvironmentalRepository(OpenMeteoEnvironmentalProvider())
@@ -40,9 +44,7 @@ internal class AndroidEnvironmentalSource(
         }
     }
 
-    private fun hasPermission() =
-        ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    private fun hasPermission() = hasEnvironmentalLocationPermission(appContext)
 
     private suspend fun currentLocation(): android.location.Location? {
         if (!hasPermission()) return null
