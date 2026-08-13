@@ -1,83 +1,79 @@
-# Trudy fine-tuning pipeline
+# Trudy training, evaluation, and model promotion
 
-This folder adapts an open-weight causal language model with LoRA/QLoRA. It does not train a foundation model and it does not automatically ingest real Project Superhuman user data.
+This directory is the provider-neutral foundation for building and evaluating specialized Trudy models. It does **not** collect real user conversations automatically, expose hidden reasoning, or require a hosted model.
 
-## Reproducible flow
+## Hard rules
 
-```text
-curated + deterministic synthetic data
-  -> validate
-  -> split
-  -> supervised/tool-use export
-  -> LoRA/QLoRA train
-  -> candidate predictions
-  -> deterministic adversarial evaluation
-  -> candidate comparison
-  -> package manifest
-```
+- Synthetic and explicitly curated examples are the default training source.
+- Eval-only adversarial examples must never enter training exports.
+- Real health conversations require a future explicit consent + sanitization + de-identification + review workflow before training use.
+- No chain-of-thought, scratchpad, hidden rationale, SQL internals, device IDs, API keys, or repository paths belong in datasets or candidate predictions.
+- Personal association is not causation. Personal experiments are not universal scientific truth.
+- Important trend, association, lag, baseline, and experiment calculations belong in deterministic Trudy tools rather than free-text model arithmetic.
+- Scientific evidence stays distinct from personal evidence.
+- Trudy does not diagnose or autonomously direct prescription/insulin/risky treatment changes.
 
-Run from `nextgen/trudy-training` with `PYTHONPATH=.`:
+## Dataset composition
+
+`gold.py` contains the original curated core cases. `gold_hardening.py` adds integration-4 intelligence and safety cases. `generator.py` creates deterministic synthetic examples with diversified prompt families. `adversarial.py` is evaluation-only and tagged `adversarial` + `eval_only`.
+
+The dataset schema records schema, dataset, tool-contract, and policy versions. `provenance.py` adds generator version, seed, source/category counts, and a canonical SHA-256 content hash.
+
+## Model iteration loop
+
+1. Generate/curate the dataset.
+2. Validate privacy/schema/evidence integrity.
+3. Audit duplicates, prompt-family leakage, evidence-ID reuse, and category balance.
+4. Split train/validation with prompt-family-aware deterministic grouping.
+5. Export instruction/chat/tool-use/supervised formats.
+6. Train an adapter only in an environment with the optional ML stack installed.
+7. Produce strict candidate-prediction JSONL from the baseline and new candidate.
+8. Evaluate both against validation + eval-only adversarial suites.
+9. Run the configured promotion gate and inspect JSON + Markdown reports.
+10. Package for local-runtime conversion only after the gate passes.
+
+## Core commands
+
+From `nextgen/trudy-training`:
 
 ```bash
-python -m trudy_training.cli generate data/all.jsonl --seed 17 --adversarial-out data/adversarial.jsonl
-python -m trudy_training.cli validate data/all.jsonl
-python -m trudy_training.cli split data/all.jsonl data/split --validation-fraction 0.2
-python -m trudy_training.cli export data/split/train.jsonl supervised data/exports/train.sft.jsonl --training
-python -m trudy_training.cli train config/lora.example.json data/split/train.jsonl --validation-path data/split/validation.jsonl
-python -m trudy_training.cli evaluate data/adversarial.jsonl candidate_predictions.jsonl reports/candidate.json --summary reports/candidate.txt
-python -m trudy_training.cli compare reports/baseline.json reports/candidate.json reports/comparison.json
-python -m trudy_training.cli package config/lora.example.json reports/candidate.json artifacts/trudy-adapter packages/trudy-candidate.json --license-name '<base-model-license>' --license-source '<license-source>'
+PYTHONPATH=. python -m unittest discover -s tests -v
+PYTHONPATH=. python -m trudy_training.cli generate /tmp/trudy/all.jsonl --seed 17 --adversarial-out /tmp/trudy/adversarial.jsonl
+PYTHONPATH=. python -m trudy_training.cli validate /tmp/trudy/all.jsonl
+PYTHONPATH=. python -m trudy_training.cli audit /tmp/trudy/all.jsonl /tmp/trudy/audit.json
+PYTHONPATH=. python -m trudy_training.cli provenance /tmp/trudy/all.jsonl /tmp/trudy/provenance.json --seed 17
+PYTHONPATH=. python -m trudy_training.cli split /tmp/trudy/all.jsonl /tmp/trudy/split --validation-fraction 0.2
+PYTHONPATH=. python -m trudy_training.cli export /tmp/trudy/split/train.jsonl supervised /tmp/trudy/train.sft.jsonl --training
 ```
 
-`train` imports PyTorch, Transformers, PEFT and Accelerate only when invoked. Quantized 4-bit/8-bit training additionally requires bitsandbytes and a CUDA-capable GPU. Missing libraries or unsupported compute fail clearly; there is no pretend-success path.
+Candidate prediction rows use only:
 
-## Tool format
+- `example_id`
+- `model_id`
+- `tool_operations`
+- `answer`
+- `evidence_references`
+- `warnings`
+- `runtime_metadata`
 
-Tool supervision is provider-neutral and versioned as `trudy-tools-v1`:
+Unknown fields are rejected by the strict promotion path. Hidden reasoning fields are explicitly forbidden.
 
-```text
-<trudy_tool_call>
-{"format_version":"trudy-tools-v1","operation":{"name":"get_domain_state","domains":["SLEEP"],"arguments":{"domain":"SLEEP"}}}
-</trudy_tool_call>
-<trudy_tool_result>
-{"format_version":"trudy-tools-v1","result":{...}}
-</trudy_tool_result>
-<trudy_assistant>
-Final evidence-backed answer only.
-</trudy_assistant>
+Promotion example:
+
+```bash
+PYTHONPATH=. python -m trudy_training.cli promote \
+  /tmp/trudy/adversarial.jsonl \
+  /tmp/trudy/baseline.predictions.jsonl \
+  /tmp/trudy/candidate.predictions.jsonl \
+  config/promotion-policy.json \
+  /tmp/trudy/promotion.json \
+  --markdown /tmp/trudy/promotion.md
 ```
 
-No hidden chain-of-thought is generated or stored. Observable tool calls are the only supervised intermediate actions.
+The gate is configuration-driven and will not allow strong average performance to erase critical regressions in privacy, fabricated evidence, diagnosis, or causation behavior.
 
-## Loss masking
+## Fine-tuning smoke behavior
 
-`render_supervised()` separates prompt/input from assistant completion. `build_loss_mask()` masks system, user, conversation and supplied tool-input tokens with label `-100`; loss is therefore concentrated on assistant tool calls and final assistant answers. Tool results are currently emitted in the completion stream immediately after the corresponding tool call so a single causal sequence can teach the observable call/result/answer protocol. A backend may later split tool results into non-loss input turns if its chat template supports turn-level masks.
+The repository test path does not install or download large models. `smoke.py` can verify config/package-manifest behavior with a fake adapter directory and reports optional `torch`, `transformers`, or `peft` dependencies as missing rather than downloading them. Tokenizer smoke validation is performed only when a tokenizer instance is explicitly available.
 
-## Dataset
-
-The deterministic generator currently contributes 308 synthetic cases per seed, plus the curated gold set. Coverage includes all core domains, good/sparse/stale/conflicting data, multi-turn examples, explicit cross-domain reads, identical metric names across domains, causation traps, diagnosis traps and domain-qualified metric requests. The separate 12-case adversarial set is tagged `adversarial` and `eval_only`; split, export-for-training and training commands reject evaluation-only rows.
-
-## Evaluation and promotion
-
-The evaluator scores tool operation accuracy, domain correctness, evidence binding, causation safety, diagnosis safety, data-gap acknowledgement, stale-data acknowledgement, explicit cross-domain scope, tool-failure handling, privacy/secret leakage and structured-output validity. It writes machine-readable JSON and a human summary. `compare` reports aggregate/category deltas, new/resolved failures, regressions and improvements. Promotion passes only when aggregate score does not fall, no category regresses and no new failing cases appear.
-
-For Trudy, promotion should weight tool discipline, evidence fidelity and uncertainty behavior above general trivia. Latency and memory footprint must also be measured on the intended device/runtime before shipping. Candidate search should generally focus on roughly 3B–14B open-weight models whose licenses permit the intended distribution; no single model vendor is hardcoded here.
-
-## Candidate package
-
-`package` records base model, LoRA adapter path, tokenizer, dataset/policy/tool-contract versions, SHA-256 training-config hash, evaluation score, supported context length, quantization, license metadata and build timestamp. Model weights are deliberately ignored by git.
-
-## Local-runtime conversion contract
-
-The package manifest is the handoff boundary. Conversion code should consume the base model + adapter + tokenizer and emit a runtime-specific artifact while preserving the manifest and tool-format version. Supported future adapter modules may target:
-
-- llama.cpp / merged or adapter-applied GGUF
-- ONNX
-- ExecuTorch
-- another local inference backend implementing Project Superhuman's `LocalTrudyModelEngine`
-
-Conversion implementations are intentionally separate from training. A conversion must record its backend, artifact hash, quantization and context length rather than mutating the training manifest in place.
-
-## Privacy boundary
-
-Real user health data must never automatically enter this directory. Validation rejects sensitive field names and common secret patterns. File-path guards reject raw database/device-dump style inputs. Do not copy Android databases, Health Connect exports, arbitrary conversation exports, API credentials or device identifiers into training folders. Curated real-world examples, if ever approved, require an explicit de-identification/review process outside this automatic pipeline.
+The tooling remains vendor-neutral. Candidate base models in roughly the 3B–14B range can be considered later, but license, redistribution/derivative terms, context capacity, language support, tool-use quality, safety behavior, and target-device constraints are all promotion criteria.
