@@ -1,54 +1,83 @@
-# Trudy Training Foundation
+# Trudy fine-tuning pipeline
 
-Offline, provider-neutral infrastructure for future specialization of an open-weight Trudy model. It captures only observable supervised artifacts:
+This folder adapts an open-weight causal language model with LoRA/QLoRA. It does not train a foundation model and it does not automatically ingest real Project Superhuman user data.
 
-`user request → tool operations → structured tool results/evidence → final answer → warnings/quality labels`
+## Reproducible flow
 
-**It must never store chain-of-thought, hidden rationale, scratchpads, or private reasoning traces.**
+```text
+curated + deterministic synthetic data
+  -> validate
+  -> split
+  -> supervised/tool-use export
+  -> LoRA/QLoRA train
+  -> candidate predictions
+  -> deterministic adversarial evaluation
+  -> candidate comparison
+  -> package manifest
+```
+
+Run from `nextgen/trudy-training` with `PYTHONPATH=.`:
+
+```bash
+python -m trudy_training.cli generate data/all.jsonl --seed 17 --adversarial-out data/adversarial.jsonl
+python -m trudy_training.cli validate data/all.jsonl
+python -m trudy_training.cli split data/all.jsonl data/split --validation-fraction 0.2
+python -m trudy_training.cli export data/split/train.jsonl supervised data/exports/train.sft.jsonl --training
+python -m trudy_training.cli train config/lora.example.json data/split/train.jsonl --validation-path data/split/validation.jsonl
+python -m trudy_training.cli evaluate data/adversarial.jsonl candidate_predictions.jsonl reports/candidate.json --summary reports/candidate.txt
+python -m trudy_training.cli compare reports/baseline.json reports/candidate.json reports/comparison.json
+python -m trudy_training.cli package config/lora.example.json reports/candidate.json artifacts/trudy-adapter packages/trudy-candidate.json --license-name '<base-model-license>' --license-source '<license-source>'
+```
+
+`train` imports PyTorch, Transformers, PEFT and Accelerate only when invoked. Quantized 4-bit/8-bit training additionally requires bitsandbytes and a CUDA-capable GPU. Missing libraries or unsupported compute fail clearly; there is no pretend-success path.
+
+## Tool format
+
+Tool supervision is provider-neutral and versioned as `trudy-tools-v1`:
+
+```text
+<trudy_tool_call>
+{"format_version":"trudy-tools-v1","operation":{"name":"get_domain_state","domains":["SLEEP"],"arguments":{"domain":"SLEEP"}}}
+</trudy_tool_call>
+<trudy_tool_result>
+{"format_version":"trudy-tools-v1","result":{...}}
+</trudy_tool_result>
+<trudy_assistant>
+Final evidence-backed answer only.
+</trudy_assistant>
+```
+
+No hidden chain-of-thought is generated or stored. Observable tool calls are the only supervised intermediate actions.
+
+## Loss masking
+
+`render_supervised()` separates prompt/input from assistant completion. `build_loss_mask()` masks system, user, conversation and supplied tool-input tokens with label `-100`; loss is therefore concentrated on assistant tool calls and final assistant answers. Tool results are currently emitted in the completion stream immediately after the corresponding tool call so a single causal sequence can teach the observable call/result/answer protocol. A backend may later split tool results into non-loss input turns if its chat template supports turn-level masks.
 
 ## Dataset
 
-Canonical source format is deterministic JSONL: one self-contained, versioned example per line. Current metadata pins `schema_version=1.0`, dataset `trudy-starter-1`, and the `integration-2` Trudy tool/model-policy generation.
+The deterministic generator currently contributes 308 synthetic cases per seed, plus the curated gold set. Coverage includes all core domains, good/sparse/stale/conflicting data, multi-turn examples, explicit cross-domain reads, identical metric names across domains, causation traps, diagnosis traps and domain-qualified metric requests. The separate 12-case adversarial set is tagged `adversarial` and `eval_only`; split, export-for-training and training commands reject evaluation-only rows.
 
-Starter corpus: 12 curated gold examples plus deterministic synthetic examples spanning Sleep, Body, Exercise, Hydration, Nutrition, Mindfulness, Clinical, sparse/stale data, cross-domain evidence, and identical metric-name collisions.
+## Evaluation and promotion
 
-## Privacy policy
+The evaluator scores tool operation accuracy, domain correctness, evidence binding, causation safety, diagnosis safety, data-gap acknowledgement, stale-data acknowledgement, explicit cross-domain scope, tool-failure handling, privacy/secret leakage and structured-output validity. It writes machine-readable JSON and a human summary. `compare` reports aggregate/category deltas, new/resolved failures, regressions and improvements. Promotion passes only when aggregate score does not fall, no category regresses and no new failing cases appear.
 
-Synthetic and hand-curated examples are the default and preferred training source. **Real user health conversations must never automatically become training data.** Future inclusion of real data requires an explicit, separately designed consent + sanitization + de-identification review workflow. This package rejects obvious identity/device/database/secret fields and intentionally contains no collection/upload code.
+For Trudy, promotion should weight tool discipline, evidence fidelity and uncertainty behavior above general trivia. Latency and memory footprint must also be measured on the intended device/runtime before shipping. Candidate search should generally focus on roughly 3B–14B open-weight models whose licenses permit the intended distribution; no single model vendor is hardcoded here.
 
-Do not store API keys, account IDs, device IDs, raw database paths, SQL internals, private health exports, or model weights in this directory.
+## Candidate package
 
-## Evaluation
+`package` records base model, LoRA adapter path, tokenizer, dataset/policy/tool-contract versions, SHA-256 training-config hash, evaluation score, supported context length, quantization, license metadata and build timestamp. Model weights are deliberately ignored by git.
 
-The evaluator is deterministic and rules-first. It checks exact expected tool operations, domain qualification/leakage, evidence-reference validity/hallucination, missing/stale-data honesty, causal-overclaim language, answer presence, and fallback behavior. Reports contain totals, pass/fail counts, scores by category, and per-case failure reasons. An offline `Candidate` interface allows fixtures or future `TrudyModelClient` adapters to be benchmarked without networking.
+## Local-runtime conversion contract
 
-## Fine-tuning exports
+The package manifest is the handoff boundary. Conversion code should consume the base model + adapter + tokenizer and emit a runtime-specific artifact while preserving the manifest and tool-format version. Supported future adapter modules may target:
 
-Adapters are deliberately framework-neutral:
+- llama.cpp / merged or adapter-applied GGUF
+- ONNX
+- ExecuTorch
+- another local inference backend implementing Project Superhuman's `LocalTrudyModelEngine`
 
-- `instruction`: instruction/input/output JSONL
-- `chat`: messages JSONL
-- `tool-use`: structured request/tools/results/evidence/answer JSONL
+Conversion implementations are intentionally separate from training. A conversion must record its backend, artifact hash, quantization and context length rather than mutating the training manifest in place.
 
-They are export views, not new sources of truth.
+## Privacy boundary
 
-## Commands
-
-Run from `nextgen/trudy-training` with Python 3.11+ and no third-party packages:
-
-```bash
-python -m unittest discover -s tests -v
-python -m trudy_training.cli generate data/starter.jsonl
-python -m trudy_training.cli validate data/starter.jsonl
-python -m trudy_training.cli split data/starter.jsonl data/split --validation-fraction 0.2
-python -m trudy_training.cli export data/starter.jsonl chat data/chat.jsonl
-python -m trudy_training.cli export data/starter.jsonl tool-use data/tool-use.jsonl
-```
-
-## Future LoRA / QLoRA scaffold
-
-The tools are designed for candidate open-weight bases roughly in the **3B–14B** range. Selection must separately evaluate license, redistribution/derivative-model terms, context/tool-use capability, hardware fit, language coverage, and health-safety behavior. No vendor is hardcoded.
-
-A future training runner should consume exported train/validation files and a reviewed configuration, then invoke an external fine-tuning stack (for example a LoRA/QLoRA-capable trainer). Keep framework adapters outside the canonical schema. Quantization, optimizer, sequence length, adapter rank, target modules, batching, and checkpoint policy belong in framework-specific config—not in training examples.
-
-No GPU is assumed. This repository does **not** download models, include model weights, or claim that Trudy has been fine-tuned.
+Real user health data must never automatically enter this directory. Validation rejects sensitive field names and common secret patterns. File-path guards reject raw database/device-dump style inputs. Do not copy Android databases, Health Connect exports, arbitrary conversation exports, API credentials or device identifiers into training folders. Curated real-world examples, if ever approved, require an explicit de-identification/review process outside this automatic pipeline.
