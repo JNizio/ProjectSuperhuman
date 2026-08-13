@@ -24,6 +24,11 @@ fun TrudyVoiceOption(
     installed: Boolean
 ): TrudyVoiceOption = TrudyVoiceOption(id = id, label = displayName)
 
+/** Runtime compatibility metadata retained for Kokoro tests and non-Compose callers. */
+val TrudyVoiceOption.displayName: String get() = label
+val TrudyVoiceOption.languageTag: String get() = "en-US"
+val TrudyVoiceOption.installed: Boolean get() = true
+
 /**
  * Canonical model/runtime status. UI-facing progress/voice option DTOs are shared package contracts
  * and intentionally contain no inference implementation details.
