@@ -117,7 +117,7 @@ class SherpaKokoroInferenceBackend(
             val sampleRate = withContext(dispatcher) { created.sampleRate() }
             val speakers = withContext(dispatcher) { created.numSpeakers() }
             require(sampleRate == EXPECTED_SAMPLE_RATE) { "Unexpected Kokoro sample rate: $sampleRate" }
-            require(speakers >= 28) { "Kokoro voice table is incomplete: $speakers speakers" }
+            require(speakers == EXPECTED_SPEAKERS) { "Kokoro voice table mismatch: expected $EXPECTED_SPEAKERS, found $speakers" }
             tts = created
         } catch (failure: Throwable) {
             runCatching { created.release() }
@@ -144,7 +144,11 @@ class SherpaKokoroInferenceBackend(
             cancelled.set(true)
             throw cancel
         } catch (failure: Throwable) {
-            if (cancelled.get()) throw CancellationException("Kokoro synthesis cancelled", failure)
+            if (cancelled.get()) {
+                val cancelledException = CancellationException("Kokoro synthesis cancelled")
+                cancelledException.initCause(failure)
+                throw cancelledException
+            }
             throw KokoroInferenceException("Kokoro synthesis failed", failure)
         }
         if (cancelled.get()) throw CancellationException("Kokoro synthesis cancelled")
@@ -188,5 +192,8 @@ class SherpaKokoroInferenceBackend(
         return file
     }
 
-    private companion object { const val EXPECTED_SAMPLE_RATE = 24_000 }
+    private companion object {
+        const val EXPECTED_SAMPLE_RATE = 24_000
+        const val EXPECTED_SPEAKERS = 53
+    }
 }
