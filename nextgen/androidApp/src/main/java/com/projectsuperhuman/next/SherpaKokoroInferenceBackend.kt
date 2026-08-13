@@ -62,10 +62,6 @@ class KokoroInferenceException(message: String, cause: Throwable? = null) : Exce
 
 class SherpaKokoroInferenceBackend(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    // Keep mobile inference deliberately conservative. Kokoro is memory-heavy and allowing
-    // sherpa/ONNX to fan out across four CPU threads can push mid-range phones into thermal or
-    // memory pressure during first synthesis. Two threads gives the UI breathing room while still
-    // retaining useful parallelism.
     private val threads: Int = Runtime.getRuntime().availableProcessors().coerceIn(1, 2)
 ) : KokoroInferenceBackend {
     override val backendId: String = "sherpa-onnx-${KokoroAndroidRuntimeContract.SHERPA_ONNX_VERSION}"
@@ -77,14 +73,20 @@ class SherpaKokoroInferenceBackend(
 
     override suspend fun initialize(files: KokoroModelFiles) = lifecycleMutex.withLock {
         if (tts != null) return@withLock
+        DeveloperDiagnostics.log("kokoro.init.begin", "threads=$threads")
         validateAbi()
         val model = requireFile(files.modelPath, "model.onnx")
         val voices = requireFile(files.voicesPath, "voices.bin")
         val tokens = requireFile(files.tokenizerPath, "tokens.txt")
         val dataDir = requireDirectory(files.phonemizerDataDir, "espeak-ng-data")
         val lexicon = requireFile(files.lexiconPath, "English lexicon")
+        DeveloperDiagnostics.log(
+            "kokoro.init.assets_ok",
+            "model=${model.length() / (1024L * 1024L)}MB voices=${voices.length() / (1024L * 1024L)}MB"
+        )
 
         val created = try {
+            DeveloperDiagnostics.log("kokoro.init.native_enter")
             withContext(dispatcher) {
                 OfflineTts(
                     config = OfflineTtsConfig(
@@ -104,10 +106,12 @@ class SherpaKokoroInferenceBackend(
                         silenceScale = 0.2f
                     )
                 )
-            }
+            }.also { DeveloperDiagnostics.log("kokoro.init.native_returned") }
         } catch (oom: OutOfMemoryError) {
+            DeveloperDiagnostics.log("kokoro.init.oom", oom.message)
             throw KokoroInferenceException("Kokoro native runtime could not allocate enough memory", oom)
         } catch (failure: Throwable) {
+            DeveloperDiagnostics.log("kokoro.init.error", "${failure.javaClass.simpleName}: ${failure.message}")
             throw KokoroInferenceException("Kokoro native runtime initialization failed", failure)
         }
 
@@ -119,7 +123,9 @@ class SherpaKokoroInferenceBackend(
                 "Kokoro voice table mismatch: expected ${Kokoro82MModelContract.VOICE_COUNT}, found $speakers"
             }
             tts = created
+            DeveloperDiagnostics.log("kokoro.init.ready", "sampleRate=$sampleRate speakers=$speakers")
         } catch (failure: Throwable) {
+            DeveloperDiagnostics.log("kokoro.init.metadata_error", "${failure.javaClass.simpleName}: ${failure.message}")
             runCatching { created.release() }
             throw KokoroInferenceException("Kokoro model metadata validation failed", failure)
         }
@@ -129,7 +135,12 @@ class SherpaKokoroInferenceBackend(
         val runtime = tts ?: throw KokoroInferenceException("Kokoro runtime is not initialized")
         val voice = KokoroVoiceCatalog.requireVoice(request.voiceId)
         val requestEpoch = cancellationEpoch.get()
+        DeveloperDiagnostics.log(
+            "kokoro.synth.begin",
+            "chars=${request.text.length} voice=${request.voiceId} speed=${request.speed} threads=$threads"
+        )
         val generated = try {
+            DeveloperDiagnostics.log("kokoro.synth.native_enter")
             withContext(dispatcher) {
                 runtime.generateWithConfigAndCallback(
                     text = request.text,
@@ -139,10 +150,15 @@ class SherpaKokoroInferenceBackend(
                         sid = voice.speakerId
                     )
                 ) { _ -> if (cancellationEpoch.get() == requestEpoch) 1 else 0 }
-            }
+            }.also { DeveloperDiagnostics.log("kokoro.synth.native_returned") }
         } catch (cancel: CancellationException) {
+            DeveloperDiagnostics.log("kokoro.synth.cancelled")
             throw cancel
+        } catch (oom: OutOfMemoryError) {
+            DeveloperDiagnostics.log("kokoro.synth.oom", oom.message)
+            throw KokoroInferenceException("Kokoro synthesis ran out of memory", oom)
         } catch (failure: Throwable) {
+            DeveloperDiagnostics.log("kokoro.synth.error", "${failure.javaClass.simpleName}: ${failure.message}")
             if (cancellationEpoch.get() != requestEpoch) {
                 val cancelledException = CancellationException("Kokoro synthesis cancelled")
                 cancelledException.initCause(failure)
@@ -152,16 +168,23 @@ class SherpaKokoroInferenceBackend(
         }
         if (cancellationEpoch.get() != requestEpoch) throw CancellationException("Kokoro synthesis cancelled")
         if (generated.samples.isEmpty() || generated.sampleRate <= 0) {
+            DeveloperDiagnostics.log("kokoro.synth.malformed")
             throw KokoroInferenceException("Kokoro returned malformed or empty audio")
         }
+        DeveloperDiagnostics.log(
+            "kokoro.synth.complete",
+            "samples=${generated.samples.size} rate=${generated.sampleRate}"
+        )
         KokoroInferenceOutput(generated.samples, generated.sampleRate)
     }
 
     override fun cancelCurrent() {
         cancellationEpoch.incrementAndGet()
+        DeveloperDiagnostics.log("kokoro.cancel")
     }
 
     override suspend fun close() {
+        DeveloperDiagnostics.log("kokoro.close.begin")
         cancelCurrent()
         generationMutex.withLock {
             lifecycleMutex.withLock {
@@ -170,6 +193,7 @@ class SherpaKokoroInferenceBackend(
                 if (current != null) withContext(dispatcher) { runCatching { current.release() } }
             }
         }
+        DeveloperDiagnostics.log("kokoro.close.complete")
     }
 
     private fun validateAbi() {
