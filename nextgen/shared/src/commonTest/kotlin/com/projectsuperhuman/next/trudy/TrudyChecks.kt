@@ -13,6 +13,22 @@ class TrudyOutputTest {
     private val emotionalDomain = TrudyEmotionalSemantics.routingDomain()
 
     @Test
+    fun drainedMonthRoutesToEnergy() {
+        val current = listOf(metric("emotional_energy", -0.2))
+        val request = TrudyToolOperation.GetContext(TrudyContextRequest(listOf(emotionalDomain)))
+        val context = TrudyToolResult.Context(
+            request,
+            TrudyHealthContext(
+                requestedDomains = request.domains,
+                domains = listOf(TrudyDomainContext(emotionalDomain, current, emptyList(), emptyList(), emptyList(), null))
+            )
+        )
+        val trend = TrudyEmotionalToolPlanner.followUp("Have I been more drained this month?", listOf(context)).single() as GetPersonalTrend
+        assertEquals("emotional_energy", trend.metricId)
+        assertEquals(30, trend.recentDays)
+    }
+
+    @Test
     fun exerciseMoodAssociationUsesNaturalCausalBoundary() {
         val window = TrudyTimeRange(now - 30 * 86_400_000L, now)
         val evidence = PersonalEvidenceItem(
