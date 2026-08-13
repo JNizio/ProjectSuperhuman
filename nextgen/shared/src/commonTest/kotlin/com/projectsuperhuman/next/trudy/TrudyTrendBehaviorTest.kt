@@ -1,3 +1,0 @@
-package com.projectsuperhuman.next.trudy
-
-class TrudyEmotionalTrendBehaviorTest
