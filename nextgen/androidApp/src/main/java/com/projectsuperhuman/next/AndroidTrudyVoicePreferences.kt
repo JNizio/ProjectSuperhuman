@@ -34,7 +34,7 @@ class AndroidTrudyVoicePreferenceStore(context: Context) : TrudyVoicePreferenceS
 object AndroidTrudyVoiceControllerFactory {
     fun create(
         context: Context,
-        runtimeSource: TrudyVoiceRuntimeSource = TrudyVoiceRuntimeSourceFactory.create()
+        runtimeSource: TrudyVoiceRuntimeSource = TrudyVoiceRuntimeSourceFactory.createAndroid(context)
     ): TrudyVoiceController = DefaultTrudyVoiceController(
         runtimeSource = runtimeSource,
         preferenceStore = AndroidTrudyVoicePreferenceStore(context)
