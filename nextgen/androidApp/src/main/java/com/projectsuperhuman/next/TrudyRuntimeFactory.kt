@@ -185,7 +185,7 @@ internal object TrudyRuntimeFactory {
         requestedMode: TrudyModelRuntimeMode,
         reason: String? = null
     ) = TrudyModelSelection(
-        client = TrudyDeterministicAnswerAdapter(),
+        client = OfflineDeterministicTrudyModelClient(),
         diagnostics = TrudyRuntimeDiagnostics(
             requestedMode = requestedMode,
             activeMode = TrudyModelRuntimeMode.DETERMINISTIC,
