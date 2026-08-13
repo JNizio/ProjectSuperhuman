@@ -47,6 +47,7 @@ class NextShellActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         NativeDataHub.initialize(this)
+        EnvironmentalUiRuntime.installSource(AndroidEnvironmentalSource(this))
         MiniMetricsBackgroundSync.ensureScheduled(this)
         val trudyRuntime = TrudyRuntimeFactory.create()
         trudyVoiceController = AndroidTrudyVoiceControllerFactory.create(this)
