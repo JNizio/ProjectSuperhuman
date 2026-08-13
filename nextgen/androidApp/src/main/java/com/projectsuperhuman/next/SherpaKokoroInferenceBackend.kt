@@ -15,7 +15,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
-/** Provider-neutral voice metadata. Speaker IDs are runtime details and never enter Compose. */
 data class KokoroVoiceDescriptor(
     val id: String,
     val displayName: String,
@@ -24,7 +23,6 @@ data class KokoroVoiceDescriptor(
 )
 
 object KokoroVoiceCatalog {
-    // Kokoro v1.0 speaker2id metadata. English is the supported initial Trudy language.
     val voices: List<KokoroVoiceDescriptor> = listOf(
         KokoroVoiceDescriptor("af_alloy", "Alloy", "en-US", 0),
         KokoroVoiceDescriptor("af_aoede", "Aoede", "en-US", 1),
@@ -62,13 +60,13 @@ object KokoroVoiceCatalog {
 
 class KokoroInferenceException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
-/**
- * Android-local Kokoro backend using the pinned sherpa-onnx runtime. sherpa-onnx owns ONNX Runtime
- * and the eSpeak-ng Kokoro frontend; Trudy only passes validated app-private asset paths.
- */
 class SherpaKokoroInferenceBackend(
-    private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
-    private val threads: Int = Runtime.getRuntime().availableProcessors().coerceIn(2, 4)
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    // Keep mobile inference deliberately conservative. Kokoro is memory-heavy and allowing
+    // sherpa/ONNX to fan out across four CPU threads can push mid-range phones into thermal or
+    // memory pressure during first synthesis. Two threads gives the UI breathing room while still
+    // retaining useful parallelism.
+    private val threads: Int = Runtime.getRuntime().availableProcessors().coerceIn(1, 2)
 ) : KokoroInferenceBackend {
     override val backendId: String = "sherpa-onnx-${KokoroAndroidRuntimeContract.SHERPA_ONNX_VERSION}"
 
