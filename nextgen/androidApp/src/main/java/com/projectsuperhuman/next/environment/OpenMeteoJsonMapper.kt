@@ -59,8 +59,10 @@ internal object OpenMeteoJsonMapper {
         val value = json.optDouble(responseName, Double.NaN)
         if (!value.isFinite()) return
         val definition = EnvironmentalMetricCatalog.definition(metricId)
-        if (definition?.minAccepted != null && value < definition.minAccepted) return
-        if (definition?.maxAccepted != null && value > definition.maxAccepted) return
+        val minAccepted = definition?.minAccepted
+        val maxAccepted = definition?.maxAccepted
+        if (minAccepted != null && value < minAccepted) return
+        if (maxAccepted != null && value > maxAccepted) return
         add(EnvironmentalMeasurement(metricId, value, unit, measuredAt, source))
     }
 }
