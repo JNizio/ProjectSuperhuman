@@ -429,35 +429,43 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val now = System.currentTimeMillis()
     val thirtyDaysAgo = today.minusDays(30).atStartOfDay(zone).toInstant().toEpochMilli()
 
-    val sleep = NativeDataHub.latestForDomain(HealthDomain.SLEEP)
-    val body = NativeDataHub.latestForDomain(HealthDomain.BODY)
-    val clinical = NativeDataHub.latestForDomain(HealthDomain.CLINICAL)
-    val kcal = NativeDataHub.between("food_kcal", start, now).sumOf { it.value }.roundToInt()
-    val protein = NativeDataHub.between("food_protein", start, now).sumOf { it.value }.roundToInt()
-    val waterGoalMl = NativeDataHub.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
-    val waterEvents = NativeDataHub.between("water_intake_ml", start, now)
+    val sleepData = NativeDomainData.forDomain(HealthDomain.SLEEP)
+    val hydrationData = NativeDomainData.forDomain(HealthDomain.HYDRATION)
+    val nutritionData = NativeDomainData.forDomain(HealthDomain.NUTRITION)
+    val exerciseData = NativeDomainData.forDomain(HealthDomain.EXERCISE)
+    val bodyData = NativeDomainData.forDomain(HealthDomain.BODY)
+    val clinicalData = NativeDomainData.forDomain(HealthDomain.CLINICAL)
+    val mindfulnessData = NativeDomainData.forDomain(HealthDomain.MINDFULNESS)
+
+    val sleep = sleepData.history(limit = 250).groupBy { it.metric }.mapNotNull { (_, rows) -> rows.maxByOrNull { it.timestampEpochMs } }
+    val body = bodyData.history(limit = 250).groupBy { it.metric }.mapNotNull { (_, rows) -> rows.maxByOrNull { it.timestampEpochMs } }
+    val clinical = clinicalData.history(limit = 250)
+    val kcal = nutritionData.between("food_kcal", start, now).sumOf { it.value }.roundToInt()
+    val protein = nutritionData.between("food_protein", start, now).sumOf { it.value }.roundToInt()
+    val waterGoalMl = hydrationData.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
+    val waterEvents = hydrationData.between("water_intake_ml", start, now)
     val rawWaterLitres = if (waterEvents.isNotEmpty()) {
         waterEvents.sumOf { it.value } / 1000.0
     } else {
-        NativeDataHub.between("water_total_l", start, now).maxByOrNull { it.timestampEpochMs }?.value
-            ?: NativeDataHub.latest("water_total_l")?.takeIf { it.timestampEpochMs >= start }?.value
+        hydrationData.between("water_total_l", start, now).maxByOrNull { it.timestampEpochMs }?.value
+            ?: hydrationData.latest("water_total_l")?.takeIf { it.timestampEpochMs >= start }?.value
             ?: 0.0
     }
     val water = rawWaterLitres.coerceIn(0.0, waterGoalMl / 1000.0)
 
-    val workouts = NativeDataHub.between("workout_session", start, now)
-    val sets = NativeDataHub.between("exercise_set", start, now)
-    val volumes = NativeDataHub.between("workout_volume", start, now)
-    val mindfulness = NativeDataHub.latestForDomain(HealthDomain.MINDFULNESS)
-    val bodyHistory = NativeDataHub.between("body_weight_kg", thirtyDaysAgo, now).sortedBy { it.timestampEpochMs }
+    val workouts = exerciseData.between("workout_session", start, now)
+    val sets = exerciseData.between("exercise_set", start, now)
+    val volumes = exerciseData.between("workout_volume", start, now)
+    val mindfulness = mindfulnessData.between("mindfulness_session_minutes", start, now)
+    val bodyHistory = bodyData.between("body_weight_kg", thirtyDaysAgo, now).sortedBy { it.timestampEpochMs }
 
     fun sleepMetric(name: String) = sleep.firstOrNull { it.metric == name }?.value
     fun sleepText(name: String) = sleep.firstOrNull { it.metric == name }?.metadata?.get("display")
     fun bodyMetric(name: String) = body.firstOrNull { it.metric == name }?.value
 
-    val clinicalAlerts = clinical.count { it.metadata["status"] == "LOW" || it.metadata["status"] == "HIGH" }
+    val clinicalLatest = clinical.groupBy { it.metric }.mapNotNull { (_, rows) -> rows.maxByOrNull { it.timestampEpochMs } }
+    val clinicalAlerts = clinicalLatest.count { it.metadata["status"] == "LOW" || it.metadata["status"] == "HIGH" }
     val mindfulnessToday = mindfulness
-        .filter { it.timestampEpochMs >= start }
         .filter { it.metric.contains("minute", true) || it.unit == "min" }
         .sumOf { it.value }.roundToInt()
 
@@ -479,7 +487,7 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         bodyWeightKg = bodyMetric("body_weight_kg"),
         bodyWeightChange30d = weightChange,
         bodyWeightTrend = trend,
-        clinicalMarkers = clinical.size,
+        clinicalMarkers = clinicalLatest.size,
         clinicalAlerts = clinicalAlerts,
         mindfulnessMinutesToday = mindfulnessToday
     )
