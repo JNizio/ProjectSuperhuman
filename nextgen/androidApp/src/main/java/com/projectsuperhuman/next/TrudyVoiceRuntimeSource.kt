@@ -3,24 +3,35 @@ package com.projectsuperhuman.next
 import android.content.Context
 
 /**
- * Bridges the Kokoro runtime/model manager to presentation state. Heavy inference remains lazy:
- * constructing this source creates no native session and performs no network request.
+ * Presentation bridge for Trudy's local voice. The production Android path now prefers the much
+ * smaller KittenTTS Nano INT8 package; the old Kokoro implementation remains in-tree as a known-good
+ * fallback while Kitten is measured on physical devices.
  */
 object TrudyVoiceRuntimeSourceFactory {
     fun createAndroid(context: Context): TrudyVoiceRuntimeSource {
-        val store = AndroidKokoroModelStore(context.applicationContext)
+        val store = AndroidKittenModelStore(context.applicationContext)
         return create(
             modelStore = store,
-            kokoroBackend = SherpaKokoroInferenceBackend(threads = 4),
-            modelManager = store
+            kokoroBackend = SherpaKittenInferenceBackend(threads = 4),
+            modelManager = store,
+            normalizeForKitten = true
         )
     }
 
     fun create(
         modelStore: KokoroModelStore? = null,
         kokoroBackend: KokoroInferenceBackend? = null,
-        modelManager: TrudyVoiceModelManager? = modelStore as? TrudyVoiceModelManager
+        modelManager: TrudyVoiceModelManager? = modelStore as? TrudyVoiceModelManager,
+        normalizeForKitten: Boolean = false
     ): TrudyVoiceRuntimeSource = object : TrudyVoiceRuntimeSource {
+        private fun runtimeConfig(config: TrudyVoiceConfig): TrudyVoiceConfig {
+            if (!normalizeForKitten || config.mode == TrudyVoiceMode.OFF) return config
+            return config.copy(
+                modelId = KittenAndroidDistribution.logicalModelId,
+                voiceId = KittenVoiceCatalog.resolve(config.voiceId).id
+            )
+        }
+
         override suspend fun inspect(config: TrudyVoiceConfig): TrudyVoiceModelInfo {
             if (config.mode == TrudyVoiceMode.OFF) {
                 return TrudyVoiceModelInfo(
@@ -31,11 +42,12 @@ object TrudyVoiceRuntimeSourceFactory {
             if (modelStore == null || kokoroBackend == null) {
                 return TrudyVoiceModelInfo(
                     installation = TrudyVoiceModelInstallation.UNAVAILABLE,
-                    reason = "Local Kokoro runtime is unavailable in this build."
+                    reason = "Local voice runtime is unavailable in this build."
                 )
             }
 
-            val installed = runCatching { modelStore.isInstalled(config.modelId) }.getOrDefault(false)
+            val activeConfig = runtimeConfig(config)
+            val installed = runCatching { modelStore.isInstalled(activeConfig.modelId) }.getOrDefault(false)
             val status = modelManager?.let { runCatching { it.status() }.getOrNull() }
             val voices = modelManager?.let { manager ->
                 runCatching { manager.availableVoices() }.getOrDefault(emptyList())
@@ -48,6 +60,7 @@ object TrudyVoiceRuntimeSourceFactory {
                     TrudyVoiceModelInstallation.NOT_INSTALLED
                 },
                 modelVersion = status?.installedVersion,
+                approximateDownloadBytes = if (!installed && normalizeForKitten) 30_000_000L else null,
                 availableVoices = voices,
                 canInstall = modelManager != null && !installed,
                 canRemove = false,
@@ -57,7 +70,7 @@ object TrudyVoiceRuntimeSourceFactory {
 
         override suspend fun create(config: TrudyVoiceConfig): TrudyVoiceRuntime =
             TrudyVoiceRuntimeFactory.create(
-                config = config,
+                config = runtimeConfig(config),
                 modelStore = modelStore,
                 kokoroBackend = kokoroBackend,
                 modelManager = modelManager
@@ -69,16 +82,18 @@ object TrudyVoiceRuntimeSourceFactory {
         ): TrudyVoiceModelInfo {
             val manager = modelManager
                 ?: throw UnsupportedOperationException("Voice model installation is unavailable")
+            val activeConfig = runtimeConfig(config)
             val result = manager.install { progress -> onProgress(progress) }
             val installed = result.state == TrudyVoiceRuntimeState.READY &&
-                runCatching { modelStore?.isInstalled(config.modelId) == true }.getOrDefault(false)
+                runCatching { modelStore?.isInstalled(activeConfig.modelId) == true }.getOrDefault(false)
             val voices = runCatching { manager.availableVoices() }.getOrDefault(emptyList())
             if (!installed) {
-                throw IllegalStateException(result.message ?: "Kokoro model installation did not complete")
+                throw IllegalStateException(result.message ?: "Local voice model installation did not complete")
             }
             return TrudyVoiceModelInfo(
                 installation = TrudyVoiceModelInstallation.INSTALLED,
                 modelVersion = result.installedVersion,
+                approximateDownloadBytes = null,
                 availableVoices = voices,
                 canInstall = false,
                 canRemove = false
