@@ -34,6 +34,7 @@ class TrudyExperimentEngine {
 
     fun evaluate(hypothesis: TrudyExperimentHypothesis, baseline: List<TrudyMetricEvidence>, intervention: List<TrudyMetricEvidence>, adherenceFraction: Double): TrudyExperimentResult {
         require(adherenceFraction in 0.0..1.0)
+        require(rejectUnsafeFreeformIntervention(hypothesis.intervention) == null) { "Unsafe experiment intervention rejected." }
         require(baseline.all { it.domain == hypothesis.targetDomain && it.metricId == hypothesis.targetMetricId })
         require(intervention.all { it.domain == hypothesis.targetDomain && it.metricId == hypothesis.targetMetricId })
         val b = baseline.map { it.value }; val i = intervention.map { it.value }
