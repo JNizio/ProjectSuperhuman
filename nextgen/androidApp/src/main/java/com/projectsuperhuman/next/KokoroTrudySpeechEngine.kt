@@ -1,5 +1,6 @@
 package com.projectsuperhuman.next
 
+import java.text.Normalizer
 import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
@@ -31,7 +32,7 @@ data class KokoroInferenceRequest(
 
 data class KokoroInferenceOutput(
     val samples: FloatArray,
-    val sampleRateHz: Int = 24_000
+    val sampleRateHz: Int = Kokoro82MModelContract.SAMPLE_RATE_HZ
 )
 
 /** Runtime-specific implementation point. Sherpa/ONNX/JNI types stay behind this boundary. */
@@ -61,7 +62,6 @@ class SherpaEspeakKokoroTextFrontend(
     override val phonemizerId: String = "sherpa-espeak-ng"
 
     override fun prepare(raw: String): String = TrudySpeechText.prepare(raw)
-
     override fun chunks(prepared: String): List<String> = KokoroTextChunker.chunk(prepared, maxChunkChars)
 }
 
@@ -132,7 +132,7 @@ class KokoroTrudySpeechEngine(
     private val modelStore: KokoroModelStore,
     private val backend: KokoroInferenceBackend,
     private val textFrontend: KokoroTextFrontend = SherpaEspeakKokoroTextFrontend(),
-    private val nowMs: () -> Long = { System.currentTimeMillis() }
+    private val nowMs: () -> Long = { System.nanoTime() / 1_000_000L }
 ) : TrudySpeechEngine {
     override val engineId: String = "kokoro-local:${backend.backendId}"
     private val initMutex = Mutex()
@@ -174,49 +174,51 @@ class KokoroTrudySpeechEngine(
         val chunks = textFrontend.chunks(prepared)
         require(chunks.isNotEmpty()) { "No speakable text remains after preprocessing" }
 
-        val started = nowMs()
+        var synthesisMs = 0L
         var generatedSamples = 0L
-        var sampleRate = 24_000
+        var sampleRate = Kokoro82MModelContract.SAMPLE_RATE_HZ
         for (chunk in chunks) {
             currentCoroutineContext().ensureActive()
             ensureNotCancelled(requestEpoch)
+            val inferenceStarted = nowMs()
             val output = backend.synthesize(KokoroInferenceRequest(chunk, request.voiceId, request.speed))
+            synthesisMs += (nowMs() - inferenceStarted).coerceAtLeast(0L)
             currentCoroutineContext().ensureActive()
             ensureNotCancelled(requestEpoch)
             require(output.samples.isNotEmpty()) { "Kokoro returned empty audio" }
-            require(output.sampleRateHz == 24_000) { "Unexpected Kokoro sample rate: ${output.sampleRateHz}" }
+            require(output.sampleRateHz == Kokoro82MModelContract.SAMPLE_RATE_HZ) {
+                "Unexpected Kokoro sample rate: ${output.sampleRateHz}"
+            }
             sampleRate = output.sampleRateHz
             val safeSamples = KokoroAudioSanitizer.sanitize(output.samples)
             generatedSamples += safeSamples.size.toLong()
-            val elapsed = (nowMs() - started).coerceAtLeast(0L)
             val audioMs = generatedSamples * 1000L / sampleRate
             onChunk(
                 TrudySpeechResult(
                     TrudyPcmAudio(safeSamples, sampleRate),
-                    diagnostics(request, sampleRate, elapsed, audioMs)
+                    diagnostics(request, sampleRate, synthesisMs, audioMs)
                 )
             )
             ensureNotCancelled(requestEpoch)
         }
-        val elapsed = (nowMs() - started).coerceAtLeast(0L)
         val audioMs = generatedSamples * 1000L / sampleRate
-        diagnostics(request, sampleRate, elapsed, audioMs)
+        diagnostics(request, sampleRate, synthesisMs, audioMs)
     }
 
     private fun diagnostics(
         request: TrudySpeechRequest,
         sampleRate: Int,
-        elapsedMs: Long,
+        synthesisMs: Long,
         audioMs: Long
     ) = TrudySpeechDiagnostics(
         engineId = engineId,
         modelId = config.modelId,
         voiceId = request.voiceId,
         sampleRateHz = sampleRate,
-        synthesisDurationMs = elapsedMs,
+        synthesisDurationMs = synthesisMs,
         modelLoadDurationMs = modelLoadDurationMs,
         generatedAudioDurationMs = audioMs,
-        realTimeFactor = if (audioMs > 0L) elapsedMs.toDouble() / audioMs.toDouble() else null,
+        realTimeFactor = if (audioMs > 0L) synthesisMs.toDouble() / audioMs.toDouble() else null,
         modelBytesOnDisk = modelBytesOnDisk
     )
 
@@ -269,13 +271,17 @@ class KokoroTrudySpeechEngine(
 object TrudySpeechText {
     private const val MAX_CHARS = 12_000
 
-    fun prepare(raw: String): String = raw
-        .replace(Regex("```[\\s\\S]*?```"), " ")
-        .replace(Regex("`([^`]*)`"), "$1")
-        .replace(Regex("\\[([^]]+)]\\([^)]*\\)"), "$1")
-        .replace(Regex("[*_#>]"), " ")
-        .replace(Regex("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]"), " ")
-        .replace(Regex("\\s+"), " ")
-        .trim()
-        .take(MAX_CHARS)
+    fun prepare(raw: String): String {
+        val cleaned = Normalizer.normalize(raw, Normalizer.Form.NFKC)
+            .replace(Regex("```[\\s\\S]*?```"), " ")
+            .replace(Regex("`([^`]*)`"), "$1")
+            .replace(Regex("\\[([^]]+)]\\([^)]*\\)"), "$1")
+            .replace(Regex("[*_#>]"), " ")
+            .replace(Regex("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F]"), " ")
+            .replace(Regex("\\s+"), " ")
+            .trim()
+        if (cleaned.length <= MAX_CHARS) return cleaned
+        val prefix = cleaned.take(MAX_CHARS)
+        return prefix.substringBeforeLast(' ', prefix).trim()
+    }
 }
