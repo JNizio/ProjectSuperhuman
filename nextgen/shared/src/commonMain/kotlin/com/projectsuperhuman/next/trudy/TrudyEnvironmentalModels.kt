@@ -75,7 +75,7 @@ data class TrudyEnvironmentalConfig(
             registry: MetricRegistry = CoreMetricRegistry,
             additionalTargets: List<TrudyEnvironmentalTargetBinding> = emptyList()
         ): TrudyEnvironmentalConfig? {
-            val domain = HealthDomain.entries.firstOrNull { it.name == ENVIRONMENTAL_DOMAIN_NAME }
+            val domain = HealthDomain.entries.firstOrNull { it.name == ENVIRONMENT_DOMAIN_NAME }
                 ?: return null
             return fromRegistry(domain, registry, additionalTargets)
         }
@@ -125,7 +125,7 @@ data class TrudyEnvironmentalConfig(
             )
         }
 
-        private const val ENVIRONMENTAL_DOMAIN_NAME = "ENVIRONMENTAL"
+        private const val ENVIRONMENT_DOMAIN_NAME = "ENVIRONMENT"
     }
 }
 
