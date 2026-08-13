@@ -75,5 +75,22 @@ object DeveloperDiagnostics {
 
     fun latest(context: Context, limit: Int = 20): List<String> = events(context).takeLast(limit)
 
+    fun exportText(context: Context): String {
+        val captured = events(context)
+        return buildString {
+            appendLine("Project Superhuman developer diagnostics")
+            appendLine("Generated: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z", Locale.US).format(Date())}")
+            appendLine("Device: ${deviceSummary()}")
+            appendLine("Developer mode: ${if (isEnabled(context)) "ON" else "OFF"}")
+            appendLine("Events: ${captured.size}")
+            appendLine()
+            if (captured.isEmpty()) {
+                appendLine("No diagnostic events recorded.")
+            } else {
+                captured.forEach(::appendLine)
+            }
+        }
+    }
+
     fun deviceSummary(): String = "${Build.MANUFACTURER} ${Build.MODEL}; Android ${Build.VERSION.RELEASE}; ABI=${Build.SUPPORTED_ABIS.joinToString()}"
 }
