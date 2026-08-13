@@ -15,6 +15,8 @@ import com.projectsuperhuman.next.trudy.TrudyModelClient
 import com.projectsuperhuman.next.trudy.TrudyModelRuntimeMode
 import com.projectsuperhuman.next.trudy.TrudyOrchestrator
 import com.projectsuperhuman.next.trudy.TrudyPersonalEvidenceLibrary
+import com.projectsuperhuman.next.trudy.withEmotionalReasoning
+import com.projectsuperhuman.next.trudy.withEnvironmentalReasoning
 
 /** Android configuration is read once at composition time; business logic never reads BuildConfig. */
 data class TrudyRuntimeConfig(
@@ -55,12 +57,6 @@ internal data class TrudyModelSelection(
     val diagnostics: TrudyRuntimeDiagnostics
 )
 
-/**
- * Android composition root for the entire Trudy runtime.
- *
- * This is the only production wiring point. Compose receives only [TrudyConversationController].
- * Health access enters through NativeDataHub's domain-scoped ModuleDataPort and then ModuleParity.
- */
 internal object TrudyRuntimeFactory {
     fun create(
         config: TrudyRuntimeConfig = TrudyRuntimeConfig.fromBuildConfig(),
@@ -96,7 +92,10 @@ internal object TrudyRuntimeFactory {
                 healthExecutor = healthTools,
                 intelligenceExecutor = intelligenceTools
             )
-            val orchestrator = TrudyOrchestrator(selection.client, tools)
+            // Domain decorators are provider-neutral. Environmental wraps Emotional so mixed
+            // environment/mood questions are handled by the cross-domain planner first.
+            val reasoningClient = selection.client.withEmotionalReasoning().withEnvironmentalReasoning()
+            val orchestrator = TrudyOrchestrator(reasoningClient, tools)
             val service = TrudyConversationService(orchestrator)
             val backend = SharedTrudyBackendAdapter(
                 service = service,
