@@ -2,9 +2,11 @@ name: Trudy Kokoro Runtime
 
 on:
   push:
-    branches: [ 'trudy/kokoro-runtime' ]
+    branches: [ 'trudy/kokoro-runtime', 'trudy/integration-7' ]
     paths:
       - 'nextgen/androidApp/**'
+      - 'nextgen/shared/**'
+      - 'nextgen/scripts/check_data_boundaries.py'
       - 'nextgen/settings.gradle.kts'
       - 'nextgen/docs/TRUDY_VOICE_ARCHITECTURE.md'
       - '.github/workflows/trudy-kokoro-runtime.yml'
@@ -20,6 +22,9 @@ jobs:
       - name: Checkout source
         uses: actions/checkout@v4
 
+      - name: Enforce Data Vault read boundaries
+        run: python3 nextgen/scripts/check_data_boundaries.py
+
       - name: Set up Java 17
         uses: actions/setup-java@v4
         with:
@@ -31,8 +36,11 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Run Kokoro and Android unit tests
-        run: gradle --no-daemon -p nextgen :androidApp:testDebugUnitTest
+      - name: Run shared and Android unit tests
+        run: gradle --no-daemon -p nextgen :shared:allTests :androidApp:testDebugUnitTest
 
       - name: Compile Android debug APK
         run: gradle --no-daemon -p nextgen :androidApp:assembleDebug
+
+      - name: Verify APK was produced
+        run: test -s nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
