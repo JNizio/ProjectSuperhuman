@@ -30,7 +30,7 @@ class TrudyEnvironmentalModelClient(
         return TrudyModelResult(responseText = synthesis.text, evidenceReferences = synthesis.evidenceReferences)
     }
 
-    private fun handleAssociation(request: TrudyModelRequest, intent: EnvironmentalIntent.Association): TrudyModelResult {
+    private suspend fun handleAssociation(request: TrudyModelRequest, intent: EnvironmentalIntent.Association): TrudyModelResult {
         val target = config.target(intent.target)
             ?: return TrudyModelResult(responseText = synthesizer.unavailableTarget(intent.target))
         val requested = intent.metric?.let { listOf(it) } ?: config.metrics
