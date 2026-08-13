@@ -41,10 +41,10 @@ interface KokoroTextFrontend {
 }
 
 class SherpaEspeakKokoroTextFrontend(
-    private val firstChunkChars: Int = 72,
+    private val firstChunkChars: Int = 36,
     private val laterChunkChars: Int = 180
 ) : KokoroTextFrontend {
-    init { require(firstChunkChars >= 40); require(laterChunkChars >= firstChunkChars) }
+    init { require(firstChunkChars >= 28); require(laterChunkChars >= firstChunkChars) }
     override val phonemizerId: String = "sherpa-espeak-ng"
     override fun prepare(raw: String): String = TrudySpeechText.prepare(raw)
     override fun chunks(prepared: String): List<String> = KokoroTextChunker.progressiveChunk(prepared, firstChunkChars, laterChunkChars)
@@ -55,7 +55,7 @@ object KokoroTextChunker {
 
     fun chunk(text: String, maxChars: Int = 240): List<String> = chunkWithLimit(text, maxChars)
 
-    fun progressiveChunk(text: String, firstChunkChars: Int = 72, laterChunkChars: Int = 180): List<String> {
+    fun progressiveChunk(text: String, firstChunkChars: Int = 36, laterChunkChars: Int = 180): List<String> {
         val firstPass = chunkWithLimit(text, laterChunkChars)
         if (firstPass.isEmpty()) return emptyList()
         val first = firstPass.first()
@@ -65,7 +65,7 @@ object KokoroTextChunker {
     }
 
     private fun chunkWithLimit(text: String, maxChars: Int): List<String> {
-        require(maxChars >= 40)
+        require(maxChars >= 28)
         val normalized = text.replace(Regex("\\s+"), " ").trim()
         if (normalized.isEmpty()) return emptyList()
         val sentences = normalized.split(sentenceBoundary).filter { it.isNotBlank() }
@@ -82,11 +82,15 @@ object KokoroTextChunker {
         fun appendWordBounded(part: String) {
             val words = part.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
             for (word in words) {
-                val safeWord = if (word.length > maxChars) word.take(maxChars) else word
-                val extra = if (current.isEmpty()) safeWord.length else safeWord.length + 1
+                if (word.length > maxChars) {
+                    flush()
+                    output += word
+                    continue
+                }
+                val extra = if (current.isEmpty()) word.length else word.length + 1
                 if (current.length + extra > maxChars) flush()
                 if (current.isNotEmpty()) current.append(' ')
-                current.append(safeWord)
+                current.append(word)
             }
         }
 
