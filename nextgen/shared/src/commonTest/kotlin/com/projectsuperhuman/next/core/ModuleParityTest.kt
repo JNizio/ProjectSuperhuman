@@ -91,6 +91,63 @@ class ModuleParityTest {
     }
 
     @Test
+    fun hydrationSignedCorrectionsRemainVisibleInScopedMetricHistory() = runTest {
+        val port = FakeModulePort(
+            HealthDomain.HYDRATION,
+            listOf(
+                hv(HealthDomain.HYDRATION, "water_intake_ml", 500.0, now - 3_000L, "ml"),
+                hv(HealthDomain.HYDRATION, "water_intake_ml", -200.0, now - 2_000L, "ml"),
+                hv(HealthDomain.HYDRATION, "water_intake_ml", 350.0, now - 1_000L, "ml")
+            )
+        )
+
+        val rows = port.between("water_intake_ml", now - 10_000L, now)
+
+        assertEquals(listOf(500.0, -200.0, 350.0), rows.map { it.value })
+        assertEquals(650.0, rows.sumOf { it.value })
+        assertTrue(rows.all { it.domain == HealthDomain.HYDRATION })
+    }
+
+    @Test
+    fun exerciseHistoryPreservesSetMetadataThroughScopedPort() = runTest {
+        val set = hv(
+            HealthDomain.EXERCISE,
+            "exercise_set",
+            800.0,
+            now,
+            "kg-reps",
+            mapOf("exerciseId" to "bench-press", "reps" to "10", "loadKg" to "80")
+        )
+        val port = FakeModulePort(HealthDomain.EXERCISE, listOf(set))
+
+        val history = port.between("exercise_set", now - hour, now)
+
+        assertEquals(1, history.size)
+        assertEquals("bench-press", history.single().metadata["exerciseId"])
+        assertEquals("80", history.single().metadata["loadKg"])
+        assertEquals(HealthDomain.EXERCISE, history.single().domain)
+    }
+
+    @Test
+    fun nutritionHistoryPreservesLinkedDiaryEntryRows() = runTest {
+        val common = mapOf("diaryEntryId" to "nutrition-entry-1", "foodId" to "oats", "meal" to "Breakfast")
+        val port = FakeModulePort(
+            HealthDomain.NUTRITION,
+            listOf(
+                hv(HealthDomain.NUTRITION, "food_kcal", 380.0, now, "kcal", common),
+                hv(HealthDomain.NUTRITION, "food_protein", 13.0, now, "g", common)
+            )
+        )
+
+        val page = port.page(metric = null, limit = 10, offset = 0)
+
+        assertEquals(2, page.size)
+        assertTrue(page.all { it.metadata["diaryEntryId"] == "nutrition-entry-1" })
+        assertTrue(page.all { it.domain == HealthDomain.NUTRITION })
+        assertEquals(setOf("food_kcal", "food_protein"), page.map { it.metric }.toSet())
+    }
+
+    @Test
     fun meaningfulRepeatedChangeProducesCautiousTrendInsight() = runTest {
         val rows = listOf(60.0, 62.0, 70.0, 78.0, 84.0).mapIndexed { index, value ->
             hv(HealthDomain.SLEEP, "sleep_score", value, now - (5 - index) * hour, "score")
@@ -185,14 +242,16 @@ class ModuleParityTest {
         metric: String,
         value: Double,
         timestamp: Long,
-        unit: String
+        unit: String,
+        metadata: Map<String, String> = emptyMap()
     ) = HealthValue(
         domain = domain,
         metric = metric,
         value = value,
         unit = unit,
         timestampEpochMs = timestamp,
-        source = "test"
+        source = "test",
+        metadata = metadata
     )
 }
 
