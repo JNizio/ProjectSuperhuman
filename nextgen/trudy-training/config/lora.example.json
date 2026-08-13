@@ -1,0 +1,1 @@
+{"adapter":"lora_or_qlora","base_model":"SELECT_AFTER_LICENSE_REVIEW","parameter_range":"3B-14B","dataset_format":"chat_or_tool-use","seed":17,"notes":"Template only. Hardware- and framework-specific settings must be chosen during an actual training run."}
