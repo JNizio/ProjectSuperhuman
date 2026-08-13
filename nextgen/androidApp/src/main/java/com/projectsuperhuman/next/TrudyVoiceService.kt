@@ -18,7 +18,22 @@ class TrudyVoiceService(
     suspend fun isAvailable(): Boolean = runCatching { engine.isAvailable() }.getOrDefault(false)
     fun runtimeState(): TrudyVoiceRuntimeState = state
 
-    suspend fun speak(text: String): TrudySpeechDiagnostics {
+    /** Explicit first-use preparation. Heavy Kokoro initialization remains off app startup. */
+    suspend fun prepare() {
+        state = TrudyVoiceRuntimeState.LOADING
+        try {
+            engine.prepare()
+            state = TrudyVoiceRuntimeState.READY
+        } catch (failure: Throwable) {
+            state = TrudyVoiceRuntimeState.ERROR
+            throw failure
+        }
+    }
+
+    suspend fun speak(
+        text: String,
+        onSynthesisComplete: (TrudySpeechDiagnostics) -> Unit = {}
+    ): TrudySpeechDiagnostics {
         require(text.isNotBlank())
         val requestEpoch = stopEpoch.get()
         return speakMutex.withLock {
@@ -34,10 +49,12 @@ class TrudyVoiceService(
                     if (firstAudio) {
                         firstAudio = false
                         state = TrudyVoiceRuntimeState.SPEAKING
+                        onSynthesisComplete(chunk.diagnostics)
                     }
                     audioSink.play(chunk.audio)
                     if (requestEpoch != stopEpoch.get()) throw CancellationException("Speech stopped")
                 }
+                if (firstAudio) onSynthesisComplete(diagnostics)
                 state = TrudyVoiceRuntimeState.READY
                 diagnostics
             } catch (cancelled: CancellationException) {
