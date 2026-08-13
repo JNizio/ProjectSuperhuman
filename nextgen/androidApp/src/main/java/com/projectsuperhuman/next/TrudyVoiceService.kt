@@ -12,12 +12,19 @@ class TrudyVoiceService(
 
     suspend fun isAvailable(): Boolean = runCatching { engine.isAvailable() }.getOrDefault(false)
 
-    suspend fun speak(text: String): TrudySpeechDiagnostics = speakMutex.withLock {
+    /** Explicit first-use preparation hook; heavy engine initialization stays off the UI thread. */
+    suspend fun prepare() = engine.prepare()
+
+    suspend fun speak(
+        text: String,
+        onSynthesisComplete: (TrudySpeechDiagnostics) -> Unit = {}
+    ): TrudySpeechDiagnostics = speakMutex.withLock {
         require(text.isNotBlank())
         audioSink.stop()
         val result = engine.synthesize(
             TrudySpeechRequest(text = text, voiceId = config.voiceId, speed = config.speed)
         )
+        onSynthesisComplete(result.diagnostics)
         audioSink.play(result.audio)
         result.diagnostics
     }

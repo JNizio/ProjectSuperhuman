@@ -56,6 +56,8 @@ data class TrudySpeechResult(
 interface TrudySpeechEngine {
     val engineId: String
     suspend fun isAvailable(): Boolean
+    /** Optional first-use preparation hook. Default engines require no explicit preparation. */
+    suspend fun prepare() {}
     suspend fun synthesize(request: TrudySpeechRequest): TrudySpeechResult
     suspend fun close() {}
 }

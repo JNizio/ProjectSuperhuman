@@ -51,6 +51,9 @@ class KokoroTrudySpeechEngine(
     override suspend fun isAvailable(): Boolean =
         config.mode == TrudyVoiceMode.KOKORO_LOCAL && modelStore.isInstalled(config.modelId)
 
+    /** Keeps model initialization observable to the UX without exposing inference details to Compose. */
+    override suspend fun prepare() = ensureInitialized()
+
     override suspend fun synthesize(request: TrudySpeechRequest): TrudySpeechResult {
         require(config.mode == TrudyVoiceMode.KOKORO_LOCAL) { "Kokoro local voice is disabled" }
         ensureInitialized()
