@@ -9,7 +9,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import com.projectsuperhuman.next.core.HealthDomain
-import com.projectsuperhuman.next.emotional.DefaultEmotionalHealthValueMapper
+import com.projectsuperhuman.next.data.EmotionalDataVaultAdapter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -18,7 +18,12 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun NativeEmotionalPage(onBack: () -> Unit) {
     val domain = remember { NativeDomainData.forDomain(HealthDomain.EMOTIONAL) }
-    val mapper = remember { DefaultEmotionalHealthValueMapper() }
+    val vault = remember {
+        EmotionalDataVaultAdapter(
+            port = NativeDataHub.module(HealthDomain.EMOTIONAL),
+            ingestValues = { values -> NativeDataHub.ingestValues(values) }
+        )
+    }
     val scope = rememberCoroutineScope()
     var refreshKey by remember { mutableIntStateOf(0) }
     var current by remember { mutableStateOf<EmotionalPresentationSnapshot?>(null) }
@@ -34,7 +39,7 @@ internal fun NativeEmotionalPage(onBack: () -> Unit) {
         onRecord = { values ->
             scope.launch {
                 val entry = EmotionalPresentationContract.toCanonicalEntry(values, System.currentTimeMillis())
-                NativeDataHub.ingestValues(mapper.map(entry))
+                vault.save(entry)
                 refreshKey++
             }
         }
