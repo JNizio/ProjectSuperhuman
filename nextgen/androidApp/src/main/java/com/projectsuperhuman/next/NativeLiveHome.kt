@@ -1,8 +1,13 @@
 package com.projectsuperhuman.next
 
 import android.content.Context
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,28 +23,39 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.projectsuperhuman.next.core.HealthDomain
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
-/** Home data shared by the dashboard's major cards. */
+/**
+ * Home orchestration only. Visual language lives in dedicated Home component files so future
+ * sessions can change dashboard visuals without disturbing repository/data calculations.
+ */
 data class NativeHomeSnapshot(
     val sleepScore: Int? = null,
     val sleepMinutes: Int? = null,
@@ -73,6 +89,12 @@ private enum class HomeTile(val storageKey: String) {
     BLOOD_PRESSURE("blood_pressure")
 }
 
+private data class HomeTileBounds(
+    val top: Float,
+    val height: Float,
+    val windowTop: Float
+)
+
 private val defaultHomeTileOrder = listOf(
     HomeTile.EMOTIONAL,
     HomeTile.ENVIRONMENT,
@@ -105,6 +127,18 @@ internal fun NativeLiveHome(
     topContent: @Composable () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val spacingPx = with(density) { 14.dp.toPx() }
+    val edgeScrollZonePx = with(density) { 92.dp.toPx() }
+    val edgeScrollMinStepPx = with(density) { 2.5.dp.toPx() }
+    val edgeScrollMaxStepPx = with(density) { 15.dp.toPx() }
+    val homeScrollState = rememberScrollState()
+
+    var viewportTopY by remember { mutableFloatStateOf(0f) }
+    var viewportBottomY by remember { mutableFloatStateOf(0f) }
+    var fingerWindowY by remember { mutableFloatStateOf(Float.NaN) }
+
     var snapshot by remember { mutableStateOf(NativeHomeSnapshot()) }
     val emotionalCurrent by produceState<EmotionalPresentationSnapshot?>(null) {
         val rows = NativeDomainData.forDomain(HealthDomain.EMOTIONAL).latestState()
@@ -113,13 +147,125 @@ internal fun NativeLiveHome(
     val tileOrder = remember {
         mutableStateListOf<HomeTile>().apply { addAll(loadHomeTileOrder(context)) }
     }
+    val tileBounds = remember { mutableStateMapOf<HomeTile, HomeTileBounds>() }
+
+    var draggingTile by remember { mutableStateOf<HomeTile?>(null) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    var dragTargetIndex by remember { mutableIntStateOf(-1) }
+    var settling by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { snapshot = loadNativeHomeSnapshot() }
+
+    fun targetIndexFor(tile: HomeTile, visualOffsetY: Float): Int {
+        val fromIndex = tileOrder.indexOf(tile)
+        val draggedBounds = tileBounds[tile]
+        if (fromIndex < 0 || draggedBounds == null) return fromIndex.coerceAtLeast(0)
+
+        val draggedCentre = draggedBounds.top + draggedBounds.height / 2f + visualOffsetY
+        var target = fromIndex
+
+        if (visualOffsetY > 0f) {
+            for (index in (fromIndex + 1)..tileOrder.lastIndex) {
+                val candidate = tileBounds[tileOrder[index]] ?: continue
+                if (draggedCentre > candidate.top + candidate.height / 2f) target = index
+            }
+        } else if (visualOffsetY < 0f) {
+            for (index in (fromIndex - 1) downTo 0) {
+                val candidate = tileBounds[tileOrder[index]] ?: continue
+                if (draggedCentre < candidate.top + candidate.height / 2f) target = index
+            }
+        }
+        return target
+    }
+
+    fun finalSlotOffset(tile: HomeTile, targetIndex: Int): Float {
+        val fromIndex = tileOrder.indexOf(tile)
+        if (fromIndex < 0 || targetIndex == fromIndex) return 0f
+
+        return if (targetIndex > fromIndex) {
+            ((fromIndex + 1)..targetIndex).sumOf { index ->
+                ((tileBounds[tileOrder[index]]?.height ?: 0f) + spacingPx).toDouble()
+            }.toFloat()
+        } else {
+            -(targetIndex until fromIndex).sumOf { index ->
+                ((tileBounds[tileOrder[index]]?.height ?: 0f) + spacingPx).toDouble()
+            }.toFloat()
+        }
+    }
+
+    fun finishDrag(commit: Boolean) {
+        val tile = draggingTile ?: return
+        if (settling) return
+        val fromIndex = tileOrder.indexOf(tile)
+        val targetIndex = if (commit) dragTargetIndex.coerceIn(0, tileOrder.lastIndex) else fromIndex
+        val settleTo = if (commit) finalSlotOffset(tile, targetIndex) else 0f
+        settling = true
+
+        scope.launch {
+            val settleAnimation = Animatable(dragOffsetY)
+            settleAnimation.animateTo(
+                targetValue = settleTo,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            ) {
+                dragOffsetY = value
+            }
+
+            if (commit && fromIndex >= 0 && targetIndex != fromIndex) {
+                tileOrder.removeAt(fromIndex)
+                tileOrder.add(targetIndex, tile)
+                saveHomeTileOrder(context, tileOrder)
+            }
+
+            draggingTile = null
+            dragOffsetY = 0f
+            dragTargetIndex = -1
+            fingerWindowY = Float.NaN
+            settling = false
+        }
+    }
+
+    LaunchedEffect(draggingTile, settling) {
+        while (draggingTile != null && !settling) {
+            delay(16)
+            val tile = draggingTile ?: break
+            val fingerY = fingerWindowY
+            if (fingerY.isNaN() || viewportBottomY <= viewportTopY) continue
+
+            val bottomStart = viewportBottomY - edgeScrollZonePx
+            val topEnd = viewportTopY + edgeScrollZonePx
+            val signedIntensity = when {
+                fingerY > bottomStart && homeScrollState.canScrollForward ->
+                    ((fingerY - bottomStart) / edgeScrollZonePx).coerceIn(0f, 1f)
+                fingerY < topEnd && homeScrollState.canScrollBackward ->
+                    -((topEnd - fingerY) / edgeScrollZonePx).coerceIn(0f, 1f)
+                else -> 0f
+            }
+
+            if (signedIntensity == 0f) continue
+            val intensity = kotlin.math.abs(signedIntensity)
+            val step = edgeScrollMinStepPx +
+                (edgeScrollMaxStepPx - edgeScrollMinStepPx) * intensity * intensity
+            val requested = if (signedIntensity > 0f) step else -step
+            val consumed = homeScrollState.scrollBy(requested)
+
+            if (consumed != 0f && draggingTile == tile && !settling) {
+                dragOffsetY += consumed
+                dragTargetIndex = targetIndexFor(tile, dragOffsetY)
+            }
+        }
+    }
 
     Column(
         Modifier.fillMaxSize()
             .background(Color(0xFFF8FBFD))
-            .verticalScroll(rememberScrollState())
+            .onGloballyPositioned { coordinates ->
+                viewportTopY = coordinates.positionInWindow().y
+                viewportBottomY = viewportTopY + coordinates.size.height
+            }
+            .verticalScroll(homeScrollState)
     ) {
         topContent()
         Column(
@@ -131,18 +277,43 @@ internal fun NativeLiveHome(
 
             tileOrder.forEach { tile ->
                 key(tile) {
+                    val draggedTile = draggingTile
+                    val fromIndex = draggedTile?.let(tileOrder::indexOf) ?: -1
+                    val thisIndex = tileOrder.indexOf(tile)
+                    val draggedHeight = draggedTile?.let { tileBounds[it]?.height } ?: 0f
+                    val neighbourShift = when {
+                        draggedTile == null || tile == draggedTile || dragTargetIndex < 0 -> 0f
+                        dragTargetIndex > fromIndex && thisIndex in (fromIndex + 1)..dragTargetIndex -> -(draggedHeight + spacingPx)
+                        dragTargetIndex < fromIndex && thisIndex in dragTargetIndex until fromIndex -> draggedHeight + spacingPx
+                        else -> 0f
+                    }
+
                     ReorderableHomeTile(
                         tile = tile,
-                        onMove = { direction ->
-                            val from = tileOrder.indexOf(tile)
-                            val to = (from + direction).coerceIn(0, tileOrder.lastIndex)
-                            if (from >= 0 && to != from) {
-                                tileOrder.removeAt(from)
-                                tileOrder.add(to, tile)
-                                saveHomeTileOrder(context, tileOrder)
-                                true
-                            } else false
-                        }
+                        isDragging = tile == draggingTile,
+                        dragOffsetY = if (tile == draggingTile) dragOffsetY else 0f,
+                        neighbourShiftY = neighbourShift,
+                        enabled = !settling || tile == draggingTile,
+                        onMeasured = { top, height, windowTop ->
+                            tileBounds[tile] = HomeTileBounds(top = top, height = height, windowTop = windowTop)
+                        },
+                        onDragStart = { localFingerY ->
+                            if (!settling) {
+                                draggingTile = tile
+                                dragOffsetY = 0f
+                                dragTargetIndex = tileOrder.indexOf(tile)
+                                fingerWindowY = (tileBounds[tile]?.windowTop ?: viewportTopY) + localFingerY
+                            }
+                        },
+                        onDragDelta = { deltaY ->
+                            if (draggingTile == tile && !settling) {
+                                fingerWindowY += deltaY
+                                dragOffsetY += deltaY
+                                dragTargetIndex = targetIndexFor(tile, dragOffsetY)
+                            }
+                        },
+                        onDragEnd = { finishDrag(commit = true) },
+                        onDragCancel = { finishDrag(commit = false) }
                     ) {
                         when (tile) {
                             HomeTile.EMOTIONAL -> HomeEmotionalTile(emotionalCurrent, openEmotional)
@@ -167,51 +338,70 @@ internal fun NativeLiveHome(
 @Composable
 private fun ReorderableHomeTile(
     tile: HomeTile,
-    onMove: (direction: Int) -> Boolean,
+    isDragging: Boolean,
+    dragOffsetY: Float,
+    neighbourShiftY: Float,
+    enabled: Boolean,
+    onMeasured: (top: Float, height: Float, windowTop: Float) -> Unit,
+    onDragStart: (localFingerY: Float) -> Unit,
+    onDragDelta: (Float) -> Unit,
+    onDragEnd: () -> Unit,
+    onDragCancel: () -> Unit,
     content: @Composable () -> Unit
 ) {
     val haptics = LocalHapticFeedback.current
-    val density = LocalDensity.current
-    val swapThreshold = with(density) { 76.dp.toPx() }
-    var dragging by remember(tile) { mutableStateOf(false) }
-    var dragY by remember(tile) { mutableFloatStateOf(0f) }
+    val currentOnMeasured by rememberUpdatedState(onMeasured)
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentOnDragDelta by rememberUpdatedState(onDragDelta)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+    val currentOnDragCancel by rememberUpdatedState(onDragCancel)
+
+    val animatedNeighbourOffset by animateFloatAsState(
+        targetValue = neighbourShiftY,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        ),
+        label = "home-tile-neighbour-shift"
+    )
+    val animatedScale by animateFloatAsState(
+        targetValue = if (isDragging) 1.025f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "home-tile-lift"
+    )
 
     Box(
         Modifier.fillMaxWidth()
-            .zIndex(if (dragging) 20f else 0f)
-            .graphicsLayer {
-                translationY = if (dragging) dragY.coerceIn(-swapThreshold, swapThreshold) else 0f
-                scaleX = if (dragging) 1.02f else 1f
-                scaleY = if (dragging) 1.02f else 1f
-                alpha = if (dragging) .97f else 1f
-                shadowElevation = if (dragging) 12.dp.toPx() else 0f
+            .onGloballyPositioned { coordinates ->
+                currentOnMeasured(
+                    coordinates.positionInParent().y,
+                    coordinates.size.height.toFloat(),
+                    coordinates.positionInWindow().y
+                )
             }
-            .pointerInput(tile) {
+            .zIndex(if (isDragging) 20f else 0f)
+            .graphicsLayer {
+                translationY = if (isDragging) dragOffsetY else animatedNeighbourOffset
+                scaleX = animatedScale
+                scaleY = animatedScale
+                alpha = if (isDragging) 0.97f else 1f
+                shadowElevation = if (isDragging) 12.dp.toPx() else 0f
+            }
+            .pointerInput(tile, enabled) {
+                if (!enabled) return@pointerInput
                 detectDragGesturesAfterLongPress(
-                    onDragStart = {
-                        dragging = true
-                        dragY = 0f
+                    onDragStart = { startOffset ->
+                        currentOnDragStart(startOffset.y)
                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
-                    onDragCancel = {
-                        dragging = false
-                        dragY = 0f
-                    },
-                    onDragEnd = {
-                        dragging = false
-                        dragY = 0f
-                    },
+                    onDragCancel = { currentOnDragCancel() },
+                    onDragEnd = { currentOnDragEnd() },
                     onDrag = { change, dragAmount ->
                         change.consume()
-                        dragY += dragAmount.y
-                        if (abs(dragY) >= swapThreshold) {
-                            val direction = if (dragY > 0f) 1 else -1
-                            if (onMove(direction)) {
-                                dragY -= direction * swapThreshold
-                            } else {
-                                dragY = direction * swapThreshold
-                            }
-                        }
+                        currentOnDragDelta(dragAmount.y)
                     }
                 )
             }
@@ -230,8 +420,8 @@ private fun loadHomeTileOrder(context: Context): List<HomeTile> {
         .distinct()
 
     val newcomers = listOf(HomeTile.EMOTIONAL, HomeTile.ENVIRONMENT).filterNot(parsed::contains)
-    val rest = parsed + defaultHomeTileOrder.filterNot { it in parsed || it in newcomers }
-    return (newcomers + rest).ifEmpty { defaultHomeTileOrder }
+    val existingAndDefaults = parsed + defaultHomeTileOrder.filterNot { it in parsed || it in newcomers }
+    return (newcomers + existingAndDefaults).ifEmpty { defaultHomeTileOrder }
 }
 
 private fun saveHomeTileOrder(context: Context, order: List<HomeTile>) {
