@@ -50,7 +50,7 @@ internal fun NativeSettingsWithUsage(openLegacy: () -> Unit) {
 
         if (showUsage) {
             Column(
-                Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())
                     .padding(horizontal = 18.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
@@ -60,7 +60,7 @@ internal fun NativeSettingsWithUsage(openLegacy: () -> Unit) {
                 Spacer(Modifier.height(24.dp))
             }
         } else {
-            Box(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxWidth().weight(1f)) {
                 NativeSettingsParity(openLegacy)
             }
         }
