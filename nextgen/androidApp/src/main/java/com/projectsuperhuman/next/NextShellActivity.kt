@@ -122,7 +122,7 @@ private fun SuperhumanShell(
                             )
                         }
                     )
-                    ShellPage.SETTINGS -> NativeSettingsParity(noCompatibility)
+                    ShellPage.SETTINGS -> NativeSettingsWithUsage(noCompatibility)
                     ShellPage.TRUDY -> NativeTrudy(
                         state = trudyState,
                         controller = trudyController,
