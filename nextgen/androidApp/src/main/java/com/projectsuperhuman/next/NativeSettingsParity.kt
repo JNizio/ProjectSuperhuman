@@ -53,13 +53,14 @@ private val SettingsBg = Color(0xFFF6F9FC)
 internal fun NativeSettingsParity(openLegacy: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    DeveloperDiagnostics.initialize(context)
+    var developerMode by remember { mutableStateOf(DeveloperDiagnostics.isEnabled(context)) }
+    var developerEvents by remember { mutableStateOf(DeveloperDiagnostics.latest(context, 18)) }
     var storedCount by remember { mutableStateOf(0L) }
     var syntheticCount by remember { mutableStateOf(0L) }
     var syntheticDays by remember { mutableStateOf(90) }
     var syntheticBusy by remember { mutableStateOf(false) }
-    var syntheticStatus by remember {
-        mutableStateOf("Synthetic history is isolated from genuine data by source.")
-    }
+    var syntheticStatus by remember { mutableStateOf("Synthetic history is isolated from genuine data by source.") }
     var pendingExport by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf("Data Vault ready") }
     var confirmReset by remember { mutableStateOf(false) }
@@ -72,9 +73,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
 
     LaunchedEffect(Unit) { refreshCounts() }
 
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
-    ) { uri: Uri? ->
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
         if (uri == null) {
             status = "Backup export cancelled"
             pendingExport = null
@@ -86,57 +85,41 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                 scope.launch {
                     runCatching {
                         withContext(Dispatchers.IO) {
-                            context.contentResolver.openOutputStream(uri, "w")
-                                ?.bufferedWriter()
-                                ?.use { it.write(payload) }
+                            context.contentResolver.openOutputStream(uri, "w")?.bufferedWriter()?.use { it.write(payload) }
                                 ?: error("Could not open selected file")
                         }
-                    }.onSuccess {
-                        status = "Backup saved successfully"
-                    }.onFailure {
-                        status = "Backup export failed: ${it.message ?: "unknown error"}"
-                    }
+                    }.onSuccess { status = "Backup saved successfully" }
+                        .onFailure { status = "Backup export failed: ${it.message ?: "unknown error"}" }
                     pendingExport = null
                 }
             }
         }
     }
 
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         if (uri == null) {
             status = "Restore cancelled"
         } else {
             scope.launch {
                 runCatching {
                     withContext(Dispatchers.IO) {
-                        val text = context.contentResolver.openInputStream(uri)
-                            ?.bufferedReader()
-                            ?.use { it.readText() }
+                        val text = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
                             ?: error("Could not read selected backup")
                         decodeBackup(text)
                     }
                 }.onSuccess { values ->
-                    if (values.isEmpty()) {
-                        status = "Backup contained no health values"
-                    } else {
+                    if (values.isEmpty()) status = "Backup contained no health values" else {
                         NativeDataHub.restoreValues(values, replace = false)
                         refreshCounts()
                         status = "Restored ${values.size} value${if (values.size == 1) "" else "s"}. Existing data was kept."
                     }
-                }.onFailure {
-                    status = "Restore failed: ${it.message ?: "invalid backup"}"
-                }
+                }.onFailure { status = "Restore failed: ${it.message ?: "invalid backup"}" }
             }
         }
     }
 
     Column(
-        Modifier.fillMaxSize()
-            .background(SettingsBg)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 8.dp),
+        Modifier.fillMaxSize().background(SettingsBg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Settings", color = SettingsInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
@@ -154,28 +137,18 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             VaultButton("Export backup", "Save a portable Project Superhuman JSON backup", SettingsBlue) {
                 scope.launch {
                     runCatching { encodeBackup(NativeDataHub.allValuesAsync()) }
-                        .onSuccess { json ->
-                            pendingExport = json
-                            exportLauncher.launch("ProjectSuperhuman_backup_${LocalDate.now()}.json")
-                        }
-                        .onFailure {
-                            status = "Could not prepare backup: ${it.message ?: "unknown error"}"
-                        }
+                        .onSuccess { json -> pendingExport = json; exportLauncher.launch("ProjectSuperhuman_backup_${LocalDate.now()}.json") }
+                        .onFailure { status = "Could not prepare backup: ${it.message ?: "unknown error"}" }
                 }
             }
             Spacer(Modifier.height(9.dp))
-            VaultButton(
-                "Restore / import backup",
-                "Merge a previous native backup without deleting current data",
-                SettingsGreen
-            ) {
+            VaultButton("Restore / import backup", "Merge a previous native backup without deleting current data", SettingsGreen) {
                 importLauncher.launch(arrayOf("application/json", "text/plain", "application/octet-stream"))
             }
             Spacer(Modifier.height(9.dp))
             VaultButton(
                 if (confirmReset) "Tap again to erase all native data" else "Reset native data",
-                if (confirmReset) "This permanently clears the shared native database"
-                else "Two-tap protection prevents accidental deletion",
+                if (confirmReset) "This permanently clears the shared native database" else "Two-tap protection prevents accidental deletion",
                 SettingsRed
             ) {
                 if (!confirmReset) {
@@ -199,6 +172,52 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
         Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
+                    Text("Developer mode", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text(if (developerMode) "Diagnostic capture ON" else "Diagnostic capture OFF", color = if (developerMode) SettingsGreen else SettingsMuted, fontSize = 10.sp)
+                }
+                Text(if (developerMode) "ON" else "OFF", color = if (developerMode) SettingsGreen else SettingsMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+            Spacer(Modifier.height(7.dp))
+            Text(
+                "When enabled, Project Superhuman records a small persistent timeline of Trudy/Kokoro runtime stages and heap use. The final event is committed before native inference so it survives an app crash.",
+                color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp
+            )
+            Spacer(Modifier.height(10.dp))
+            VaultButton(if (developerMode) "Turn developer mode off" else "Turn developer mode on", "Expose runtime diagnostics only while troubleshooting", if (developerMode) SettingsRed else SettingsBlue) {
+                developerMode = !developerMode
+                DeveloperDiagnostics.setEnabled(context, developerMode)
+                developerEvents = DeveloperDiagnostics.latest(context, 18)
+            }
+            if (developerMode) {
+                Spacer(Modifier.height(10.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        Modifier.weight(1f).background(SettingsBg, RoundedCornerShape(12.dp)).clickable {
+                            developerEvents = DeveloperDiagnostics.latest(context, 18)
+                        }.padding(10.dp), contentAlignment = Alignment.Center
+                    ) { Text("REFRESH LOG", color = SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black) }
+                    Box(
+                        Modifier.weight(1f).background(Color(0xFFFFF1F1), RoundedCornerShape(12.dp)).clickable {
+                            DeveloperDiagnostics.clear(context); developerEvents = emptyList()
+                        }.padding(10.dp), contentAlignment = Alignment.Center
+                    ) { Text("CLEAR LOG", color = SettingsRed, fontSize = 9.sp, fontWeight = FontWeight.Black) }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("DEVICE", color = SettingsMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text(DeveloperDiagnostics.deviceSummary(), color = SettingsInk, fontSize = 8.sp, lineHeight = 12.sp)
+                Spacer(Modifier.height(8.dp))
+                Text("LATEST RUNTIME EVENTS", color = SettingsMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                if (developerEvents.isEmpty()) {
+                    Text("No diagnostic events yet. Open Trudy and reproduce the issue, then return here.", color = SettingsMuted, fontSize = 8.sp, lineHeight = 12.sp)
+                } else {
+                    developerEvents.forEach { event -> Text(event, color = SettingsInk, fontSize = 7.5.sp, lineHeight = 11.sp, modifier = Modifier.padding(top = 2.dp)) }
+                }
+            }
+        }
+
+        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
                     Text("Developer test data", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
                     Text("$syntheticCount clearly tagged synthetic values stored", color = SettingsMuted, fontSize = 10.sp)
                 }
@@ -206,44 +225,22 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             }
             Spacer(Modifier.height(7.dp))
             Text(
-                "Build correlated fake history for dashboards, trends, Data Vault aggregation and the Interpretation Engine. " +
-                    "Nutrition uses realistic named breakfast, lunch and dinner entries with calories, macros and micronutrients. " +
-                    "Generation uses the normal ingestion pipeline; genuine user records are never overwritten or cleared.",
-                color = SettingsMuted,
-                fontSize = 9.sp,
-                lineHeight = 14.sp
+                "Build correlated fake history for dashboards, trends, Data Vault aggregation and the Interpretation Engine. Nutrition uses realistic named breakfast, lunch and dinner entries with calories, macros and micronutrients. Generation uses the normal ingestion pipeline; genuine user records are never overwritten or cleared.",
+                color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp
             )
             Spacer(Modifier.height(12.dp))
             Text("HISTORY SPAN", color = SettingsMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(7.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                listOf(
-                    30 to "30D",
-                    90 to "90D",
-                    180 to "180D",
-                    365 to "1Y",
-                    1825 to "5Y"
-                ).forEach { (days, label) ->
-                    SyntheticSpanButton(
-                        label = label,
-                        selected = syntheticDays == days,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        if (!syntheticBusy) {
-                            syntheticDays = days
-                            confirmSyntheticClear = false
-                        }
+                listOf(30 to "30D", 90 to "90D", 180 to "180D", 365 to "1Y", 1825 to "5Y").forEach { (days, label) ->
+                    SyntheticSpanButton(label, syntheticDays == days, Modifier.weight(1f)) {
+                        if (!syntheticBusy) { syntheticDays = days; confirmSyntheticClear = false }
                     }
                 }
             }
             if (syntheticDays == 1825) {
                 Spacer(Modifier.height(7.dp))
-                Text(
-                    "5Y creates a large longitudinal test set and may take longer on slower devices.",
-                    color = SettingsMuted,
-                    fontSize = 8.sp,
-                    lineHeight = 12.sp
-                )
+                Text("5Y creates a large longitudinal test set and may take longer on slower devices.", color = SettingsMuted, fontSize = 8.sp, lineHeight = 12.sp)
             }
             Spacer(Modifier.height(10.dp))
             VaultButton(
@@ -251,75 +248,50 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                 "Sleep, real-looking meals + nutrients, body, exercise, mindfulness, hydration, clinical and wearable-style metrics",
                 SettingsBlue
             ) {
-                if (!syntheticBusy) {
-                    scope.launch {
-                        syntheticBusy = true
-                        confirmSyntheticClear = false
-                        syntheticStatus = "Generating $syntheticDays days through the Data Vault ingestion pipeline…"
-                        try {
-                            val result = NativeDataHub.generateSyntheticTestData(syntheticDays)
-                            refreshCounts()
-                            syntheticStatus = if (result.rejected == 0) {
-                                "Generated ${result.accepted} synthetic values across $syntheticDays days. " +
-                                    "${result.deduplicated} in-batch duplicate${if (result.deduplicated == 1) " was" else "s were"} skipped."
-                            } else {
-                                "Generated ${result.accepted} values; ${result.rejected} were rejected by normal ingestion validation."
-                            }
-                        } catch (t: Throwable) {
-                            syntheticStatus = "Synthetic generation failed safely: ${t.message ?: "unknown error"}"
-                        } finally {
-                            syntheticBusy = false
-                        }
-                    }
+                if (!syntheticBusy) scope.launch {
+                    syntheticBusy = true; confirmSyntheticClear = false
+                    syntheticStatus = "Generating $syntheticDays days through the Data Vault ingestion pipeline…"
+                    try {
+                        val result = NativeDataHub.generateSyntheticTestData(syntheticDays)
+                        refreshCounts()
+                        syntheticStatus = if (result.rejected == 0) {
+                            "Generated ${result.accepted} synthetic values across $syntheticDays days. ${result.deduplicated} in-batch duplicate${if (result.deduplicated == 1) " was" else "s were"} skipped."
+                        } else "Generated ${result.accepted} values; ${result.rejected} were rejected by normal ingestion validation."
+                    } catch (t: Throwable) {
+                        syntheticStatus = "Synthetic generation failed safely: ${t.message ?: "unknown error"}"
+                    } finally { syntheticBusy = false }
                 }
             }
             Spacer(Modifier.height(9.dp))
             VaultButton(
                 if (confirmSyntheticClear) "Tap again to clear synthetic data" else "Clear synthetic test data",
-                if (confirmSyntheticClear) "Only Project Superhuman synthetic-source records will be removed"
-                else "Genuine user data and other imported sources are preserved",
+                if (confirmSyntheticClear) "Only Project Superhuman synthetic-source records will be removed" else "Genuine user data and other imported sources are preserved",
                 SettingsRed
             ) {
                 if (syntheticBusy) return@VaultButton
                 if (!confirmSyntheticClear) {
                     confirmSyntheticClear = true
                     syntheticStatus = "Synthetic cleanup armed. Tap the red button once more to confirm."
-                } else {
-                    scope.launch {
-                        syntheticBusy = true
-                        try {
-                            val removed = NativeDataHub.clearSyntheticTestData()
-                            refreshCounts()
-                            syntheticStatus = "Cleared $removed synthetic value${if (removed == 1L) "" else "s"}. Genuine data was untouched."
-                            confirmSyntheticClear = false
-                        } catch (t: Throwable) {
-                            syntheticStatus = "Synthetic cleanup failed safely: ${t.message ?: "unknown error"}"
-                        } finally {
-                            syntheticBusy = false
-                        }
-                    }
+                } else scope.launch {
+                    syntheticBusy = true
+                    try {
+                        val removed = NativeDataHub.clearSyntheticTestData()
+                        refreshCounts()
+                        syntheticStatus = "Cleared $removed synthetic value${if (removed == 1L) "" else "s"}. Genuine data was untouched."
+                        confirmSyntheticClear = false
+                    } catch (t: Throwable) {
+                        syntheticStatus = "Synthetic cleanup failed safely: ${t.message ?: "unknown error"}"
+                    } finally { syntheticBusy = false }
                 }
             }
             Spacer(Modifier.height(10.dp))
             Text(syntheticStatus, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
         }
 
-        SettingsSection(
-            "Health integrations",
-            "Health Connect sleep is native. Device-specific integrations can be added behind the same repository."
-        )
-        SettingsSection(
-            "Permissions",
-            "Camera, barcode/OCR, Bluetooth and health permissions are requested only when the related feature needs them."
-        )
-        SettingsSection(
-            "Scientific engine",
-            "Health scores and statuses use stored native metrics and explicit reference ranges; missing clinical ranges are not invented."
-        )
-        SettingsSection(
-            "11.0 compatibility",
-            "Core workflows are native-first. Selected advanced legacy tools remain available from their module as a safety fallback during the 11.0 validation cycle."
-        )
+        SettingsSection("Health integrations", "Health Connect sleep is native. Device-specific integrations can be added behind the same repository.")
+        SettingsSection("Permissions", "Camera, barcode/OCR, Bluetooth and health permissions are requested only when the related feature needs them.")
+        SettingsSection("Scientific engine", "Health scores and statuses use stored native metrics and explicit reference ranges; missing clinical ranges are not invented.")
+        SettingsSection("11.0 compatibility", "Core workflows are native-first. Selected advanced legacy tools remain available from their module as a safety fallback during the 11.0 validation cycle.")
         Spacer(Modifier.height(18.dp))
     }
 }
@@ -327,10 +299,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
 @Composable
 private fun VaultButton(title: String, subtitle: String, accent: Color, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth()
-            .background(accent, RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(14.dp),
+        Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
@@ -344,18 +313,10 @@ private fun VaultButton(title: String, subtitle: String, accent: Color, onClick:
 @Composable
 private fun SyntheticSpanButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier
-            .background(if (selected) SettingsBlue else SettingsBg, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+        modifier.background(if (selected) SettingsBlue else SettingsBg, RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            label,
-            color = if (selected) Color.White else SettingsNavy,
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Black
-        )
+        Text(label, color = if (selected) Color.White else SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -374,29 +335,19 @@ private fun encodeBackup(values: List<HealthValue>): String {
         val metadata = JSONObject()
         value.metadata.forEach { (key, item) -> metadata.put(key, item) }
         items.put(JSONObject().apply {
-            put("domain", value.domain.name)
-            put("metric", value.metric)
-            put("value", value.value)
-            put("unit", value.unit)
-            put("timestampEpochMs", value.timestampEpochMs)
-            put("source", value.source)
-            put("metadata", metadata)
+            put("domain", value.domain.name); put("metric", value.metric); put("value", value.value); put("unit", value.unit)
+            put("timestampEpochMs", value.timestampEpochMs); put("source", value.source); put("metadata", metadata)
         })
     }
     return JSONObject().apply {
-        put("format", "project-superhuman-native-backup")
-        put("schemaVersion", 1)
-        put("exportedEpochMs", System.currentTimeMillis())
-        put("valueCount", values.size)
-        put("values", items)
+        put("format", "project-superhuman-native-backup"); put("schemaVersion", 1); put("exportedEpochMs", System.currentTimeMillis())
+        put("valueCount", values.size); put("values", items)
     }.toString(2)
 }
 
 private fun decodeBackup(raw: String): List<HealthValue> {
     val root = JSONObject(raw)
-    require(root.optString("format") == "project-superhuman-native-backup") {
-        "Not a Project Superhuman native backup"
-    }
+    require(root.optString("format") == "project-superhuman-native-backup") { "Not a Project Superhuman native backup" }
     require(root.optInt("schemaVersion", 0) == 1) { "Unsupported backup version" }
     val items = root.getJSONArray("values")
     val out = ArrayList<HealthValue>(items.length())
@@ -406,10 +357,7 @@ private fun decodeBackup(raw: String): List<HealthValue> {
         val metadataJson = item.optJSONObject("metadata") ?: JSONObject()
         val metadata = buildMap<String, String> {
             val keys = metadataJson.keys()
-            while (keys.hasNext()) {
-                val key = keys.next()
-                put(key, metadataJson.optString(key, ""))
-            }
+            while (keys.hasNext()) { val key = keys.next(); put(key, metadataJson.optString(key, "")) }
         }
         out += HealthValue(
             domain = domain,
