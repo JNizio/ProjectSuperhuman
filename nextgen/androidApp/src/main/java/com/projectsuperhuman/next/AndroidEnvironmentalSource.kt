@@ -3,21 +3,21 @@ package com.projectsuperhuman.next
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import android.location.LocationManager
 import android.os.Build
 import android.os.CancellationSignal
 import androidx.core.content.ContextCompat
-import com.projectsuperhuman.next.core.HealthDomain
-import com.projectsuperhuman.next.core.HealthValue
 import com.projectsuperhuman.next.environment.CachingEnvironmentalRepository
 import com.projectsuperhuman.next.environment.EnvironmentalCoordinates
 import com.projectsuperhuman.next.environment.EnvironmentalFetchResult
-import com.projectsuperhuman.next.environment.EnvironmentalObservation
 import com.projectsuperhuman.next.environment.EnvironmentalRepository
 import com.projectsuperhuman.next.environment.OpenMeteoEnvironmentalProvider
+import java.util.Locale
 import kotlin.coroutines.resume
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
 
 internal fun hasEnvironmentalLocationPermission(context: Context): Boolean =
     ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
@@ -29,16 +29,21 @@ internal class AndroidEnvironmentalSource(
 ) : EnvironmentalPresentationSource {
     private val appContext = context.applicationContext
     private val locations = appContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    private val history = NativeDomainData.forDomain(HealthDomain.ENVIRONMENT)
 
     override suspend fun loadCurrent(): EnvironmentalLoadResult {
         if (!hasPermission()) return EnvironmentalLoadResult.NoPermission
         val location = currentLocation() ?: return EnvironmentalLoadResult.NoData
         val coordinates = EnvironmentalCoordinates(location.latitude, location.longitude)
+        val place = resolvePlaceName(location.latitude, location.longitude)
+            ?: EnvironmentalAutoRecorder.rememberedPlace(appContext)
+            ?: "Local area"
+        EnvironmentalAutoRecorder.rememberLocation(appContext, coordinates, place)
+        EnvironmentalBackgroundSync.ensureScheduled(appContext)
+
         return when (val result = repository.current(coordinates, "local-area", System.currentTimeMillis())) {
             is EnvironmentalFetchResult.Success -> {
-                persist(result.observation)
-                EnvironmentalLoadResult.Data(result.observation.toEnvironmentalUi())
+                EnvironmentalAutoRecorder.persistObservation(result.observation)
+                EnvironmentalLoadResult.Data(result.observation.toEnvironmentalUi().copy(locationLabel = place))
             }
             is EnvironmentalFetchResult.Failure -> EnvironmentalLoadResult.Error("Environmental conditions are unavailable right now.")
         }
@@ -73,40 +78,29 @@ internal class AndroidEnvironmentalSource(
             .maxByOrNull { it.time }
     }.getOrNull()
 
-    private suspend fun persist(observation: EnvironmentalObservation) {
-        val rows = mutableListOf<HealthValue>()
-        for (measurement in observation.measurements) {
-            val bucketStart = measurement.measurementTimeEpochMs.floorDiv(SAMPLE_MS) * SAMPLE_MS
-            val bucketEnd = bucketStart + SAMPLE_MS - 1L
-            val exists = history.between(measurement.metricId, bucketStart, bucketEnd)
-                .any { it.source.equals(measurement.provenance.providerId, true) }
-            if (exists) continue
-            val recordId = "env-sampled-v1|${measurement.provenance.providerId}|${measurement.metricId}|$bucketStart"
-            rows += HealthValue(
-                domain = HealthDomain.ENVIRONMENT,
-                metric = measurement.metricId,
-                value = measurement.value,
-                unit = measurement.unit.symbol,
-                timestampEpochMs = measurement.measurementTimeEpochMs,
-                source = measurement.provenance.providerId,
-                metadata = mapOf(
-                    "sourceRecordId" to recordId,
-                    "environment.sampleIntervalMs" to SAMPLE_MS.toString(),
-                    "environment.fetchedAtEpochMs" to observation.retrievedAtEpochMs.toString(),
-                    "environment.evidenceKind" to "observation",
-                    "environment.locationGranularity" to "coarse_grid"
-                )
-            )
-        }
-        if (rows.isEmpty()) return
-        try {
-            NativeDataHub.ingestValues(rows)
-        } catch (error: CancellationException) {
-            throw error
-        } catch (_: Throwable) {
-            // Live conditions remain usable even if a non-critical history write fails.
+    @Suppress("DEPRECATION")
+    private suspend fun resolvePlaceName(latitude: Double, longitude: Double): String? {
+        if (!Geocoder.isPresent()) return null
+        val geocoder = Geocoder(appContext, Locale.getDefault())
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            suspendCancellableCoroutine { continuation ->
+                try {
+                    geocoder.getFromLocation(latitude, longitude, 1) { addresses ->
+                        val address = addresses.firstOrNull()
+                        val label = address?.locality ?: address?.subAdminArea ?: address?.adminArea
+                        if (continuation.isActive) continuation.resume(label)
+                    }
+                } catch (_: Throwable) {
+                    if (continuation.isActive) continuation.resume(null)
+                }
+            }
+        } else {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    val address = geocoder.getFromLocation(latitude, longitude, 1)?.firstOrNull()
+                    address?.locality ?: address?.subAdminArea ?: address?.adminArea
+                }.getOrNull()
+            }
         }
     }
-
-    private companion object { const val SAMPLE_MS = 60L * 60L * 1000L }
 }
