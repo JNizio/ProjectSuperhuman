@@ -1,6 +1,11 @@
 package com.projectsuperhuman.next
 
 import com.projectsuperhuman.next.core.HealthDomain
+import com.projectsuperhuman.next.core.ModuleCurrentState
+import com.projectsuperhuman.next.core.ModuleDataQuality
+import com.projectsuperhuman.next.core.ModuleDerivedFeatures
+import com.projectsuperhuman.next.core.ModuleHistory
+import com.projectsuperhuman.next.core.ModuleParityInsight
 import com.projectsuperhuman.next.core.ModuleParityService
 import com.projectsuperhuman.next.core.ModuleParitySnapshot
 
@@ -19,6 +24,24 @@ internal object NativeModuleParity {
             nowEpochMs = { System.currentTimeMillis() }
         )
     }
+
+    suspend fun currentState(domain: HealthDomain): ModuleCurrentState =
+        service.currentState(domain)
+
+    suspend fun history(
+        domain: HealthDomain,
+        limit: Int = 250,
+        offset: Int = 0
+    ): ModuleHistory = service.history(domain, limit, offset)
+
+    suspend fun derivedFeatures(domain: HealthDomain): ModuleDerivedFeatures =
+        service.derivedFeatures(domain)
+
+    suspend fun insights(domain: HealthDomain): List<ModuleParityInsight> =
+        service.insights(domain)
+
+    suspend fun dataQuality(domain: HealthDomain): ModuleDataQuality =
+        service.dataQuality(domain)
 
     suspend fun snapshot(
         domain: HealthDomain,
