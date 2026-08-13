@@ -7,8 +7,8 @@ import kotlin.math.abs
  *
  * This is the contract Trudy and future cross-module tooling should consume instead of
  * reaching into individual screen/view-model classes. All reads still flow through the
- * shared DataVaultGateway, so the existing SQL-backed Data Vault remains the single source
- * of truth and no module-specific duplicate database is introduced.
+ * shared SQL-backed Data Vault through a domain-scoped ModuleDataPort, so no module-specific
+ * duplicate database is introduced.
  */
 data class ModuleCurrentState(
     val domain: HealthDomain,
@@ -87,11 +87,11 @@ data class ModuleParitySnapshot(
  * a uniform, safe baseline so no module needs a bespoke API just to become Trudy-ready.
  */
 class ModuleParityService(
-    private val gateway: DataVaultGateway,
+    private val modulePort: (HealthDomain) -> ModuleDataPort,
     private val nowEpochMs: () -> Long
 ) {
     suspend fun currentState(domain: HealthDomain): ModuleCurrentState {
-        val rows = gateway.module(domain).page(metric = null, limit = MAX_SCAN_ROWS, offset = 0)
+        val rows = modulePort(domain).page(metric = null, limit = MAX_SCAN_ROWS, offset = 0)
             .sortedByDescending { it.timestampEpochMs }
         val latest = rows.distinctBy { it.metric }
         return ModuleCurrentState(
@@ -108,7 +108,7 @@ class ModuleParityService(
     ): ModuleHistory {
         val safeLimit = limit.coerceIn(1, MAX_SCAN_ROWS)
         val safeOffset = offset.coerceAtLeast(0)
-        val rows = gateway.module(domain).page(
+        val rows = modulePort(domain).page(
             metric = null,
             limit = safeLimit,
             offset = safeOffset
@@ -120,7 +120,7 @@ class ModuleParityService(
         domain: HealthDomain,
         sampleLimit: Int = DEFAULT_FEATURE_ROWS
     ): ModuleDerivedFeatures {
-        val rows = gateway.module(domain).page(
+        val rows = modulePort(domain).page(
             metric = null,
             limit = sampleLimit.coerceIn(1, MAX_SCAN_ROWS),
             offset = 0
@@ -188,7 +188,7 @@ class ModuleParityService(
     }
 
     suspend fun dataQuality(domain: HealthDomain): ModuleDataQuality {
-        val port = gateway.module(domain)
+        val port = modulePort(domain)
         val recordCount = port.count()
         val recent = port.page(metric = null, limit = MAX_SCAN_ROWS, offset = 0)
             .sortedByDescending { it.timestampEpochMs }
