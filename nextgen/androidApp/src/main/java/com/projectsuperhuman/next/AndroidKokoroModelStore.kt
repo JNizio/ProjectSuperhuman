@@ -18,7 +18,20 @@ import kotlinx.coroutines.withContext
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorInputStream
 
-/** Fixed, reviewed source. No model output or UI value can change these download locations. */
+data class KokoroRequiredAsset(val relativePath: String, val minBytes: Long)
+
+data class KokoroDistributionSpec(
+    val logicalModelId: String,
+    val runtimeVersion: String,
+    val archiveName: String,
+    val archiveUrl: String,
+    val checksumManifestUrl: String,
+    val archiveRoot: String,
+    val requiredFiles: List<KokoroRequiredAsset>,
+    val minimumEspeakFiles: Int
+)
+
+/** Fixed, reviewed production source. UI/model output never supplies these URLs or paths. */
 object KokoroAndroidDistribution {
     const val logicalModelId = "onnx-community/Kokoro-82M-v1.0-ONNX"
     const val runtimeVersion = "sherpa-kokoro-multi-lang-v1_0"
@@ -28,31 +41,135 @@ object KokoroAndroidDistribution {
     const val archiveRoot = "kokoro-multi-lang-v1_0"
 
     val requiredFiles = listOf(
-        RequiredAsset("model.onnx", 300_000_000L),
-        RequiredAsset("voices.bin", 20_000_000L),
-        RequiredAsset("tokens.txt", 100L),
-        RequiredAsset("lexicon-us-en.txt", 1_000_000L)
+        KokoroRequiredAsset("model.onnx", 300_000_000L),
+        KokoroRequiredAsset("voices.bin", 20_000_000L),
+        KokoroRequiredAsset("tokens.txt", 100L),
+        KokoroRequiredAsset("lexicon-us-en.txt", 1_000_000L)
     )
 
-    data class RequiredAsset(val relativePath: String, val minBytes: Long)
+    val spec = KokoroDistributionSpec(
+        logicalModelId = logicalModelId,
+        runtimeVersion = runtimeVersion,
+        archiveName = archiveName,
+        archiveUrl = archiveUrl,
+        checksumManifestUrl = checksumManifestUrl,
+        archiveRoot = archiveRoot,
+        requiredFiles = requiredFiles,
+        minimumEspeakFiles = 20
+    )
 }
 
 class KokoroInstallException(message: String, cause: Throwable? = null) : Exception(message, cause)
 
+internal interface KokoroArchiveClient {
+    suspend fun expectedSha256(distribution: KokoroDistributionSpec): String
+    suspend fun download(
+        distribution: KokoroDistributionSpec,
+        destination: File,
+        onProgress: suspend (TrudyVoiceInstallProgress) -> Unit
+    )
+}
+
+internal class HttpsKokoroArchiveClient : KokoroArchiveClient {
+    override suspend fun expectedSha256(distribution: KokoroDistributionSpec): String {
+        val connection = openHttps(distribution.checksumManifestUrl)
+        try {
+            val code = connection.responseCode
+            if (code !in 200..299) throw KokoroInstallException("Kokoro checksum manifest is unavailable")
+            ensureHttps(connection.url)
+            val line = connection.inputStream.bufferedReader().useLines { lines ->
+                lines.firstOrNull { distribution.archiveName in it }
+            }
+            val hash = line?.let { Regex("(?i)\\b[0-9a-f]{64}\\b").find(it)?.value }
+            return hash ?: throw KokoroInstallException("Publisher checksum for Kokoro archive was not found")
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    override suspend fun download(
+        distribution: KokoroDistributionSpec,
+        destination: File,
+        onProgress: suspend (TrudyVoiceInstallProgress) -> Unit
+    ) {
+        destination.parentFile?.mkdirs()
+        var existing = destination.takeIf { it.isFile }?.length() ?: 0L
+        var connection = openHttps(distribution.archiveUrl)
+        if (existing > 0L) connection.setRequestProperty("Range", "bytes=$existing-")
+        var code = connection.responseCode
+        var append = existing > 0L && code == HttpURLConnection.HTTP_PARTIAL
+        if (existing > 0L && !append) {
+            connection.disconnect()
+            destination.delete()
+            existing = 0L
+            connection = openHttps(distribution.archiveUrl)
+            code = connection.responseCode
+        }
+        try {
+            if (code !in 200..299) throw KokoroInstallException("Kokoro download failed with HTTP $code")
+            ensureHttps(connection.url)
+            val responseBytes = connection.contentLengthLong.takeIf { it >= 0L }
+            val total = when {
+                append && responseBytes != null -> existing + responseBytes
+                responseBytes != null -> responseBytes
+                else -> null
+            }
+            var downloaded = existing
+            BufferedInputStream(connection.inputStream, BUFFER_BYTES).use { input ->
+                BufferedOutputStream(FileOutputStream(destination, append), BUFFER_BYTES).use { output ->
+                    val buffer = ByteArray(BUFFER_BYTES)
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        output.write(buffer, 0, count)
+                        downloaded += count
+                        onProgress(TrudyVoiceInstallProgress(downloaded, total))
+                    }
+                }
+            }
+            if (destination.length() <= 0L) throw KokoroInstallException("Kokoro download produced an empty archive")
+        } finally {
+            connection.disconnect()
+        }
+    }
+
+    private fun openHttps(value: String): HttpURLConnection {
+        val url = URL(value)
+        ensureHttps(url)
+        return (url.openConnection() as HttpURLConnection).apply {
+            connectTimeout = 20_000
+            readTimeout = 60_000
+            instanceFollowRedirects = true
+            setRequestProperty("User-Agent", "ProjectSuperhuman-KokoroInstaller/1")
+        }
+    }
+
+    private fun ensureHttps(url: URL) {
+        if (!url.protocol.equals("https", ignoreCase = true)) throw KokoroInstallException("Kokoro assets require HTTPS")
+    }
+
+    private companion object { const val BUFFER_BYTES = 64 * 1024 }
+}
+
 /**
- * App-private, restart-safe model storage. A completed installation is never inferred from a
- * partial archive: activation requires publisher checksum validation, extraction validation,
- * per-file hashes, a matching version manifest, and final directory promotion.
+ * App-private, restart-safe model storage. Production construction always uses the fixed
+ * [KokoroAndroidDistribution] and HTTPS client; the internal constructor exists for module tests.
  */
-class AndroidKokoroModelStore(
-    context: Context
+class AndroidKokoroModelStore internal constructor(
+    private val root: File,
+    private val distribution: KokoroDistributionSpec,
+    private val archiveClient: KokoroArchiveClient
 ) : KokoroModelStore, TrudyVoiceModelManager {
-    private val appContext = context.applicationContext
-    private val root = File(appContext.noBackupFilesDir, "trudy/kokoro")
+    constructor(context: Context) : this(
+        root = File(context.applicationContext.noBackupFilesDir, "trudy/kokoro"),
+        distribution = KokoroAndroidDistribution.spec,
+        archiveClient = HttpsKokoroArchiveClient()
+    )
+
     private val activeDir = File(root, "active")
     private val stagingDir = File(root, ".staging")
     private val downloadsDir = File(root, ".downloads")
-    private val partialArchive = File(downloadsDir, KokoroAndroidDistribution.archiveName + ".part")
+    private val partialArchive = File(downloadsDir, distribution.archiveName + ".part")
     private val installMutex = Mutex()
     @Volatile private var installing = false
     @Volatile private var progress: TrudyVoiceInstallProgress? = null
@@ -60,11 +177,11 @@ class AndroidKokoroModelStore(
     @Volatile private var validatedFingerprint: String? = null
 
     override suspend fun isInstalled(modelId: String): Boolean = withContext(Dispatchers.IO) {
-        modelId == KokoroAndroidDistribution.logicalModelId && validateInstalled(deep = false)
+        modelId == distribution.logicalModelId && validateInstalled(deep = false)
     }
 
     override suspend fun resolve(modelId: String): KokoroModelFiles = withContext(Dispatchers.IO) {
-        require(modelId == KokoroAndroidDistribution.logicalModelId) { "Unsupported Kokoro model ID" }
+        require(modelId == distribution.logicalModelId) { "Unsupported Kokoro model ID" }
         if (!validateInstalled(deep = true)) throw KokoroInstallException("Kokoro installation failed integrity validation")
         KokoroModelFiles(
             modelPath = File(activeDir, "model.onnx").absolutePath,
@@ -72,7 +189,7 @@ class AndroidKokoroModelStore(
             tokenizerPath = File(activeDir, "tokens.txt").absolutePath,
             phonemizerDataDir = File(activeDir, "espeak-ng-data").absolutePath,
             lexiconPath = File(activeDir, "lexicon-us-en.txt").absolutePath,
-            modelVersion = KokoroAndroidDistribution.runtimeVersion,
+            modelVersion = distribution.runtimeVersion,
             modelBytesOnDisk = activeDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
         )
     }
@@ -81,28 +198,25 @@ class AndroidKokoroModelStore(
         when {
             installing -> TrudyVoiceStatus(
                 TrudyVoiceRuntimeState.INSTALLING,
-                KokoroAndroidDistribution.logicalModelId,
+                distribution.logicalModelId,
                 progress = progress
             )
             validateInstalled(deep = false) -> TrudyVoiceStatus(
                 TrudyVoiceRuntimeState.READY,
-                KokoroAndroidDistribution.logicalModelId,
-                installedVersion = KokoroAndroidDistribution.runtimeVersion
+                distribution.logicalModelId,
+                installedVersion = distribution.runtimeVersion
             )
             lastError != null -> TrudyVoiceStatus(
                 TrudyVoiceRuntimeState.ERROR,
-                KokoroAndroidDistribution.logicalModelId,
+                distribution.logicalModelId,
                 message = lastError
             )
-            else -> TrudyVoiceStatus(
-                TrudyVoiceRuntimeState.NOT_INSTALLED,
-                KokoroAndroidDistribution.logicalModelId
-            )
+            else -> TrudyVoiceStatus(TrudyVoiceRuntimeState.NOT_INSTALLED, distribution.logicalModelId)
         }
     }
 
     override suspend fun availableVoices(): List<TrudyVoiceOption> {
-        val installed = isInstalled(KokoroAndroidDistribution.logicalModelId)
+        val installed = isInstalled(distribution.logicalModelId)
         return KokoroVoiceCatalog.voices.map {
             TrudyVoiceOption(it.id, it.displayName, it.languageTag, installed)
         }
@@ -126,8 +240,11 @@ class AndroidKokoroModelStore(
                 stagingDir.deleteRecursively()
                 stagingDir.mkdirs()
 
-                val expectedArchiveSha = fetchExpectedArchiveSha256()
-                downloadArchive(onProgress)
+                val expectedArchiveSha = archiveClient.expectedSha256(distribution)
+                archiveClient.download(distribution, partialArchive) { update ->
+                    progress = update
+                    onProgress(update)
+                }
                 val actualArchiveSha = sha256(partialArchive)
                 if (!actualArchiveSha.equals(expectedArchiveSha, ignoreCase = true)) {
                     partialArchive.delete()
@@ -135,7 +252,7 @@ class AndroidKokoroModelStore(
                 }
 
                 extractArchive(partialArchive, stagingDir)
-                val candidate = File(stagingDir, KokoroAndroidDistribution.archiveRoot)
+                val candidate = File(stagingDir, distribution.archiveRoot)
                 validateCandidate(candidate)
                 writeInstallManifest(candidate)
                 promote(candidate)
@@ -160,74 +277,14 @@ class AndroidKokoroModelStore(
         status()
     }
 
-    private suspend fun downloadArchive(onProgress: suspend (TrudyVoiceInstallProgress) -> Unit) {
-        var existing = partialArchive.takeIf { it.isFile }?.length() ?: 0L
-        var connection = openHttps(KokoroAndroidDistribution.archiveUrl)
-        if (existing > 0L) connection.setRequestProperty("Range", "bytes=$existing-")
-        var code = connection.responseCode
-        var append = existing > 0L && code == HttpURLConnection.HTTP_PARTIAL
-        if (existing > 0L && !append) {
-            connection.disconnect()
-            partialArchive.delete()
-            existing = 0L
-            connection = openHttps(KokoroAndroidDistribution.archiveUrl)
-            code = connection.responseCode
-        }
-        if (code !in 200..299) {
-            connection.disconnect()
-            throw KokoroInstallException("Kokoro download failed with HTTP $code")
-        }
-        ensureHttps(connection.url)
-        val responseBytes = connection.contentLengthLong.takeIf { it >= 0L }
-        val total = when {
-            append && responseBytes != null -> existing + responseBytes
-            responseBytes != null -> responseBytes
-            else -> null
-        }
-        var downloaded = existing
-        BufferedInputStream(connection.inputStream, BUFFER_BYTES).use { input ->
-            BufferedOutputStream(FileOutputStream(partialArchive, append), BUFFER_BYTES).use { output ->
-                val buffer = ByteArray(BUFFER_BYTES)
-                while (true) {
-                    val count = input.read(buffer)
-                    if (count < 0) break
-                    output.write(buffer, 0, count)
-                    downloaded += count
-                    val update = TrudyVoiceInstallProgress(downloaded, total)
-                    progress = update
-                    onProgress(update)
-                }
-            }
-        }
-        connection.disconnect()
-        if (partialArchive.length() <= 0L) throw KokoroInstallException("Kokoro download produced an empty archive")
-    }
-
-    private fun fetchExpectedArchiveSha256(): String {
-        val connection = openHttps(KokoroAndroidDistribution.checksumManifestUrl)
-        val code = connection.responseCode
-        if (code !in 200..299) {
-            connection.disconnect()
-            throw KokoroInstallException("Kokoro checksum manifest is unavailable")
-        }
-        ensureHttps(connection.url)
-        val line = connection.inputStream.bufferedReader().useLines { lines ->
-            lines.firstOrNull { KokoroAndroidDistribution.archiveName in it }
-        }
-        connection.disconnect()
-        val hash = line?.let { Regex("(?i)\\b[0-9a-f]{64}\\b").find(it)?.value }
-        return hash ?: throw KokoroInstallException("Publisher checksum for Kokoro archive was not found")
-    }
-
     private fun extractArchive(archive: File, destination: File) {
         BZip2CompressorInputStream(BufferedInputStream(FileInputStream(archive), BUFFER_BYTES)).use { bzip ->
             TarArchiveInputStream(bzip).use { tar ->
                 while (true) {
                     val entry = tar.nextEntry ?: break
                     if (entry.isSymbolicLink || entry.isLink) throw KokoroInstallException("Kokoro archive contains unsupported links")
-                    val target = File(destination, entry.name)
                     val canonicalDestination = destination.canonicalFile
-                    val canonicalTarget = target.canonicalFile
+                    val canonicalTarget = File(destination, entry.name).canonicalFile
                     if (canonicalTarget != canonicalDestination && !canonicalTarget.path.startsWith(canonicalDestination.path + File.separator)) {
                         throw KokoroInstallException("Kokoro archive attempted path traversal")
                     }
@@ -246,23 +303,23 @@ class AndroidKokoroModelStore(
 
     private fun validateCandidate(candidate: File) {
         if (!candidate.isDirectory) throw KokoroInstallException("Kokoro archive root is missing")
-        KokoroAndroidDistribution.requiredFiles.forEach { required ->
+        distribution.requiredFiles.forEach { required ->
             val file = File(candidate, required.relativePath)
             if (!file.isFile || file.length() < required.minBytes) {
                 throw KokoroInstallException("Kokoro asset ${required.relativePath} is missing or truncated")
             }
         }
         val espeak = File(candidate, "espeak-ng-data")
-        if (!espeak.isDirectory || espeak.walkTopDown().count { it.isFile } < 20) {
+        if (!espeak.isDirectory || espeak.walkTopDown().count { it.isFile } < distribution.minimumEspeakFiles) {
             throw KokoroInstallException("Kokoro eSpeak-ng data is incomplete")
         }
     }
 
     private fun writeInstallManifest(candidate: File) {
         val properties = Properties().apply {
-            setProperty("version", KokoroAndroidDistribution.runtimeVersion)
-            setProperty("modelId", KokoroAndroidDistribution.logicalModelId)
-            KokoroAndroidDistribution.requiredFiles.forEach { required ->
+            setProperty("version", distribution.runtimeVersion)
+            setProperty("modelId", distribution.logicalModelId)
+            distribution.requiredFiles.forEach { required ->
                 val file = File(candidate, required.relativePath)
                 setProperty("${required.relativePath}.bytes", file.length().toString())
                 setProperty("${required.relativePath}.sha256", sha256(file))
@@ -290,43 +347,32 @@ class AndroidKokoroModelStore(
         val manifestFile = File(activeDir, MANIFEST)
         if (!manifestFile.isFile) return false
         val properties = runCatching {
-            Properties().also { props -> manifestFile.inputStream().buffered().use(props::load) }
+            Properties().also { props ->
+                manifestFile.inputStream().buffered().use { input -> props.load(input) }
+            }
         }.getOrNull() ?: return false
-        if (properties.getProperty("version") != KokoroAndroidDistribution.runtimeVersion) return false
-        if (properties.getProperty("modelId") != KokoroAndroidDistribution.logicalModelId) return false
-        if (KokoroAndroidDistribution.requiredFiles.any { required ->
+        if (properties.getProperty("version") != distribution.runtimeVersion) return false
+        if (properties.getProperty("modelId") != distribution.logicalModelId) return false
+        if (distribution.requiredFiles.any { required ->
                 val file = File(activeDir, required.relativePath)
-                !file.isFile || file.length() < required.minBytes || properties.getProperty("${required.relativePath}.bytes")?.toLongOrNull() != file.length()
+                !file.isFile || file.length() < required.minBytes ||
+                    properties.getProperty("${required.relativePath}.bytes")?.toLongOrNull() != file.length()
             }) return false
         val espeak = File(activeDir, "espeak-ng-data")
-        if (!espeak.isDirectory || espeak.list()?.isEmpty() != false) return false
+        if (!espeak.isDirectory || espeak.walkTopDown().count { it.isFile } < distribution.minimumEspeakFiles) return false
         if (!deep) return true
 
-        val fingerprint = KokoroAndroidDistribution.requiredFiles.joinToString("|") {
-            val f = File(activeDir, it.relativePath); "${f.length()}:${f.lastModified()}"
+        val fingerprint = distribution.requiredFiles.joinToString("|") {
+            val file = File(activeDir, it.relativePath)
+            "${file.length()}:${file.lastModified()}"
         }
         if (validatedFingerprint == fingerprint) return true
-        val hashesMatch = KokoroAndroidDistribution.requiredFiles.all { required ->
+        val hashesMatch = distribution.requiredFiles.all { required ->
             val expected = properties.getProperty("${required.relativePath}.sha256") ?: return@all false
             sha256(File(activeDir, required.relativePath)).equals(expected, ignoreCase = true)
         }
         if (hashesMatch) validatedFingerprint = fingerprint
         return hashesMatch
-    }
-
-    private fun openHttps(value: String): HttpURLConnection {
-        val url = URL(value)
-        ensureHttps(url)
-        return (url.openConnection() as HttpURLConnection).apply {
-            connectTimeout = 20_000
-            readTimeout = 60_000
-            instanceFollowRedirects = true
-            setRequestProperty("User-Agent", "ProjectSuperhuman-KokoroInstaller/1")
-        }
-    }
-
-    private fun ensureHttps(url: URL) {
-        if (!url.protocol.equals("https", ignoreCase = true)) throw KokoroInstallException("Kokoro assets require HTTPS")
     }
 
     private fun sha256(file: File): String {
