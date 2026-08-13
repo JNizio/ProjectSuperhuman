@@ -148,6 +148,53 @@ class ModuleParityTest {
     }
 
     @Test
+    fun openEndedClinicalMetricsRemainScopedAndVisible() = runTest {
+        val metric = "clinical.unregistered_future_marker"
+        val clinicalPort = FakeModulePort(
+            HealthDomain.CLINICAL,
+            listOf(hv(HealthDomain.CLINICAL, metric, 4.2, now, "value"))
+        )
+        val bodyPort = FakeModulePort(
+            HealthDomain.BODY,
+            listOf(hv(HealthDomain.BODY, metric, 99.0, now, "value"))
+        )
+        val ports = mapOf(HealthDomain.CLINICAL to clinicalPort, HealthDomain.BODY to bodyPort)
+        val service = ModuleParityService(
+            modulePort = { domain -> ports.getValue(domain) },
+            nowEpochMs = { now }
+        )
+
+        val clinical = service.currentState(HealthDomain.CLINICAL)
+
+        assertEquals(4.2, clinical.latestByMetric.single { it.metric == metric }.value)
+        assertTrue(clinical.latestByMetric.all { it.domain == HealthDomain.CLINICAL })
+        assertEquals(4.2, clinicalPort.latest(metric)?.value)
+        assertEquals(99.0, bodyPort.latest(metric)?.value)
+    }
+
+    @Test
+    fun sleepAliasAndPagedHistoryStayDomainScopedAndOrdered() = runTest {
+        val rows = listOf(
+            hv(HealthDomain.SLEEP, "sleep_time_minutes", 410.0, now - 3_000L, "min"),
+            hv(HealthDomain.SLEEP, "sleep_total_minutes", 430.0, now - 2_000L, "min"),
+            hv(HealthDomain.SLEEP, "sleep_total_minutes", 445.0, now - 1_000L, "min")
+        )
+        val service = serviceFor(HealthDomain.SLEEP, rows)
+
+        val current = service.currentState(HealthDomain.SLEEP)
+        val firstPage = service.history(HealthDomain.SLEEP, limit = 2, offset = 0)
+        val secondPage = service.history(HealthDomain.SLEEP, limit = 2, offset = 2)
+
+        assertEquals("sleep_total_minutes", current.latestByMetric.single().metric)
+        assertEquals(445.0, current.latestByMetric.single().value)
+        assertEquals(2, firstPage.values.size)
+        assertEquals(1, secondPage.values.size)
+        assertTrue(firstPage.values.zipWithNext().all { (a, b) -> a.timestampEpochMs >= b.timestampEpochMs })
+        assertTrue((firstPage.values + secondPage.values).all { it.domain == HealthDomain.SLEEP })
+        assertEquals(3, (firstPage.values + secondPage.values).size)
+    }
+
+    @Test
     fun meaningfulRepeatedChangeProducesCautiousTrendInsight() = runTest {
         val rows = listOf(60.0, 62.0, 70.0, 78.0, 84.0).mapIndexed { index, value ->
             hv(HealthDomain.SLEEP, "sleep_score", value, now - (5 - index) * hour, "score")
