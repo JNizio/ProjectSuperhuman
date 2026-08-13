@@ -85,7 +85,10 @@ internal object TrudyRuntimeFactory {
                 library = TrudyPersonalEvidenceLibrary(evidenceSource),
                 source = evidenceSource
             )
-            val tools = CompositeTrudyToolExecutor(listOf(healthTools, intelligenceTools))
+            val tools = CompositeTrudyToolExecutor(
+                healthExecutor = healthTools,
+                intelligenceExecutor = intelligenceTools
+            )
             val orchestrator = TrudyOrchestrator(selection.client, tools)
             val service = TrudyConversationService(orchestrator)
             val backend = SharedTrudyBackendAdapter(
@@ -179,7 +182,7 @@ internal object TrudyRuntimeFactory {
             requestedMode = requestedMode,
             activeMode = TrudyModelRuntimeMode.DETERMINISTIC,
             providerId = "offline",
-            modelId = "trudy-deterministic-v1",
+            modelId = DETERMINISTIC_MODEL_ID,
             fallbackUsed = requestedMode != TrudyModelRuntimeMode.DETERMINISTIC || reason != null,
             fallbackReason = reason
         )
@@ -199,4 +202,6 @@ internal object TrudyRuntimeFactory {
             fallbackReason = reason
         )
     )
+
+    private const val DETERMINISTIC_MODEL_ID = "trudy-deterministic-v2-intelligence"
 }

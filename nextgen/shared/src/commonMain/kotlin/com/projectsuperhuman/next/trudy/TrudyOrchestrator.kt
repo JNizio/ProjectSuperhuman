@@ -24,7 +24,7 @@ class TrudyOrchestrator(private val modelClient: TrudyModelClient, private val t
                 val failures=results.filterIsInstance<TrudyToolResult.Failure>()
                 if(failures.isNotEmpty() && results.count { it !is TrudyToolResult.Failure }==0) return fallback("I couldn't access the requested health data reliably, so I won't guess.",calls,deriveWarnings(results),metadata)
                 val available=results.flatMap(::evidenceReferencesFrom)
-                val bound=model.evidenceReferences.mapNotNull { requested -> available.firstOrNull { it.matches(requested) } }.distinct()
+                val bound=model.evidenceReferences.mapNotNull { requested -> available.firstOrNull { it.matchesExactly(requested) } }.distinct()
                 val dropped=model.evidenceReferences.size-bound.size
                 val warnings=buildList { addAll(deriveWarnings(results)); if(dropped>0) add(TrudyWarning(TrudyWarningKind.UNBOUND_EVIDENCE_REFERENCE,"$dropped model evidence reference(s) were rejected because no matching tool evidence existed.")) }
                 return TrudyOrchestrationResult(TrudyOrchestrationStatus.SUCCESS,answer,bound,calls.toList(),warnings.distinct(),metadata)
@@ -45,12 +45,12 @@ class TrudyOrchestrator(private val modelClient: TrudyModelClient, private val t
         is TrudyToolOperation.GetMetricHistory -> when { op.metricId.isBlank()->"metricId must not be blank"; op.limit !in 1..5000->"limit must be between 1 and 5000"; op.offset<0->"offset must be >= 0"; else->null }
         is TrudyToolOperation.GetDomainHistory -> when { op.limit !in 1..5000->"limit must be between 1 and 5000"; op.offset<0->"offset must be >= 0"; else->null }
         is TrudyToolOperation.GetContext -> if(op.domains.isEmpty()) "Cross-domain context must explicitly list domains" else if(op.request.historyLimitPerDomain !in 1..5000) "historyLimitPerDomain must be between 1 and 5000" else null
-        is GetPersonalTrend -> if(op.metricId.isBlank()) "metricId must not be blank" else null
+        is GetPersonalTrend -> when { op.metricId.isBlank()->"metricId must not be blank"; op.recentDays !in 1..3650 || op.baselineDays !in 1..3650 -> "trend windows must be between 1 and 3650 days"; else->null }
         is CompareBaseline -> if(op.metricId.isBlank()) "metricId must not be blank" else null
-        is GetAssociation -> if(op.leftMetricId.isBlank()||op.rightMetricId.isBlank()) "Association metrics must be domain-qualified and non-blank" else if(op.domains != listOf(op.leftDomain,op.rightDomain).distinct()) "Association domains were not preserved" else null
-        is GetLaggedAssociation -> if(op.leftMetricId.isBlank()||op.rightMetricId.isBlank()) "Association metrics must be domain-qualified and non-blank" else if(op.lagMs !in 0..604_800_000L) "lagMs must be between 0 and seven days" else null
+        is GetAssociation -> when { op.leftMetricId.isBlank()||op.rightMetricId.isBlank()->"Association metrics must be domain-qualified and non-blank"; op.domains != listOf(op.leftDomain,op.rightDomain).distinct()->"Association domains were not preserved"; op.alignmentWindowMs !in 0..TrudyStatistics.MAX_ALIGNMENT_WINDOW_MS->"alignmentWindowMs must be between 0 and seven days"; else->null }
+        is GetLaggedAssociation -> when { op.leftMetricId.isBlank()||op.rightMetricId.isBlank()->"Association metrics must be domain-qualified and non-blank"; op.lagMs !in 0..TrudyStatistics.MAX_LAG_MS->"lagMs must be between 0 and seven days"; op.alignmentWindowMs !in 0..TrudyStatistics.MAX_ALIGNMENT_WINDOW_MS->"alignmentWindowMs must be between 0 and seven days"; else->null }
         is GenerateExperimentHypothesis -> if(op.targetMetricId.isBlank()) "targetMetricId must not be blank" else null
-        is EvaluateExperiment -> if(op.adherenceFraction !in 0.0..1.0) "adherenceFraction must be between 0 and 1" else null
+        is EvaluateExperiment -> if(!op.adherenceFraction.isFinite() || op.adherenceFraction !in 0.0..1.0) "adherenceFraction must be a finite value between 0 and 1" else null
         is TrudyToolOperation.Unsupported -> "Unsupported tool operation"
         else -> if(op.domains.size!=1) "Single-domain tool must contain exactly one domain" else null
     }
@@ -84,7 +84,15 @@ class TrudyOrchestrator(private val modelClient: TrudyModelClient, private val t
     private fun metricRef(e:TrudyMetricEvidence)=TrudyEvidenceReference(e.domain,e.metricId,evidenceKind=e.evidenceKind,timestampEpochMs=e.timestampEpochMs)
     private fun derivedRef(e:TrudyDerivedMetricEvidence)=TrudyEvidenceReference(e.domain,e.metricId,evidenceKind=e.evidenceKind,range=e.range)
     private fun insightRef(e:TrudyInsightEvidence)=TrudyEvidenceReference(e.domain,insightId=e.id,evidenceKind=e.evidenceKind)
-    private fun TrudyEvidenceReference.matches(r:TrudyEvidenceReference):Boolean { if(domain!=r.domain||evidenceKind!=r.evidenceKind)return false; if(r.metricId!=null&&metricId!=r.metricId)return false; if(r.insightId!=null&&insightId!=r.insightId)return false; return r.metricId!=null||r.insightId!=null }
+
+    /** Bind only to the exact structured evidence returned by a tool, including temporal identity. */
+    private fun TrudyEvidenceReference.matchesExactly(requested:TrudyEvidenceReference):Boolean {
+        if(domain!=requested.domain || evidenceKind!=requested.evidenceKind) return false
+        if(metricId!=requested.metricId || insightId!=requested.insightId) return false
+        if(timestampEpochMs!=requested.timestampEpochMs || range!=requested.range) return false
+        return metricId!=null || insightId!=null
+    }
+
     private fun TrudyToolResult.callRecord()=if(this is TrudyToolResult.Failure) TrudyToolCallRecord(operation,false,code) else TrudyToolCallRecord(operation,true)
     private fun fallback(answer:String,toolCalls:List<TrudyToolCallRecord> = emptyList(),warnings:List<TrudyWarning>,metadata:TrudyModelMetadata?=null)=TrudyOrchestrationResult(TrudyOrchestrationStatus.FALLBACK,answer,emptyList(),toolCalls.toList(),warnings.distinct(),metadata)
 }

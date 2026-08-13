@@ -19,6 +19,13 @@ val trudyHostedModelId = providers.gradleProperty("TRUDY_HOSTED_MODEL_ID").orEls
 val trudyHostedEndpoint = providers.gradleProperty("TRUDY_HOSTED_ENDPOINT").orElse("")
 val trudyLocalModelId = providers.gradleProperty("TRUDY_LOCAL_MODEL_ID").orElse("local")
 
+fun secretProperty(name: String) = providers.gradleProperty(name).orElse(providers.environmentVariable(name)).orNull?.takeIf { it.isNotBlank() }
+val signingStoreFile = secretProperty("SUPERHUMAN_SIGNING_STORE_FILE")
+val signingStorePassword = secretProperty("SUPERHUMAN_SIGNING_STORE_PASSWORD")
+val signingKeyAlias = secretProperty("SUPERHUMAN_SIGNING_KEY_ALIAS")
+val signingKeyPassword = secretProperty("SUPERHUMAN_SIGNING_KEY_PASSWORD")
+val configuredSigning = listOf(signingStoreFile, signingStorePassword, signingKeyAlias, signingKeyPassword).all { it != null }
+
 val repDbAssets = layout.buildDirectory.dir("generated/repdbAssets")
 val syncRepDb by tasks.registering {
     outputs.dir(repDbAssets)
@@ -52,11 +59,13 @@ android {
     compileSdk = 36
     ndkVersion = "27.3.13750724"
     signingConfigs {
-        create("projectSuperhuman") {
-            storeFile = file("../../signing/project-superhuman-v97.keystore")
-            storePassword = "PSH970-LocalFirst-2026-KeepSafe"
-            keyAlias = "project-superhuman"
-            keyPassword = "PSH970-LocalFirst-2026-KeepSafe"
+        if (configuredSigning) {
+            create("projectSuperhuman") {
+                storeFile = file(requireNotNull(signingStoreFile))
+                storePassword = requireNotNull(signingStorePassword)
+                keyAlias = requireNotNull(signingKeyAlias)
+                keyPassword = requireNotNull(signingKeyPassword)
+            }
         }
     }
     defaultConfig {
@@ -80,8 +89,14 @@ android {
         assets.srcDir(repDbAssets)
     }
     buildTypes {
-        getByName("debug") { signingConfig = signingConfigs.getByName("projectSuperhuman") }
-        getByName("release") { signingConfig = signingConfigs.getByName("projectSuperhuman"); isMinifyEnabled = false; isShrinkResources = false }
+        getByName("debug") {
+            if (configuredSigning) signingConfig = signingConfigs.getByName("projectSuperhuman")
+        }
+        getByName("release") {
+            if (configuredSigning) signingConfig = signingConfigs.getByName("projectSuperhuman")
+            isMinifyEnabled = false
+            isShrinkResources = false
+        }
     }
 }
 
