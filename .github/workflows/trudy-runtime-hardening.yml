@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   verify:
+    # This branch-only job is intentionally limited to architecture checks, tests, and compilation.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
