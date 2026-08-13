@@ -62,9 +62,10 @@ class KokoroInferenceException(message: String, cause: Throwable? = null) : Exce
 
 class SherpaKokoroInferenceBackend(
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val threads: Int = 4
+    threads: Int = 4
 ) : KokoroInferenceBackend {
     override val backendId: String = "sherpa-onnx-${KokoroAndroidRuntimeContract.SHERPA_ONNX_VERSION}"
+    private val effectiveThreads = threads.coerceIn(4, 4)
 
     private val lifecycleMutex = Mutex()
     private val generationMutex = Mutex()
@@ -73,7 +74,7 @@ class SherpaKokoroInferenceBackend(
 
     override suspend fun initialize(files: KokoroModelFiles) = lifecycleMutex.withLock {
         if (tts != null) return@withLock
-        DeveloperDiagnostics.log("kokoro.init.begin", "threads=$threads path=non_callback")
+        DeveloperDiagnostics.log("kokoro.init.begin", "threads=$effectiveThreads path=non_callback")
         validateAbi()
         val model = requireFile(files.modelPath, "model.onnx")
         val voices = requireFile(files.voicesPath, "voices.bin")
@@ -98,7 +99,7 @@ class SherpaKokoroInferenceBackend(
                                 dataDir = dataDir.absolutePath,
                                 lexicon = lexicon.absolutePath
                             ),
-                            numThreads = threads,
+                            numThreads = effectiveThreads,
                             debug = false,
                             provider = KokoroAndroidRuntimeContract.PROVIDER
                         ),
@@ -137,7 +138,7 @@ class SherpaKokoroInferenceBackend(
         val requestEpoch = cancellationEpoch.get()
         DeveloperDiagnostics.log(
             "kokoro.synth.begin",
-            "chars=${request.text.length} voice=${request.voiceId} speed=${request.speed} threads=$threads path=non_callback"
+            "chars=${request.text.length} voice=${request.voiceId} speed=${request.speed} threads=$effectiveThreads path=non_callback"
         )
 
         val generated = try {
