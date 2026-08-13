@@ -43,10 +43,6 @@ sealed interface TrudyToolOperation {
         override val domains: List<HealthDomain> = request.domains
     }
 
-    /**
-     * Provider adapters map an unknown model tool name to this value.
-     * It is never executed against health storage.
-     */
     data class Unsupported(
         val name: String,
         val arguments: Map<String, String> = emptyMap()
@@ -64,53 +60,17 @@ data class TrudyToolDefinition(
 sealed interface TrudyToolResult {
     val operation: TrudyToolOperation
 
-    data class DomainState(
-        override val operation: TrudyToolOperation.GetDomainState,
-        val evidence: List<TrudyMetricEvidence>
-    ) : TrudyToolResult
-
-    data class MetricHistory(
-        override val operation: TrudyToolOperation.GetMetricHistory,
-        val evidence: List<TrudyMetricEvidence>
-    ) : TrudyToolResult
-
-    data class DomainHistory(
-        override val operation: TrudyToolOperation.GetDomainHistory,
-        val evidence: List<TrudyMetricEvidence>
-    ) : TrudyToolResult
-
-    data class DerivedFeatures(
-        override val operation: TrudyToolOperation.GetDerivedFeatures,
-        val evidence: List<TrudyDerivedMetricEvidence>
-    ) : TrudyToolResult
-
-    data class Insights(
-        override val operation: TrudyToolOperation.GetInsights,
-        val evidence: List<TrudyInsightEvidence>
-    ) : TrudyToolResult
-
-    data class DataQuality(
-        override val operation: TrudyToolOperation.GetDataQuality,
-        val evidence: TrudyDataQualityEvidence
-    ) : TrudyToolResult
-
-    data class Context(
-        override val operation: TrudyToolOperation.GetContext,
-        val context: TrudyHealthContext
-    ) : TrudyToolResult
-
-    data class Failure(
-        override val operation: TrudyToolOperation,
-        val code: TrudyToolFailureCode,
-        val message: String
-    ) : TrudyToolResult
+    data class DomainState(override val operation: TrudyToolOperation.GetDomainState, val evidence: List<TrudyMetricEvidence>) : TrudyToolResult
+    data class MetricHistory(override val operation: TrudyToolOperation.GetMetricHistory, val evidence: List<TrudyMetricEvidence>) : TrudyToolResult
+    data class DomainHistory(override val operation: TrudyToolOperation.GetDomainHistory, val evidence: List<TrudyMetricEvidence>) : TrudyToolResult
+    data class DerivedFeatures(override val operation: TrudyToolOperation.GetDerivedFeatures, val evidence: List<TrudyDerivedMetricEvidence>) : TrudyToolResult
+    data class Insights(override val operation: TrudyToolOperation.GetInsights, val evidence: List<TrudyInsightEvidence>) : TrudyToolResult
+    data class DataQuality(override val operation: TrudyToolOperation.GetDataQuality, val evidence: TrudyDataQualityEvidence) : TrudyToolResult
+    data class Context(override val operation: TrudyToolOperation.GetContext, val context: TrudyHealthContext) : TrudyToolResult
+    data class Failure(override val operation: TrudyToolOperation, val code: TrudyToolFailureCode, val message: String) : TrudyToolResult
 }
 
-enum class TrudyToolFailureCode {
-    MALFORMED_REQUEST,
-    UNSUPPORTED_OPERATION,
-    EXECUTION_FAILED
-}
+enum class TrudyToolFailureCode { MALFORMED_REQUEST, UNSUPPORTED_OPERATION, EXECUTION_FAILED }
 
 interface TrudyToolExecutor {
     val definitions: List<TrudyToolDefinition>
@@ -135,33 +95,15 @@ class TrudyHealthToolService(
             return TrudyToolResult.Failure(operation, TrudyToolFailureCode.MALFORMED_REQUEST, message)
         }
         return when (operation) {
-            is TrudyToolOperation.GetDomainState -> TrudyToolResult.DomainState(
-                operation, healthContext.currentState(operation.domain)
-            )
-            is TrudyToolOperation.GetMetricHistory -> TrudyToolResult.MetricHistory(
-                operation,
-                healthContext.metricHistory(operation.domain, operation.metricId, operation.limit, operation.offset)
-            )
-            is TrudyToolOperation.GetDomainHistory -> TrudyToolResult.DomainHistory(
-                operation, healthContext.domainHistory(operation.domain, operation.limit, operation.offset)
-            )
-            is TrudyToolOperation.GetDerivedFeatures -> TrudyToolResult.DerivedFeatures(
-                operation, healthContext.derivedFeatures(operation.domain)
-            )
-            is TrudyToolOperation.GetInsights -> TrudyToolResult.Insights(
-                operation, healthContext.insights(operation.domain)
-            )
-            is TrudyToolOperation.GetDataQuality -> TrudyToolResult.DataQuality(
-                operation, healthContext.dataQuality(operation.domain)
-            )
-            is TrudyToolOperation.GetContext -> TrudyToolResult.Context(
-                operation, healthContext.context(operation.request)
-            )
-            is TrudyToolOperation.Unsupported -> TrudyToolResult.Failure(
-                operation,
-                TrudyToolFailureCode.UNSUPPORTED_OPERATION,
-                "Unsupported Trudy tool: ${operation.name}"
-            )
+            is TrudyToolOperation.GetDomainState -> TrudyToolResult.DomainState(operation, healthContext.currentState(operation.domain))
+            is TrudyToolOperation.GetMetricHistory -> TrudyToolResult.MetricHistory(operation, healthContext.metricHistory(operation.domain, operation.metricId, operation.limit, operation.offset))
+            is TrudyToolOperation.GetDomainHistory -> TrudyToolResult.DomainHistory(operation, healthContext.domainHistory(operation.domain, operation.limit, operation.offset))
+            is TrudyToolOperation.GetDerivedFeatures -> TrudyToolResult.DerivedFeatures(operation, healthContext.derivedFeatures(operation.domain))
+            is TrudyToolOperation.GetInsights -> TrudyToolResult.Insights(operation, healthContext.insights(operation.domain))
+            is TrudyToolOperation.GetDataQuality -> TrudyToolResult.DataQuality(operation, healthContext.dataQuality(operation.domain))
+            is TrudyToolOperation.GetContext -> TrudyToolResult.Context(operation, healthContext.context(operation.request))
+            is TrudyToolOperation.Unsupported -> TrudyToolResult.Failure(operation, TrudyToolFailureCode.UNSUPPORTED_OPERATION, "Unsupported Trudy tool: ${operation.name}")
+            else -> TrudyToolResult.Failure(operation, TrudyToolFailureCode.UNSUPPORTED_OPERATION, "This operation belongs to another typed Trudy tool service.")
         }
     }
 
@@ -178,15 +120,11 @@ class TrudyHealthToolService(
             else -> null
         }
         is TrudyToolOperation.GetContext -> when {
-            operation.request.historyLimitPerDomain !in 1..MAX_RESULT_LIMIT ->
-                "historyLimitPerDomain must be between 1 and $MAX_RESULT_LIMIT"
+            operation.request.historyLimitPerDomain !in 1..MAX_RESULT_LIMIT -> "historyLimitPerDomain must be between 1 and $MAX_RESULT_LIMIT"
             else -> null
         }
-        is TrudyToolOperation.Unsupported -> null
         else -> null
     }
 
-    private companion object {
-        const val MAX_RESULT_LIMIT = 5_000
-    }
+    private companion object { const val MAX_RESULT_LIMIT = 5_000 }
 }
