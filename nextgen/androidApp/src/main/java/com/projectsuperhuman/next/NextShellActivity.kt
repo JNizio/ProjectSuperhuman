@@ -5,7 +5,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -29,8 +27,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -162,23 +158,26 @@ private fun NativeTopBar(
     onTrudy: (() -> Unit)? = null
 ) {
     Box(modifier.fillMaxWidth().height(92.dp).padding(horizontal = 22.dp)) {
-        Box(Modifier.width(54.dp).height(54.dp).align(Alignment.CenterStart), contentAlignment = Alignment.Center) {
-            if (title == "PROJECT SUPERHUMAN") {
-                Image(
-                    painter = painterResource(id = R.drawable.superhuman_logo_foreground),
-                    contentDescription = "Project Superhuman",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Fit
-                )
-            } else {
-                Text("PS", color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 12.sp, letterSpacing = .5.sp)
-            }
-        }
-
-        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, color = ShellNavy, fontWeight = FontWeight.Black, fontSize = 14.sp, letterSpacing = 1.8.sp, maxLines = 1)
-            Spacer(Modifier.height(2.dp))
-            Text(if (title == "PROJECT SUPERHUMAN") "Human performance system" else "App & data controls", color = ShellMuted, fontSize = 11.sp, maxLines = 1)
+        Column(
+            Modifier.align(Alignment.CenterStart)
+                .padding(end = if (onTrudy != null) 124.dp else 68.dp),
+            horizontalAlignment = Alignment.Start
+        ) {
+            Text(
+                title,
+                color = ShellNavy,
+                fontWeight = FontWeight.Black,
+                fontSize = 15.sp,
+                letterSpacing = 1.65.sp,
+                maxLines = 1
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                if (title == "PROJECT SUPERHUMAN") "Human performance system" else "App & data controls",
+                color = ShellMuted,
+                fontSize = 11.sp,
+                maxLines = 1
+            )
         }
 
         Row(
