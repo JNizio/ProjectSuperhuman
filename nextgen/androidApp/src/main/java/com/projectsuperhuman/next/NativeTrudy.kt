@@ -200,13 +200,7 @@ private fun TrudyHeader(
             Text("‹", color = TrudyNavy, fontSize = 29.sp, fontWeight = FontWeight.Medium)
         }
         Spacer(Modifier.size(14.dp))
-        Box(
-            Modifier.size(42.dp).background(TrudyCyanSoft, CircleShape)
-                .border(1.dp, TrudyCyan.copy(alpha = 0.55f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) { Box(Modifier.size(14.dp).background(TrudyCyan, CircleShape)) }
-        Spacer(Modifier.size(12.dp))
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
             Text("TRUDY", color = TrudyNavy, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 1.4.sp)
             Text("Project Superhuman assistant", color = TrudyMuted, fontSize = 11.sp)
         }
@@ -225,14 +219,8 @@ private fun TrudyWelcome(onPrompt: (String) -> Unit) {
     Column(
         Modifier.fillMaxSize().padding(horizontal = 26.dp),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.Start
     ) {
-        Box(
-            Modifier.size(72.dp).background(TrudyCyanSoft, CircleShape)
-                .border(1.dp, TrudyCyan.copy(alpha = 0.45f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) { Box(Modifier.size(24.dp).background(TrudyCyan, CircleShape)) }
-        Spacer(Modifier.height(18.dp))
         Text("Ask Trudy", color = TrudyNavy, fontSize = 24.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(7.dp))
         Text(
