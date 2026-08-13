@@ -16,7 +16,7 @@ fun TrudyVoiceInstallProgress(downloadedBytes: Long, totalBytes: Long?): TrudyVo
     )
 }
 
-/** Compatibility overload used by the model store; Compose only needs id + label. */
+/** Compatibility overload used by model stores; Compose only needs id + label. */
 fun TrudyVoiceOption(
     id: String,
     displayName: String,
@@ -24,15 +24,11 @@ fun TrudyVoiceOption(
     installed: Boolean
 ): TrudyVoiceOption = TrudyVoiceOption(id = id, label = displayName)
 
-/** Runtime compatibility metadata retained for Kokoro tests and non-Compose callers. */
+/** Runtime compatibility metadata retained for local voice tests and non-Compose callers. */
 val TrudyVoiceOption.displayName: String get() = label
 val TrudyVoiceOption.languageTag: String get() = "en-US"
 val TrudyVoiceOption.installed: Boolean get() = true
 
-/**
- * Canonical model/runtime status. UI-facing progress/voice option DTOs are shared package contracts
- * and intentionally contain no inference implementation details.
- */
 data class TrudyVoiceStatus(
     val state: TrudyVoiceRuntimeState,
     val modelId: String,
@@ -50,8 +46,8 @@ interface TrudyVoiceModelManager {
 
 data class TrudyVoiceConfig(
     val mode: TrudyVoiceMode = TrudyVoiceMode.OFF,
-    val modelId: String = "onnx-community/Kokoro-82M-v1.0-ONNX",
-    val voiceId: String = "af_heart",
+    val modelId: String = KittenAndroidDistribution.logicalModelId,
+    val voiceId: String = "Bella",
     val speed: Float = 1.0f,
     val autoSpeak: Boolean = false
 ) {
@@ -106,12 +102,11 @@ interface TrudySpeechEngine {
     val engineId: String
     suspend fun isAvailable(): Boolean
 
-    /** Explicit first-use preparation hook; default engines require no preparation. */
     suspend fun prepare() {}
 
     suspend fun synthesize(request: TrudySpeechRequest): TrudySpeechResult
 
-    /** Default preserves existing engines; Kokoro overrides this to synthesize bounded chunks. */
+    /** Default preserves existing engines; the local engine overrides this for bounded chunks. */
     suspend fun synthesizeStreaming(
         request: TrudySpeechRequest,
         onChunk: suspend (TrudySpeechResult) -> Unit
