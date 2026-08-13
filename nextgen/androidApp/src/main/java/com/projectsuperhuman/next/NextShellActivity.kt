@@ -75,7 +75,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, SETTINGS, TRUDY, CLINICAL, BODY, SLEEP, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
+    HOME, SETTINGS, TRUDY, CLINICAL, BODY, SLEEP, ENVIRONMENT, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
 }
 
 @Composable
@@ -104,6 +104,7 @@ private fun SuperhumanShell(
                         openNutrition = { page = ShellPage.NUTRITION },
                         openExercise = { page = ShellPage.EXERCISE },
                         openMindfulness = { page = ShellPage.MINDFULNESS },
+                        openEnvironment = { page = ShellPage.ENVIRONMENT },
                         openMiniMetric = { metric ->
                             page = when (metric) {
                                 HomeMiniMetric.HEART_RATE -> ShellPage.HEART_RATE
@@ -130,6 +131,7 @@ private fun SuperhumanShell(
                     ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.SLEEP -> UnifiedSleepPage({ page = ShellPage.HOME }, openCompatibility)
+                    ShellPage.ENVIRONMENT -> NativeEnvironmentalPage { page = ShellPage.HOME }
                     ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.HYDRATION -> NativeHydrationScreen { page = ShellPage.HOME }
                     ShellPage.NUTRITION -> NativeNutritionWithFoodEditorPage { page = ShellPage.HOME }
