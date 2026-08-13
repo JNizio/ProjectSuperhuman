@@ -1,16 +1,17 @@
 package com.projectsuperhuman.next
 
 /**
- * Verified Kokoro-82M v1.0 raw ONNX contract.
+ * Verified Kokoro-82M v1.0 raw ONNX contract from the published v1.0 ONNX usage contract.
  *
  * Project Superhuman does not feed these tensors directly on Android; sherpa-onnx owns that layer.
- * Keeping the contract explicit prevents future adapters from guessing names, dimensions or limits.
+ * The publisher example does not name the output tensor, so this contract intentionally records
+ * the first output by index rather than inventing a graph output name.
  */
 object Kokoro82MModelContract {
     const val INPUT_IDS = "input_ids"
     const val INPUT_STYLE = "style"
     const val INPUT_SPEED = "speed"
-    const val OUTPUT_AUDIO = "audio"
+    const val AUDIO_OUTPUT_INDEX = 0
 
     const val MAX_GRAPH_SEQUENCE = 512
     const val REQUIRED_EDGE_PADDING_TOKENS = 2
@@ -22,7 +23,7 @@ object Kokoro82MModelContract {
     const val INPUT_IDS_REPRESENTATION = "int64[1,N] phoneme-vocabulary token IDs with leading/trailing pad 0"
     const val STYLE_REPRESENTATION = "float32[1,256] selected from the voice style table by phoneme-token length"
     const val SPEED_REPRESENTATION = "float32[1]"
-    const val OUTPUT_REPRESENTATION = "float32[1,T] mono waveform"
+    const val OUTPUT_REPRESENTATION = "first model output; mono float waveform consumed as audio[0] at 24000 Hz"
 
     val androidRuntimeAssets = listOf(
         "model.onnx",
