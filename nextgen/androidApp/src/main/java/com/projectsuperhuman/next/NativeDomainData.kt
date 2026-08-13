@@ -15,6 +15,9 @@ internal class NativeDomainData private constructor(
 ) {
     suspend fun latest(metric: String): HealthValue? = NativeDataHub.latest(domain, metric)
 
+    /** Latest stored value for every metric in this domain. */
+    suspend fun latestState(): List<HealthValue> = NativeDataHub.latestForDomain(domain)
+
     suspend fun between(
         metric: String,
         fromEpochMs: Long,
@@ -31,6 +34,23 @@ internal class NativeDomainData private constructor(
         limit: Int = 250,
         offset: Int = 0
     ): List<HealthValue> = NativeDataHub.pageForMetric(domain, metric, limit, offset)
+
+    /**
+     * Complete domain history without an application-wide archive read.
+     * Used only where preserving existing semantics genuinely requires all rows in one domain.
+     */
+    suspend fun allHistory(pageSize: Int = 500): List<HealthValue> {
+        require(pageSize > 0)
+        val out = mutableListOf<HealthValue>()
+        var offset = 0
+        while (true) {
+            val page = history(limit = pageSize, offset = offset)
+            out += page
+            if (page.size < pageSize) break
+            offset += page.size
+        }
+        return out
+    }
 
     suspend fun count(): Long = NativeDataHub.storedValueCount(domain)
 
