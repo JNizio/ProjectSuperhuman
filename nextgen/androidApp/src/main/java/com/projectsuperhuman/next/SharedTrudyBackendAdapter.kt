@@ -7,31 +7,45 @@ import com.projectsuperhuman.next.trudy.TrudyEvidenceReference as SharedEvidence
 import com.projectsuperhuman.next.trudy.TrudyWarningKind as SharedWarningKind
 import com.projectsuperhuman.next.trudy.TrudyConversationTurn as SharedConversationTurn
 
+/** Non-sensitive runtime metadata exposed only as diagnostic UI activity text. */
+data class TrudyBackendRuntimeInfo(
+    val mode: String,
+    val providerId: String,
+    val modelId: String,
+    val startupFallbackUsed: Boolean = false
+)
+
 /**
  * Narrow Android adapter for the shared Trudy orchestration service.
  *
- * Compose and the Android conversation state continue to depend only on
- * [TrudyConversationBackend]. Shared health/model types are translated here and never leak into
- * the UI contract. Construct this only when a real shared [SharedConversationService] is available;
- * the shell may keep using [LocalTrudyConversationController] until model/provider wiring exists.
+ * Compose and Android conversation state depend only on [TrudyConversationBackend]. Structured
+ * health evidence keeps its domain qualification here and no SQL/provider types enter the UI.
  */
 class SharedTrudyBackendAdapter(
-    private val service: SharedConversationService
+    private val service: SharedConversationService,
+    private val runtimeInfo: TrudyBackendRuntimeInfo? = null
 ) : TrudyConversationBackend {
 
     override suspend fun send(request: TrudyConversationRequest): TrudyBackendResult {
-        val result = service.respondTo(
-            userText = request.text,
-            conversationContext = request.history.map { turn ->
+        val history = request.history.asSequence()
+            .filter { it.text.isNotBlank() }
+            .map { turn ->
                 SharedConversationTurn(
                     role = when (turn.role) {
                         TrudyMessageRole.USER -> SharedConversationRole.USER
                         TrudyMessageRole.TRUDY -> SharedConversationRole.ASSISTANT
                     },
-                    text = turn.text
+                    text = turn.text.trim()
                 )
             }
+            .toList()
+
+        val started = System.currentTimeMillis()
+        val result = service.respondTo(
+            userText = request.text,
+            conversationContext = history
         )
+        val durationMs = (System.currentTimeMillis() - started).coerceAtLeast(0L)
 
         return TrudyBackendResult(
             text = result.answerText,
@@ -48,12 +62,40 @@ class SharedTrudyBackendAdapter(
                 if (result.isFallback && result.warnings.isEmpty()) {
                     add(TrudyBackendNotice("Trudy returned a conservative fallback response.", caution = true))
                 }
-            },
-            activity = result.toolCallsMade.takeIf { it.isNotEmpty() }?.let { calls ->
-                val succeeded = calls.count { it.succeeded }
-                TrudyBackendActivity("Used $succeeded/${calls.size} health data tool calls")
-            },
+                if (runtimeInfo?.startupFallbackUsed == true) {
+                    add(
+                        TrudyBackendNotice(
+                            "Configured model runtime was unavailable, so Trudy is using deterministic offline mode.",
+                            caution = false
+                        )
+                    )
+                }
+            }.distinctBy { it.text },
+            activity = diagnosticActivity(result.toolCallsMade.size, result.toolCallsMade.count { it.succeeded }, durationMs, result.modelMetadata?.provider, result.modelMetadata?.model),
             retryable = result.isFallback
+        )
+    }
+
+    private fun diagnosticActivity(
+        totalCalls: Int,
+        succeededCalls: Int,
+        durationMs: Long,
+        modelProvider: String?,
+        modelId: String?
+    ): TrudyBackendActivity? {
+        val info = runtimeInfo
+        if (totalCalls == 0 && info == null && modelProvider == null && modelId == null) return null
+        val mode = info?.mode?.lowercase() ?: "runtime"
+        val provider = modelProvider ?: info?.providerId
+        val model = modelId ?: info?.modelId
+        return TrudyBackendActivity(
+            buildString {
+                append(mode)
+                provider?.takeIf { it.isNotBlank() }?.let { append(" · ").append(it) }
+                model?.takeIf { it.isNotBlank() }?.let { append("/").append(it) }
+                append(" · tools ").append(succeededCalls).append('/').append(totalCalls)
+                append(" · ").append(durationMs).append("ms")
+            }
         )
     }
 
@@ -66,6 +108,7 @@ class SharedTrudyBackendAdapter(
                 append(':')
                 append(metricId ?: insightId ?: evidenceKind.name)
                 timestampEpochMs?.let { append(":").append(it) }
+                range?.let { append(":").append(it.fromEpochMs).append('-').append(it.toEpochMs) }
             },
             label = "$domainLabel · $subject",
             detail = when {

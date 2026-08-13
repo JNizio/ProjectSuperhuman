@@ -46,10 +46,14 @@ class NextShellActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         NativeDataHub.initialize(this)
         MiniMetricsBackgroundSync.ensureScheduled(this)
+        val trudyRuntime = TrudyRuntimeFactory.create()
         enableEdgeToEdge()
         setContent {
             MaterialTheme {
-                SuperhumanShell(openCompatibility = { startActivity(Intent(this, HealthBridge::class.java)) })
+                SuperhumanShell(
+                    openCompatibility = { startActivity(Intent(this, HealthBridge::class.java)) },
+                    trudyController = trudyRuntime.controller
+                )
             }
         }
     }
@@ -60,12 +64,14 @@ private enum class ShellPage {
 }
 
 @Composable
-private fun SuperhumanShell(openCompatibility: () -> Unit) {
+private fun SuperhumanShell(
+    openCompatibility: () -> Unit,
+    trudyController: TrudyConversationController
+) {
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
     val trudyState = remember { TrudyConversationState() }
-    val trudyController = remember { LocalTrudyConversationController() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
 

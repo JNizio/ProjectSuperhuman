@@ -11,6 +11,14 @@ plugins {
 
 kotlin { compilerOptions { jvmTarget.set(JvmTarget.JVM_17) } }
 
+fun String.asBuildConfigString(): String = "\"" + replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+val trudyRuntimeMode = providers.gradleProperty("TRUDY_RUNTIME_MODE").orElse("DETERMINISTIC")
+val trudyHostedProviderId = providers.gradleProperty("TRUDY_HOSTED_PROVIDER_ID").orElse("hosted")
+val trudyHostedModelId = providers.gradleProperty("TRUDY_HOSTED_MODEL_ID").orElse("")
+val trudyHostedEndpoint = providers.gradleProperty("TRUDY_HOSTED_ENDPOINT").orElse("")
+val trudyLocalModelId = providers.gradleProperty("TRUDY_LOCAL_MODEL_ID").orElse("local")
+
 val repDbAssets = layout.buildDirectory.dir("generated/repdbAssets")
 val syncRepDb by tasks.registering {
     outputs.dir(repDbAssets)
@@ -56,10 +64,15 @@ android {
         minSdk = 26; targetSdk = 35
         versionCode = 11221; versionName = "11.2.21"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
+        buildConfigField("String", "TRUDY_RUNTIME_MODE", trudyRuntimeMode.get().asBuildConfigString())
+        buildConfigField("String", "TRUDY_HOSTED_PROVIDER_ID", trudyHostedProviderId.get().asBuildConfigString())
+        buildConfigField("String", "TRUDY_HOSTED_MODEL_ID", trudyHostedModelId.get().asBuildConfigString())
+        buildConfigField("String", "TRUDY_HOSTED_ENDPOINT", trudyHostedEndpoint.get().asBuildConfigString())
+        buildConfigField("String", "TRUDY_LOCAL_MODEL_ID", trudyLocalModelId.get().asBuildConfigString())
     }
     externalNativeBuild { cmake { path = file("src/main/cpp/CMakeLists.txt"); version = "3.22.1" } }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
-    buildFeatures { compose = true }
+    buildFeatures { compose = true; buildConfig = true }
     sourceSets["main"].apply {
         java.srcDir("../../app/src/main/java")
         res.srcDir("../../app/src/main/res")
@@ -88,4 +101,5 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     implementation("org.opencv:opencv:4.13.0")
     testImplementation(kotlin("test"))
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
 }
