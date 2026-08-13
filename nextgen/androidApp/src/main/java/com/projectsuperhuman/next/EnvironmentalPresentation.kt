@@ -1,5 +1,13 @@
 package com.projectsuperhuman.next
 
+import com.projectsuperhuman.next.environment.EnvironmentalMeasurement
+import com.projectsuperhuman.next.environment.EnvironmentalMetricIds
+import com.projectsuperhuman.next.environment.EnvironmentalObservation
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlin.math.round
+
 /**
  * Presentation-only metric categories. Canonical Environmental metric IDs, units, timestamps and
  * provenance remain owned by the Environmental domain and are mapped into this boundary.
@@ -107,10 +115,6 @@ internal fun interface EnvironmentalPresentationSource {
     suspend fun loadCurrent(): EnvironmentalLoadResult
 }
 
-/**
- * Narrow presentation integration seam. No networking, storage or location logic lives here.
- * Until Agent 5's adapter is installed the UI deliberately renders NoData.
- */
 internal object EnvironmentalUiRuntime {
     @Volatile
     private var installedSource: EnvironmentalPresentationSource =
@@ -150,3 +154,40 @@ internal object EnvironmentalUiPreviewFixtures {
         freshnessLabel = "4 min old"
     )
 }
+
+internal fun EnvironmentalObservation.toEnvironmentalUi(): EnvironmentalConditionsUi {
+    val values = buildList {
+        addCanonical(this@toEnvironmentalUi, EnvironmentalMetricIds.TEMPERATURE_C, EnvironmentalMetricKind.TEMPERATURE, "Temperature")
+        addCanonical(this@toEnvironmentalUi, EnvironmentalMetricIds.FEELS_LIKE_C, EnvironmentalMetricKind.FEELS_LIKE, "Feels like")
+        addCanonical(this@toEnvironmentalUi, EnvironmentalMetricIds.RELATIVE_HUMIDITY_PCT, EnvironmentalMetricKind.HUMIDITY, "Humidity")
+        addCanonical(this@toEnvironmentalUi, EnvironmentalMetricIds.PRECIPITATION_MM, EnvironmentalMetricKind.PRECIPITATION, "Precipitation")
+        addCanonical(this@toEnvironmentalUi, EnvironmentalMetricIds.UV_INDEX, EnvironmentalMetricKind.UV, "UV")
+        addCanonical(this@toEnvironmentalUi, EnvironmentalMetricIds.EUROPEAN_AQI, EnvironmentalMetricKind.AIR_QUALITY, "Air quality")
+        addCanonical(this@toEnvironmentalUi, EnvironmentalMetricIds.WIND_SPEED_MPS, EnvironmentalMetricKind.WIND, "Wind")
+        addCanonical(this@toEnvironmentalUi, EnvironmentalMetricIds.SURFACE_PRESSURE_HPA, EnvironmentalMetricKind.PRESSURE, "Pressure")
+    }
+    val observed = measurements.maxOfOrNull { it.measurementTimeEpochMs }
+    val provider = measurements.firstOrNull()?.provenance?.providerId
+    return EnvironmentalConditionsUi(
+        weatherLabel = condition?.condition?.name?.lowercase()?.replace('_', ' ')?.replaceFirstChar { it.uppercase() },
+        metrics = values,
+        locationLabel = "Local area",
+        observedAtLabel = observed?.let(::environmentTimeLabel),
+        retrievedAtLabel = environmentTimeLabel(retrievedAtEpochMs),
+        providerLabel = provider?.let { if (it.equals("open-meteo", true)) "Open-Meteo" else it },
+        freshnessLabel = if (freshness.ageSinceRetrievalMs < 60_000L) "Updated now" else "Updated ${freshness.ageSinceRetrievalMs / 60_000L}m ago"
+    )
+}
+
+private fun MutableList<EnvironmentalMetricUi>.addCanonical(observation: EnvironmentalObservation, id: String, kind: EnvironmentalMetricKind, label: String) {
+    observation.measurement(id)?.let { add(it.toPresentationMetric(kind, label)) }
+}
+
+private fun EnvironmentalMeasurement.toPresentationMetric(kind: EnvironmentalMetricKind, label: String): EnvironmentalMetricUi {
+    val rounded = round(value * 10.0) / 10.0
+    val text = if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
+    return EnvironmentalMetricUi(kind, label, text, unit.symbol)
+}
+
+private fun environmentTimeLabel(epochMs: Long): String =
+    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(epochMs))
