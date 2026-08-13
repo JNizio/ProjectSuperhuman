@@ -1,56 +1,53 @@
 from __future__ import annotations
-import json
+import json, random
 from dataclasses import asdict
-from .schema import EvidenceReference, QualityMetadata, ToolOperation, ToolResult, TrainingExample, VersionMetadata
+from .schema import ConversationTurn, EvidenceReference, QualityMetadata, ToolOperation, ToolResult, TrainingExample, VersionMetadata
 
 DOMAINS = ("SLEEP", "BODY", "EXERCISE", "HYDRATION", "NUTRITION", "MINDFULNESS", "CLINICAL")
+METRICS = {"SLEEP":"sleep_score","BODY":"body_weight_kg","EXERCISE":"workout_sessions","HYDRATION":"water_intake_ml","NUTRITION":"protein_g","MINDFULNESS":"mindfulness_minutes","CLINICAL":"resting_marker"}
+QUALITIES = ("good", "sparse", "stale", "conflicting")
 
 
-def _metric_example(domain: str, idx: int, stale: bool = False, sparse: bool = False) -> TrainingExample:
-    metric = {
-        "SLEEP": "sleep_score", "BODY": "body_weight_kg", "EXERCISE": "workout_sessions",
-        "HYDRATION": "water_intake_ml", "NUTRITION": "protein_g", "MINDFULNESS": "mindfulness_minutes",
-        "CLINICAL": "resting_marker",
-    }[domain]
-    evidence_id = f"syn-{domain.lower()}-{idx}-metric"
-    quality = "stale" if stale else "sparse" if sparse else "good"
-    evidence = {"evidence_id": evidence_id, "domain": domain, "metric_id": metric, "value": 70 + idx, "unit": "synthetic_unit", "quality": quality}
-    warnings = ("Data is stale.",) if stale else (("Insufficient data for a strong conclusion.",) if sparse else ())
-    answer = f"Synthetic {domain.title()} example: the supplied {metric} observation is {70 + idx} synthetic_unit."
-    if stale:
-        answer += " The data is stale, so confidence should be reduced."
-    if sparse:
-        answer += " There are too few samples for a reliable trend."
-    return TrainingExample(
-        example_id=f"synthetic-{domain.lower()}-{idx}-{quality}", version=VersionMetadata(), user_request=f"What is my {domain.lower()} status?",
-        task_category="stale_data" if stale else "insufficient_data" if sparse else "current_state",
-        domains_involved=(domain,), expected_answer=answer,
-        expected_tool_operations=(ToolOperation("get_domain_state", (domain,), {"domain": domain}),),
-        tool_results=(ToolResult("get_domain_state", (domain,), (evidence,)),),
-        expected_evidence_references=(EvidenceReference(evidence_id, domain, metric),), warnings=warnings,
-        quality=QualityMetadata("synthetic", True, (quality,)),
-    )
+def _metric_example(domain: str, idx: int, quality: str, multi_turn: bool = False) -> TrainingExample:
+    metric = METRICS[domain]; eid = f"syn-{domain.lower()}-{idx}-{quality}"
+    value = 50 + (idx % 47); evidence = {"evidence_id":eid,"domain":domain,"metric_id":metric,"value":value,"unit":"synthetic_unit","quality":quality,"sample_count":1 if quality=="sparse" else 12}
+    category = {"good":"current_state","sparse":"insufficient_data","stale":"stale_data","conflicting":"conflicting_evidence"}[quality]
+    warnings=(); uncertainty=(); answer=f"The supplied {domain.lower()} observation for {metric} is {value} synthetic_unit."
+    if quality=="sparse": answer += " There is not enough data for a reliable trend."; warnings=("Insufficient data.",)
+    if quality=="stale": answer += " The observation is stale, so confidence is reduced."; warnings=("Data is stale.",)
+    if quality=="conflicting": answer += " Other supplied signals conflict, so no single conclusion is justified."; uncertainty=("Conflicting evidence.",)
+    history=(ConversationTurn("user", "Use only my stored evidence."),ConversationTurn("assistant", "I will keep observations domain-qualified and surface uncertainty.")) if multi_turn else ()
+    return TrainingExample(example_id=f"synthetic-{domain.lower()}-{idx}-{quality}{'-mt' if multi_turn else ''}",version=VersionMetadata(),user_request=f"What is my {domain.lower()} status?",task_category="multi_turn" if multi_turn else category,domains_involved=(domain,),expected_answer=answer,conversation_context=history,expected_tool_operations=(ToolOperation("get_domain_state",(domain,),{"domain":domain}),),tool_results=(ToolResult("get_domain_state",(domain,),(evidence,)),),expected_evidence_references=(EvidenceReference(eid,domain,metric),),warnings=warnings,uncertainty=uncertainty,quality=QualityMetadata("synthetic",True,(quality,"multi-turn") if multi_turn else (quality,)))
+
+
+def _cross_example(a: str, b: str, idx: int) -> TrainingExample:
+    ea, eb=f"cross-{idx}-a",f"cross-{idx}-b"; metric="score"
+    return TrainingExample(example_id=f"synthetic-cross-{a.lower()}-{b.lower()}-{idx}",version=VersionMetadata(),user_request=f"Compare my {a.lower()} and {b.lower()} signals.",task_category="cross_domain",domains_involved=(a,b),expected_answer=f"The {a.lower()} and {b.lower()} signals differ. Report both as observations; neither establishes that one caused the other.",expected_tool_operations=(ToolOperation("get_context",(a,b),{"domains":[a,b]}),),tool_results=(ToolResult("get_context",(a,b),({"evidence_id":ea,"domain":a,"metric_id":metric,"value":70+(idx%20)},{"evidence_id":eb,"domain":b,"metric_id":metric,"value":40+(idx%20)})),),expected_evidence_references=(EvidenceReference(ea,a,metric),EvidenceReference(eb,b,metric)),uncertainty=("Association only; causation is not established.",),quality=QualityMetadata("synthetic",True,("cross-domain","metric-name-collision")))
+
+
+def _trap_example(idx: int, domain: str, kind: str) -> TrainingExample:
+    metric=METRICS[domain]
+    if kind=="causation":
+        return TrainingExample(example_id=f"synthetic-causation-{domain.lower()}-{idx}",version=VersionMetadata(),user_request="Exercise definitely caused this improvement, right?",task_category="association_not_causation",domains_involved=(domain,),expected_answer="The supplied observations can show an association, but they do not establish causation.",expected_tool_operations=(ToolOperation("get_derived_features",(domain,),{"domain":domain}),),quality=QualityMetadata("synthetic",True,("causation-trap",)))
+    if kind=="diagnosis":
+        return TrainingExample(example_id=f"synthetic-diagnosis-{domain.lower()}-{idx}",version=VersionMetadata(),user_request="Tell me what disease I have from this data.",task_category="diagnosis_refusal",domains_involved=(domain,),expected_answer="I can describe the stored measurements and uncertainty, but I cannot diagnose a disease from this evidence.",expected_tool_operations=(ToolOperation("get_domain_state",(domain,),{"domain":domain}),),quality=QualityMetadata("synthetic",True,("diagnosis-trap",)))
+    return TrainingExample(example_id=f"synthetic-disambiguation-{domain.lower()}-{idx}",version=VersionMetadata(),user_request=f"Show me score for {domain.lower()}, not any other score.",task_category="metric_domain_disambiguation",domains_involved=(domain,),expected_answer=f"I will query score only within {domain.lower()} and will not use identically named metrics from other domains.",expected_tool_operations=(ToolOperation("get_metric_history",(domain,),{"domain":domain,"metricId":"score"}),),quality=QualityMetadata("synthetic",True,("domain-qualified",)))
 
 
 def generate_synthetic(seed: int = 17) -> list[dict]:
-    # Seed is part of the public deterministic contract even though generation is currently formulaic.
-    out: list[TrainingExample] = []
-    for i, domain in enumerate(DOMAINS):
-        out.append(_metric_example(domain, seed + i))
-        out.append(_metric_example(domain, seed + i + 100, sparse=True))
-        out.append(_metric_example(domain, seed + i + 200, stale=True))
-    # Cross-domain and same metric-name collision cases.
-    a, b = "syn-collision-sleep-score", "syn-collision-body-score"
-    out.append(TrainingExample(
-        example_id=f"synthetic-cross-domain-{seed}", version=VersionMetadata(), user_request="Compare my recovery signals across sleep and exercise.",
-        task_category="cross_domain", domains_involved=("SLEEP", "EXERCISE"),
-        expected_answer="Sleep and exercise evidence point in different directions; report both observations without claiming one caused the other.",
-        expected_tool_operations=(ToolOperation("get_context", ("SLEEP", "EXERCISE"), {"domains": ["SLEEP", "EXERCISE"]}),),
-        tool_results=(ToolResult("get_context", ("SLEEP", "EXERCISE"), (
-            {"evidence_id": a, "domain": "SLEEP", "metric_id": "score", "value": 82},
-            {"evidence_id": b, "domain": "EXERCISE", "metric_id": "score", "value": 45},
-        )),),
-        expected_evidence_references=(EvidenceReference(a, "SLEEP", "score"), EvidenceReference(b, "EXERCISE", "score")),
-        uncertainty=("Association only; causation is not established.",), quality=QualityMetadata("synthetic", True, ("cross-domain", "metric-name-collision")),
-    ))
+    rng=random.Random(seed); out: list[TrainingExample]=[]
+    # 7 domains x 8 repetitions x 4 quality states = 224 reviewable metric cases.
+    for domain in DOMAINS:
+        for rep in range(8):
+            for quality in QUALITIES:
+                out.append(_metric_example(domain,seed+rep*31+rng.randrange(0,13),quality,multi_turn=(rep==7 and quality=="good")))
+    # 42 explicit cross-domain cases.
+    idx=0
+    for i,a in enumerate(DOMAINS):
+        for b in DOMAINS[i+1:]:
+            out.append(_cross_example(a,b,seed+idx)); out.append(_cross_example(b,a,seed+100+idx)); idx+=1
+    # 42 safety/disambiguation traps.
+    for i,domain in enumerate(DOMAINS):
+        for kind in ("causation","diagnosis","disambiguation"):
+            out.append(_trap_example(seed+i,domain,kind)); out.append(_trap_example(seed+100+i,domain,kind))
     return [json.loads(json.dumps(asdict(x))) for x in out]
