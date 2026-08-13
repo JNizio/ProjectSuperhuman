@@ -48,6 +48,28 @@ class TrudyOutputTest {
     }
 
     @Test
+    fun broadSummaryPlansEveryObservedEmotionalAxis() {
+        val current = listOf(
+            metric("emotional_valence", 0.3),
+            metric("emotional_calmness", -0.2),
+            metric("emotional_energy", -0.1)
+        )
+        val request = TrudyToolOperation.GetContext(TrudyContextRequest(listOf(emotionalDomain)))
+        val context = TrudyToolResult.Context(
+            request,
+            TrudyHealthContext(
+                requestedDomains = request.domains,
+                domains = listOf(TrudyDomainContext(emotionalDomain, current, emptyList(), emptyList(), emptyList(), null))
+            )
+        )
+        val planned = TrudyEmotionalToolPlanner.followUp("How have I been feeling lately?", listOf(context))
+        assertEquals(
+            setOf("emotional_valence", "emotional_calmness", "emotional_energy"),
+            planned.filterIsInstance<GetPersonalTrend>().map { it.metricId }.toSet()
+        )
+    }
+
+    @Test
     fun nonEmotionalRequestsPassThroughDecoratorUnchanged() = runTest {
         var calls = 0
         val delegate = object : TrudyModelClient {
@@ -60,4 +82,13 @@ class TrudyOutputTest {
         assertEquals("delegate", result.responseText)
         assertEquals(1, calls)
     }
+
+    private fun metric(id: String, value: Double) = TrudyMetricEvidence(
+        domain = emotionalDomain,
+        metricId = id,
+        value = value,
+        unit = "score",
+        timestampEpochMs = now,
+        source = "test"
+    )
 }
