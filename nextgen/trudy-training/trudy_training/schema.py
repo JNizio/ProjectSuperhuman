@@ -2,10 +2,11 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
-SCHEMA_VERSION = "1.1"
-DATASET_VERSION = "trudy-specialization-2"
-TOOL_CONTRACT_VERSION = "integration-3"
-MODEL_POLICY_VERSION = "integration-3"
+SCHEMA_VERSION = "1.2"
+DATASET_VERSION = "trudy-specialization-3"
+TOOL_CONTRACT_VERSION = "integration-4"
+MODEL_POLICY_VERSION = "integration-4"
+GENERATOR_VERSION = "3"
 
 TASK_CATEGORIES = {
     "no_health_data_needed", "current_state", "metric_history", "trend_interpretation",
@@ -72,43 +73,37 @@ class TrainingExample:
     warnings: tuple[str, ...] = ()
     uncertainty: tuple[str, ...] = ()
     quality: QualityMetadata = field(default_factory=QualityMetadata)
-
     def to_dict(self) -> dict[str, Any]: return asdict(self)
 
-
 def _walk(obj: Any, path: str = "") -> list[str]:
-    errors: list[str] = []
+    errors=[]
     if isinstance(obj, dict):
-        for key, value in obj.items():
-            low = key.lower(); here = f"{path}.{key}" if path else key
+        for key,value in obj.items():
+            low=key.lower(); here=f"{path}.{key}" if path else key
             if low in FORBIDDEN_KEYS: errors.append(f"forbidden chain-of-thought field: {here}")
             if low in SENSITIVE_KEYS: errors.append(f"sensitive field forbidden in training data: {here}")
-            errors.extend(_walk(value, here))
-    elif isinstance(obj, (list, tuple)):
-        for i, value in enumerate(obj): errors.extend(_walk(value, f"{path}[{i}]"))
+            errors.extend(_walk(value,here))
+    elif isinstance(obj,(list,tuple)):
+        for i,value in enumerate(obj): errors.extend(_walk(value,f"{path}[{i}]"))
     return errors
 
-
 def validate_example_dict(data: dict[str, Any]) -> list[str]:
-    errors = _walk(data)
-    required = {"example_id", "version", "user_request", "task_category", "domains_involved", "expected_answer"}
-    missing = sorted(required - data.keys())
-    if missing: errors.append("missing required fields: " + ", ".join(missing))
+    errors=_walk(data); required={"example_id","version","user_request","task_category","domains_involved","expected_answer"}; missing=sorted(required-data.keys())
+    if missing: errors.append("missing required fields: "+", ".join(missing))
     if data.get("task_category") not in TASK_CATEGORIES: errors.append(f"invalid task_category: {data.get('task_category')}")
-    version = data.get("version", {})
-    if version.get("schema_version") != SCHEMA_VERSION: errors.append("unsupported schema_version")
-    refs = {r.get("evidence_id") for r in data.get("expected_evidence_references", [])}
-    supplied: set[str] = set()
-    for result in data.get("tool_results", []):
-        for evidence in result.get("evidence", []):
+    version=data.get("version",{})
+    if version.get("schema_version")!=SCHEMA_VERSION: errors.append("unsupported schema_version")
+    refs={r.get("evidence_id") for r in data.get("expected_evidence_references",[])}; supplied=set()
+    for result in data.get("tool_results",[]):
+        for evidence in result.get("evidence",[]):
             if evidence.get("evidence_id"): supplied.add(evidence["evidence_id"])
-    invalid = sorted(ref for ref in refs if ref and ref not in supplied)
-    if invalid: errors.append("invalid evidence reference(s): " + ", ".join(invalid))
-    domains = set(data.get("domains_involved", []))
-    for op in data.get("expected_tool_operations", []):
-        op_domains = set(op.get("domains", []))
+    invalid=sorted(ref for ref in refs if ref and ref not in supplied)
+    if invalid: errors.append("invalid evidence reference(s): "+", ".join(invalid))
+    domains=set(data.get("domains_involved",[]))
+    for op in data.get("expected_tool_operations",[]):
+        op_domains=set(op.get("domains",[]))
         if not op_domains.issubset(domains): errors.append("tool operation contains unrequested domain")
-        if op.get("name") == "get_context" and not op_domains: errors.append("cross-domain context must list explicit domains")
-    tags = set(data.get("quality", {}).get("tags", []))
+        if op.get("name")=="get_context" and not op_domains: errors.append("cross-domain context must list explicit domains")
+    tags=set(data.get("quality",{}).get("tags",[]))
     if "adversarial" in tags and "eval_only" not in tags: errors.append("adversarial examples must be eval_only")
     return errors
