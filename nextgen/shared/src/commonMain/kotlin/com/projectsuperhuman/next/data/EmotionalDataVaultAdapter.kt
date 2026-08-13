@@ -7,6 +7,7 @@ import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
 import com.projectsuperhuman.next.core.IngestionResult
 import com.projectsuperhuman.next.core.MetricRegistry
+import com.projectsuperhuman.next.core.ModuleDataPort
 
 /**
  * Persistence-only bridge for Emotional data while the canonical Emotional models are owned
@@ -18,11 +19,25 @@ import com.projectsuperhuman.next.core.MetricRegistry
  * so several metrics from the same check-in can coexist without violating Data Vault dedupe.
  */
 class EmotionalDataVaultAdapter(
-    private val gateway: DataVaultGateway,
-    private val ingestion: DataIngestionPipeline = DataIngestionPipeline(gateway),
+    private val port: ModuleDataPort,
+    private val ingestValues: suspend (List<HealthValue>) -> IngestionResult,
     private val registry: MetricRegistry = CoreMetricRegistry
 ) {
-    private val port = gateway.module(HealthDomain.EMOTIONAL)
+    init {
+        require(port.domain == HealthDomain.EMOTIONAL) {
+            "EmotionalDataVaultAdapter requires an EMOTIONAL ModuleDataPort"
+        }
+    }
+
+    constructor(
+        gateway: DataVaultGateway,
+        ingestion: DataIngestionPipeline = DataIngestionPipeline(gateway),
+        registry: MetricRegistry = CoreMetricRegistry
+    ) : this(
+        port = gateway.module(HealthDomain.EMOTIONAL),
+        ingestValues = { values -> ingestion.ingestValues(values) },
+        registry = registry
+    )
 
     suspend fun saveMetric(
         metricId: String,
@@ -59,7 +74,7 @@ class EmotionalDataVaultAdapter(
             scaleHighMeaning?.let { put(EmotionalPersistenceMetadata.SCALE_HIGH_MEANING, it) }
         }
 
-        return ingestion.ingestValues(
+        return ingestValues(
             listOf(
                 HealthValue(
                     domain = HealthDomain.EMOTIONAL,
