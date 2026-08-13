@@ -49,7 +49,6 @@ class NextShellActivity : ComponentActivity() {
         NativeDataHub.initialize(this)
         MiniMetricsBackgroundSync.ensureScheduled(this)
         val trudyRuntime = TrudyRuntimeFactory.create()
-        // Lightweight controller only. The Kokoro runtime itself remains lazy until speech is requested.
         trudyVoiceController = AndroidTrudyVoiceControllerFactory.create(this)
         enableEdgeToEdge()
         setContent {
@@ -75,7 +74,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, SETTINGS, TRUDY, CLINICAL, BODY, SLEEP, ENVIRONMENT, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
+    HOME, SETTINGS, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
 }
 
 @Composable
@@ -105,6 +104,7 @@ private fun SuperhumanShell(
                         openExercise = { page = ShellPage.EXERCISE },
                         openMindfulness = { page = ShellPage.MINDFULNESS },
                         openEnvironment = { page = ShellPage.ENVIRONMENT },
+                        openEmotional = { page = ShellPage.EMOTIONAL },
                         openMiniMetric = { metric ->
                             page = when (metric) {
                                 HomeMiniMetric.HEART_RATE -> ShellPage.HEART_RATE
@@ -131,6 +131,7 @@ private fun SuperhumanShell(
                     ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.SLEEP -> UnifiedSleepPage({ page = ShellPage.HOME }, openCompatibility)
+                    ShellPage.EMOTIONAL -> NativeEmotionalPage { page = ShellPage.HOME }
                     ShellPage.ENVIRONMENT -> NativeEnvironmentalPage { page = ShellPage.HOME }
                     ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.HYDRATION -> NativeHydrationScreen { page = ShellPage.HOME }
