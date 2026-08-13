@@ -3,6 +3,7 @@ package com.projectsuperhuman.next
 import com.projectsuperhuman.next.core.ModuleParityService
 import com.projectsuperhuman.next.trudy.CompositeTrudyToolExecutor
 import com.projectsuperhuman.next.trudy.HealthContextPersonalEvidenceSource
+import com.projectsuperhuman.next.trudy.HybridTrudyModelClient
 import com.projectsuperhuman.next.trudy.LocalTrudyModelClient
 import com.projectsuperhuman.next.trudy.LocalTrudyModelEngine
 import com.projectsuperhuman.next.trudy.OfflineDeterministicTrudyModelClient
@@ -18,9 +19,9 @@ import com.projectsuperhuman.next.trudy.TrudyPersonalEvidenceLibrary
 /** Android configuration is read once at composition time; business logic never reads BuildConfig. */
 data class TrudyRuntimeConfig(
     val mode: TrudyModelRuntimeMode = TrudyModelRuntimeMode.DETERMINISTIC,
-    val hostedProviderId: String = "hosted",
-    val hostedModelId: String = "",
-    val hostedEndpoint: String = "",
+    val hostedProviderId: String = "gemini",
+    val hostedModelId: String = "gemini-3.5-flash",
+    val hostedEndpoint: String = "https://generativelanguage.googleapis.com/v1beta/models",
     val localModelId: String = "local"
 ) {
     companion object {
@@ -65,10 +66,16 @@ internal object TrudyRuntimeFactory {
         config: TrudyRuntimeConfig = TrudyRuntimeConfig.fromBuildConfig(),
         localEngine: LocalTrudyModelEngine? = null,
         hostedTransport: HostedTrudyTransport? = null,
-        hostedCredentialProvider: () -> String? = { null }
+        hostedCredentialProvider: () -> String? = {
+            BuildConfig.TRUDY_GEMINI_API_KEY.takeIf { it.isNotBlank() }
+        }
     ): TrudyRuntime {
+        val effectiveHostedTransport = hostedTransport ?: when {
+            config.hostedProviderId.equals("gemini", ignoreCase = true) -> GeminiHostedTrudyTransport()
+            else -> null
+        }
         val selection = runCatching {
-            selectModel(config, localEngine, hostedTransport, hostedCredentialProvider)
+            selectModel(config, localEngine, effectiveHostedTransport, hostedCredentialProvider)
         }.getOrElse {
             deterministicSelection(config.mode, "Configured model runtime could not be initialized.")
         }
@@ -155,12 +162,13 @@ internal object TrudyRuntimeFactory {
                     modelId = config.hostedModelId,
                     endpoint = config.hostedEndpoint
                 )
+                val hostedClient = HostedTrudyModelClient(
+                    settings = settings,
+                    credentialProvider = { credential },
+                    transport = hostedTransport!!
+                )
                 TrudyModelSelection(
-                    client = HostedTrudyModelClient(
-                        settings = settings,
-                        credentialProvider = { credential },
-                        transport = hostedTransport!!
-                    ),
+                    client = HybridTrudyModelClient(hostedClient),
                     diagnostics = TrudyRuntimeDiagnostics(
                         requestedMode = config.mode,
                         activeMode = TrudyModelRuntimeMode.HOSTED,
