@@ -9,12 +9,31 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.coroutineContext
 
-/** Streams synthesized mono PCM without retaining AudioTrack resources between utterances. */
+object TrudyPcm16 {
+    fun sample(value: Float): Short {
+        val safe = when {
+            value.isNaN() -> 0f
+            value == Float.POSITIVE_INFINITY -> 1f
+            value == Float.NEGATIVE_INFINITY -> -1f
+            else -> value.coerceIn(-1f, 1f)
+        }
+        return when {
+            safe >= 1f -> Short.MAX_VALUE
+            safe <= -1f -> Short.MIN_VALUE
+            else -> (safe * Short.MAX_VALUE).toInt().toShort()
+        }
+    }
+
+    fun convert(samples: FloatArray): ShortArray = ShortArray(samples.size) { sample(samples[it]) }
+}
+
+/** Streams synthesized mono 24 kHz PCM without retaining AudioTrack resources between chunks. */
 class AndroidTrudyAudioSink : TrudyAudioSink {
     @Volatile private var activeTrack: AudioTrack? = null
 
     override suspend fun play(audio: TrudyPcmAudio) = withContext(Dispatchers.IO) {
         require(audio.channels == 1)
+        require(audio.sampleRateHz > 0)
         if (audio.samples.isEmpty()) return@withContext
 
         stop()
@@ -45,14 +64,13 @@ class AndroidTrudyAudioSink : TrudyAudioSink {
 
         activeTrack = track
         try {
-            val pcm = ShortArray(audio.samples.size) { index ->
-                (audio.samples[index].coerceIn(-1f, 1f) * Short.MAX_VALUE).toInt().toShort()
-            }
+            val pcm = TrudyPcm16.convert(audio.samples)
             track.play()
             var offset = 0
             val chunkSamples = (minBuffer / 2).coerceAtLeast(1)
             while (offset < pcm.size) {
                 coroutineContext.ensureActive()
+                if (activeTrack !== track) break
                 val count = minOf(chunkSamples, pcm.size - offset)
                 val written = track.write(pcm, offset, count, AudioTrack.WRITE_BLOCKING)
                 if (written <= 0) break
@@ -61,7 +79,7 @@ class AndroidTrudyAudioSink : TrudyAudioSink {
         } finally {
             if (activeTrack === track) activeTrack = null
             runCatching { track.stop() }
-            track.release()
+            runCatching { track.release() }
         }
     }
 
