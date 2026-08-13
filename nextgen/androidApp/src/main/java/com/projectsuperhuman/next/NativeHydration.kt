@@ -53,6 +53,7 @@ private val HydMuted = Color(0xFF748294)
 private val HydBg = Color(0xFFF8FBFD)
 private val HydBorder = Color(0xFFE3EAF0)
 private val HydGreen = Color(0xFF4AAE91)
+private val HydrationData = NativeDomainData.forDomain(HealthDomain.HYDRATION)
 
 private data class HydrationDay(val date: LocalDate, val ml: Int)
 private data class HydrationSnapshot(
@@ -128,7 +129,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
                 )
                 val zone = ZoneId.systemDefault()
                 val start = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
-                val total = NativeDataHub.between("water_intake_ml", start, now + 1500).sumOf { it.value }.coerceAtLeast(0.0)
+                val total = HydrationData.between("water_intake_ml", start, now + 1500).sumOf { it.value }.coerceAtLeast(0.0)
                 NativeDataHub.saveMetric(
                     domain = HealthDomain.HYDRATION,
                     metric = "water_total_l",
@@ -154,7 +155,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
         val ml = (goalDraft / 100f).roundToInt() * 100
         scope.launch {
             NativeDataHub.saveMetric(HealthDomain.HYDRATION, "hydration_goal_ml", ml.toDouble(), "ml", "native-hydration")
-            status = "Daily goal set to ${formatMlHydration(ml)}"
+            status = "Daily water goal set to ${formatMlHydration(ml)}"
             refresh()
         }
     }
@@ -284,8 +285,7 @@ private suspend fun loadHydrationSnapshot(): HydrationSnapshot {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
     val now = System.currentTimeMillis()
-    val todayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
-    val goal = NativeDataHub.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
+    val goal = HydrationData.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
 
     val month = YearMonth.from(today)
     val historyStart = today.minusDays(6)
@@ -294,8 +294,8 @@ private suspend fun loadHydrationSnapshot(): HydrationSnapshot {
 
     // One indexed read per metric for the complete visible range. This keeps Hydration
     // work bounded even when the user has years of stored data.
-    val intakeRows = NativeDataHub.between("water_intake_ml", rangeStart, now)
-    val compatibilityRows = NativeDataHub.between("water_total_l", rangeStart, now)
+    val intakeRows = HydrationData.between("water_intake_ml", rangeStart, now)
+    val compatibilityRows = HydrationData.between("water_total_l", rangeStart, now)
     fun dateOf(epochMs: Long): LocalDate = Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
     val intakeByDay = intakeRows.groupBy { dateOf(it.timestampEpochMs) }
     val compatibilityByDay = compatibilityRows.groupBy { dateOf(it.timestampEpochMs) }
