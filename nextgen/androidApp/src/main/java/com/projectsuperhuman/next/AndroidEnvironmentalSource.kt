@@ -7,19 +7,16 @@ import android.location.LocationManager
 import android.os.Build
 import android.os.CancellationSignal
 import androidx.core.content.ContextCompat
+import com.projectsuperhuman.next.core.HealthDomain
+import com.projectsuperhuman.next.core.HealthValue
 import com.projectsuperhuman.next.environment.CachingEnvironmentalRepository
 import com.projectsuperhuman.next.environment.EnvironmentalCoordinates
 import com.projectsuperhuman.next.environment.EnvironmentalFetchResult
-import com.projectsuperhuman.next.environment.EnvironmentalMeasurement
-import com.projectsuperhuman.next.environment.EnvironmentalMetricIds
 import com.projectsuperhuman.next.environment.EnvironmentalObservation
 import com.projectsuperhuman.next.environment.EnvironmentalRepository
 import com.projectsuperhuman.next.environment.OpenMeteoEnvironmentalProvider
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import kotlin.coroutines.resume
-import kotlin.math.round
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 internal class AndroidEnvironmentalSource(
@@ -28,20 +25,23 @@ internal class AndroidEnvironmentalSource(
 ) : EnvironmentalPresentationSource {
     private val appContext = context.applicationContext
     private val locations = appContext.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    private val history = NativeDomainData.forDomain(HealthDomain.ENVIRONMENT)
 
     override suspend fun loadCurrent(): EnvironmentalLoadResult {
         if (!hasPermission()) return EnvironmentalLoadResult.NoPermission
         val location = currentLocation() ?: return EnvironmentalLoadResult.NoData
         val coordinates = EnvironmentalCoordinates(location.latitude, location.longitude)
         return when (val result = repository.current(coordinates, "local-area", System.currentTimeMillis())) {
-            is EnvironmentalFetchResult.Success -> EnvironmentalLoadResult.Data(result.observation.toEnvironmentalUi())
+            is EnvironmentalFetchResult.Success -> {
+                persist(result.observation)
+                EnvironmentalLoadResult.Data(result.observation.toEnvironmentalUi())
+            }
             is EnvironmentalFetchResult.Failure -> EnvironmentalLoadResult.Error("Environmental conditions are unavailable right now.")
         }
     }
 
     private fun hasPermission() =
-        ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        ContextCompat.checkSelfPermission(appContext, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
 
     private suspend fun currentLocation(): android.location.Location? {
         if (!hasPermission()) return null
@@ -69,42 +69,41 @@ internal class AndroidEnvironmentalSource(
             .mapNotNull { provider -> runCatching { locations.getLastKnownLocation(provider) }.getOrNull() }
             .maxByOrNull { it.time }
     }.getOrNull()
-}
 
-internal fun EnvironmentalObservation.toEnvironmentalUi(): EnvironmentalConditionsUi {
-    val ui = buildList {
-        addMetric(this@toEnvironmentalUi, EnvironmentalMetricIds.TEMPERATURE_C, EnvironmentalMetricKind.TEMPERATURE, "Temperature")
-        addMetric(this@toEnvironmentalUi, EnvironmentalMetricIds.FEELS_LIKE_C, EnvironmentalMetricKind.FEELS_LIKE, "Feels like")
-        addMetric(this@toEnvironmentalUi, EnvironmentalMetricIds.RELATIVE_HUMIDITY_PCT, EnvironmentalMetricKind.HUMIDITY, "Humidity")
-        addMetric(this@toEnvironmentalUi, EnvironmentalMetricIds.PRECIPITATION_MM, EnvironmentalMetricKind.PRECIPITATION, "Precipitation")
-        addMetric(this@toEnvironmentalUi, EnvironmentalMetricIds.UV_INDEX, EnvironmentalMetricKind.UV, "UV")
-        addMetric(this@toEnvironmentalUi, EnvironmentalMetricIds.EUROPEAN_AQI, EnvironmentalMetricKind.AIR_QUALITY, "Air quality")
-        addMetric(this@toEnvironmentalUi, EnvironmentalMetricIds.WIND_SPEED_MPS, EnvironmentalMetricKind.WIND, "Wind")
-        addMetric(this@toEnvironmentalUi, EnvironmentalMetricIds.SURFACE_PRESSURE_HPA, EnvironmentalMetricKind.PRESSURE, "Pressure")
+    private suspend fun persist(observation: EnvironmentalObservation) {
+        val rows = mutableListOf<HealthValue>()
+        for (measurement in observation.measurements) {
+            val bucketStart = measurement.measurementTimeEpochMs.floorDiv(SAMPLE_MS) * SAMPLE_MS
+            val bucketEnd = bucketStart + SAMPLE_MS - 1L
+            val exists = history.between(measurement.metricId, bucketStart, bucketEnd)
+                .any { it.source.equals(measurement.provenance.providerId, true) }
+            if (exists) continue
+            val recordId = "env-sampled-v1|${measurement.provenance.providerId}|${measurement.metricId}|$bucketStart"
+            rows += HealthValue(
+                domain = HealthDomain.ENVIRONMENT,
+                metric = measurement.metricId,
+                value = measurement.value,
+                unit = measurement.unit.symbol,
+                timestampEpochMs = measurement.measurementTimeEpochMs,
+                source = measurement.provenance.providerId,
+                metadata = mapOf(
+                    "sourceRecordId" to recordId,
+                    "environment.sampleIntervalMs" to SAMPLE_MS.toString(),
+                    "environment.fetchedAtEpochMs" to observation.retrievedAtEpochMs.toString(),
+                    "environment.evidenceKind" to "observation",
+                    "environment.locationGranularity" to "coarse_grid"
+                )
+            )
+        }
+        if (rows.isEmpty()) return
+        try {
+            NativeDataHub.ingestValues(rows)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (_: Throwable) {
+            // Live conditions remain usable even if a non-critical history write fails.
+        }
     }
-    val observed = measurements.maxOfOrNull { it.measurementTimeEpochMs }
-    val provider = measurements.firstOrNull()?.provenance?.providerId
-    return EnvironmentalConditionsUi(
-        weatherLabel = condition?.condition?.name?.lowercase()?.replace('_', ' ')?.replaceFirstChar { it.uppercase() },
-        metrics = ui,
-        locationLabel = "Local area",
-        observedAtLabel = observed?.let(::environmentTime),
-        retrievedAtLabel = environmentTime(retrievedAtEpochMs),
-        providerLabel = provider?.let { if (it.equals("open-meteo", true)) "Open-Meteo" else it },
-        freshnessLabel = if (freshness.ageSinceRetrievalMs < 60_000L) "Updated now" else "Updated ${freshness.ageSinceRetrievalMs / 60_000L}m ago"
-    )
+
+    private companion object { const val SAMPLE_MS = 60L * 60L * 1000L }
 }
-
-private fun MutableList<EnvironmentalMetricUi>.addMetric(observation: EnvironmentalObservation, id: String, kind: EnvironmentalMetricKind, label: String) {
-    observation.measurement(id)?.let { add(it.toUi(kind, label)) }
-}
-
-private fun EnvironmentalMeasurement.toUi(kind: EnvironmentalMetricKind, label: String) =
-    EnvironmentalMetricUi(kind, label, environmentValue(value), unit.symbol)
-
-private fun environmentValue(value: Double): String {
-    val rounded = round(value * 10.0) / 10.0
-    return if (rounded == rounded.toLong().toDouble()) rounded.toLong().toString() else rounded.toString()
-}
-
-private fun environmentTime(epochMs: Long) = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(epochMs))
