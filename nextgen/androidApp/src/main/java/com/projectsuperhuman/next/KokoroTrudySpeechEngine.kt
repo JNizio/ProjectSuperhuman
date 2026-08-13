@@ -56,12 +56,18 @@ object KokoroTextChunker {
     fun chunk(text: String, maxChars: Int = 240): List<String> = chunkWithLimit(text, maxChars)
 
     fun progressiveChunk(text: String, firstChunkChars: Int = 36, laterChunkChars: Int = 180): List<String> {
-        val firstPass = chunkWithLimit(text, laterChunkChars)
-        if (firstPass.isEmpty()) return emptyList()
-        val first = firstPass.first()
-        if (first.length <= firstChunkChars) return firstPass
-        val splitFirst = chunkWithLimit(first, firstChunkChars)
-        return splitFirst + firstPass.drop(1)
+        require(firstChunkChars >= 28)
+        require(laterChunkChars >= firstChunkChars)
+        val normalized = text.replace(Regex("\\s+"), " ").trim()
+        if (normalized.isEmpty()) return emptyList()
+        if (normalized.length <= firstChunkChars) return listOf(normalized)
+
+        val before = normalized.lastIndexOf(' ', firstChunkChars).takeIf { it > 0 }
+        val after = normalized.indexOf(' ', firstChunkChars).takeIf { it > 0 }
+        val splitAt = before ?: after ?: return listOf(normalized)
+        val first = normalized.substring(0, splitAt).trim()
+        val rest = normalized.substring(splitAt + 1).trim()
+        return listOf(first) + chunkWithLimit(rest, laterChunkChars)
     }
 
     private fun chunkWithLimit(text: String, maxChars: Int): List<String> {
