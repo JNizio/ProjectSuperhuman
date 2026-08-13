@@ -20,7 +20,7 @@ class AndroidEnvironmentalHttpClient : EnvironmentalHttpClient {
             connection.setRequestProperty("Accept", "application/json")
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val body = stream?.use { BufferedReader(InputStreamReader(it)).use(BufferedReader::readText) }.orEmpty()
+            val body = stream?.use { input -> BufferedReader(InputStreamReader(input)).use { reader -> reader.readText() } }.orEmpty()
             EnvironmentalHttpResponse(status, body)
         } finally {
             connection.disconnect()

@@ -13,6 +13,9 @@ class OpenMeteoEnvironmentalProvider(
         contextId: String,
         retrievedAtEpochMs: Long
     ): EnvironmentalProviderResult {
+        if (!coordinates.isValid() || contextId.isBlank()) {
+            return EnvironmentalProviderResult.Failure(EnvironmentalProviderError(EnvironmentalProviderErrorKind.HTTP, false))
+        }
         val weatherResponse = request(OpenMeteoRequestBuilder.weather(coordinates))
             ?: return EnvironmentalProviderResult.Failure(error(EnvironmentalProviderErrorKind.NETWORK))
         if (weatherResponse.statusCode !in 200..299) return EnvironmentalProviderResult.Failure(httpError(weatherResponse.statusCode))
