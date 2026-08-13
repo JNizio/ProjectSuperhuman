@@ -42,7 +42,7 @@ internal class AndroidEnvironmentalSource(
 
         return when (val result = repository.current(coordinates, "local-area", System.currentTimeMillis())) {
             is EnvironmentalFetchResult.Success -> {
-                EnvironmentalAutoRecorder.persistObservation(result.observation)
+                EnvironmentalAutoRecorder.persistObservation(result.observation, place)
                 EnvironmentalLoadResult.Data(result.observation.toEnvironmentalUi().copy(locationLabel = place))
             }
             is EnvironmentalFetchResult.Failure -> EnvironmentalLoadResult.Error("Environmental conditions are unavailable right now.")
