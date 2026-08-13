@@ -45,7 +45,7 @@ class TrudyIntelligenceFoundationTest {
 
     @Test fun confidenceThresholdsAreTransparent() {
         assertEquals(TrudyConfidence.INSUFFICIENT,TrudyConfidenceModel.classify(4))
-        assertEquals(TrudyConfidence.LOW,TrudyConfidenceModel.classify(7,signalMagnitude=.6))
+        assertEquals(TrudyConfidence.LOW,TrudyConfidenceModel.classify(5,signalMagnitude=.1))
         assertTrue(TrudyConfidenceModel.classify(30,signalMagnitude=.8,repeated=true).ordinal >= TrudyConfidence.MODERATE.ordinal)
     }
 
