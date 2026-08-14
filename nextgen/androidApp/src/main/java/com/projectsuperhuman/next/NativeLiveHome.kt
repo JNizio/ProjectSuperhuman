@@ -86,7 +86,8 @@ private enum class HomeTile(val storageKey: String) {
     MINDFULNESS("mindfulness"),
     SLEEP("sleep"),
     NUTRITION("nutrition"),
-    BLOOD_PRESSURE("blood_pressure")
+    // Keep the previous storage key so existing dashboard ordering survives the tile upgrade.
+    VITALS("blood_pressure")
 }
 
 private data class HomeTileBounds(
@@ -105,7 +106,7 @@ private val defaultHomeTileOrder = listOf(
     HomeTile.MINDFULNESS,
     HomeTile.SLEEP,
     HomeTile.NUTRITION,
-    HomeTile.BLOOD_PRESSURE
+    HomeTile.VITALS
 )
 
 private const val HOME_PREFS = "project_superhuman_home"
@@ -116,7 +117,7 @@ internal fun NativeLiveHome(
     openClinical: () -> Unit,
     openBody: () -> Unit,
     openSleep: () -> Unit,
-    openBloodPressure: () -> Unit,
+    openVitals: () -> Unit,
     openHydration: () -> Unit,
     openNutrition: () -> Unit,
     openExercise: () -> Unit,
@@ -325,7 +326,7 @@ internal fun NativeLiveHome(
                             HomeTile.MINDFULNESS -> HomeMindfulnessBreathworkRow(snapshot, openMindfulness)
                             HomeTile.SLEEP -> HomeSleepInsightTile(snapshot, openSleep)
                             HomeTile.NUTRITION -> LegacyNutritionCard(snapshot, openNutrition)
-                            HomeTile.BLOOD_PRESSURE -> LegacyBloodPressureLink(openBloodPressure)
+                            HomeTile.VITALS -> HomeVitalsTile(onClick = openVitals)
                         }
                     }
                 }
