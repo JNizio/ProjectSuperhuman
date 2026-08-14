@@ -20,13 +20,24 @@ data class MedicalConditionKnowledge(
     val populationContext: List<String>,
     val provenance: List<MedicalSourceReference>,
     val review: MedicalReviewMetadata,
+    val aliasRecords: List<MedicalAliasRecord> = aliases.map { MedicalAliasRecord(it) },
 )
 
 enum class MedicalBodySystem {
     GASTROINTESTINAL, RESPIRATORY, CARDIOVASCULAR, NEUROLOGICAL,
     ENDOCRINE_METABOLIC, MUSCULOSKELETAL, DERMATOLOGICAL, INFECTIOUS,
     ALLERGY_IMMUNOLOGY, URINARY_RENAL, MENTAL_HEALTH, ENT, EYE,
-    REPRODUCTIVE, HAEMATOLOGICAL_NUTRITIONAL, PAIN,
+    REPRODUCTIVE, HAEMATOLOGICAL_NUTRITIONAL, PAIN, SLEEP, AUTONOMIC,
+}
+
+data class MedicalAliasRecord(
+    val term: String,
+    val type: MedicalAliasType = MedicalAliasType.ALTERNATIVE_NAME,
+)
+
+enum class MedicalAliasType {
+    LAY_TERM, CLINICAL_TERM, ABBREVIATION, BRITISH_SPELLING, AMERICAN_SPELLING,
+    COMMON_MISSPELLING, ALTERNATIVE_NAME,
 }
 
 enum class FeatureFrequency { COMMON, POSSIBLE, UNCOMMON }
@@ -82,6 +93,20 @@ data class SymptomIndexEntry(
     val displayName: String,
     val aliases: List<String>,
     val conditionLinks: List<SymptomConditionLink>,
+    val aliasRecords: List<SymptomAliasRecord> = aliases.map { SymptomAliasRecord(it) },
+    val relatedTerms: List<RelatedSymptomTerm> = emptyList(),
+)
+
+data class SymptomAliasRecord(
+    val term: String,
+    val matchType: SymptomAliasMatchType = SymptomAliasMatchType.LEXICAL_EQUIVALENT,
+)
+
+enum class SymptomAliasMatchType { LEXICAL_EQUIVALENT }
+
+data class RelatedSymptomTerm(
+    val term: String,
+    val note: String,
 )
 
 data class SymptomConditionLink(

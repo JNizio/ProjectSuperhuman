@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectsuperhuman.local/schemas/medical-symptom-index-v1.1.json",
+  "title": "Project Superhuman symptom index v1.1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "corpus_version",
+    "generated_from",
+    "language_source",
+    "disclaimer",
+    "terminology_note",
+    "symptoms"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.1.0"
+    },
+    "corpus_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_from": {
+      "const": "conditions.v1.json"
+    },
+    "disclaimer": {
+      "type": "string",
+      "minLength": 20
+    },
+    "terminology_note": {
+      "type": "string",
+      "minLength": 20
+    },
+    "symptoms": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/symptom"
+      }
+    },
+    "language_source": {
+      "const": "symptom-language.v1.json"
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "symptom": {
+      "type": "object",
+      "required": [
+        "symptom_id",
+        "display_name",
+        "aliases",
+        "alias_records",
+        "related_terms",
+        "condition_links"
+      ],
+      "properties": {
+        "symptom_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "display_name": {
+          "$ref": "#/$defs/text"
+        },
+        "aliases": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/text"
+          }
+        },
+        "alias_records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/alias"
+          }
+        },
+        "related_terms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/related"
+          }
+        },
+        "condition_links": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/link"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "alias": {
+      "type": "object",
+      "required": [
+        "term",
+        "match_type"
+      ],
+      "properties": {
+        "term": {
+          "$ref": "#/$defs/text"
+        },
+        "match_type": {
+          "const": "lexical_equivalent"
+        }
+      },
+      "additionalProperties": false
+    },
+    "related": {
+      "type": "object",
+      "required": [
+        "term",
+        "relationship",
+        "note"
+      ],
+      "properties": {
+        "term": {
+          "$ref": "#/$defs/text"
+        },
+        "relationship": {
+          "const": "related_not_equivalent"
+        },
+        "note": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "additionalProperties": false
+    },
+    "link": {
+      "type": "object",
+      "required": [
+        "condition_id",
+        "frequency"
+      ],
+      "properties": {
+        "condition_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "frequency": {
+          "enum": [
+            "common",
+            "possible",
+            "uncommon"
+          ]
+        },
+        "context": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}
