@@ -1,6 +1,7 @@
 package com.projectsuperhuman.next
 
 import android.content.Context
+import com.projectsuperhuman.next.trudy.TrudyLanguageRouter
 import com.projectsuperhuman.next.trudy.medical.MedicalCandidateRelevance
 import com.projectsuperhuman.next.trudy.medical.MedicalConditionCandidate
 import com.projectsuperhuman.next.trudy.medical.MedicalConditionCandidateProvider
@@ -13,7 +14,8 @@ import java.util.Locale
  * Offline, non-diagnostic retrieval over the canonical medical corpus.
  *
  * The build-generated lexical index converts query n-grams and tokens into a bounded set of
- * condition IDs. Only those records are scored, so a Trudy turn never scans the complete corpus.
+ * condition IDs. Lay-language aliases are expanded to a bounded canonical query before that same
+ * posting lookup. Only retrieved records are scored, so a turn never scans the complete corpus.
  * Parsing, normalization and fallback index construction happen at most once, on first use.
  */
 internal class AndroidMedicalCorpusCandidateProvider(
@@ -40,7 +42,7 @@ internal class AndroidMedicalCorpusCandidateProvider(
     override suspend fun candidates(request: MedicalConditionCandidateRequest): List<MedicalConditionCandidate> {
         if (request.maxCandidates <= 0 || corpus.recordsById.isEmpty()) return emptyList()
 
-        val normalized = normalize(request.question)
+        val normalized = normalize(TrudyLanguageRouter.expandMedicalSearchText(request.question))
         val phrases = ngrams(normalized)
         val queryTokens = tokensFromNormalized(normalized)
         val retrievalScores = mutableMapOf<String, Int>()
