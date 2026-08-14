@@ -51,6 +51,7 @@ private val VitalsMuted = Color(0xFF748294)
 private val VitalsBlue = Color(0xFF0D6CB4)
 private val VitalsRed = Color(0xFFD46072)
 private val VitalsBorder = Color(0xFFDCE7EE)
+private const val HOME_VITALS_REFRESH_MS = 15_000L
 
 internal data class HomeVitalsSnapshot(
     val heartRateBpm: Int? = null,
@@ -80,7 +81,9 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
     LaunchedEffect(Unit) {
         while (true) {
             snapshot = loadHomeVitalsSnapshot()
-            delay(5_000L)
+            // Home always refreshes immediately on composition/re-entry. A 15-second idle refresh
+            // keeps the tile current while cutting repeated Data Vault reads by roughly two-thirds.
+            delay(HOME_VITALS_REFRESH_MS)
         }
     }
 
@@ -209,13 +212,31 @@ internal fun selectHomeVitalsSnapshot(
     bloodPressureRows: List<HealthValue>,
     temperatureRows: List<HealthValue>
 ): HomeVitalsSnapshot {
-    fun latest(rows: List<HealthValue>, metric: String): HealthValue? = rows.filter { it.metric == metric }.maxByOrNull { it.timestampEpochMs }
+    var heart: HealthValue? = null
+    for (row in heartRows) {
+        if ((row.metric == HomeVitalsDataContract.HEART_RATE || row.metric == HomeVitalsDataContract.HEART_RATE_AVERAGE) &&
+            (heart == null || row.timestampEpochMs > heart.timestampEpochMs)
+        ) heart = row
+    }
 
-    val heart = heartRows.filter { it.metric == HomeVitalsDataContract.HEART_RATE || it.metric == HomeVitalsDataContract.HEART_RATE_AVERAGE }.maxByOrNull { it.timestampEpochMs }
-    val systolic = latest(bloodPressureRows, HomeVitalsDataContract.BLOOD_PRESSURE_SYSTOLIC)
-    val diastolic = latest(bloodPressureRows, HomeVitalsDataContract.BLOOD_PRESSURE_DIASTOLIC)
-    val isPairedBloodPressure = systolic != null && diastolic != null && abs(systolic.timestampEpochMs - diastolic.timestampEpochMs) <= 5 * 60_000L
-    val temperature = temperatureRows.maxByOrNull { it.timestampEpochMs }
+    var systolic: HealthValue? = null
+    var diastolic: HealthValue? = null
+    for (row in bloodPressureRows) {
+        when (row.metric) {
+            HomeVitalsDataContract.BLOOD_PRESSURE_SYSTOLIC ->
+                if (systolic == null || row.timestampEpochMs > systolic.timestampEpochMs) systolic = row
+            HomeVitalsDataContract.BLOOD_PRESSURE_DIASTOLIC ->
+                if (diastolic == null || row.timestampEpochMs > diastolic.timestampEpochMs) diastolic = row
+        }
+    }
+
+    var temperature: HealthValue? = null
+    for (row in temperatureRows) {
+        if (temperature == null || row.timestampEpochMs > temperature.timestampEpochMs) temperature = row
+    }
+
+    val isPairedBloodPressure = systolic != null && diastolic != null &&
+        abs(systolic.timestampEpochMs - diastolic.timestampEpochMs) <= 5 * 60_000L
 
     return HomeVitalsSnapshot(
         heartRateBpm = heart?.value?.roundToInt(),
