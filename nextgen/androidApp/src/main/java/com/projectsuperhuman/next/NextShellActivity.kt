@@ -95,7 +95,9 @@ private fun SuperhumanShell(
                         openClinical = { page = ShellPage.CLINICAL },
                         openBody = { page = ShellPage.BODY },
                         openSleep = { page = ShellPage.SLEEP },
-                        openBloodPressure = { page = ShellPage.BLOOD_PRESSURE },
+                        // Agent 5 can point this single hook at the full Vitals destination.
+                        // Until then, the existing BP page is the closest compatible route.
+                        openVitals = { page = ShellPage.BLOOD_PRESSURE },
                         openHydration = { page = ShellPage.HYDRATION },
                         openNutrition = { page = ShellPage.NUTRITION },
                         openExercise = { page = ShellPage.EXERCISE },

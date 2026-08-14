@@ -181,16 +181,6 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             MiniMetricCard(
-                metric = HomeMiniMetric.HEART_RATE,
-                value = metrics.heartRateBpm?.toString() ?: "—",
-                unit = if (metrics.heartRateBpm != null) "bpm" else "",
-                status = if (metrics.heartRateBpm != null) freshnessLabel(metrics.heartRateTimestampMs) else "Tap to connect",
-                accent = MiniHeart,
-                modifier = Modifier.weight(1.25f),
-                style = MiniVisualStyle.PULSE,
-                onClick = { openMetric(HomeMiniMetric.HEART_RATE) }
-            )
-            MiniMetricCard(
                 metric = HomeMiniMetric.STEPS,
                 value = metrics.steps?.let(::compactCount) ?: "—",
                 unit = "",
@@ -199,23 +189,23 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
                     metrics.stepsRecentAverage?.let { "$age · avg ${compactCount(it)}" } ?: age
                 } else "Tap to connect",
                 accent = MiniSteps,
-                modifier = Modifier.weight(.75f),
+                modifier = Modifier.weight(1f),
                 style = MiniVisualStyle.DOTS,
                 onClick = { openMetric(HomeMiniMetric.STEPS) }
             )
-        }
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             MiniMetricCard(
                 metric = HomeMiniMetric.BLOOD_OXYGEN,
                 value = metrics.bloodOxygenPct?.toString() ?: "—",
                 unit = if (metrics.bloodOxygenPct != null) "%" else "",
                 status = if (metrics.bloodOxygenPct != null) freshnessLabel(metrics.bloodOxygenTimestampMs) else "Tap to connect",
                 accent = MiniOxygen,
-                modifier = Modifier.weight(.82f),
+                modifier = Modifier.weight(1f),
                 style = MiniVisualStyle.RING,
                 onClick = { openMetric(HomeMiniMetric.BLOOD_OXYGEN) }
             )
+        }
+
+        Row(Modifier.fillMaxWidth()) {
             MiniMetricCard(
                 metric = HomeMiniMetric.CALORIES,
                 value = metrics.caloriesActiveBurned?.let(::compactCount) ?: "—",
@@ -228,7 +218,7 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
                     metrics.caloriesEaten?.let { "${compactCount(it)} eaten · connect burn" } ?: "Tap to connect"
                 },
                 accent = MiniCalories,
-                modifier = Modifier.weight(1.18f),
+                modifier = Modifier.fillMaxWidth(),
                 style = MiniVisualStyle.WAVES,
                 onClick = { openMetric(HomeMiniMetric.CALORIES) }
             )
