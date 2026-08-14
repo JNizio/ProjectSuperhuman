@@ -40,7 +40,7 @@ data class MedicalFeature(
 
 data class MedicalDifferentiator(
     val statement: String,
-    val kind: DifferentiatorKind = DifferentiatorKind.CONTEXT,
+    val kind: DifferentiatorKind = DifferentiatorKind.ALTERNATIVE_CONTEXT,
 )
 
 enum class DifferentiatorKind { CHARACTERISTIC, IMPORTANT_NEGATIVE, ALTERNATIVE_CONTEXT }
