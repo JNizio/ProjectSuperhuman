@@ -312,9 +312,19 @@ class TrudyCrossDomainInvestigator(
         require(operation.maxAssociations in 0..MAX_ASSOCIATIONS)
         require(operation.targets.size <= operation.budget.maxTargets)
         require(operation.related.size <= operation.budget.maxRelatedSignals)
+        val lookbackMs = operation.observationWindow.toEpochMs - operation.baselineWindow.fromEpochMs
+        require(lookbackMs >= 0L && lookbackMs <= operation.budget.maxLookbackDays.toLong() * DAY_MS) {
+            "Investigation exceeds its bounded lookback"
+        }
 
         val comparisons = operation.targets.distinctBy { it.domain to it.metricId }.map { target ->
-            library.compareBaseline(target.domain, target.metricId, operation.observationWindow, operation.baselineWindow)
+            library.compareBaseline(
+                target.domain,
+                target.metricId,
+                operation.observationWindow,
+                operation.baselineWindow,
+                operation.budget.maxRowsPerMetric
+            )
         }
         val primary = operation.targets.firstOrNull { it.role == TrudyInvestigationRole.PRIMARY }
             ?: operation.targets.first()
@@ -471,7 +481,10 @@ class TrudySystemInvestigationPlanner(
                 timeframeExplicit = timeframe.explicit,
                 budget = TrudyInvestigationBudget(
                     maxTargets = if (intent == TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY) 8 else 5,
-                    maxRelatedSignals = MAX_RELATED
+                    maxRelatedSignals = MAX_RELATED,
+                    maxLookbackDays = (
+                        (observation.toEpochMs - baseline.fromEpochMs).coerceAtLeast(0L) / DAY_MS + 1L
+                    ).toInt().coerceIn(7, 90)
                 )
             )
             return if (intent == TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY) {

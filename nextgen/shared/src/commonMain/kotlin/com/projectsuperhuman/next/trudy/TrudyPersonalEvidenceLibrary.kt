@@ -162,9 +162,16 @@ class TrudyPersonalEvidenceLibrary(private val source: TrudyPersonalEvidenceSour
         return compareBaseline(domain, metricId, TrudyTimeRange(recentStart, now), TrudyTimeRange(baselineStart, baselineEnd))
     }
 
-    suspend fun compareBaseline(domain: HealthDomain, metricId: String, observationWindow: TrudyTimeRange, baselineWindow: TrudyTimeRange): TrudyBaselineComparison {
-        val observationRows = source.metricWindow(domain, metricId, observationWindow, MAX_WINDOW_ROWS)
-        val baselineRows = source.metricWindow(domain, metricId, baselineWindow, MAX_WINDOW_ROWS)
+    suspend fun compareBaseline(
+        domain: HealthDomain,
+        metricId: String,
+        observationWindow: TrudyTimeRange,
+        baselineWindow: TrudyTimeRange,
+        limit: Int = MAX_WINDOW_ROWS
+    ): TrudyBaselineComparison {
+        require(limit in 1..MAX_WINDOW_ROWS)
+        val observationRows = source.metricWindow(domain, metricId, observationWindow, limit)
+        val baselineRows = source.metricWindow(domain, metricId, baselineWindow, limit)
         val all = (observationRows + baselineRows).distinctBy {
             listOf(it.domain.name, it.metricId, it.timestampEpochMs.toString(), it.source, it.value.toString()).joinToString("|")
         }
