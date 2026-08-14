@@ -99,7 +99,7 @@ class CuratedNutritionBodyKnowledgeRepository : TrudyNutritionKnowledgeProvider 
                 NutritionQuestionIntent.DIETARY_NUTRIENT_GAP
             hasAny(q, "recovery meal", "after exercise", "before exercise", "pre workout", "post workout", "fuel training", "exercise nutrition") ->
                 NutritionQuestionIntent.EXERCISE_NUTRITION
-            hasAny(q, "food affecting my energy", "food affect my energy", "meal affecting energy", "after eating tired", "energy after meals") ->
+            hasAny(q, "food affecting my energy", "food be affecting my energy", "food affect my energy", "meal affecting energy", "after eating tired", "energy after meals") ->
                 NutritionQuestionIntent.FOOD_AND_ENERGY
             hasAny(q, "energy balance", "calorie balance", "calorie deficit", "calorie surplus", "metabolism", "maintenance calories") ->
                 NutritionQuestionIntent.ENERGY_BALANCE
