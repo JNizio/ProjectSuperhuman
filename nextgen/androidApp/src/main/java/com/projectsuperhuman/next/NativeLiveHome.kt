@@ -77,6 +77,7 @@ data class NativeHomeSnapshot(
 )
 
 private enum class HomeTile(val storageKey: String) {
+    INSIGHTS("insights"),
     EMOTIONAL("emotional"),
     ENVIRONMENT("environment"),
     HYDRATION("hydration"),
@@ -97,6 +98,7 @@ private data class HomeTileBounds(
 )
 
 private val defaultHomeTileOrder = listOf(
+    HomeTile.INSIGHTS,
     HomeTile.EMOTIONAL,
     HomeTile.ENVIRONMENT,
     HomeTile.HYDRATION,
@@ -124,6 +126,7 @@ internal fun NativeLiveHome(
     openMindfulness: () -> Unit,
     openEnvironment: () -> Unit,
     openEmotional: () -> Unit,
+    openInsights: () -> Unit,
     openMiniMetric: (HomeMiniMetric) -> Unit,
     topContent: @Composable () -> Unit = {}
 ) {
@@ -317,6 +320,7 @@ internal fun NativeLiveHome(
                         onDragCancel = { finishDrag(commit = false) }
                     ) {
                         when (tile) {
+                            HomeTile.INSIGHTS -> HomeInsightsTile(InsightsUiRuntime.provider.load(), openInsights)
                             HomeTile.EMOTIONAL -> HomeEmotionalTile(emotionalCurrent, openEmotional)
                             HomeTile.ENVIRONMENT -> HomeEnvironmentalTile(onClick = openEnvironment)
                             HomeTile.HYDRATION -> PremiumHomeHydrationTile(snapshot, openHydration)
@@ -420,7 +424,7 @@ private fun loadHomeTileOrder(context: Context): List<HomeTile> {
         .mapNotNull { key -> HomeTile.entries.firstOrNull { it.storageKey == key.trim() } }
         .distinct()
 
-    val newcomers = listOf(HomeTile.EMOTIONAL, HomeTile.ENVIRONMENT).filterNot(parsed::contains)
+    val newcomers = listOf(HomeTile.INSIGHTS, HomeTile.EMOTIONAL, HomeTile.ENVIRONMENT).filterNot(parsed::contains)
     val existingAndDefaults = parsed + defaultHomeTileOrder.filterNot { it in parsed || it in newcomers }
     return (newcomers + existingAndDefaults).ifEmpty { defaultHomeTileOrder }
 }
