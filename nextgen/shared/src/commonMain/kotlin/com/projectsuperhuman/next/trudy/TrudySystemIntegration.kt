@@ -62,7 +62,8 @@ object TrudySystemCatalog {
             metric(HealthDomain.NUTRITION, "food_protein", setOf("protein")),
             metric(HealthDomain.NUTRITION, "food_carbs", setOf("carbs", "carbohydrate")),
             metric(HealthDomain.NUTRITION, "food_fat", setOf("fat intake")),
-            metric(HealthDomain.NUTRITION, "food_fibre", setOf("fibre", "fiber"))),
+            metric(HealthDomain.NUTRITION, "food_fibre", setOf("fibre", "fiber")),
+            metric(HealthDomain.NUTRITION, "food_caffeine_mg", setOf("caffeine", "caffeine intake", "coffee"), TrudyMetricPreference.LOWER_IS_FAVOURABLE)),
         module("hydration", setOf("hydration", "water", "fluids", "drank"),
             metric(HealthDomain.HYDRATION, "water_total_l", setOf("water total", "hydration"), TrudyMetricPreference.HIGHER_IS_FAVOURABLE),
             metric(HealthDomain.HYDRATION, "water_intake_ml", setOf("water intake"), TrudyMetricPreference.HIGHER_IS_FAVOURABLE)),
@@ -259,8 +260,15 @@ data class TrudyInvestigationMetric(
     val domain: HealthDomain,
     val metricId: String,
     val role: TrudyInvestigationRole = TrudyInvestigationRole.SUPPORTING,
-    val preference: TrudyMetricPreference = TrudyMetricPreference.CONTEXT_DEPENDENT
-)
+    val preference: TrudyMetricPreference = TrudyMetricPreference.CONTEXT_DEPENDENT,
+    val temporalAlignment: TrudyTemporalAlignment = TrudyTemporalAlignment.SAME_DAY,
+    val relevanceWeight: Double = 0.5
+) {
+    init {
+        require(metricId.isNotBlank())
+        require(relevanceWeight in 0.0..1.0)
+    }
+}
 
 data class InvestigateChange(
     val targets: List<TrudyInvestigationMetric>,
@@ -268,7 +276,13 @@ data class InvestigateChange(
     val observationWindow: TrudyTimeRange,
     val baselineWindow: TrudyTimeRange,
     val claim: TrudyChangeClaim = TrudyChangeClaim.UNSPECIFIED,
-    val maxAssociations: Int = 6
+    val maxAssociations: Int = 6,
+    val intent: TrudyInvestigationIntent = TrudyInvestigationIntent.WHY,
+    val targetLabel: String? = null,
+    val includesSubjectiveClaim: Boolean = false,
+    val timeframeLabel: String = "requested period",
+    val timeframeExplicit: Boolean = false,
+    val budget: TrudyInvestigationBudget = TrudyInvestigationBudget()
 ) : TrudyToolOperation {
     override val domains: List<HealthDomain> = (targets + related).map { it.domain }.distinct()
 }
@@ -280,7 +294,8 @@ data class TrudyChangeInvestigation(
     val targetComparisons: List<TrudyBaselineComparison>,
     val relatedAssociations: List<TrudyAssociationResult>,
     val missingMetrics: List<Pair<HealthDomain, String>>,
-    val caveats: List<String>
+    val caveats: List<String>,
+    val structuredResult: TrudyInvestigationResult
 )
 
 data class ChangeInvestigationResult(
@@ -288,44 +303,73 @@ data class ChangeInvestigationResult(
     val investigation: TrudyChangeInvestigation
 ) : TrudyToolResult
 
-class TrudyCrossDomainInvestigator(private val library: TrudyPersonalEvidenceLibrary) {
+class TrudyCrossDomainInvestigator(
+    private val library: TrudyPersonalEvidenceLibrary,
+    private val source: TrudyPersonalEvidenceSource? = null
+) {
     suspend fun investigate(operation: InvestigateChange): TrudyChangeInvestigation {
         require(operation.targets.isNotEmpty())
         require(operation.maxAssociations in 0..MAX_ASSOCIATIONS)
+        require(operation.targets.size <= operation.budget.maxTargets)
+        require(operation.related.size <= operation.budget.maxRelatedSignals)
+        val lookbackMs = operation.observationWindow.toEpochMs - operation.baselineWindow.fromEpochMs
+        require(lookbackMs >= 0L && lookbackMs <= operation.budget.maxLookbackDays.toLong() * DAY_MS) {
+            "Investigation exceeds its bounded lookback"
+        }
+
         val comparisons = operation.targets.distinctBy { it.domain to it.metricId }.map { target ->
-            library.compareBaseline(target.domain, target.metricId, operation.observationWindow, operation.baselineWindow)
+            library.compareBaseline(
+                target.domain,
+                target.metricId,
+                operation.observationWindow,
+                operation.baselineWindow,
+                operation.budget.maxRowsPerMetric
+            )
         }
         val primary = operation.targets.firstOrNull { it.role == TrudyInvestigationRole.PRIMARY }
             ?: operation.targets.first()
         val combinedWindow = TrudyTimeRange(operation.baselineWindow.fromEpochMs, operation.observationWindow.toEpochMs)
-        val associations = operation.related.distinctBy { it.domain to it.metricId }
+        val evaluatedAssociations = operation.related.distinctBy { it.domain to it.metricId }
             .filterNot { it.domain == primary.domain && it.metricId == primary.metricId }
-            .take(operation.maxAssociations)
+            .take(minOf(operation.maxAssociations, operation.budget.maxRelatedSignals))
             .map { related ->
-                library.association(
+                related to library.association(
                     leftDomain = related.domain,
                     leftMetricId = related.metricId,
                     rightDomain = primary.domain,
                     rightMetricId = primary.metricId,
-                    alignmentWindowMs = DEFAULT_ALIGNMENT_WINDOW_MS,
-                    limit = MAX_ASSOCIATION_ROWS,
-                    window = combinedWindow
+                    lagMs = related.temporalAlignment.lagMs,
+                    alignmentWindowMs = related.temporalAlignment.toleranceMs,
+                    limit = operation.budget.maxRowsPerMetric,
+                    window = combinedWindow,
+                    rollingWindowMs = if (related.temporalAlignment.kind == TrudyTemporalAlignmentKind.ROLLING_AVERAGE) {
+                        related.temporalAlignment.rollingDays.toLong() * DAY_MS
+                    } else null
                 )
             }
+        val associations = evaluatedAssociations.map { it.second }
         val missing = buildList {
             comparisons.filter { it.observationMean == null || it.baselineMean == null }
                 .forEach { add(it.domain to it.metricId) }
-            associations.filter { it.coefficient == null }
-                .forEach { add(it.leftDomain to it.leftMetricId) }
+            evaluatedAssociations.filter { it.second.coefficient == null }
+                .forEach { add(it.first.domain to it.first.metricId) }
         }.distinct()
+        val premise = assessPremise(operation, comparisons)
+        val structured = TrudyInvestigationResultAssembler(source).assemble(
+            operation = operation,
+            premise = premise,
+            comparisons = comparisons,
+            associations = evaluatedAssociations
+        )
         return TrudyChangeInvestigation(
-            premiseAssessment = assessPremise(operation, comparisons),
+            premiseAssessment = premise,
             observationWindow = operation.observationWindow,
             baselineWindow = operation.baselineWindow,
             targetComparisons = comparisons,
             relatedAssociations = associations,
             missingMetrics = missing,
-            caveats = listOf("Related patterns are observational and do not establish a cause.")
+            caveats = structured.caveats,
+            structuredResult = structured
         )
     }
 
@@ -342,7 +386,7 @@ class TrudyCrossDomainInvestigator(private val library: TrudyPersonalEvidenceLib
             when (metric.preference) {
                 TrudyMetricPreference.HIGHER_IS_FAVOURABLE -> if (delta > 0) 1 else -1
                 TrudyMetricPreference.LOWER_IS_FAVOURABLE -> if (delta < 0) 1 else -1
-                TrudyMetricPreference.CONTEXT_DEPENDENT -> 0
+                TrudyMetricPreference.CONTEXT_DEPENDENT -> return@mapNotNull null
             }
         }
         if (directional.isEmpty()) return TrudyPremiseAssessment.INSUFFICIENT
@@ -360,9 +404,8 @@ class TrudyCrossDomainInvestigator(private val library: TrudyPersonalEvidenceLib
     }
 
     private companion object {
+        const val DAY_MS = 86_400_000L
         const val MAX_ASSOCIATIONS = 8
-        const val MAX_ASSOCIATION_ROWS = 365
-        const val DEFAULT_ALIGNMENT_WINDOW_MS = 43_200_000L
         const val EPSILON = 0.0001
     }
 }
@@ -417,20 +460,36 @@ class TrudySystemInvestigationPlanner(
                 TrudyToolOperation.GetMetricWindow(it.domain, it.metricId, range, METRIC_WINDOW_LIMIT)
             }
         }
-        if (looksInvestigative(text)) {
-            val targets = selected.ifEmpty { defaultOverviewMetrics() }.take(MAX_TARGETS).mapIndexed { index, metric ->
-                metric.toInvestigation(if (index == 0) TrudyInvestigationRole.PRIMARY else TrudyInvestigationRole.SUPPORTING)
-            }
-            val related = relatedMetrics(targets).take(MAX_RELATED).map { it.toInvestigation() }
-            return listOf(
-                InvestigateChange(
-                    targets = targets,
-                    related = related,
-                    observationWindow = timeframe.observation,
-                    baselineWindow = timeframe.baseline,
-                    claim = claim(text)
+        investigationIntent(text)?.let { intent ->
+            val relevance = TrudyInvestigationRelevanceGraph.plan(text, selected, intent)
+            val observation = timeframe.observation
+            val baseline = if (intent == TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY) {
+                val end = (observation.fromEpochMs - 1L).coerceAtLeast(0L)
+                TrudyTimeRange((end - 7L * DAY_MS + 1L).coerceAtLeast(0L), end)
+            } else timeframe.baseline
+            val investigation = InvestigateChange(
+                targets = relevance.targets,
+                related = relevance.related,
+                observationWindow = observation,
+                baselineWindow = baseline,
+                claim = claim(text),
+                maxAssociations = relevance.related.size.coerceAtMost(MAX_RELATED),
+                intent = intent,
+                targetLabel = relevance.targetLabel,
+                includesSubjectiveClaim = listOf("felt", "feel", "suffer", "tired", "refreshed").any { it in text },
+                timeframeLabel = timeframe.label,
+                timeframeExplicit = timeframe.explicit,
+                budget = TrudyInvestigationBudget(
+                    maxTargets = if (intent == TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY) 8 else 5,
+                    maxRelatedSignals = MAX_RELATED,
+                    maxLookbackDays = (
+                        (observation.toEpochMs - baseline.fromEpochMs).coerceAtLeast(0L) / DAY_MS + 1L
+                    ).toInt().coerceIn(7, 90)
                 )
             )
+            return if (intent == TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY) {
+                listOf(investigation, GetCanonicalExperiments(TrudyCanonicalExperimentStatus.ACTIVE))
+            } else listOf(investigation)
         }
         if (selected.isEmpty()) {
             val unavailable = modules.filterNot { it.canonicalDataAvailable }
@@ -456,6 +515,16 @@ class TrudySystemInvestigationPlanner(
         selected: List<TrudySystemMetric>
     ): TrudyToolOperation? {
         val pair = when {
+            ("sleep" in text || "slept" in text || "night" in text) && "caffeine" in text ->
+                return GetLaggedAssociation(
+                    leftDomain = HealthDomain.NUTRITION,
+                    leftMetricId = "food_caffeine_mg",
+                    rightDomain = HealthDomain.SLEEP,
+                    rightMetricId = "sleep_score",
+                    lagMs = TrudyTemporalAlignment.PREVIOUS_EVENING_TO_FOLLOWING_SLEEP.lagMs,
+                    alignmentWindowMs = TrudyTemporalAlignment.PREVIOUS_EVENING_TO_FOLLOWING_SLEEP.toleranceMs,
+                    window = TrudyTimeRange(timeframe.baseline.fromEpochMs, timeframe.observation.toEpochMs)
+                )
             ("sleep" in text || "slept" in text || "night" in text) && ("stress" in text || "anxious" in text || "calm" in text) ->
                 TrudySystemMetric(HealthDomain.EMOTIONAL, "emotional_calmness", emptySet()) to
                     TrudySystemMetric(HealthDomain.SLEEP, "sleep_score", emptySet())
@@ -536,13 +605,21 @@ class TrudySystemInvestigationPlanner(
     private fun TrudySystemMetric.toInvestigation(role: TrudyInvestigationRole = TrudyInvestigationRole.SUPPORTING) =
         TrudyInvestigationMetric(domain, metricId, role, preference)
 
-    private fun looksInvestigative(text: String) = listOf(
-        "why", "what changed", "what was different", "explain", "could anything", "seem connected", "changed this"
-    ).any { it in text }
+    private fun investigationIntent(text: String): TrudyInvestigationIntent? = when {
+        "what should i pay attention to today" in text || "what matters today" in text || "prioritise today" in text ||
+            "prioritize today" in text -> TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY
+        "why" in text -> TrudyInvestigationIntent.WHY
+        "what might explain" in text || "what could explain" in text || "explain" in text ->
+            TrudyInvestigationIntent.WHAT_MIGHT_EXPLAIN
+        "what was different" in text -> TrudyInvestigationIntent.WHAT_WAS_DIFFERENT
+        "what changed" in text || "changed this" in text -> TrudyInvestigationIntent.WHAT_CHANGED
+        "anything connected" in text || "seem connected" in text -> TrudyInvestigationIntent.IS_ANYTHING_CONNECTED
+        else -> null
+    }
 
-    private fun requiresChangeInvestigation(text: String) = listOf(
-        "why", "what changed", "what was different", "explain", "could anything", "changed this"
-    ).any { it in text }
+    private fun looksInvestigative(text: String) = investigationIntent(text) != null
+
+    private fun requiresChangeInvestigation(text: String) = looksInvestigative(text)
 
     private fun looksLikeFollowUp(text: String) = listOf("what about", "could that", "and last", "how about", "basing that on", "based on").any { it in text }
     private fun asksForEvidence(text: String) = "basing that on" in text || "based on" in text || "what data" in text
@@ -554,6 +631,7 @@ class TrudySystemInvestigationPlanner(
     }
 
     private companion object {
+        const val DAY_MS = 86_400_000L
         const val MAX_TARGETS = 8
         const val MAX_RELATED = 8
         const val METRIC_WINDOW_LIMIT = 250

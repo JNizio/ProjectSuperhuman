@@ -45,6 +45,7 @@ object TrudyStatistics {
 
     const val MAX_LAG_MS = 604_800_000L
     const val MAX_ALIGNMENT_WINDOW_MS = 604_800_000L
+    const val MAX_ROLLING_WINDOW_MS = 1_209_600_000L
 
     fun align(left: List<TrudyMetricEvidence>, right: List<TrudyMetricEvidence>, lagMs: Long = 0L, alignmentWindowMs: Long): List<AlignedPair> {
         require(lagMs in 0..MAX_LAG_MS)
@@ -68,6 +69,30 @@ object TrudyStatistics {
                 }
             }
             if (best < 0) null else { used[best] = true; AlignedPair(item, r[best]) }
+        }
+    }
+
+    /**
+     * Align each outcome with the mean exposure in one declared lookback window.
+     * The lower boundary is exclusive, which makes a three-day window contain at most
+     * the target day and two preceding daily observations.
+     */
+    fun alignRolling(
+        left: List<TrudyMetricEvidence>,
+        right: List<TrudyMetricEvidence>,
+        rollingWindowMs: Long
+    ): List<AlignedPair> {
+        require(rollingWindowMs in 1L..MAX_ROLLING_WINDOW_MS)
+        val exposures = left.asSequence().filter(::usableEvidence).sortedBy { it.timestampEpochMs }.toList()
+        val outcomes = right.asSequence().filter(::usableEvidence).sortedBy { it.timestampEpochMs }.toList()
+        return outcomes.mapNotNull { outcome ->
+            val fromExclusive = (outcome.timestampEpochMs - rollingWindowMs).coerceAtLeast(0L)
+            val window = exposures.filter {
+                it.timestampEpochMs > fromExclusive && it.timestampEpochMs <= outcome.timestampEpochMs
+            }
+            val mean = mean(window.map { it.value }) ?: return@mapNotNull null
+            val anchor = window.last().copy(value = mean, timestampEpochMs = outcome.timestampEpochMs)
+            AlignedPair(anchor, outcome)
         }
     }
 
@@ -137,9 +162,16 @@ class TrudyPersonalEvidenceLibrary(private val source: TrudyPersonalEvidenceSour
         return compareBaseline(domain, metricId, TrudyTimeRange(recentStart, now), TrudyTimeRange(baselineStart, baselineEnd))
     }
 
-    suspend fun compareBaseline(domain: HealthDomain, metricId: String, observationWindow: TrudyTimeRange, baselineWindow: TrudyTimeRange): TrudyBaselineComparison {
-        val observationRows = source.metricWindow(domain, metricId, observationWindow, MAX_WINDOW_ROWS)
-        val baselineRows = source.metricWindow(domain, metricId, baselineWindow, MAX_WINDOW_ROWS)
+    suspend fun compareBaseline(
+        domain: HealthDomain,
+        metricId: String,
+        observationWindow: TrudyTimeRange,
+        baselineWindow: TrudyTimeRange,
+        limit: Int = MAX_WINDOW_ROWS
+    ): TrudyBaselineComparison {
+        require(limit in 1..MAX_WINDOW_ROWS)
+        val observationRows = source.metricWindow(domain, metricId, observationWindow, limit)
+        val baselineRows = source.metricWindow(domain, metricId, baselineWindow, limit)
         val all = (observationRows + baselineRows).distinctBy {
             listOf(it.domain.name, it.metricId, it.timestampEpochMs.toString(), it.source, it.value.toString()).joinToString("|")
         }
@@ -159,9 +191,10 @@ class TrudyPersonalEvidenceLibrary(private val source: TrudyPersonalEvidenceSour
         return TrudyBaselineComparison(domain, metricId, observationWindow, baselineWindow, om, bm, delta, pct, standardized, obs.size, base.size, effectDirection(delta), confidence, status, caveats, evidence)
     }
 
-    suspend fun association(leftDomain: HealthDomain, leftMetricId: String, rightDomain: HealthDomain, rightMetricId: String, method: TrudyAssociationMethod = TrudyAssociationMethod.PEARSON, lagMs: Long = 0, alignmentWindowMs: Long = 21_600_000L, limit: Int = 365, window: TrudyTimeRange? = null): TrudyAssociationResult {
+    suspend fun association(leftDomain: HealthDomain, leftMetricId: String, rightDomain: HealthDomain, rightMetricId: String, method: TrudyAssociationMethod = TrudyAssociationMethod.PEARSON, lagMs: Long = 0, alignmentWindowMs: Long = 21_600_000L, limit: Int = 365, window: TrudyTimeRange? = null, rollingWindowMs: Long? = null): TrudyAssociationResult {
         require(leftMetricId.isNotBlank() && rightMetricId.isNotBlank())
         require(lagMs in 0..TrudyStatistics.MAX_LAG_MS && alignmentWindowMs in 0..TrudyStatistics.MAX_ALIGNMENT_WINDOW_MS)
+        require(rollingWindowMs == null || rollingWindowMs in 1L..TrudyStatistics.MAX_ROLLING_WINDOW_MS)
         require(limit in 1..1000)
         val rawLeft = if (window == null) source.metricHistory(leftDomain, leftMetricId, limit)
         else source.metricWindow(leftDomain, leftMetricId, window, limit)
@@ -169,7 +202,11 @@ class TrudyPersonalEvidenceLibrary(private val source: TrudyPersonalEvidenceSour
         else source.metricWindow(rightDomain, rightMetricId, window, limit)
         require(rawLeft.all { it.domain == leftDomain && it.metricId == leftMetricId }); require(rawRight.all { it.domain == rightDomain && it.metricId == rightMetricId })
         val left = rawLeft.filter(TrudyStatistics::usableEvidence); val right = rawRight.filter(TrudyStatistics::usableEvidence)
-        val pairs = TrudyStatistics.align(left, right, lagMs, alignmentWindowMs)
+        val pairs = if (rollingWindowMs == null) {
+            TrudyStatistics.align(left, right, lagMs, alignmentWindowMs)
+        } else {
+            TrudyStatistics.alignRolling(left, right, rollingWindowMs)
+        }
         val coefficient = if (pairs.size < 5) null else if (method == TrudyAssociationMethod.PEARSON) TrudyStatistics.pearson(pairs) else TrudyStatistics.spearman(pairs)
         val matched = pairs.size.toDouble() / maxOf(left.size, right.size, 1)
         val q1 = source.dataQuality(leftDomain); val q2 = if (rightDomain == leftDomain) q1 else source.dataQuality(rightDomain); val stale = q1.isStale || q2.isStale
@@ -178,8 +215,12 @@ class TrudyPersonalEvidenceLibrary(private val source: TrudyPersonalEvidenceSour
         val direction = when { coefficient == null -> TrudyEffectDirection.UNKNOWN; coefficient > .05 -> TrudyEffectDirection.INCREASE; coefficient < -.05 -> TrudyEffectDirection.DECREASE; else -> TrudyEffectDirection.NONE }
         val refs = pairs.flatMap { listOf(it.left.ref(), it.right.ref()) }.distinct().take(48)
         val window = if (pairs.isEmpty()) TrudyTimeRange(0,0) else TrudyTimeRange(pairs.minOf { minOf(it.left.timestampEpochMs,it.right.timestampEpochMs) }, pairs.maxOf { maxOf(it.left.timestampEpochMs,it.right.timestampEpochMs) })
-        val caveats = buildList { add("Association does not establish causation."); if (rawLeft.size != left.size || rawRight.size != right.size) add("Invalid non-finite or negative-timestamp observations were excluded."); if (lagMs > 0) add("Configured lag: ${lagMs}ms; no other lags were searched."); if (pairs.size < 5 || coefficient == null) add("Too few usable aligned samples or insufficient variance for an association estimate."); if (stale) add("At least one input domain is stale."); if (matched < .65) add("A limited fraction of observations could be aligned.") }
-        val evidence = PersonalEvidenceItem("association:${leftDomain.name}:$leftMetricId:${rightDomain.name}:$rightMetricId:$lagMs", listOf(leftDomain,rightDomain).distinct(), listOf(leftMetricId,rightMetricId).distinct(), if (coefficient == null) PersonalEvidenceType.INSUFFICIENT_EVIDENCE else PersonalEvidenceType.ASSOCIATION, window, effectDirection = direction, effectMagnitude = coefficient, sampleCount = pairs.size, confidence = confidence, dataQualityStatus = status, caveats = caveats, supportingEvidenceReferences = refs, attributes = mapOf("method" to method.name, "lagMs" to lagMs.toString()))
+        val caveats = buildList { add("Association does not establish causation."); if (rawLeft.size != left.size || rawRight.size != right.size) add("Invalid non-finite or negative-timestamp observations were excluded."); if (lagMs > 0) add("Configured lag: ${lagMs}ms; no other lags were searched."); if (rollingWindowMs != null) add("Configured rolling window: ${rollingWindowMs}ms; no other window was searched."); if (pairs.size < 5 || coefficient == null) add("Too few usable aligned samples or insufficient variance for an association estimate."); if (stale) add("At least one input domain is stale."); if (matched < .65) add("A limited fraction of observations could be aligned.") }
+        val evidence = PersonalEvidenceItem("association:${leftDomain.name}:$leftMetricId:${rightDomain.name}:$rightMetricId:$lagMs", listOf(leftDomain,rightDomain).distinct(), listOf(leftMetricId,rightMetricId).distinct(), if (coefficient == null) PersonalEvidenceType.INSUFFICIENT_EVIDENCE else PersonalEvidenceType.ASSOCIATION, window, effectDirection = direction, effectMagnitude = coefficient, sampleCount = pairs.size, confidence = confidence, dataQualityStatus = status, caveats = caveats, supportingEvidenceReferences = refs, attributes = buildMap {
+            put("method", method.name)
+            put("lagMs", lagMs.toString())
+            rollingWindowMs?.let { put("rollingWindowMs", it.toString()) }
+        })
         return TrudyAssociationResult(leftDomain,leftMetricId,rightDomain,rightMetricId,method,coefficient,pairs.size,matched.coerceIn(0.0,1.0),direction,confidence,status,lagMs,caveats,evidence)
     }
 
