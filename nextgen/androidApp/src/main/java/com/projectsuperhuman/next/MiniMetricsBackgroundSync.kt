@@ -44,9 +44,11 @@ internal object MiniMetricsBackgroundSync {
             5, TimeUnit.MINUTES
         ).setConstraints(constraints).build()
 
+        // The schedule is stable. KEEP avoids replacing the same periodic request on every app
+        // launch while preserving the existing 15-minute background refresh semantics.
         WorkManager.getInstance(context.applicationContext).enqueueUniquePeriodicWork(
             UNIQUE_WORK,
-            ExistingPeriodicWorkPolicy.UPDATE,
+            ExistingPeriodicWorkPolicy.KEEP,
             work
         )
     }
