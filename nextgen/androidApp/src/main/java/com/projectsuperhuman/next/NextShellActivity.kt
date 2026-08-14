@@ -95,8 +95,7 @@ private fun SuperhumanShell(
                         openClinical = { page = ShellPage.CLINICAL },
                         openBody = { page = ShellPage.BODY },
                         openSleep = { page = ShellPage.SLEEP },
-                        // Agent 4 can rename this dashboard callback to openVitals during tile integration.
-                        openBloodPressure = { page = ShellPage.VITALS },
+                        openVitals = { page = ShellPage.VITALS },
                         openHydration = { page = ShellPage.HYDRATION },
                         openNutrition = { page = ShellPage.NUTRITION },
                         openExercise = { page = ShellPage.EXERCISE },
