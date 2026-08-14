@@ -23,7 +23,7 @@ class TrudyIntelligenceToolService(
     private val experiments: TrudyExperimentEngine = TrudyExperimentEngine(),
     experimentRepository: TrudyCanonicalExperimentRepository = EmptyTrudyCanonicalExperimentRepository
 ) : TrudyToolExecutor {
-    private val investigator = TrudyCrossDomainInvestigator(library)
+    private val investigator = TrudyCrossDomainInvestigator(library, source)
     private val canonicalExperiments = TrudyCanonicalExperimentToolService(experimentRepository, source, experiments)
     override val definitions = listOf(
         TrudyToolDefinition("get_personal_trend","Compare one domain-qualified metric's recent window with its prior baseline.",listOf("domain","metricId")),
