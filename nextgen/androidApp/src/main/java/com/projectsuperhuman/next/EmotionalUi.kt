@@ -344,39 +344,7 @@ private fun EmotionalRecordButton(onClick: () -> Unit) {
 
 @Composable
 internal fun HomeEmotionalTile(current: EmotionalPresentationSnapshot?, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(25.dp)
-    val normalized = current?.normalizedValues
-
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .background(Brush.horizontalGradient(listOf(Color(0xFFFBFDFE), Color(0xFFF4F9FA), Color(0xFFF7F4FC))), shape)
-            .border(1.dp, EmotionalBorder, shape)
-            .superhumanHomeTileClickable(onClick = onClick)
-            .testTag("home_emotional_tile")
-            .padding(18.dp)
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("EMOTIONAL", color = EmotionalMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Text("→", color = Color(0xFF8CA6B5), fontSize = 23.sp)
-        }
-        Spacer(Modifier.height(5.dp))
-        Text(
-            if (normalized == null) "How are you feeling?" else emotionalHeadline(normalized),
-            color = EmotionalNavy,
-            fontSize = 21.sp,
-            fontWeight = FontWeight.Black
-        )
-        Spacer(Modifier.height(3.dp))
-        Text(
-            if (current == null) "No check-in yet · takes a few seconds"
-            else current.recordedAtLabel?.let { "Current snapshot · $it" } ?: "Current snapshot",
-            color = EmotionalMuted,
-            fontSize = 9.sp
-        )
-        Spacer(Modifier.height(13.dp))
-        EmotionalMiniTrace(normalized)
-    }
+    HomeEmotionalFaceTile(current = current, onClick = onClick)
 }
 
 @Composable
