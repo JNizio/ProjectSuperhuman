@@ -627,6 +627,8 @@ private fun TrudyEvidenceBlock(
     expanded: Boolean,
     onToggle: () -> Unit
 ) {
+    val usedEvidence = evidence.distinctBy(TrudyEvidenceItem::id)
+    val groups = usedEvidence.groupBy { it.groupLabel ?: "Other" }
     Column(Modifier.widthIn(max = 330.dp).padding(top = 6.dp)) {
         Row(
             Modifier.superhumanClickable(onClick = onToggle).padding(horizontal = 8.dp, vertical = 4.dp),
@@ -635,7 +637,7 @@ private fun TrudyEvidenceBlock(
             Box(Modifier.size(6.dp).background(TrudyCyan, CircleShape))
             Spacer(Modifier.size(6.dp))
             Text(
-                if (evidence.size == 1) "1 evidence item" else "${evidence.size} evidence items",
+                if (usedEvidence.size == 1) "1 record used" else "${usedEvidence.size} records used",
                 color = TrudyMuted,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.SemiBold
@@ -644,17 +646,30 @@ private fun TrudyEvidenceBlock(
             Text(if (expanded) "⌃" else "⌄", color = TrudyMuted, fontSize = 11.sp)
         }
         if (expanded) {
-            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                evidence.forEach { item ->
-                    Box(
-                        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(10.dp))
-                            .border(1.dp, TrudyBorder, RoundedCornerShape(10.dp))
-                            .padding(horizontal = 10.dp, vertical = 7.dp)
-                    ) {
-                        Column {
-                            Text(item.label, color = TrudyNavy, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                            item.detail?.takeIf { it.isNotBlank() }?.let {
-                                Text(it, color = TrudyMuted, fontSize = 9.sp, lineHeight = 12.sp)
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                groups.forEach { (group, records) ->
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        if (groups.size > 1 || group != "Other") {
+                            Text(
+                                group,
+                                color = TrudyMuted,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(start = 3.dp, top = 2.dp)
+                            )
+                        }
+                        records.forEach { item ->
+                            Box(
+                                Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(10.dp))
+                                    .border(1.dp, TrudyBorder, RoundedCornerShape(10.dp))
+                                    .padding(horizontal = 10.dp, vertical = 7.dp)
+                            ) {
+                                Column {
+                                    Text(item.label, color = TrudyNavy, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                    item.detail?.takeIf { it.isNotBlank() }?.let {
+                                        Text(it, color = TrudyMuted, fontSize = 9.sp, lineHeight = 12.sp)
+                                    }
+                                }
                             }
                         }
                     }
@@ -703,3 +718,4 @@ private fun TrudyComposer(
         }
     }
 }
+

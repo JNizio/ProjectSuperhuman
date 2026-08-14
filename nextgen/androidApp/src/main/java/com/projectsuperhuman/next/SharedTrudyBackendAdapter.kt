@@ -70,6 +70,11 @@ class SharedTrudyBackendAdapter(
 
     private fun SharedEvidenceReference.toBackendEvidence(): TrudyBackendEvidence {
         val domainLabel = domain.name.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+        val groupLabel = when (domain.name) {
+            "BLOOD_PRESSURE", "BODY" -> "Vitals"
+            "EXERCISE" -> "Exercise & heart rate"
+            else -> domainLabel
+        }
         val subject = metricId ?: insightId ?: evidenceKind.name.lowercase().replace('_', ' ')
         return TrudyBackendEvidence(
             id = buildString {
@@ -91,7 +96,9 @@ class SharedTrudyBackendAdapter(
                 SharedEvidenceKind.UNCERTAINTY_OR_DATA_GAP -> TrudyBackendEvidenceKind.DATA_QUALITY
                 SharedEvidenceKind.INTERPRETATION,
                 SharedEvidenceKind.EXTERNAL_SCIENTIFIC_EVIDENCE -> TrudyBackendEvidenceKind.GENERAL
-            }
+            },
+            groupLabel = groupLabel,
+            usedInAnswer = true
         )
     }
 

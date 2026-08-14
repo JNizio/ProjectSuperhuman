@@ -18,7 +18,9 @@ data class TrudyEvidenceItem(
     /** Human-readable UI label, e.g. "Sleep · sleep score" or "Derived trend". */
     val label: String,
     val detail: String? = null,
-    val kind: TrudyEvidenceKind = TrudyEvidenceKind.GENERAL
+    val kind: TrudyEvidenceKind = TrudyEvidenceKind.GENERAL,
+    /** Stable answer-evidence group such as Sleep, Vitals or Environment. */
+    val groupLabel: String? = null
 )
 
 data class TrudyNotice(
@@ -238,3 +240,4 @@ class TrudyConversationState(
         }
     }
 }
+

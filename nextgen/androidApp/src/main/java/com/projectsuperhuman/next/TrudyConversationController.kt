@@ -41,7 +41,11 @@ data class TrudyBackendEvidence(
     val id: String,
     val label: String,
     val detail: String? = null,
-    val kind: TrudyBackendEvidenceKind = TrudyBackendEvidenceKind.GENERAL
+    val kind: TrudyBackendEvidenceKind = TrudyBackendEvidenceKind.GENERAL,
+    /** Domain grouping supplied by the backend; null keeps older backends compatible. */
+    val groupLabel: String? = null,
+    /** False means retrieved but not used and therefore must never appear as answer evidence. */
+    val usedInAnswer: Boolean = true
 )
 
 enum class TrudyBackendEvidenceKind { METRIC, DERIVED, DATA_QUALITY, GENERAL }
@@ -87,7 +91,11 @@ class SharedTrudyConversationController(
         return TrudyControllerResult.Success(
             TrudyReply(
                 text = text,
-                evidence = result.evidence.map { it.toUiEvidence() },
+                evidence = result.evidence.asSequence()
+                    .filter(TrudyBackendEvidence::usedInAnswer)
+                    .distinctBy(TrudyBackendEvidence::id)
+                    .map { it.toUiEvidence() }
+                    .toList(),
                 notices = result.notices.map {
                     TrudyNotice(
                         text = it.text,
@@ -108,7 +116,8 @@ class SharedTrudyConversationController(
             TrudyBackendEvidenceKind.DERIVED -> TrudyEvidenceKind.DERIVED
             TrudyBackendEvidenceKind.DATA_QUALITY -> TrudyEvidenceKind.DATA_QUALITY
             TrudyBackendEvidenceKind.GENERAL -> TrudyEvidenceKind.GENERAL
-        }
+        },
+        groupLabel = groupLabel
     )
 }
 
@@ -154,3 +163,4 @@ class LocalTrudyConversationController : TrudyConversationController {
         return TrudyControllerResult.Success(reply)
     }
 }
+
