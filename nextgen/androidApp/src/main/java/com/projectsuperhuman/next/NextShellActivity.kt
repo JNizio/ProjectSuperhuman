@@ -71,7 +71,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, INSIGHTS, SETTINGS, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
+    HOME, INSIGHTS, EXPERIMENTS, SETTINGS, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
 }
 
 @Composable
@@ -103,6 +103,7 @@ private fun SuperhumanShell(
                         openEnvironment = { page = ShellPage.ENVIRONMENT },
                         openEmotional = { page = ShellPage.EMOTIONAL },
                         openInsights = { page = ShellPage.INSIGHTS },
+                        openExperiments = { page = ShellPage.EXPERIMENTS },
                         openMiniMetric = { metric ->
                             page = when (metric) {
                                 HomeMiniMetric.HEART_RATE -> ShellPage.HEART_RATE
@@ -120,6 +121,7 @@ private fun SuperhumanShell(
                         }
                     )
                     ShellPage.INSIGHTS -> NativeInsightsPage { page = ShellPage.HOME }
+                    ShellPage.EXPERIMENTS -> NativeExperimentsPage { page = ShellPage.HOME }
                     ShellPage.SETTINGS -> NativeSettingsWithUsage(noCompatibility)
                     ShellPage.TRUDY -> NativeTrudy(
                         state = trudyState,
