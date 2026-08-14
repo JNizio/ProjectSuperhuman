@@ -9,13 +9,18 @@ import com.projectsuperhuman.next.trudy.HybridTrudyModelClient
 import com.projectsuperhuman.next.trudy.LocalTrudyModelClient
 import com.projectsuperhuman.next.trudy.LocalTrudyModelEngine
 import com.projectsuperhuman.next.trudy.OfflineDeterministicTrudyModelClient
-import com.projectsuperhuman.next.trudy.TrudyConversationService
+import com.projectsuperhuman.next.trudy.TrudyAnswerEngineModelClient
+import com.projectsuperhuman.next.trudy.TrudyAnswerTurnRegistry
 import com.projectsuperhuman.next.trudy.TrudyCanonicalExperimentRepository
+import com.projectsuperhuman.next.trudy.TrudyConversationAwarePreflightPlanner
+import com.projectsuperhuman.next.trudy.TrudyConversationPlanningContextHolder
+import com.projectsuperhuman.next.trudy.TrudyConversationService
 import com.projectsuperhuman.next.trudy.TrudyHealthContextService
 import com.projectsuperhuman.next.trudy.TrudyHealthToolService
 import com.projectsuperhuman.next.trudy.TrudyIntelligenceToolService
 import com.projectsuperhuman.next.trudy.TrudyKnowledgeCoordinator
 import com.projectsuperhuman.next.trudy.TrudyKnowledgeSource
+import com.projectsuperhuman.next.trudy.TrudyLanguageAwarePreflightPlanner
 import com.projectsuperhuman.next.trudy.TrudyModelClient
 import com.projectsuperhuman.next.trudy.TrudyModelRuntimeMode
 import com.projectsuperhuman.next.trudy.TrudyOrchestrator
@@ -23,6 +28,8 @@ import com.projectsuperhuman.next.trudy.TrudyPersonalEvidenceLibrary
 import com.projectsuperhuman.next.trudy.TrudySystemInvestigationPlanner
 import com.projectsuperhuman.next.trudy.TrudyTemporalBoundaryProvider
 import com.projectsuperhuman.next.trudy.TrudyTemporalResolver
+import com.projectsuperhuman.next.trudy.defaultTrudyKnowledgeSources
+import com.projectsuperhuman.next.trudy.conversation.TrudyConversationEvidenceCoordinator
 import com.projectsuperhuman.next.trudy.medical.CuratedMedicalManagementRepository
 import com.projectsuperhuman.next.trudy.medical.EmptyMedicalConditionCandidateProvider
 import com.projectsuperhuman.next.trudy.medical.MedicalContextAwareTrudyModelClient
@@ -79,7 +86,7 @@ internal object TrudyRuntimeFactory {
         },
         appContext: Context? = null,
         experimentRepository: TrudyCanonicalExperimentRepository = EmptyTrudyCanonicalExperimentRepository,
-        knowledgeSources: List<TrudyKnowledgeSource> = emptyList(),
+        knowledgeSources: List<TrudyKnowledgeSource> = defaultTrudyKnowledgeSources(),
         temporalBoundaries: TrudyTemporalBoundaryProvider = AndroidTrudyTemporalBoundaryProvider()
     ): TrudyRuntime {
         val effectiveHostedTransport = hostedTransport ?: when {
@@ -110,10 +117,16 @@ internal object TrudyRuntimeFactory {
                 intelligenceExecutor = intelligenceTools
             )
 
-            // Domain decorators remain provider-neutral. Medical reasoning is the outer context layer
-            // so it can request bounded Data Vault evidence and then hand the enriched request to the
-            // existing Emotional/Environmental/model pipeline without replacing any of it.
-            val domainReasoningClient = selection.client.withEmotionalReasoning().withEnvironmentalReasoning()
+            val answerTurnRegistry = TrudyAnswerTurnRegistry()
+            val planningContextHolder = TrudyConversationPlanningContextHolder()
+
+            // Ordering is intentional: the Answer Engine is innermost, so Emotional, Environmental
+            // and Medical decorators enrich the request before final synthesis/safety filtering.
+            val answerClient = TrudyAnswerEngineModelClient(
+                delegate = selection.client,
+                registry = answerTurnRegistry
+            )
+            val domainReasoningClient = answerClient.withEmotionalReasoning().withEnvironmentalReasoning()
             val candidateProvider = appContext?.let { AndroidMedicalCorpusCandidateProvider(it) }
                 ?: EmptyMedicalConditionCandidateProvider
             val medicalPlanner = TrudyMedicalContextPlanner(
@@ -124,13 +137,22 @@ internal object TrudyRuntimeFactory {
                 delegate = domainReasoningClient,
                 planner = medicalPlanner
             )
+
+            val investigationPlanner = TrudySystemInvestigationPlanner(TrudyTemporalResolver(temporalBoundaries))
+            val languagePlanner = TrudyLanguageAwarePreflightPlanner(investigationPlanner)
+            val conversationPlanner = TrudyConversationAwarePreflightPlanner(languagePlanner, planningContextHolder)
             val orchestrator = TrudyOrchestrator(
                 modelClient = reasoningClient,
                 tools = tools,
-                preflightPlanner = TrudySystemInvestigationPlanner(TrudyTemporalResolver(temporalBoundaries)),
+                preflightPlanner = conversationPlanner,
                 knowledgeCoordinator = TrudyKnowledgeCoordinator(knowledgeSources)
             )
-            val service = TrudyConversationService(orchestrator)
+            val service = TrudyConversationService(
+                orchestrator = orchestrator,
+                conversationEvidence = TrudyConversationEvidenceCoordinator(temporalBoundaries),
+                planningContextHolder = planningContextHolder,
+                answerTurnRegistry = answerTurnRegistry
+            )
             val backend = SharedTrudyBackendAdapter(
                 service = service,
                 runtimeInfo = TrudyBackendRuntimeInfo(
@@ -244,5 +266,5 @@ internal object TrudyRuntimeFactory {
         )
     )
 
-    private const val DETERMINISTIC_MODEL_ID = "trudy-deterministic-v2-intelligence"
+    private const val DETERMINISTIC_MODEL_ID = "trudy-deterministic-v3-quality"
 }
