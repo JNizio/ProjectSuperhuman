@@ -1,0 +1,3188 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_version": "1.0.0",
+  "generated_from": "conditions.v1.json",
+  "disclaimer": "Reference information only. Symptom links are not diagnoses or estimates of probability. Seek qualified clinical assessment for personal medical concerns.",
+  "symptoms": [
+    {
+      "symptom_id": "abdominal_pain",
+      "display_name": "Abdominal pain",
+      "aliases": [
+        "stomach ache",
+        "tummy pain",
+        "belly pain"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "coeliac_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "crohn_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "food_allergy",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "irritable_bowel_syndrome",
+          "frequency": "common",
+          "context": "Often related to bowel movements"
+        },
+        {
+          "condition_id": "ulcerative_colitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "anaphylaxis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "testicular_torsion",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "type_1_diabetes_mellitus",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "abnormal_vaginal_discharge",
+      "display_name": "Unusual vaginal discharge",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "pelvic_inflammatory_disease",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "acid_regurgitation",
+      "display_name": "Sour or acidic fluid reaching the throat or mouth",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "gastroesophageal_reflux_disease",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "angioedema",
+      "display_name": "Deeper swelling of lips, eyelids or hands",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "anaphylaxis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "urticaria",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "ankle_swelling",
+      "display_name": "Ankle or leg swelling",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "heart_failure",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "chronic_kidney_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "anxiety",
+      "display_name": "Anxiety or irritability",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "hyperthyroidism",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "appetite_change",
+      "display_name": "Appetite or weight change",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "major_depressive_disorder",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "asymptomatic",
+      "display_name": "No symptoms",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "chronic_kidney_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "hypertension",
+          "frequency": "common",
+          "context": "Most people are asymptomatic"
+        },
+        {
+          "condition_id": "type_2_diabetes_mellitus",
+          "frequency": "common",
+          "context": "Common at diagnosis"
+        },
+        {
+          "condition_id": "vitamin_d_deficiency",
+          "frequency": "common",
+          "context": "Common in mild biochemical deficiency"
+        },
+        {
+          "condition_id": "atrial_fibrillation",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "coronary_artery_disease",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "back_pain",
+      "display_name": "Low back pain",
+      "aliases": [
+        "backache",
+        "lower back pain"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "non_specific_low_back_pain",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "lumbar_radiculopathy",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "back_stiffness",
+      "display_name": "Back stiffness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "non_specific_low_back_pain",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "balance_problems",
+      "display_name": "Balance difficulty",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "vitamin_b12_deficiency",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "bleeding_between_periods",
+      "display_name": "Bleeding between periods or after sex",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "pelvic_inflammatory_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "blistering_rash",
+      "display_name": "Grouped blistering rash",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "herpes_zoster",
+          "frequency": "common",
+          "context": "Usually in a unilateral band"
+        }
+      ]
+    },
+    {
+      "symptom_id": "blisters",
+      "display_name": "Blisters",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "contact_dermatitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "cellulitis",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "bloating",
+      "display_name": "Bloating",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "coeliac_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "irritable_bowel_syndrome",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "blood_in_stool",
+      "display_name": "Blood or mucus in stool",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "crohn_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "blood_in_urine",
+      "display_name": "Blood in urine",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "nephrolithiasis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "lower_urinary_tract_infection",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "bloody_diarrhea",
+      "display_name": "Bloody diarrhoea",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "ulcerative_colitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "blurred_vision",
+      "display_name": "Blurred vision",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_angle_closure_glaucoma",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "age_related_cataract",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "hypertension",
+          "frequency": "possible",
+          "context": "Rare"
+        },
+        {
+          "condition_id": "type_1_diabetes_mellitus",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "type_2_diabetes_mellitus",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "bone_pain",
+      "display_name": "Diffuse bone pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "vitamin_d_deficiency",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "brain_fog",
+      "display_name": "Concentration or memory difficulty",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "menopause_transition",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "breathing_difficulty",
+      "display_name": "Breathing difficulty or wheeze",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "anaphylaxis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "brittle_nails",
+      "display_name": "Brittle or spoon-shaped nails",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "iron_deficiency_anemia",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "burning_eyes",
+      "display_name": "Burning eye discomfort",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "dry_eye_disease",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "buttock_pain",
+      "display_name": "Pain into the buttocks",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "non_specific_low_back_pain",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "chest_pain",
+      "display_name": "Chest pain",
+      "aliases": [
+        "chest discomfort"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "community_acquired_pneumonia",
+          "frequency": "common",
+          "context": "Often sharp and worse on breathing or coughing"
+        },
+        {
+          "condition_id": "costochondritis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "panic_disorder",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "pulmonary_embolism",
+          "frequency": "common",
+          "context": "Often worse with breathing"
+        },
+        {
+          "condition_id": "atrial_fibrillation",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "hypertension",
+          "frequency": "possible",
+          "context": "Requires separate assessment"
+        }
+      ]
+    },
+    {
+      "symptom_id": "chest_pressure",
+      "display_name": "Chest pressure or tightness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "coronary_artery_disease",
+          "frequency": "common",
+          "context": "Often provoked by exertion in stable angina"
+        }
+      ]
+    },
+    {
+      "symptom_id": "chest_tightness",
+      "display_name": "Chest tightness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "asthma",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "chest_wall_tenderness",
+      "display_name": "Pain reproducible by pressing the chest wall",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "costochondritis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "cloudy_urine",
+      "display_name": "Cloudy urine",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "lower_urinary_tract_infection",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "cognitive_changes",
+      "display_name": "Memory or cognitive change",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "vitamin_b12_deficiency",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "cognitive_difficulty",
+      "display_name": "Cognitive difficulty or fibro-fog",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "fibromyalgia",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "cold_intolerance",
+      "display_name": "Feeling unusually cold",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "hypothyroidism",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "confusion",
+      "display_name": "Confusion",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "community_acquired_pneumonia",
+          "frequency": "possible",
+          "context": "More common in older adults"
+        }
+      ]
+    },
+    {
+      "symptom_id": "constipation",
+      "display_name": "Constipation",
+      "aliases": [
+        "difficulty passing stool"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "hypothyroidism",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "irritable_bowel_syndrome",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "cough",
+      "display_name": "Cough",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "asthma",
+          "frequency": "common",
+          "context": "Often worse at night or early morning"
+        },
+        {
+          "condition_id": "chronic_obstructive_pulmonary_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "community_acquired_pneumonia",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "covid_19",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "influenza",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "allergic_rhinitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "gastroesophageal_reflux_disease",
+          "frequency": "possible",
+          "context": "May be worse at night"
+        },
+        {
+          "condition_id": "heart_failure",
+          "frequency": "possible",
+          "context": "Sometimes worse at night"
+        }
+      ]
+    },
+    {
+      "symptom_id": "coughing_blood",
+      "display_name": "Coughing blood",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "pulmonary_embolism",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "cracked_skin",
+      "display_name": "Cracked or bleeding skin",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "atopic_dermatitis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "depressive_episode",
+      "display_name": "Depressive episodes",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "bipolar_disorder",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "derealization",
+      "display_name": "Feeling unreal or detached",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "panic_disorder",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "diarrhea",
+      "display_name": "Diarrhoea",
+      "aliases": [
+        "diarrhoea",
+        "loose stools"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "coeliac_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "crohn_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "irritable_bowel_syndrome",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "covid_19",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "hyperthyroidism",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "influenza",
+          "frequency": "possible",
+          "context": "More common in children"
+        }
+      ]
+    },
+    {
+      "symptom_id": "difficulty_concentrating",
+      "display_name": "Difficulty concentrating",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "generalized_anxiety_disorder",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "major_depressive_disorder",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "difficulty_swallowing",
+      "display_name": "Difficulty swallowing",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "gastroesophageal_reflux_disease",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "difficulty_urinating",
+      "display_name": "Difficulty starting or maintaining urine flow",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "prostatitis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "distress",
+      "display_name": "Distress or concentration difficulty",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "tinnitus",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "dizziness",
+      "display_name": "Dizziness",
+      "aliases": [
+        "lightheadedness"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "anaphylaxis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "panic_disorder",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "atrial_fibrillation",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "food_allergy",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "generalized_anxiety_disorder",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "acute_otitis_media",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "double_vision_one_eye",
+      "display_name": "Double vision in one eye",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "age_related_cataract",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "dry_eyes",
+      "display_name": "Dry eyes",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "dry_eye_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "rheumatoid_arthritis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "dry_skin",
+      "display_name": "Dry skin",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "atopic_dermatitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "contact_dermatitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "hypothyroidism",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "ear_discharge",
+      "display_name": "Ear discharge after eardrum perforation",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_otitis_media",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "ear_pain",
+      "display_name": "Ear pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_otitis_media",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "elevated_or_irritable_mood",
+      "display_name": "Distinct elevated or markedly irritable mood during mania/hypomania",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "bipolar_disorder",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "excessive_worry",
+      "display_name": "Excessive difficult-to-control worry",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "generalized_anxiety_disorder",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "exercise_induced_breathlessness",
+      "display_name": "Symptoms triggered by exercise",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "asthma",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "eye_discharge",
+      "display_name": "Watery or sticky eye discharge",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "conjunctivitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "eye_fatigue",
+      "display_name": "Eye fatigue",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "dry_eye_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "eye_symptoms",
+      "display_name": "Eye prominence or irritation in Graves disease",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "hyperthyroidism",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "eyelids_stuck",
+      "display_name": "Eyelids stuck on waking",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "conjunctivitis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "facial_pain",
+      "display_name": "Facial pain or pressure",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_sinusitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "facial_weakness",
+      "display_name": "Sudden facial weakness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "stroke_or_transient_ischemic_attack",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "herpes_zoster",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "faded_colors",
+      "display_name": "Colours appear faded",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "age_related_cataract",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "fatigue",
+      "display_name": "Fatigue",
+      "aliases": [
+        "tiredness",
+        "low energy"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "atrial_fibrillation",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "coeliac_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "covid_19",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "crohn_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "fibromyalgia",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "folate_deficiency",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "heart_failure",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "hypothyroidism",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "infectious_mononucleosis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "influenza",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "iron_deficiency_anemia",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "major_depressive_disorder",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "rheumatoid_arthritis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "type_1_diabetes_mellitus",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "type_2_diabetes_mellitus",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "vitamin_b12_deficiency",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "allergic_rhinitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "chronic_kidney_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "community_acquired_pneumonia",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "irritable_bowel_syndrome",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "ulcerative_colitis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "fear_of_dying",
+      "display_name": "Fear of dying",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "panic_disorder",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "fecal_urgency",
+      "display_name": "Urgent need to pass stool",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "ulcerative_colitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "fever",
+      "display_name": "Fever",
+      "aliases": [
+        "high temperature"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "community_acquired_pneumonia",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "covid_19",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "infectious_mononucleosis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "influenza",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "acute_otitis_media",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "acute_sinusitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "acute_tonsillitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "cellulitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "crohn_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "herpes_zoster",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "pelvic_inflammatory_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "prostatitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "rheumatoid_arthritis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "ulcerative_colitis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "fixed_pupil",
+      "display_name": "Mid-dilated poorly reactive pupil",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_angle_closure_glaucoma",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "flank_pain",
+      "display_name": "Severe flank pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "nephrolithiasis",
+          "frequency": "common",
+          "context": "Often waves and may radiate to groin"
+        }
+      ]
+    },
+    {
+      "symptom_id": "fluctuating_vision",
+      "display_name": "Fluctuating blur",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "dry_eye_disease",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "fracture",
+      "display_name": "Fragility fracture in severe bone disease",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "vitamin_d_deficiency",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "frequent_chest_infections",
+      "display_name": "Frequent chest infections",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "chronic_obstructive_pulmonary_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "frequent_glasses_change",
+      "display_name": "Frequent prescription change",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "age_related_cataract",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "frequent_urination",
+      "display_name": "Frequent urination",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "lower_urinary_tract_infection",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "type_1_diabetes_mellitus",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "type_2_diabetes_mellitus",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "glare",
+      "display_name": "Glare or halos around lights",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "age_related_cataract",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "gritty_eye",
+      "display_name": "Gritty or irritated feeling",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "conjunctivitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "guilt",
+      "display_name": "Excessive guilt or worthlessness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "major_depressive_disorder",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "headache",
+      "display_name": "Headache",
+      "aliases": [
+        "head pain"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "acute_angle_closure_glaucoma",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "influenza",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "migraine",
+          "frequency": "common",
+          "context": "Often pulsating and one-sided, but not always"
+        },
+        {
+          "condition_id": "tension_type_headache",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "acute_sinusitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "covid_19",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "fibromyalgia",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "hypertension",
+          "frequency": "possible",
+          "context": "Rare and nonspecific"
+        },
+        {
+          "condition_id": "iron_deficiency_anemia",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "stroke_or_transient_ischemic_attack",
+          "frequency": "possible",
+          "context": "More associated with haemorrhage"
+        }
+      ]
+    },
+    {
+      "symptom_id": "hearing_loss",
+      "display_name": "Hearing difficulty",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "tinnitus",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "heartburn",
+      "display_name": "Burning discomfort behind the breastbone",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "gastroesophageal_reflux_disease",
+          "frequency": "common",
+          "context": "Often after meals, bending or lying down"
+        }
+      ]
+    },
+    {
+      "symptom_id": "heat_intolerance",
+      "display_name": "Heat intolerance and sweating",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "hyperthyroidism",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "heavy_periods",
+      "display_name": "Heavy or irregular periods",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "hypothyroidism",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "high_riding_testis",
+      "display_name": "High or abnormally positioned testis",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "testicular_torsion",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "hives",
+      "display_name": "Raised itchy wheals",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "food_allergy",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "urticaria",
+          "frequency": "common",
+          "context": "Individual lesions usually fade within 24 hours"
+        },
+        {
+          "condition_id": "anaphylaxis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "hoarseness",
+      "display_name": "Hoarse voice",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "gastroesophageal_reflux_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "hot_flushes",
+      "display_name": "Hot flushes or night sweats",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "menopause_transition",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "ibs_symptoms",
+      "display_name": "IBS-type symptoms",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "fibromyalgia",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "imbalance",
+      "display_name": "Imbalance between attacks",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "benign_paroxysmal_positional_vertigo",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "stroke_or_transient_ischemic_attack",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "impulsive_behavior",
+      "display_name": "Risky or impulsive behaviour",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "bipolar_disorder",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "increased_energy",
+      "display_name": "Increased activity or energy",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "bipolar_disorder",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "increased_thirst",
+      "display_name": "Increased thirst",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "type_1_diabetes_mellitus",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "type_2_diabetes_mellitus",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "infertility",
+      "display_name": "Difficulty becoming pregnant",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "endometriosis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "involuntary_movements",
+      "display_name": "Involuntary jerking or stiffening",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "epilepsy",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "iron_deficiency",
+      "display_name": "Iron deficiency",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "coeliac_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "irregular_periods",
+      "display_name": "Changing or irregular periods",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "menopause_transition",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "irritability",
+      "display_name": "Irritability in young children",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_otitis_media",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "itchy_blistering_rash",
+      "display_name": "Itchy blistering rash",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "coeliac_disease",
+          "frequency": "uncommon",
+          "context": "Dermatitis herpetiformis"
+        }
+      ]
+    },
+    {
+      "symptom_id": "itchy_eyes",
+      "display_name": "Itchy or watery eyes",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "allergic_rhinitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "conjunctivitis",
+          "frequency": "possible",
+          "context": "Prominent in allergic conjunctivitis"
+        }
+      ]
+    },
+    {
+      "symptom_id": "itchy_skin",
+      "display_name": "Itch",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "atopic_dermatitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "contact_dermatitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "psoriasis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "urticaria",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "chronic_kidney_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "herpes_zoster",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "jaundice",
+      "display_name": "Jaundice",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "infectious_mononucleosis",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "joint_crepitus",
+      "display_name": "Grating or creaking sensation",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "osteoarthritis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "joint_pain",
+      "display_name": "Joint pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "osteoarthritis",
+          "frequency": "common",
+          "context": "Often worse with use"
+        },
+        {
+          "condition_id": "rheumatoid_arthritis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "menopause_transition",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "psoriasis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "joint_stiffness",
+      "display_name": "Brief stiffness after rest",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "osteoarthritis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "joint_swelling",
+      "display_name": "Joint swelling",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "rheumatoid_arthritis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "osteoarthritis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "leg_pain",
+      "display_name": "Radiating leg pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "lumbar_radiculopathy",
+          "frequency": "common",
+          "context": "Often below the knee in a nerve-root distribution"
+        }
+      ]
+    },
+    {
+      "symptom_id": "leg_swelling",
+      "display_name": "One-sided leg swelling or pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "pulmonary_embolism",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "light_sensitivity",
+      "display_name": "Sensitivity to light",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "migraine",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "dry_eye_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "tension_type_headache",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "limb_weakness",
+      "display_name": "Sudden arm or leg weakness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "stroke_or_transient_ischemic_attack",
+          "frequency": "common",
+          "context": "Often one-sided"
+        }
+      ]
+    },
+    {
+      "symptom_id": "lip_swelling",
+      "display_name": "Lip, face or eye swelling",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "food_allergy",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "loss_of_awareness",
+      "display_name": "Brief loss or alteration of awareness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "epilepsy",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "loss_of_interest",
+      "display_name": "Loss of interest or pleasure",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "major_depressive_disorder",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "loss_of_smell",
+      "display_name": "New loss or change of smell or taste",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "covid_19",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "low_mood",
+      "display_name": "Low mood",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "major_depressive_disorder",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "hypothyroidism",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "lower_abdominal_pain",
+      "display_name": "Lower abdominal discomfort",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "lower_urinary_tract_infection",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "mood_changes",
+      "display_name": "Mood changes",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "menopause_transition",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "morning_stiffness",
+      "display_name": "Prolonged morning stiffness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "rheumatoid_arthritis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "mouth_ulcers",
+      "display_name": "Mouth ulcers",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "coeliac_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "crohn_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "folate_deficiency",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "movement_related_pain",
+      "display_name": "Pain influenced by movement or position",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "costochondritis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "non_specific_low_back_pain",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "mucus_in_stool",
+      "display_name": "Mucus in stool",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "irritable_bowel_syndrome",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "muscle_aches",
+      "display_name": "Muscle aches",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "influenza",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "covid_19",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "hypothyroidism",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "vitamin_d_deficiency",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "muscle_tension",
+      "display_name": "Muscle tension",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "generalized_anxiety_disorder",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "muscle_weakness",
+      "display_name": "Muscle weakness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "hyperthyroidism",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "lumbar_radiculopathy",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "vitamin_d_deficiency",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "nail_changes",
+      "display_name": "Nail pitting or separation",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "psoriasis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "nasal_congestion",
+      "display_name": "Blocked nose",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_sinusitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "allergic_rhinitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "nasal_discharge",
+      "display_name": "Nasal discharge",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_sinusitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "nausea",
+      "display_name": "Nausea",
+      "aliases": [
+        "feeling sick"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "acute_angle_closure_glaucoma",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "benign_paroxysmal_positional_vertigo",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "migraine",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "nephrolithiasis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "chronic_kidney_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "coronary_artery_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "generalized_anxiety_disorder",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "irritable_bowel_syndrome",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "testicular_torsion",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "tension_type_headache",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "neuropathic_pain",
+      "display_name": "Burning, tingling or pain on one side",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "herpes_zoster",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "numbness",
+      "display_name": "Numbness",
+      "aliases": [
+        "loss of sensation"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "lumbar_radiculopathy",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "vitamin_b12_deficiency",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "pain_during_sex",
+      "display_name": "Deep pain during or after sex",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "endometriosis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "pelvic_inflammatory_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "pain_radiation",
+      "display_name": "Discomfort radiating to arm, jaw, back or upper abdomen",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "coronary_artery_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "costochondritis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "painful_bowel_movements",
+      "display_name": "Pain with bowel movements during periods",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "endometriosis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "painful_ejaculation",
+      "display_name": "Painful ejaculation",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "prostatitis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "painful_periods",
+      "display_name": "Severely painful periods",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "endometriosis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "painful_swallowing",
+      "display_name": "Painful swallowing",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_tonsillitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "painful_urination",
+      "display_name": "Painful urination",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "lower_urinary_tract_infection",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "prostatitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "endometriosis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "nephrolithiasis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "pelvic_inflammatory_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "pale_skin",
+      "display_name": "Pallor",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "folate_deficiency",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "iron_deficiency_anemia",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "vitamin_b12_deficiency",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "palpitations",
+      "display_name": "Palpitations",
+      "aliases": [
+        "heart racing",
+        "pounding heartbeat"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "atrial_fibrillation",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "hyperthyroidism",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "iron_deficiency_anemia",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "panic_disorder",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "generalized_anxiety_disorder",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "menopause_transition",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "panic_attack",
+      "display_name": "Abrupt surge of intense fear or discomfort",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "panic_disorder",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "pelvic_pain",
+      "display_name": "Pelvic, perineal or genital pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "endometriosis",
+          "frequency": "common",
+          "context": "Often cyclical or period-related"
+        },
+        {
+          "condition_id": "pelvic_inflammatory_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "prostatitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "perianal_drainage",
+      "display_name": "Perianal pain or drainage",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "crohn_disease",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "pica",
+      "display_name": "Craving non-food substances",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "iron_deficiency_anemia",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "postictal_confusion",
+      "display_name": "Confusion after a seizure",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "epilepsy",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "postnasal_drip",
+      "display_name": "Postnasal drip",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "allergic_rhinitis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "psychomotor_change",
+      "display_name": "Slowing or agitation",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "major_depressive_disorder",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "psychotic_symptoms",
+      "display_name": "Mood-congruent psychotic symptoms in severe depression",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "bipolar_disorder",
+          "frequency": "uncommon"
+        },
+        {
+          "condition_id": "major_depressive_disorder",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "pulsatile_tinnitus",
+      "display_name": "Sound synchronous with heartbeat",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "tinnitus",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "racing_thoughts",
+      "display_name": "Racing thoughts",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "bipolar_disorder",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "rapid_speech",
+      "display_name": "Increased talkativeness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "bipolar_disorder",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "rapid_weight_gain",
+      "display_name": "Rapid weight gain from fluid",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "heart_failure",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "rash",
+      "display_name": "Inflamed rash",
+      "aliases": [
+        "skin rash"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "atopic_dermatitis",
+          "frequency": "common",
+          "context": "Distribution varies with age"
+        },
+        {
+          "condition_id": "contact_dermatitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "infectious_mononucleosis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "recurrent_infections",
+      "display_name": "Recurrent infections",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "type_1_diabetes_mellitus",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "type_2_diabetes_mellitus",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "red_eye",
+      "display_name": "Red or pink eye",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_angle_closure_glaucoma",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "conjunctivitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "red_skin",
+      "display_name": "Red or discoloured skin",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "cellulitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "reduced_exercise_tolerance",
+      "display_name": "Reduced exercise tolerance",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "heart_failure",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "reduced_hearing",
+      "display_name": "Temporary reduced hearing",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_otitis_media",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "reduced_joint_mobility",
+      "display_name": "Reduced joint movement",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "osteoarthritis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "reduced_need_for_sleep",
+      "display_name": "Reduced need for sleep",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "bipolar_disorder",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "reduced_night_vision",
+      "display_name": "Difficulty seeing at night",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "age_related_cataract",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "reduced_smell",
+      "display_name": "Reduced sense of smell",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_sinusitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "restless_legs",
+      "display_name": "Restless legs",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "iron_deficiency_anemia",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "restlessness",
+      "display_name": "Restlessness or feeling on edge",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "generalized_anxiety_disorder",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "runny_nose",
+      "display_name": "Runny or blocked nose",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "allergic_rhinitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "covid_19",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "influenza",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "scalp_tenderness",
+      "display_name": "Scalp, neck or shoulder tenderness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "tension_type_headache",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "scaly_rash",
+      "display_name": "Well-demarcated scaly plaques",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "psoriasis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "scrotal_swelling",
+      "display_name": "Scrotal swelling",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "testicular_torsion",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "seizure",
+      "display_name": "Recurrent unprovoked seizures",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "epilepsy",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "sensory_aura",
+      "display_name": "Transient sensory aura",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "migraine",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "sensory_sensitivity",
+      "display_name": "Sensitivity to touch, sound or light",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "fibromyalgia",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "severe_eye_pain",
+      "display_name": "Severe eye pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_angle_closure_glaucoma",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "shortness_of_breath",
+      "display_name": "Shortness of breath",
+      "aliases": [
+        "breathlessness",
+        "difficulty breathing",
+        "dyspnea"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "asthma",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "atrial_fibrillation",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "chronic_obstructive_pulmonary_disease",
+          "frequency": "common",
+          "context": "Initially with activity"
+        },
+        {
+          "condition_id": "community_acquired_pneumonia",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "coronary_artery_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "heart_failure",
+          "frequency": "common",
+          "context": "On exertion or when lying flat"
+        },
+        {
+          "condition_id": "iron_deficiency_anemia",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "panic_disorder",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "pulmonary_embolism",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "chronic_kidney_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "covid_19",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "folate_deficiency",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "skin_burning",
+      "display_name": "Burning or stinging",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "contact_dermatitis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "skin_pain",
+      "display_name": "Pain or tenderness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "cellulitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "urticaria",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "skin_swelling",
+      "display_name": "Swelling",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "cellulitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "skin_warmth",
+      "display_name": "Warm skin",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "cellulitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "sleep_disturbance",
+      "display_name": "Sleep disturbance",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "generalized_anxiety_disorder",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "major_depressive_disorder",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "menopause_transition",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "atopic_dermatitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "tinnitus",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "slow_heart_rate",
+      "display_name": "Slow heart rate",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "hypothyroidism",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "slow_wound_healing",
+      "display_name": "Slow wound healing",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "type_2_diabetes_mellitus",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "sneezing",
+      "display_name": "Sneezing",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "allergic_rhinitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "sore_throat",
+      "display_name": "Sore throat",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_tonsillitis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "covid_19",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "infectious_mononucleosis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "influenza",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "sore_tongue",
+      "display_name": "Sore red tongue",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "folate_deficiency",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "vitamin_b12_deficiency",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "sound_sensitivity",
+      "display_name": "Sensitivity to sound",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "migraine",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "speech_aura",
+      "display_name": "Transient speech disturbance as aura",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "migraine",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "speech_difficulty",
+      "display_name": "Sudden speech or language difficulty",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "stroke_or_transient_ischemic_attack",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "splenomegaly",
+      "display_name": "Enlarged spleen",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "infectious_mononucleosis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "sputum",
+      "display_name": "Regular sputum production",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "chronic_obstructive_pulmonary_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "community_acquired_pneumonia",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "sweating",
+      "display_name": "Sweating",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "coronary_artery_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "swollen_lymph_nodes",
+      "display_name": "Swollen lymph nodes",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "infectious_mononucleosis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "acute_tonsillitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "cellulitis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "swollen_tonsils",
+      "display_name": "Red swollen tonsils",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_tonsillitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "syncope",
+      "display_name": "Fainting",
+      "aliases": [
+        "fainting",
+        "blackout"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "pulmonary_embolism",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "atrial_fibrillation",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "tachycardia",
+      "display_name": "Fast heart rate",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "pulmonary_embolism",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "testicular_pain",
+      "display_name": "Sudden severe one-sided testicular pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "testicular_torsion",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "throat_tightness",
+      "display_name": "Throat tightness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "anaphylaxis",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "food_allergy",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "tingling",
+      "display_name": "Tingling",
+      "aliases": [
+        "pins and needles",
+        "paresthesia"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "lumbar_radiculopathy",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "panic_disorder",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "tinnitus_sound",
+      "display_name": "Ringing, buzzing, humming or other phantom sound",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "tinnitus",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "tonsillar_exudate",
+      "display_name": "Coating on enlarged tonsils",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_tonsillitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "infectious_mononucleosis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "tooth_pain",
+      "display_name": "Upper tooth pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "acute_sinusitis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "tremor",
+      "display_name": "Fine tremor",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "hyperthyroidism",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "unrefreshing_sleep",
+      "display_name": "Unrefreshing sleep",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "fibromyalgia",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "unusual_sensations",
+      "display_name": "Recurrent stereotyped sensory experiences",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "epilepsy",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "upper_abdominal_pain",
+      "display_name": "Upper abdominal discomfort",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "gastroesophageal_reflux_disease",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "urinary_frequency",
+      "display_name": "Urinary frequency",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "prostatitis",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "urinary_urgency",
+      "display_name": "Urgent need to urinate",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "lower_urinary_tract_infection",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "nephrolithiasis",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "vaginal_dryness",
+      "display_name": "Vaginal dryness",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "menopause_transition",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "vertigo",
+      "display_name": "Brief spinning sensation",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "benign_paroxysmal_positional_vertigo",
+          "frequency": "common",
+          "context": "Triggered by rolling in bed, looking up or other head movement"
+        }
+      ]
+    },
+    {
+      "symptom_id": "vision_loss",
+      "display_name": "Sudden vision loss or double vision",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "stroke_or_transient_ischemic_attack",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "visual_aura",
+      "display_name": "Visual aura",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "migraine",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "visual_changes",
+      "display_name": "Visual disturbance from optic neuropathy",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "vitamin_b12_deficiency",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "vomiting",
+      "display_name": "Vomiting",
+      "aliases": [
+        "being sick"
+      ],
+      "condition_links": [
+        {
+          "condition_id": "food_allergy",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "anaphylaxis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "influenza",
+          "frequency": "possible",
+          "context": "More common in children"
+        },
+        {
+          "condition_id": "migraine",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "benign_paroxysmal_positional_vertigo",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "watery_eyes",
+      "display_name": "Reflex watering",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "dry_eye_disease",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "weight_gain",
+      "display_name": "Weight gain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "hypothyroidism",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "weight_loss",
+      "display_name": "Unintentional weight loss",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "crohn_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "hyperthyroidism",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "type_1_diabetes_mellitus",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "chronic_obstructive_pulmonary_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "coeliac_disease",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "rheumatoid_arthritis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "ulcerative_colitis",
+          "frequency": "possible"
+        },
+        {
+          "condition_id": "type_2_diabetes_mellitus",
+          "frequency": "uncommon"
+        }
+      ]
+    },
+    {
+      "symptom_id": "wheezing",
+      "display_name": "Wheezing",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "asthma",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "chronic_obstructive_pulmonary_disease",
+          "frequency": "common"
+        },
+        {
+          "condition_id": "food_allergy",
+          "frequency": "possible"
+        }
+      ]
+    },
+    {
+      "symptom_id": "widespread_pain",
+      "display_name": "Widespread pain",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "fibromyalgia",
+          "frequency": "common"
+        }
+      ]
+    },
+    {
+      "symptom_id": "widespread_red_skin",
+      "display_name": "Widespread red skin",
+      "aliases": [],
+      "condition_links": [
+        {
+          "condition_id": "psoriasis",
+          "frequency": "uncommon"
+        }
+      ]
+    }
+  ]
+}

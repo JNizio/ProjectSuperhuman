@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectsuperhuman.local/schemas/medical-condition-v1.json",
+  "title": "Project Superhuman medical condition corpus v1",
+  "type": "object",
+  "required": ["schema_version", "corpus_version", "reviewed_on", "disclaimer", "sources", "conditions"],
+  "properties": {
+    "schema_version": { "const": "1.0.0" },
+    "corpus_version": { "type": "string", "minLength": 1 },
+    "reviewed_on": { "type": "string", "format": "date" },
+    "disclaimer": { "type": "string", "minLength": 20 },
+    "sources": {
+      "type": "array", "minItems": 1,
+      "items": { "$ref": "#/$defs/source" }
+    },
+    "conditions": {
+      "type": "array", "minItems": 1,
+      "items": { "$ref": "#/$defs/condition" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "nonEmptyString": { "type": "string", "minLength": 1 },
+    "stringList": { "type": "array", "items": { "$ref": "#/$defs/nonEmptyString" }, "uniqueItems": true },
+    "condition": {
+      "type": "object",
+      "required": ["id", "display_name", "aliases", "body_systems", "categories", "description", "features", "typical_onset_and_course", "risk_factors", "common_associations", "differentiating_features", "red_flags", "common_investigations", "diagnostic_context", "severity_and_emergency_notes", "population_context", "source_refs", "review"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        "display_name": { "$ref": "#/$defs/nonEmptyString" },
+        "aliases": { "$ref": "#/$defs/stringList" },
+        "body_systems": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "enum": ["gastrointestinal", "respiratory", "cardiovascular", "neurological", "endocrine_metabolic", "musculoskeletal", "dermatological", "infectious", "allergy_immunology", "urinary_renal", "mental_health", "ent", "eye", "reproductive", "haematological_nutritional", "pain"] } },
+        "categories": { "$ref": "#/$defs/stringList" },
+        "description": { "$ref": "#/$defs/nonEmptyString" },
+        "features": {
+          "type": "object", "required": ["common", "possible", "uncommon"],
+          "properties": {
+            "common": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/feature" } },
+            "possible": { "type": "array", "items": { "$ref": "#/$defs/feature" } },
+            "uncommon": { "type": "array", "items": { "$ref": "#/$defs/feature" } }
+          }, "additionalProperties": false
+        },
+        "typical_onset_and_course": { "$ref": "#/$defs/nonEmptyString" },
+        "risk_factors": { "$ref": "#/$defs/stringList" },
+        "common_associations": { "$ref": "#/$defs/stringList" },
+        "differentiating_features": { "type": "array", "items": { "$ref": "#/$defs/differentiator" } },
+        "red_flags": { "type": "array", "items": { "$ref": "#/$defs/redFlag" } },
+        "common_investigations": { "type": "array", "items": { "$ref": "#/$defs/investigation" } },
+        "diagnostic_context": { "$ref": "#/$defs/nonEmptyString" },
+        "severity_and_emergency_notes": { "$ref": "#/$defs/nonEmptyString" },
+        "population_context": { "$ref": "#/$defs/stringList" },
+        "source_refs": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9_.:-]+$" } },
+        "review": { "$ref": "#/$defs/review" }
+      },
+      "additionalProperties": false
+    },
+    "feature": {
+      "type": "array", "minItems": 2, "maxItems": 3,
+      "prefixItems": [
+        { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        { "$ref": "#/$defs/nonEmptyString" },
+        { "$ref": "#/$defs/nonEmptyString" }
+      ], "items": false
+    },
+    "differentiator": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "prefixItems": [{ "enum": ["characteristic", "important_negative", "alternative_context"] }, { "$ref": "#/$defs/nonEmptyString" }], "items": false
+    },
+    "redFlag": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "prefixItems": [
+        { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+        { "enum": ["emergency", "urgent_same_day", "prompt_clinical_review"] },
+        { "$ref": "#/$defs/nonEmptyString" },
+        { "$ref": "#/$defs/nonEmptyString" }
+      ], "items": false
+    },
+    "investigation": {
+      "type": "array", "minItems": 2, "maxItems": 3,
+      "prefixItems": [{ "$ref": "#/$defs/nonEmptyString" }, { "$ref": "#/$defs/nonEmptyString" }, { "$ref": "#/$defs/nonEmptyString" }], "items": false
+    },
+    "source": {
+      "type": "object", "required": ["source_id", "organisation", "title", "url", "evidence_scope", "accessed_on"],
+      "properties": {
+        "source_id": { "type": "string", "pattern": "^[a-z0-9_.:-]+$" },
+        "organisation": { "$ref": "#/$defs/nonEmptyString" },
+        "title": { "$ref": "#/$defs/nonEmptyString" },
+        "url": { "type": "string", "pattern": "^https://" },
+        "evidence_scope": { "$ref": "#/$defs/stringList" },
+        "accessed_on": { "type": "string", "format": "date" }
+      }, "additionalProperties": false
+    },
+    "review": {
+      "type": "object", "required": ["corpus_version", "last_reviewed_on", "review_status"],
+      "properties": {
+        "corpus_version": { "$ref": "#/$defs/nonEmptyString" },
+        "last_reviewed_on": { "type": "string", "format": "date" },
+        "review_status": { "enum": ["curated", "needs_clinical_review"] }
+      }, "additionalProperties": false
+    }
+  }
+}
