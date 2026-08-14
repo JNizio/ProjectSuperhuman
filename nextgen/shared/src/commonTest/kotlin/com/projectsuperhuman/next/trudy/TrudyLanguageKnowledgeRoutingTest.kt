@@ -182,6 +182,15 @@ class TrudyLanguageKnowledgeRoutingTest {
     }
 
     @Test
+    fun sharedRouterDoesNotNarrowTheMaturePerformanceLexicon() = runTest {
+        val result = TrudyKnowledgeCoordinator().retrieve(
+            TrudyKnowledgeQuery("Was my nap too late?", emptyList(), emptyList())
+        )
+
+        assertTrue(result.any { it.kind == TrudyKnowledgeKind.SLEEP_AND_PERFORMANCE })
+    }
+
+    @Test
     fun productAndUnrelatedQueriesDoNotLeakHealthKnowledge() = runTest {
         val productQueries = listOf(
             "Please rename my dashboard nutrition tile",
@@ -189,7 +198,8 @@ class TrudyLanguageKnowledgeRoutingTest {
             "Fix the hydration screen",
             "Implement a blood pressure button",
             "Navigate to experiments",
-            "Change the dashboard layout"
+            "Change the dashboard layout",
+            "How do I train a neural network model?"
         )
         val unrelatedQueries = listOf(
             "Explain Kotlin coroutines",

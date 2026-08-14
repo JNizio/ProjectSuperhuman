@@ -179,6 +179,10 @@ private object TrudyKnowledgeRelevanceGate {
     ): Boolean {
         if (routing.productOnlyIntent) return false
         if (source.kinds.any(routing::hasKind)) return true
+        // The mature performance source owns a larger indexed lexicon (naps, shifts, readiness,
+        // training modalities, etc.). Let that internal gate run so this shared layer cannot
+        // narrow pre-existing coverage merely because a phrase is absent from the cross-corpus map.
+        if (TrudyKnowledgeKind.SLEEP_AND_PERFORMANCE in source.kinds) return true
         if (source.kinds.any { kind -> query.domains.any { it in domainsFor(kind) } }) return true
         return source.kinds.any { kind -> query.metricIds.any { metricLooksRelevant(it, kind) } }
     }

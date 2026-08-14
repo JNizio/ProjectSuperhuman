@@ -43,6 +43,10 @@ relevance gates, ranks by route and corpus lexical relevance, preserves one best
 lane, then fills the remaining top-K positions. Lexical relevance is explicitly not diagnostic
 probability.
 
+The existing performance source keeps ownership of its larger internal lexicon (including naps,
+shift work, readiness and training modalities). The shared gate allows that indexed source to run
+after product-only suppression, so v3 adds cross-corpus language without narrowing mature coverage.
+
 ## Ambiguity boundaries
 
 Separate semantic IDs are retained for:

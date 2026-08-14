@@ -532,11 +532,12 @@ object TrudyLanguageRouter {
 
     private val PRODUCT_OBJECTS = setOf(
         "dashboard", "dashboard tile", "home tile", "mini tile", "tile", "button", "screen", "navigation", "ui",
-        "layout", "app icon", "developer settings", "data vault schema", "bluetooth", "api", "experiments"
+        "layout", "app icon", "developer settings", "data vault schema", "bluetooth", "api", "experiments",
+        "neural network", "model", "code", "kotlin", "repository", "database", "release note", "file", "compiler", "software"
     )
     private val PRODUCT_OPERATIONS = setOf(
         "rename", "move", "drag", "reorder", "open", "navigate", "take me to", "where is", "design", "implement",
-        "build", "remove", "add", "change the", "fix", "wire up", "create"
+        "build", "remove", "add", "change the", "fix", "wire up", "create", "training", "train", "crash"
     )
 }
 
