@@ -1,6 +1,7 @@
 package com.projectsuperhuman.next
 
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
@@ -10,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class TrudyVoiceQualityIntegrationTest {
     @Test
     fun playbackStarvationWaitsForNextChunkWithoutReorderingOrPrematureDrain() = runTest {
