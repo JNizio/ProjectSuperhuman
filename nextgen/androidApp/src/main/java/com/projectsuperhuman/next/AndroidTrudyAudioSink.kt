@@ -28,22 +28,107 @@ object TrudyPcm16 {
     fun convert(samples: FloatArray): ShortArray = ShortArray(samples.size) { sample(samples[it]) }
 }
 
-/** Streams synthesized mono PCM without retaining AudioTrack resources between utterance chunks. */
+/**
+ * Keeps one MODE_STREAM AudioTrack for the complete utterance. Each call writes into the same
+ * hardware buffer and returns once that chunk has been accepted, allowing the next ready chunk to
+ * be queued before the current one reaches the speaker. drain() is the only per-utterance tail wait.
+ */
 class AndroidTrudyAudioSink : TrudyAudioSink {
-    @Volatile private var activeTrack: AudioTrack? = null
+    private class PlaybackSession(
+        val track: AudioTrack,
+        val sampleRateHz: Int,
+        val bufferSizeBytes: Int
+    ) {
+        @Volatile var writtenSamples: Long = 0L
+    }
+
+    private val sessionLock = Any()
+    @Volatile private var activeSession: PlaybackSession? = null
 
     override suspend fun play(audio: TrudyPcmAudio) = withContext(Dispatchers.IO) {
         require(audio.channels == 1)
         require(audio.sampleRateHz > 0)
         if (audio.samples.isEmpty()) return@withContext
 
-        stop()
-        val minBuffer = AudioTrack.getMinBufferSize(
-            audio.sampleRateHz,
+        val pcm = TrudyPcm16.convert(audio.samples)
+        val session = sessionFor(audio.sampleRateHz)
+        runCatching { session.track.play() }.getOrElse { failure ->
+            releaseIfActive(session, flush = true)
+            throw failure
+        }
+
+        var offset = 0
+        val writeChunkSamples = (session.bufferSizeBytes / 2).coerceAtLeast(1)
+        while (offset < pcm.size) {
+            coroutineContext.ensureActive()
+            if (activeSession !== session) return@withContext
+            val count = minOf(writeChunkSamples, pcm.size - offset)
+            val written = session.track.write(pcm, offset, count, AudioTrack.WRITE_BLOCKING)
+            if (written <= 0) {
+                if (activeSession !== session) return@withContext
+                releaseIfActive(session, flush = true)
+                error("AudioTrack write failed: $written")
+            }
+            offset += written
+            session.writtenSamples += written.toLong()
+        }
+    }
+
+    override fun bufferedAudioDurationMs(): Long {
+        val session = activeSession ?: return 0L
+        val playedSamples = runCatching {
+            session.track.playbackHeadPosition.toLong() and 0xffff_ffffL
+        }.getOrDefault(session.writtenSamples)
+        val remainingSamples = (session.writtenSamples - playedSamples).coerceAtLeast(0L)
+        return remainingSamples * 1000L / session.sampleRateHz
+    }
+
+    override suspend fun drain() = withContext(Dispatchers.IO) {
+        val session = activeSession ?: return@withContext
+        val expectedSamples = session.writtenSamples
+        val expectedRemainingMs = bufferedAudioDurationMs()
+        val deadlineMs = nowMs() + expectedRemainingMs + 750L
+        try {
+            while (activeSession === session) {
+                coroutineContext.ensureActive()
+                val played = runCatching {
+                    session.track.playbackHeadPosition.toLong() and 0xffff_ffffL
+                }.getOrElse { break }
+                if (played >= expectedSamples) break
+                if (nowMs() >= deadlineMs) {
+                    DeveloperDiagnostics.log(
+                        "voice.stream.playback_drain_timeout",
+                        "played=$played expected=$expectedSamples bufferedMs=${bufferedAudioDurationMs()}"
+                    )
+                    break
+                }
+                delay(10)
+            }
+        } finally {
+            releaseIfActive(session, flush = false)
+        }
+    }
+
+    override fun stop() {
+        val session = synchronized(sessionLock) {
+            activeSession.also { activeSession = null }
+        } ?: return
+        release(session, flush = true)
+    }
+
+    private fun sessionFor(sampleRateHz: Int): PlaybackSession = synchronized(sessionLock) {
+        activeSession?.takeIf { it.sampleRateHz == sampleRateHz }?.let { return@synchronized it }
+        activeSession?.let {
+            activeSession = null
+            release(it, flush = true)
+        }
+
+        val minBufferBytes = AudioTrack.getMinBufferSize(
+            sampleRateHz,
             AudioFormat.CHANNEL_OUT_MONO,
             AudioFormat.ENCODING_PCM_16BIT
         ).coerceAtLeast(4_096)
-
+        val streamBufferBytes = (minBufferBytes * 2).coerceAtLeast(8_192)
         val track = AudioTrack.Builder()
             .setAudioAttributes(
                 AudioAttributes.Builder()
@@ -54,61 +139,37 @@ class AndroidTrudyAudioSink : TrudyAudioSink {
             .setAudioFormat(
                 AudioFormat.Builder()
                     .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                    .setSampleRate(audio.sampleRateHz)
+                    .setSampleRate(sampleRateHz)
                     .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
                     .build()
             )
             .setTransferMode(AudioTrack.MODE_STREAM)
-            .setBufferSizeInBytes(minBuffer)
+            .setBufferSizeInBytes(streamBufferBytes)
             .setSessionId(AudioManager.AUDIO_SESSION_ID_GENERATE)
             .build()
-
-        activeTrack = track
-        try {
-            val pcm = TrudyPcm16.convert(audio.samples)
-            track.play()
-            var offset = 0
-            val writeChunkSamples = (minBuffer / 2).coerceAtLeast(1)
-            while (offset < pcm.size) {
-                coroutineContext.ensureActive()
-                if (activeTrack !== track) break
-                val count = minOf(writeChunkSamples, pcm.size - offset)
-                val written = track.write(pcm, offset, count, AudioTrack.WRITE_BLOCKING)
-                if (written <= 0) break
-                offset += written
-            }
-
-            // Some Android audio drivers can report a playback head that stops short of the exact
-            // submitted sample count. Never let that bookkeeping keep Trudy in a fake tail wait.
-            val expectedAudioMs = pcm.size * 1000L / audio.sampleRateHz
-            val drainDeadlineMs = System.nanoTime() / 1_000_000L + expectedAudioMs + 750L
-            while (activeTrack === track && offset == pcm.size) {
-                coroutineContext.ensureActive()
-                val played = runCatching { track.playbackHeadPosition.toLong() }.getOrElse { break }
-                if (played >= pcm.size.toLong()) break
-                if (System.nanoTime() / 1_000_000L >= drainDeadlineMs) {
-                    DeveloperDiagnostics.log(
-                        "kokoro.playback.drain_timeout",
-                        "played=$played expected=${pcm.size} audioMs=$expectedAudioMs"
-                    )
-                    break
-                }
-                delay(10)
-            }
-        } finally {
-            if (activeTrack === track) activeTrack = null
-            runCatching { track.stop() }
-            runCatching { track.release() }
-        }
+        PlaybackSession(track, sampleRateHz, streamBufferBytes).also { activeSession = it }
     }
 
-    override fun stop() {
-        activeTrack?.let { track ->
-            activeTrack = null
-            runCatching { track.pause() }
-            runCatching { track.flush() }
-            runCatching { track.stop() }
-            runCatching { track.release() }
+    private fun releaseIfActive(session: PlaybackSession, flush: Boolean) {
+        val shouldRelease = synchronized(sessionLock) {
+            if (activeSession === session) {
+                activeSession = null
+                true
+            } else {
+                false
+            }
         }
+        if (shouldRelease) release(session, flush)
     }
+
+    private fun release(session: PlaybackSession, flush: Boolean) {
+        if (flush) {
+            runCatching { session.track.pause() }
+            runCatching { session.track.flush() }
+        }
+        runCatching { session.track.stop() }
+        runCatching { session.track.release() }
+    }
+
+    private fun nowMs(): Long = System.nanoTime() / 1_000_000L
 }
