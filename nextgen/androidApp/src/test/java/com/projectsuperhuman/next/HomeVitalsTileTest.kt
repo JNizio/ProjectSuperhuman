@@ -45,6 +45,16 @@ class HomeVitalsTileTest {
     }
 
     @Test
+    fun freshestHeartRateWinsAcrossCanonicalRawAndAverageMetrics() {
+        val rows = listOf(
+            value(HealthDomain.EXERCISE, "heart_rate_bpm", 65.0, 100L),
+            value(HealthDomain.EXERCISE, "heart_rate_avg_bpm", 70.0, 200L)
+        )
+
+        assertEquals(70, selectHomeVitalsSnapshot(rows, emptyList(), emptyList()).heartRateBpm)
+    }
+
+    @Test
     fun freshnessUsesRelativeMinutesForRecentReadings() {
         assertEquals("Heart rate · 2m ago", vitalsFreshness("Heart rate", timestampMs = 1_000L, nowMs = 121_000L))
     }

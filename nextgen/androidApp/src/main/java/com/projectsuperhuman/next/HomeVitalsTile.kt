@@ -245,8 +245,9 @@ internal fun selectHomeVitalsSnapshot(
     fun latest(rows: List<HealthValue>, metric: String): HealthValue? =
         rows.filter { it.metric == metric }.maxByOrNull { it.timestampEpochMs }
 
-    val heart = latest(heartRows, HomeVitalsDataContract.HEART_RATE)
-        ?: latest(heartRows, HomeVitalsDataContract.HEART_RATE_AVERAGE)
+    val heart = heartRows
+        .filter { it.metric == HomeVitalsDataContract.HEART_RATE || it.metric == HomeVitalsDataContract.HEART_RATE_AVERAGE }
+        .maxByOrNull { it.timestampEpochMs }
     val systolic = latest(bloodPressureRows, HomeVitalsDataContract.BLOOD_PRESSURE_SYSTOLIC)
     val diastolic = latest(bloodPressureRows, HomeVitalsDataContract.BLOOD_PRESSURE_DIASTOLIC)
     val isPairedBloodPressure = systolic != null && diastolic != null &&
