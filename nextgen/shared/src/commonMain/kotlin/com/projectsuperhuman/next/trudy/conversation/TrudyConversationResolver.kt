@@ -1,6 +1,9 @@
 package com.projectsuperhuman.next.trudy.conversation
 
 import com.projectsuperhuman.next.core.HealthDomain
+import com.projectsuperhuman.next.trudy.TrudyLanguageRouter
+import com.projectsuperhuman.next.trudy.TrudyLanguageRouting
+import com.projectsuperhuman.next.trudy.TrudyPhraseClass
 import com.projectsuperhuman.next.trudy.TrudySystemCatalog
 import com.projectsuperhuman.next.trudy.TrudyTemporalBoundaryProvider
 import com.projectsuperhuman.next.trudy.TrudyTimeRange
@@ -15,15 +18,28 @@ class TrudyConversationResolver(
         state: TrudyConversationEvidenceState
     ): TrudyResolvedConversationRequest {
         val normalized = normalize(userText)
-        val currentModules = TrudySystemCatalog.modulesMentioned(normalized)
-        val explicitTopic = currentModules.firstOrNull()?.id
+        val routing = runCatching { TrudyLanguageRouter.route(userText) }.getOrNull()
+        val semanticText = if (routing == null || routing.productOnlyIntent) {
+            normalized
+        } else {
+            buildString {
+                append(normalized)
+                append(' ')
+                append(routing.matches.flatMap { it.canonicalSearchTerms }.distinct().take(MAX_ROUTING_TERMS).joinToString(" "))
+                append(' ')
+                append(routing.matches.mapNotNull { it.phraseClass.systemAnchor() }.distinct().joinToString(" "))
+            }.trim()
+        }
+        val currentModules = if (routing?.productOnlyIntent == true) emptyList() else TrudySystemCatalog.modulesMentioned(semanticText)
+        val explicitTopic = currentModules.firstOrNull()?.id ?: routing?.takeIf { !it.productOnlyIntent }?.topicAnchor()
         val topic = explicitTopic ?: state.activeTopic
         val referent = resolveReferent(normalized, state)
         val timeframe = resolveTimeframe(normalized, state.activeTimeframe)
-        val currentMetrics = TrudySystemCatalog.metricsMentioned(normalized, currentModules)
+        val currentMetrics = TrudySystemCatalog.metricsMentioned(semanticText, currentModules)
             .map { TrudyConversationMetric(it.domain, it.metricId) }
 
         val inheritedMetrics = when {
+            routing?.productOnlyIntent == true -> emptyList()
             asksForEvidence(normalized) -> state.activeMetrics
             currentMetrics.isEmpty() -> state.activeMetrics
             referent.kind in RESULT_REFERENTS -> state.activeMetrics
@@ -32,11 +48,13 @@ class TrudyConversationResolver(
         val metrics = (currentMetrics + inheritedMetrics)
             .distinctBy { it.domain to it.metricId }
             .take(TrudyConversationBounds.MAX_METRICS)
+        val routedDomains = routing?.matches.orEmpty().flatMap { it.domains }
         val inheritedDomains = when {
+            routing?.productOnlyIntent == true -> emptyList()
             currentModules.isEmpty() || referent.kind in RESULT_REFERENTS || asksForEvidence(normalized) -> state.activeDomains
             else -> emptyList()
         }
-        val domains = (currentMetrics.map { it.domain } + inheritedDomains)
+        val domains = (currentMetrics.map { it.domain } + routedDomains + inheritedDomains)
             .distinct()
             .take(TrudyConversationBounds.MAX_DOMAINS)
 
@@ -44,21 +62,25 @@ class TrudyConversationResolver(
         val metricChanged = currentMetrics.isNotEmpty() && state.activeMetrics.isNotEmpty() &&
             currentMetrics.toSet() != state.activeMetrics.toSet()
         val timeframeChanged = state.activeTimeframe?.range?.let { it != timeframe.range } ?: timeframe.explicit
-        val followUp = followUpKind(
-            normalized = normalized,
-            hasState = state.activeTopic != null,
-            hasExplicitTopic = explicitTopic != null,
-            topicChanged = topicChanged,
-            timeframeChanged = timeframeChanged,
-            referent = referent,
-            state = state
-        )
+        val followUp = if (routing?.productOnlyIntent == true) {
+            TrudyFollowUpKind.NEW_QUESTION
+        } else {
+            followUpKind(
+                normalized = normalized,
+                hasState = state.activeTopic != null,
+                hasExplicitTopic = explicitTopic != null,
+                topicChanged = topicChanged,
+                timeframeChanged = timeframeChanged,
+                referent = referent,
+                state = state
+            )
+        }
 
         return TrudyResolvedConversationRequest(
             rawUserText = userText.trim(),
             inputMode = inputMode,
             followUpKind = followUp,
-            topic = topic,
+            topic = if (routing?.productOnlyIntent == true) null else topic,
             domains = domains,
             metrics = metrics,
             timeframe = timeframe,
@@ -103,7 +125,7 @@ class TrudyConversationResolver(
         val today = boundaries.startOfTodayEpochMs().coerceAtLeast(0L)
         val week = boundaries.startOfWeekEpochMs().coerceAtLeast(0L)
         val month = boundaries.startOfMonthEpochMs().coerceAtLeast(0L)
-        val currentRequested = CURRENT_TERMS.any { wordPresent(text, it) }
+        val currentRequested = CURRENT_TERMS.any { wordPresent(text, it) } || wordPresent(text, "today")
 
         fun frame(from: Long, to: Long, label: String) = TrudyConversationTimeframe(
             range = TrudyTimeRange(from.coerceAtLeast(0L), to.coerceAtLeast(from.coerceAtLeast(0L))),
@@ -122,12 +144,13 @@ class TrudyConversationResolver(
                 ?: frame((today - 2L * DAY_MS), (today - DAY_MS - 1L), "the day before yesterday")
             "last month" in text -> frame(boundaries.startOfMonthEpochMs(1), month - 1L, "last month")
             "this month" in text -> frame(month, now, "this month")
+            "last week or so" in text || "past week or so" in text -> frame(now - 7L * DAY_MS, now, "roughly the past week")
             "last week" in text -> frame(week - 7L * DAY_MS, week - 1L, "last week")
             "this week" in text -> frame(week, now, "this week")
             "yesterday" in text -> frame(today - DAY_MS, today - 1L, "yesterday")
             "today" in text -> frame(today, now, "today")
             "last 24 hours" in text -> frame(now - DAY_MS, now, "the last 24 hours")
-            "recently" in text || wordPresent(text, "recent") -> frame(now - 7L * DAY_MS, now, "the last 7 days")
+            "recently" in text || wordPresent(text, "recent") || wordPresent(text, "lately") -> frame(now - 7L * DAY_MS, now, "the last 7 days")
             active != null -> active.copy(explicit = false, requiresCurrentData = currentRequested)
             else -> TrudyConversationTimeframe(
                 range = TrudyTimeRange((now - 7L * DAY_MS).coerceAtLeast(0L), now),
@@ -170,8 +193,47 @@ class TrudyConversationResolver(
         .replace(Regex("[^a-z0-9']+"), " ")
         .trim()
 
+    private fun TrudyLanguageRouting.topicAnchor(): String? = matches.asSequence()
+        .mapNotNull { it.phraseClass.systemTopic() }
+        .firstOrNull()
+
+    private fun TrudyPhraseClass.systemTopic(): String? = when (this) {
+        TrudyPhraseClass.SLEEP -> "sleep"
+        TrudyPhraseClass.FATIGUE_AND_FOCUS -> "emotional"
+        TrudyPhraseClass.EXERCISE -> "exercise"
+        TrudyPhraseClass.CARDIOVASCULAR_LANGUAGE -> "heart_rate"
+        TrudyPhraseClass.NUTRITION_AND_FOOD -> "nutrition"
+        TrudyPhraseClass.HYDRATION -> "hydration"
+        TrudyPhraseClass.BODY_WEIGHT -> "body"
+        TrudyPhraseClass.EMOTIONAL_LANGUAGE -> "emotional"
+        TrudyPhraseClass.ENVIRONMENT -> "environment"
+        TrudyPhraseClass.EXPERIMENT_LANGUAGE -> "experiment"
+        TrudyPhraseClass.ABDOMINAL_LANGUAGE,
+        TrudyPhraseClass.BREATHING_LANGUAGE,
+        TrudyPhraseClass.BALANCE_LANGUAGE,
+        TrudyPhraseClass.FORMAL_MEDICAL_LANGUAGE -> null
+    }
+
+    private fun TrudyPhraseClass.systemAnchor(): String? = when (this) {
+        TrudyPhraseClass.SLEEP -> "sleep"
+        TrudyPhraseClass.FATIGUE_AND_FOCUS -> "tired focus"
+        TrudyPhraseClass.EXERCISE -> "exercise"
+        TrudyPhraseClass.CARDIOVASCULAR_LANGUAGE -> "heart rate"
+        TrudyPhraseClass.NUTRITION_AND_FOOD -> "nutrition"
+        TrudyPhraseClass.HYDRATION -> "hydration"
+        TrudyPhraseClass.BODY_WEIGHT -> "weight"
+        TrudyPhraseClass.EMOTIONAL_LANGUAGE -> "stress mood"
+        TrudyPhraseClass.ENVIRONMENT -> "environment"
+        TrudyPhraseClass.EXPERIMENT_LANGUAGE -> "experiment"
+        TrudyPhraseClass.ABDOMINAL_LANGUAGE,
+        TrudyPhraseClass.BREATHING_LANGUAGE,
+        TrudyPhraseClass.BALANCE_LANGUAGE,
+        TrudyPhraseClass.FORMAL_MEDICAL_LANGUAGE -> null
+    }
+
     private companion object {
         const val DAY_MS = 86_400_000L
+        const val MAX_ROUTING_TERMS = 10
         val EVIDENCE_PHRASES = listOf(
             "what evidence", "which evidence", "what data", "which data", "basing that on",
             "based on", "how do you know", "show your evidence", "show your sources"
