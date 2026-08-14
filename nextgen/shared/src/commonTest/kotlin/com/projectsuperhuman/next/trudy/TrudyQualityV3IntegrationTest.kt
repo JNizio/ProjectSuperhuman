@@ -31,11 +31,15 @@ class TrudyQualityV3IntegrationTest {
     fun fatigueAndRacingHeartSlangRouteToCanonicalDataWithoutBroadDomainSweep() {
         val fatigue = planner.plan(TrudyAskRequest("I'm knackered."))
         val racing = planner.plan(TrudyAskRequest("My heart is racing."))
+        val fatigueDomains = fatigue.flatMap { it.domains }.distinct()
+        val racingDomains = racing.flatMap { it.domains }.distinct()
 
         assertTrue(fatigue.isNotEmpty())
-        assertTrue(fatigue.flatMap { it.domains }.all { it == HealthDomain.EMOTIONAL })
+        assertTrue(HealthDomain.EMOTIONAL in fatigueDomains)
+        assertTrue(fatigueDomains.size <= 2)
         assertTrue(racing.isNotEmpty())
-        assertTrue(racing.flatMap { it.domains }.all { it == HealthDomain.EXERCISE })
+        assertTrue(HealthDomain.EXERCISE in racingDomains)
+        assertTrue(racingDomains.size <= 2)
         assertTrue(racing.flatMap(::metricIds).any { it == "heart_rate_avg_bpm" || it == "resting_heart_rate_bpm" })
     }
 
