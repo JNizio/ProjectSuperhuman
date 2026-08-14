@@ -66,13 +66,18 @@ internal object EmotionalPresentationContract {
                 put(axis, snap((-canonical * 100.0).roundToInt()))
             }
         }
-        return EmotionalPresentationSnapshot(uiValues, recordedAtLabel)
+        return EmotionalPresentationSnapshot(
+            axisValues = uiValues,
+            recordedAtLabel = recordedAtLabel,
+            recordedAtEpochMs = rows.maxOfOrNull { it.timestampEpochMs }
+        )
     }
 }
 
 internal data class EmotionalPresentationSnapshot(
     val axisValues: Map<String, Int>,
-    val recordedAtLabel: String? = null
+    val recordedAtLabel: String? = null,
+    val recordedAtEpochMs: Long? = null
 ) {
     val normalizedValues: Map<String, Int>
         get() = EmotionalPresentationContract.normalize(axisValues)
