@@ -36,12 +36,15 @@ data class TrudyKnowledgeQuery(
     val userText: String,
     val domains: List<HealthDomain>,
     val metricIds: List<String>,
-    val maxItems: Int = 8
+    val maxItems: Int = 8,
+    /** Filled once by the coordinator and reused by all corpus adapters for this retrieval. */
+    val routing: TrudyLanguageRouting? = null
 ) {
     init {
         require(userText.isNotBlank())
         require(domains.distinct().size == domains.size)
         require(maxItems in 1..24)
+        require(routing == null || routing.originalText == userText)
     }
 }
 
@@ -58,7 +61,9 @@ data class TrudyKnowledgeItem(
     val uncertainty: String? = null,
     val safetyNotes: List<String> = emptyList(),
     val version: String,
-    val lastReviewed: String
+    val lastReviewed: String,
+    /** Bounded lexical/source relevance for ranking only; never diagnostic likelihood. */
+    val lexicalRelevance: Int = 0
 ) {
     init {
         require(stableId.isNotBlank() && title.isNotBlank() && summary.isNotBlank())
@@ -67,6 +72,7 @@ data class TrudyKnowledgeItem(
         require(relevantDomains.distinct().size == relevantDomains.size)
         require(relevantMetricIds.none(String::isBlank))
         require(metricHints.distinct().size == metricHints.size)
+        require(lexicalRelevance in 0..160)
     }
 }
 
@@ -106,39 +112,111 @@ class TrudyKnowledgeCoordinator(
 
     override suspend fun retrieve(query: TrudyKnowledgeQuery): List<TrudyKnowledgeItem> {
         if (sources.isEmpty()) return emptyList()
-        return sources.filter { TrudyKnowledgeRelevanceGate.allows(it, query) }
-            .flatMap { source ->
-                runCatching { source.retrieve(query.copy(maxItems = minOf(query.maxItems, maxPerSource))) }
-                    .getOrDefault(emptyList())
+        val routedQuery = if (query.routing == null) {
+            query.copy(
+                routing = TrudyLanguageRouter.route(
+                    query.userText,
+                    maxTopics = minOf(TrudyLanguageRouter.MAX_TOPICS, maxOf(query.maxItems, 4))
+                )
+            )
+        } else query
+        val routing = routedQuery.routing ?: return emptyList()
+        if (routing.productOnlyIntent) return emptyList()
+
+        val ranked = sources.withIndex()
+            .filter { (_, source) -> TrudyKnowledgeRelevanceGate.allows(source, routedQuery, routing) }
+            .flatMap { (sourceIndex, source) ->
+                runCatching {
+                    source.retrieve(routedQuery.copy(maxItems = minOf(routedQuery.maxItems, maxPerSource)))
+                }.getOrDefault(emptyList())
                     .filter { it.sourceId == source.sourceId && it.kind in source.kinds }
                     .take(maxPerSource)
+                    .mapIndexed { itemIndex, item -> RankedKnowledgeItem(item, sourceIndex, itemIndex) }
             }
-            .distinctBy { it.kind to it.stableId }
-            .take(minOf(query.maxItems, maxTotal))
+            .sortedWith(
+                compareByDescending<RankedKnowledgeItem> { candidate ->
+                    routing.scoreForKind(candidate.item.kind) * ROUTE_SCORE_WEIGHT +
+                        candidate.item.lexicalRelevance +
+                        explicitContextBonus(candidate.item, routedQuery)
+                }.thenByDescending { it.item.lexicalRelevance }
+                    .thenBy { it.sourceIndex }
+                    .thenBy { it.itemIndex }
+                    .thenBy { it.item.stableId }
+            )
+            .distinctBy { it.item.kind to it.item.stableId }
+
+        val bounded = minOf(routedQuery.maxItems, maxTotal)
+        if (bounded <= 0 || ranked.isEmpty()) return emptyList()
+
+        // Preserve one best item for each routed lane before filling remaining top-K positions.
+        val selected = mutableListOf<RankedKnowledgeItem>()
+        val routedKinds = routing.matches.flatMap { it.kinds }.distinct()
+        routedKinds.forEach { kind ->
+            if (selected.size >= bounded) return@forEach
+            ranked.firstOrNull { it.item.kind == kind && it !in selected }?.let(selected::add)
+        }
+        ranked.forEach { candidate ->
+            if (selected.size < bounded && candidate !in selected) selected += candidate
+        }
+        return selected.take(bounded).map { it.item }
+    }
+
+    private data class RankedKnowledgeItem(
+        val item: TrudyKnowledgeItem,
+        val sourceIndex: Int,
+        val itemIndex: Int
+    )
+
+    private companion object { const val ROUTE_SCORE_WEIGHT = 2 }
+}
+
+/** Source-level relevance gate: domain fallbacks cannot leak into unrelated product questions. */
+private object TrudyKnowledgeRelevanceGate {
+    fun allows(
+        source: TrudyKnowledgeSource,
+        query: TrudyKnowledgeQuery,
+        routing: TrudyLanguageRouting
+    ): Boolean {
+        if (routing.productOnlyIntent) return false
+        if (source.kinds.any(routing::hasKind)) return true
+        // The mature performance source owns a larger indexed lexicon (naps, shifts, readiness,
+        // training modalities, etc.). Let that internal gate run so this shared layer cannot
+        // narrow pre-existing coverage merely because a phrase is absent from the cross-corpus map.
+        if (TrudyKnowledgeKind.SLEEP_AND_PERFORMANCE in source.kinds) return true
+        if (source.kinds.any { kind -> query.domains.any { it in domainsFor(kind) } }) return true
+        return source.kinds.any { kind -> query.metricIds.any { metricLooksRelevant(it, kind) } }
+    }
+
+    private fun domainsFor(kind: TrudyKnowledgeKind): Set<HealthDomain> = when (kind) {
+        TrudyKnowledgeKind.MEDICAL -> setOf(HealthDomain.CLINICAL, HealthDomain.BLOOD_PRESSURE)
+        TrudyKnowledgeKind.NUTRITION -> setOf(HealthDomain.NUTRITION, HealthDomain.HYDRATION, HealthDomain.BODY)
+        TrudyKnowledgeKind.SLEEP_AND_PERFORMANCE -> setOf(HealthDomain.SLEEP, HealthDomain.EXERCISE)
+        TrudyKnowledgeKind.ENVIRONMENT -> setOf(HealthDomain.ENVIRONMENT)
+        TrudyKnowledgeKind.EMOTIONAL_WELLBEING -> setOf(HealthDomain.EMOTIONAL, HealthDomain.MINDFULNESS)
+        TrudyKnowledgeKind.EXPERIMENT_METHODOLOGY -> emptySet()
+    }
+
+    private fun metricLooksRelevant(metricId: String, kind: TrudyKnowledgeKind): Boolean {
+        val metric = metricId.lowercase()
+        return when (kind) {
+            TrudyKnowledgeKind.MEDICAL -> metric.startsWith("clinical_") || metric.startsWith("blood_pressure_")
+            TrudyKnowledgeKind.NUTRITION -> metric.startsWith("food_") || metric.startsWith("water_") ||
+                metric.startsWith("hydration_") || metric.startsWith("body_") || metric == "weight_kg"
+            TrudyKnowledgeKind.SLEEP_AND_PERFORMANCE -> metric.startsWith("sleep_") || metric.startsWith("exercise_") ||
+                metric.startsWith("heart_rate_") || metric == "steps"
+            TrudyKnowledgeKind.ENVIRONMENT -> metric.startsWith("environment_") || metric.startsWith("weather_")
+            TrudyKnowledgeKind.EMOTIONAL_WELLBEING -> metric.startsWith("emotional_") || metric.startsWith("mindfulness_")
+            TrudyKnowledgeKind.EXPERIMENT_METHODOLOGY -> false
+        }
     }
 }
 
-/**
- * Source-level gate prevents a domain's internal fallback intent from becoming broad cross-domain
- * retrieval. Rich terminology matching remains inside each domain-specific indexed repository.
- */
-private object TrudyKnowledgeRelevanceGate {
-    private val nutritionDomains = setOf(HealthDomain.NUTRITION, HealthDomain.HYDRATION, HealthDomain.BODY)
-    private val nutritionTerms = setOf(
-        "nutrition", "food", "foods", "diet", "dietary", "meal", "meals", "calorie", "calories",
-        "protein", "carb", "carbs", "carbohydrate", "fat", "fibre", "fiber", "vitamin", "mineral",
-        "nutrient", "nutrients", "hydration", "hydrated", "water", "electrolyte", "electrolytes",
-        "weight", "body composition", "body fat", "metabolism", "glycaemic", "glycemic"
-    )
-
-    fun allows(source: TrudyKnowledgeSource, query: TrudyKnowledgeQuery): Boolean {
-        if (source.kind != TrudyKnowledgeKind.NUTRITION) return true
-        if (query.domains.any { it in nutritionDomains }) return true
-        val normalized = query.userText.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
-        if (normalized.isBlank()) return false
-        val tokens = normalized.split(' ').toSet()
-        return nutritionTerms.any { term ->
-            if (' ' in term) normalized.contains(term) else term in tokens
-        }
+private fun explicitContextBonus(item: TrudyKnowledgeItem, query: TrudyKnowledgeQuery): Int {
+    val domainMatch = item.relevantDomains.any { it in query.domains }
+    val metricMatch = item.relevantMetricIds.any { it in query.metricIds }
+    return when {
+        metricMatch -> 24
+        domainMatch -> 12
+        else -> 0
     }
 }

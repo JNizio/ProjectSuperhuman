@@ -34,7 +34,7 @@ class TrudyMedicalManagementKnowledgeSource(
     override val kind: TrudyKnowledgeKind = TrudyKnowledgeKind.MEDICAL
 
     override suspend fun retrieve(query: TrudyKnowledgeQuery): List<TrudyKnowledgeItem> =
-        repository.searchManagement(query.userText, minOf(query.maxItems, MAX_MATCHES)).map { match ->
+        repository.searchManagement(query.searchTextFor(kind), minOf(query.maxItems, MAX_MATCHES)).map { match ->
             val entry = match.entry
             val domains = entry.relevantVaultSignals.map { it.domain }.distinct()
             val hints = entry.relevantVaultSignals.flatMap { signal ->
@@ -60,7 +60,8 @@ class TrudyMedicalManagementKnowledgeSource(
                     "Red-flag escalation is owned by the structured medical safety layer."
                 ),
                 version = "medical-management-v1",
-                lastReviewed = entry.sources.maxOfOrNull { it.reviewedAt } ?: FALLBACK_REVIEW_DATE
+                lastReviewed = entry.sources.maxOfOrNull { it.reviewedAt } ?: FALLBACK_REVIEW_DATE,
+                lexicalRelevance = (match.relevance * 100.0).toInt().coerceIn(1, 100)
             )
         }
 
@@ -74,7 +75,7 @@ class TrudyNutritionBodyKnowledgeSource(
     override val kind: TrudyKnowledgeKind = TrudyKnowledgeKind.NUTRITION
 
     override suspend fun retrieve(query: TrudyKnowledgeQuery): List<TrudyKnowledgeItem> {
-        val context = runCatching { repository.contextFor(query.userText) }.getOrElse { return emptyList() }
+        val context = runCatching { repository.contextFor(query.searchTextFor(kind)) }.getOrElse { return emptyList() }
         val references = context.sources.map { "${it.organisation}: ${it.url}" }.distinct().take(MAX_REFERENCES)
         if (references.isEmpty()) return emptyList()
         val hints = context.metricBindings.flatMap { it.toHints(context.intent) }.distinct()
@@ -96,7 +97,8 @@ class TrudyNutritionBodyKnowledgeSource(
                 uncertainty = nutritionUncertainty(context),
                 safetyNotes = context.safetyInstructions.take(MAX_SAFETY_NOTES),
                 version = "nutrition-body-v1",
-                lastReviewed = context.sources.maxOfOrNull { it.reviewedAt } ?: FALLBACK_REVIEW_DATE
+                lastReviewed = context.sources.maxOfOrNull { it.reviewedAt } ?: FALLBACK_REVIEW_DATE,
+                lexicalRelevance = query.routing?.scoreForKind(kind)?.coerceIn(1, 100) ?: 50
             )
         )
     }
@@ -137,7 +139,7 @@ class TrudyPerformanceKnowledgeSource(
     private val sourcesById = PerformanceEvidenceCatalog.sources.associateBy { it.id }
 
     override suspend fun retrieve(query: TrudyKnowledgeQuery): List<TrudyKnowledgeItem> {
-        val bundle = knowledge.resolve(query.userText, maxTopics = minOf(MAX_TOPICS, query.maxItems))
+        val bundle = knowledge.resolve(query.searchTextFor(kinds), maxTopics = minOf(MAX_TOPICS, query.maxItems))
         if (bundle.matches.isEmpty()) return emptyList()
         val safety = bundle.globalSafetyBoundaries.map(::performanceSafetyNote)
         val topicItems = bundle.matches.mapNotNull { match ->
@@ -164,10 +166,16 @@ class TrudyPerformanceKnowledgeSource(
                 safetyNotes = (safety + claims.flatMap { claim -> claim.safetyBoundaries.map(::performanceSafetyNote) })
                     .distinct().take(MAX_SAFETY_NOTES),
                 version = "performance-v1",
-                lastReviewed = FALLBACK_REVIEW_DATE
+                lastReviewed = FALLBACK_REVIEW_DATE,
+                lexicalRelevance = match.score.coerceIn(1, 160)
             )
         }
-        val experimentItems = bundle.experimentBlueprints.mapNotNull { blueprint -> experimentItem(blueprint, safety) }
+        val experimentRelevance = query.routing?.scoreForKind(TrudyKnowledgeKind.EXPERIMENT_METHODOLOGY) ?: 0
+        val experimentItems = if (experimentRelevance > 0) {
+            bundle.experimentBlueprints.mapNotNull { blueprint ->
+                experimentItem(blueprint, safety, experimentRelevance)
+            }
+        } else emptyList()
         return (topicItems + experimentItems)
             .distinctBy { it.kind to it.stableId }
             .take(query.maxItems)
@@ -175,7 +183,8 @@ class TrudyPerformanceKnowledgeSource(
 
     private fun experimentItem(
         blueprint: PerformanceExperimentBlueprint,
-        safety: List<String>
+        safety: List<String>,
+        lexicalRelevance: Int
     ): TrudyKnowledgeItem? {
         val references = blueprint.evidenceSourceIds.mapNotNull(sourcesById::get)
             .map { "${it.organisation}: ${it.url}" }
@@ -202,7 +211,8 @@ class TrudyPerformanceKnowledgeSource(
             uncertainty = blueprint.interpretationLimitations.take(2).joinToString(" "),
             safetyNotes = (safety + blueprint.safetyNotes).distinct().take(MAX_SAFETY_NOTES),
             version = "performance-experiments-v1",
-            lastReviewed = FALLBACK_REVIEW_DATE
+            lastReviewed = FALLBACK_REVIEW_DATE,
+            lexicalRelevance = lexicalRelevance.coerceIn(1, 160)
         )
     }
 

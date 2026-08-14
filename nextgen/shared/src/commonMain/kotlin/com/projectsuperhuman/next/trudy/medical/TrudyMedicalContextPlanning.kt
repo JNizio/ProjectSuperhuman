@@ -3,6 +3,8 @@ package com.projectsuperhuman.next.trudy.medical
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.trudy.TrudyContextRequest
 import com.projectsuperhuman.next.trudy.TrudyHealthContext
+import com.projectsuperhuman.next.trudy.TrudyKnowledgeKind
+import com.projectsuperhuman.next.trudy.TrudyLanguageRouter
 
 enum class MedicalQuestionIntent {
     MANAGEMENT,
@@ -114,11 +116,13 @@ class TrudyMedicalContextPlanner(
     }
 
     private fun looksMedical(question: String): Boolean {
-        val text = question.lowercase()
+        val routing = TrudyLanguageRouter.route(question, maxTopics = 4)
+        if (routing.hasKind(TrudyKnowledgeKind.MEDICAL)) return true
+        val text = routing.normalizedText
         return containsAny(
             text,
             "symptom", "condition", "diagnosis", "treatment", "therapy", "medicine", "medication",
-            "pain", "numb", "breath", "heart rate", "blood pressure", "vomit", "bleeding", "doctor", "gp"
+            "pain", "numb", "bleeding", "doctor", "gp"
         )
     }
 
