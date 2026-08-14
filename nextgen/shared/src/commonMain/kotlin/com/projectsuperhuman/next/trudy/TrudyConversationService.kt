@@ -8,7 +8,6 @@ import com.projectsuperhuman.next.trudy.conversation.TrudyConversationInputMode
 import com.projectsuperhuman.next.trudy.conversation.TrudyConversationInvestigationResult
 import com.projectsuperhuman.next.trudy.conversation.TrudyEvidenceReuseAction
 import com.projectsuperhuman.next.trudy.conversation.TrudyEvidenceRole
-import com.projectsuperhuman.next.trudy.conversation.TrudyEvidenceGapReason
 
 data class TrudyConversationResult(
     val answerText: String,
@@ -171,7 +170,7 @@ class TrudyConversationService(
     }
 
     private fun buildMissingFindings(
-        context: TrudyAnswerEngineConversationContext,
+        context: com.projectsuperhuman.next.trudy.conversation.TrudyAnswerEngineConversationContext,
         structured: TrudyInvestigationResult?,
         result: TrudyConversationResult,
         now: Long
