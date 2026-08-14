@@ -201,6 +201,7 @@ class TrudyLanguageKnowledgeRoutingTest {
             "Implement a blood pressure button",
             "Navigate to experiments",
             "Change the dashboard layout",
+            "Why is nutrition missing from the dashboard UI?",
             "How do I train a neural network model?"
         )
         val unrelatedQueries = listOf(

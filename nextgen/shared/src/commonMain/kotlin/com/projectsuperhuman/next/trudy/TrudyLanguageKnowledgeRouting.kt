@@ -217,6 +217,7 @@ object TrudyLanguageRouter {
     }
 
     private fun looksLikeProductOnlyRequest(normalized: String): Boolean {
+        if (STRICT_PRODUCT_PHRASES.any { containsPhrase(normalized, it) }) return true
         val hasProductObject = PRODUCT_OBJECTS.any { containsPhrase(normalized, it) }
         val hasProductOperation = PRODUCT_OPERATIONS.any { containsPhrase(normalized, it) }
         return hasProductObject && hasProductOperation
@@ -540,6 +541,10 @@ object TrudyLanguageRouter {
     private val PRODUCT_OPERATIONS = setOf(
         "rename", "move", "drag", "reorder", "open", "navigate", "take me to", "where is", "design", "implement",
         "build", "remove", "add", "change the", "fix", "wire up", "create", "training", "train", "crash"
+    )
+    private val STRICT_PRODUCT_PHRASES = setOf(
+        "dashboard ui", "user interface", "dashboard tile", "home tile", "mini tile", "developer settings",
+        "data vault schema"
     )
 }
 
