@@ -64,10 +64,15 @@ internal fun ExperimentCreationFlow(
             }
 
             when (step) {
-                ExperimentCreationStep.TESTING -> TestingStep(draft) { draft = draft.copy(testingTarget = it) }
+                ExperimentCreationStep.TESTING -> TestingStep(
+                    draft = draft,
+                    onSelect = { draft = draft.copy(testingTarget = it) },
+                    onCustom = { draft = draft.copy(customTestingTarget = it) }
+                )
                 ExperimentCreationStep.CHANGING -> ChangingStep(
                     draft = draft,
                     onIntervention = { draft = draft.copy(intervention = it, device = if (it == "Device / sensor") draft.device else null) },
+                    onCustom = { draft = draft.copy(customIntervention = it) },
                     onDevice = { draft = draft.copy(device = it) }
                 )
                 ExperimentCreationStep.MEASURING -> MeasuringStep(
@@ -123,17 +128,20 @@ private fun CreationProgress(steps: List<ExperimentCreationStep>, currentIndex: 
 }
 
 @Composable
-private fun TestingStep(draft: ExperimentDraft, onSelect: (String) -> Unit) {
+private fun TestingStep(draft: ExperimentDraft, onSelect: (String) -> Unit, onCustom: (String) -> Unit) {
     OptionGrid(ExperimentOptions.testingTargets, draft.testingTarget, onSelect)
+    if (draft.testingTarget == "Custom") CustomEntryField("What do you want to understand?", draft.customTestingTarget, onCustom)
 }
 
 @Composable
 private fun ChangingStep(
     draft: ExperimentDraft,
     onIntervention: (String) -> Unit,
+    onCustom: (String) -> Unit,
     onDevice: (ExperimentDevice) -> Unit
 ) {
     OptionGrid(ExperimentOptions.interventions, draft.intervention, onIntervention)
+    if (draft.intervention == "Custom intervention") CustomEntryField("Describe the change", draft.customIntervention, onCustom)
     if (draft.intervention == "Device / sensor") {
         Column(Modifier.experimentCard()) {
             CardEyebrow("MOCK DEVICE SOURCE")
@@ -234,8 +242,8 @@ private fun ReviewStep(draft: ExperimentDraft, onTitleChange: (String) -> Unit) 
     Column(Modifier.experimentCard()) {
         CardEyebrow("PROTOCOL SUMMARY")
         Spacer(Modifier.height(9.dp))
-        ReviewLine("QUESTION", draft.testingTarget ?: "Not selected")
-        ReviewLine("CHANGE", draft.intervention ?: "Not selected")
+        ReviewLine("QUESTION", draft.resolvedTestingTarget().ifBlank { "Not selected" })
+        ReviewLine("CHANGE", draft.resolvedIntervention().ifBlank { "Not selected" })
         ReviewLine("PRIMARY", draft.primaryOutcome ?: "Not selected")
         ReviewLine("SECONDARY", draft.outcomes.filterNot { it == draft.primaryOutcome }.joinToString(" · ").ifBlank { "None" })
         ReviewLine("START", draft.startDateLabel)
@@ -249,6 +257,24 @@ private fun ReviewStep(draft: ExperimentDraft, onTitleChange: (String) -> Unit) 
         Spacer(Modifier.height(4.dp))
         Text("Previewing creates no Data Vault record and starts no device connection.", color = ExperimentInk, fontSize = 9.sp, lineHeight = 14.sp)
     }
+}
+
+@Composable
+private fun CustomEntryField(label: String, value: String, onValueChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth(),
+        label = { Text(label) },
+        singleLine = true,
+        shape = RoundedCornerShape(18.dp),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White,
+            focusedIndicatorColor = ExperimentViolet,
+            unfocusedIndicatorColor = ExperimentBorder
+        )
+    )
 }
 
 @Composable

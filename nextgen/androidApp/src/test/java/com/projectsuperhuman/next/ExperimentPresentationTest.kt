@@ -31,6 +31,13 @@ class ExperimentPresentationTest {
     }
 
     @Test
+    fun customAndDeviceInterventionsRequireTheirMissingDetail() {
+        assertFalse(ExperimentDraft(testingTarget = "Custom").canContinue(ExperimentCreationStep.TESTING))
+        assertTrue(ExperimentDraft(testingTarget = "Custom", customTestingTarget = "Reaction speed").canContinue(ExperimentCreationStep.TESTING))
+        assertFalse(ExperimentDraft(intervention = "Device / sensor").canContinue(ExperimentCreationStep.CHANGING))
+    }
+
+    @Test
     fun draftPreviewStaysClearlyIncompleteAndHasNoResult() {
         val draft = ExperimentDraft(
             testingTarget = "Sleep",

@@ -122,18 +122,26 @@ internal data class ExperimentDraft(
     val baselineDays: Int = 2,
     val interventionDays: Int = 5,
     val device: ExperimentDevice? = null,
+    val customTestingTarget: String = "",
+    val customIntervention: String = "",
     val customTitle: String? = null
 ) {
     fun canContinue(step: ExperimentCreationStep): Boolean = when (step) {
-        ExperimentCreationStep.TESTING -> testingTarget != null
-        ExperimentCreationStep.CHANGING -> intervention != null
+        ExperimentCreationStep.TESTING -> testingTarget != null && (testingTarget != "Custom" || customTestingTarget.isNotBlank())
+        ExperimentCreationStep.CHANGING -> intervention != null &&
+            (intervention != "Custom intervention" || customIntervention.isNotBlank()) &&
+            (intervention != "Device / sensor" || device != null)
         ExperimentCreationStep.MEASURING -> outcomes.isNotEmpty() && primaryOutcome in outcomes
         ExperimentCreationStep.SCHEDULE -> durationDays > 0 && baselineDays >= 0 && interventionDays > 0 && baselineDays + interventionDays <= durationDays
         ExperimentCreationStep.REVIEW -> true
     }
 
+    fun resolvedTestingTarget(): String = customTestingTarget.takeIf { testingTarget == "Custom" && it.isNotBlank() } ?: testingTarget.orEmpty()
+
+    fun resolvedIntervention(): String = customIntervention.takeIf { intervention == "Custom intervention" && it.isNotBlank() } ?: intervention.orEmpty()
+
     fun protocolTitle(): String = customTitle?.takeIf { it.isNotBlank() }
-        ?: listOfNotNull(intervention, testingTarget).joinToString(" → ").ifBlank { "New personal experiment" }
+        ?: listOf(resolvedIntervention(), resolvedTestingTarget()).filter { it.isNotBlank() }.joinToString(" → ").ifBlank { "New personal experiment" }
 }
 
 internal object ExperimentOptions {
@@ -228,11 +236,11 @@ internal object MockExperimentData {
         return ExperimentPresentation(
             id = "draft-preview",
             title = draft.protocolTitle(),
-            hypothesis = "Changing ${draft.intervention?.lowercase()} may affect ${draft.testingTarget?.lowercase()}.",
+            hypothesis = "Changing ${draft.resolvedIntervention().lowercase()} may affect ${draft.resolvedTestingTarget().lowercase()}.",
             status = ExperimentStatus.DRAFT,
             phase = ExperimentPhase.BASELINE,
             progress = ExperimentProgress(0, draft.durationDays, 0, draft.durationDays * draft.dailyFrequency),
-            intervention = ExperimentIntervention(draft.intervention.orEmpty(), draft.intervention.orEmpty(), "Protocol details can be refined when real storage is connected."),
+            intervention = ExperimentIntervention(draft.intervention.orEmpty(), draft.resolvedIntervention(), "Protocol details can be refined when real storage is connected."),
             outcomes = draft.outcomes.map { title -> ExperimentOutcome(title.lowercase().replace(' ', '-'), title, if (title == primary) ExperimentOutcomeRole.PRIMARY else ExperimentOutcomeRole.SECONDARY) },
             nextCheckIn = "Not scheduled · UI preview",
             scheduleSummary = "${draft.baselineDays} baseline days · ${draft.interventionDays} intervention days · ${draft.dailyFrequency}× daily",
