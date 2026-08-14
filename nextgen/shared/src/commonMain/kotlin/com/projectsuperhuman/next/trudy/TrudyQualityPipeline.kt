@@ -45,7 +45,11 @@ class TrudyLanguageAwarePreflightPlanner(
             .flatMap { it.split(' ').asSequence() }
             .distinct()
             .take(MAX_ANCHORS)
-            .toList()
+            .toMutableList()
+        val subjectiveSleepWorsening = routing.matches.any { it.phraseClass == TrudyPhraseClass.SLEEP } &&
+            SUBJECTIVE_WORSENING_TERMS.any { it in routing.normalizedText }
+        if (subjectiveSleepWorsening) anchors += listOf("what", "changed", "worse")
+
         val canonical = routing.matches.asSequence()
             .flatMap { it.canonicalSearchTerms.asSequence() }
             .distinct()
@@ -56,15 +60,18 @@ class TrudyLanguageAwarePreflightPlanner(
         val planningText = buildString {
             append(request.userMessage.trim())
             append(". ")
-            append((anchors + canonical).joinToString(" "))
+            append((anchors + canonical).distinct().joinToString(" "))
         }.take(MAX_PLANNING_TEXT_CHARS)
         return delegate.plan(request.copy(userMessage = planningText))
     }
 
     private companion object {
-        const val MAX_ANCHORS = 8
+        const val MAX_ANCHORS = 10
         const val MAX_CANONICAL_TERMS = 8
         const val MAX_PLANNING_TEXT_CHARS = 1_200
+        val SUBJECTIVE_WORSENING_TERMS = listOf(
+            "terrible", "awful", "suffered", "suffering", "worse", "bad lately", "slept like crap", "sleep like crap"
+        )
     }
 }
 
@@ -89,8 +96,15 @@ class TrudyConversationAwarePreflightPlanner(
     override fun plan(request: TrudyAskRequest): List<TrudyToolOperation> {
         val context = holder.current ?: return delegate.plan(request)
         val resolved = context.resolvedRequest
+        val rawForPlanning = if (resolved.timeframe.label == "roughly the past week") {
+            request.userMessage
+                .replace("last week or so", "recently", ignoreCase = true)
+                .replace("past week or so", "recently", ignoreCase = true)
+        } else {
+            request.userMessage
+        }
         val planningText = buildString {
-            append(request.userMessage.trim())
+            append(rawForPlanning.trim())
             resolved.topic?.let { append(". topic ").append(it.replace('_', ' ')) }
             if (resolved.metrics.isNotEmpty()) {
                 append(". metrics ")
@@ -250,7 +264,7 @@ object TrudyStructuredInvestigationAnswerBridge {
                     sampleCount = finding.quality.sampleCount,
                     qualityScore = (finding.quality.score * 100.0).toInt().coerceIn(0, 100),
                     magnitude = finding.percentDelta?.let { kotlin.math.abs(it) / 100.0 }
-                        ?: finding.standardizedEffect?.let(kotlin.math::abs),
+                        ?: finding.standardizedEffect?.let { kotlin.math.abs(it) },
                     relevanceScore = evidence.relevanceScore + finding.priorityScore * 24.0
                 )
             }
@@ -267,7 +281,7 @@ object TrudyStructuredInvestigationAnswerBridge {
                         classification = related.classification.toAnswerClass(),
                         sampleCount = related.sampleCount,
                         qualityScore = (related.quality.score * 100.0).toInt().coerceIn(0, 100),
-                        magnitude = related.coefficient?.let(kotlin.math::abs),
+                        magnitude = related.coefficient?.let { kotlin.math.abs(it) },
                         relevanceScore = evidence.relevanceScore + related.relationshipScore * 20.0
                     )
                 }
@@ -296,7 +310,7 @@ object TrudyStructuredInvestigationAnswerBridge {
             .take(8)
         val limitations = (plan.limitations.map(::refineEvidence) + gapEvidence)
             .filter { it.classification !in RANKABLE_CLASSES }
-            .distinctBy { it.domain to it.metricId to it.classification }
+            .distinctBy { Triple(it.domain, it.metricId, it.classification) }
             .take(8)
 
         return plan.copy(
