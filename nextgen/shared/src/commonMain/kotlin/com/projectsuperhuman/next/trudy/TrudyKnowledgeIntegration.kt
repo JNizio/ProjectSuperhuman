@@ -106,12 +106,39 @@ class TrudyKnowledgeCoordinator(
 
     override suspend fun retrieve(query: TrudyKnowledgeQuery): List<TrudyKnowledgeItem> {
         if (sources.isEmpty()) return emptyList()
-        return sources.flatMap { source ->
-            runCatching { source.retrieve(query.copy(maxItems = minOf(query.maxItems, maxPerSource))) }
-                .getOrDefault(emptyList())
-                .filter { it.sourceId == source.sourceId && it.kind in source.kinds }
-                .take(maxPerSource)
-        }.distinctBy { it.kind to it.stableId }
+        return sources.filter { TrudyKnowledgeRelevanceGate.allows(it, query) }
+            .flatMap { source ->
+                runCatching { source.retrieve(query.copy(maxItems = minOf(query.maxItems, maxPerSource))) }
+                    .getOrDefault(emptyList())
+                    .filter { it.sourceId == source.sourceId && it.kind in source.kinds }
+                    .take(maxPerSource)
+            }
+            .distinctBy { it.kind to it.stableId }
             .take(minOf(query.maxItems, maxTotal))
+    }
+}
+
+/**
+ * Source-level gate prevents a domain's internal fallback intent from becoming broad cross-domain
+ * retrieval. Rich terminology matching remains inside each domain-specific indexed repository.
+ */
+private object TrudyKnowledgeRelevanceGate {
+    private val nutritionDomains = setOf(HealthDomain.NUTRITION, HealthDomain.HYDRATION, HealthDomain.BODY)
+    private val nutritionTerms = setOf(
+        "nutrition", "food", "foods", "diet", "dietary", "meal", "meals", "calorie", "calories",
+        "protein", "carb", "carbs", "carbohydrate", "fat", "fibre", "fiber", "vitamin", "mineral",
+        "nutrient", "nutrients", "hydration", "hydrated", "water", "electrolyte", "electrolytes",
+        "weight", "body composition", "body fat", "metabolism", "glycaemic", "glycemic"
+    )
+
+    fun allows(source: TrudyKnowledgeSource, query: TrudyKnowledgeQuery): Boolean {
+        if (source.kind != TrudyKnowledgeKind.NUTRITION) return true
+        if (query.domains.any { it in nutritionDomains }) return true
+        val normalized = query.userText.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
+        if (normalized.isBlank()) return false
+        val tokens = normalized.split(' ').toSet()
+        return nutritionTerms.any { term ->
+            if (' ' in term) normalized.contains(term) else term in tokens
+        }
     }
 }
