@@ -116,12 +116,37 @@ interface TrudySpeechEngine {
         return result.diagnostics
     }
 
+    /**
+     * Optional pre-synthesis backpressure hook. Local streaming engines invoke it before allocating
+     * the next audio result, so the service can bound synthesized lookahead as well as channel size.
+     * Legacy engines retain source compatibility through this adapter.
+     */
+    suspend fun synthesizeStreaming(
+        request: TrudySpeechRequest,
+        onBeforeChunk: suspend (index: Int) -> Unit,
+        onChunk: suspend (TrudySpeechResult) -> Unit
+    ): TrudySpeechDiagnostics {
+        var index = 0
+        return synthesizeStreaming(request) { result ->
+            onBeforeChunk(index++)
+            onChunk(result)
+        }
+    }
+
     fun cancelCurrent() {}
     suspend fun close() {}
 }
 
 interface TrudyAudioSink {
+    /** Writes a chunk into the current utterance stream. Implementations may retain playback state. */
     suspend fun play(audio: TrudyPcmAudio)
+
+    /** Waits for already-written PCM to reach the speaker before the utterance is declared done. */
+    suspend fun drain() {}
+
+    /** Remaining device-side audio, used to distinguish queue depletion from audible starvation. */
+    fun bufferedAudioDurationMs(): Long = 0L
+
     fun stop()
     fun close() = stop()
 }

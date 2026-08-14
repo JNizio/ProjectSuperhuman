@@ -15,7 +15,7 @@ object DeveloperDiagnostics {
     private const val PREFS = "project_superhuman_developer_diagnostics"
     private const val KEY_ENABLED = "enabled"
     private const val KEY_EVENTS = "events"
-    private const val MAX_EVENTS = 80
+    private const val MAX_EVENTS = 160
     private const val SEP = "\u001e"
 
     @Volatile private var appContext: Context? = null
