@@ -145,10 +145,12 @@ class TrudyLanguageKnowledgeRoutingTest {
         val tummy = TrudyLanguageRouter.expandMedicalSearchText("my tummy hurts")
         val reflux = TrudyLanguageRouter.expandMedicalSearchText("acid coming up")
         val breathless = TrudyLanguageRouter.expandMedicalSearchText("can't catch my breath")
+        val longTummy = TrudyLanguageRouter.expandMedicalSearchText("context ".repeat(60) + "my tummy hurts")
 
         assertTrue(tummy.contains("abdominal pain"))
         assertTrue(reflux.contains("gastro oesophageal reflux"))
         assertTrue(breathless.contains("dyspnoea"))
+        assertTrue(longTummy.indexOf("abdominal pain") in 0 until longTummy.indexOf("context"))
         assertTrue(tummy.length <= 768 && reflux.length <= 768 && breathless.length <= 768)
     }
 

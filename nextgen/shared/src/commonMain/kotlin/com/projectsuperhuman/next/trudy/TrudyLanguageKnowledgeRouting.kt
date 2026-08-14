@@ -226,7 +226,9 @@ object TrudyLanguageRouter {
         if (terms.isEmpty()) return text
         val normalizedOriginal = normalize(text)
         val newTerms = terms.filterNot { containsPhrase(normalizedOriginal, normalize(it)) }
-        return if (newTerms.isEmpty()) text else "$text ${newTerms.joinToString(" ")}".take(MAX_EXPANDED_TEXT_CHARS)
+        // Prefix expansions so the medical provider's existing MAX_QUERY_WORDS bound cannot drop
+        // canonical symptom terms from a long, multi-intent user message.
+        return if (newTerms.isEmpty()) text else "${newTerms.joinToString(" ")} $text".take(MAX_EXPANDED_TEXT_CHARS)
     }
 
     private fun containsPhrase(text: String, phrase: String): Boolean =
