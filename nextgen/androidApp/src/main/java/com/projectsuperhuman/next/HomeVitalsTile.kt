@@ -70,8 +70,7 @@ internal object HomeVitalsDataContract {
 
     data class MetricLocation(val domain: HealthDomain, val metric: String)
 
-    // Agent 5 stores manual body-temperature observations canonically in Clinical.
-    val bodyTemperature = MetricLocation(HealthDomain.CLINICAL, "body_temperature_c")
+    val bodyTemperature = MetricLocation(HealthDomain.BODY, "body_temperature_celsius")
 }
 
 @Composable
@@ -104,9 +103,7 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
         Modifier.fillMaxWidth()
             .height(190.dp)
             .background(
-                Brush.linearGradient(
-                    listOf(Color.White, Color(0xFFF7FBFE), Color(0xFFF5FAFC))
-                ),
+                Brush.linearGradient(listOf(Color.White, Color(0xFFF7FBFE), Color(0xFFF5FAFC))),
                 RoundedCornerShape(27.dp)
             )
             .border(1.dp, VitalsBorder, RoundedCornerShape(27.dp))
@@ -115,19 +112,12 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
             .padding(18.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        Modifier.width(28.dp).height(28.dp)
-                            .background(VitalsRed.copy(alpha = .10f), RoundedCornerShape(10.dp)),
+                        Modifier.width(28.dp).height(28.dp).background(VitalsRed.copy(alpha = .10f), RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
-                    ) {
-                        Text("♥", color = VitalsRed, fontSize = 13.sp)
-                    }
+                    ) { Text("♥", color = VitalsRed, fontSize = 13.sp) }
                     Spacer(Modifier.width(9.dp))
                     Column {
                         Text("VITALS", color = VitalsInk, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
@@ -141,10 +131,7 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
             Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 HeartRateSection(snapshot, Modifier.weight(.95f))
                 Box(Modifier.width(1.dp).height(102.dp).background(VitalsBorder))
-                Column(
-                    Modifier.weight(1.15f).padding(start = 16.dp),
-                    verticalArrangement = Arrangement.SpaceEvenly
-                ) {
+                Column(Modifier.weight(1.15f).padding(start = 16.dp), verticalArrangement = Arrangement.SpaceEvenly) {
                     BloodPressureSection(snapshot)
                     Box(Modifier.fillMaxWidth().height(1.dp).background(VitalsBorder.copy(alpha = .8f)))
                     TemperatureSection(snapshot)
@@ -165,9 +152,7 @@ private fun HeartRateSection(snapshot: HomeVitalsSnapshot, modifier: Modifier) {
                 Spacer(Modifier.width(5.dp))
                 Text("BPM", color = VitalsRed, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
             }
-        } else {
-            Text("No reading yet", color = VitalsInk, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        }
+        } else Text("No reading yet", color = VitalsInk, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(2.dp))
         PulseTrace(Modifier.fillMaxWidth(.82f).height(22.dp))
         Text(vitalsFreshness("Heart rate", snapshot.heartRateTimestampMs), color = VitalsMuted, fontSize = 7.sp, maxLines = 1)
@@ -185,9 +170,7 @@ private fun BloodPressureSection(snapshot: HomeVitalsSnapshot) {
                 Spacer(Modifier.width(5.dp))
                 Text("mmHg", color = VitalsBlue, fontSize = 7.sp, modifier = Modifier.padding(bottom = 3.dp))
             }
-        } else {
-            Text("No reading yet", color = VitalsInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        }
+        } else Text("No reading yet", color = VitalsInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Text(vitalsFreshness("BP", snapshot.bloodPressureTimestampMs), color = VitalsMuted, fontSize = 7.sp, maxLines = 1)
     }
 }
@@ -199,9 +182,7 @@ private fun TemperatureSection(snapshot: HomeVitalsSnapshot) {
         Spacer(Modifier.height(3.dp))
         if (snapshot.bodyTemperatureCelsius != null) {
             Text(String.format(Locale.US, "%.1f°C", snapshot.bodyTemperatureCelsius), color = VitalsInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
-        } else {
-            Text("No reading yet", color = VitalsInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        }
+        } else Text("No reading yet", color = VitalsInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
         Text(vitalsFreshness("Temp", snapshot.bodyTemperatureTimestampMs), color = VitalsMuted, fontSize = 7.sp, maxLines = 1)
     }
 }
@@ -228,16 +209,12 @@ internal fun selectHomeVitalsSnapshot(
     bloodPressureRows: List<HealthValue>,
     temperatureRows: List<HealthValue>
 ): HomeVitalsSnapshot {
-    fun latest(rows: List<HealthValue>, metric: String): HealthValue? =
-        rows.filter { it.metric == metric }.maxByOrNull { it.timestampEpochMs }
+    fun latest(rows: List<HealthValue>, metric: String): HealthValue? = rows.filter { it.metric == metric }.maxByOrNull { it.timestampEpochMs }
 
-    val heart = heartRows
-        .filter { it.metric == HomeVitalsDataContract.HEART_RATE || it.metric == HomeVitalsDataContract.HEART_RATE_AVERAGE }
-        .maxByOrNull { it.timestampEpochMs }
+    val heart = heartRows.filter { it.metric == HomeVitalsDataContract.HEART_RATE || it.metric == HomeVitalsDataContract.HEART_RATE_AVERAGE }.maxByOrNull { it.timestampEpochMs }
     val systolic = latest(bloodPressureRows, HomeVitalsDataContract.BLOOD_PRESSURE_SYSTOLIC)
     val diastolic = latest(bloodPressureRows, HomeVitalsDataContract.BLOOD_PRESSURE_DIASTOLIC)
-    val isPairedBloodPressure = systolic != null && diastolic != null &&
-        abs(systolic.timestampEpochMs - diastolic.timestampEpochMs) <= 5 * 60_000L
+    val isPairedBloodPressure = systolic != null && diastolic != null && abs(systolic.timestampEpochMs - diastolic.timestampEpochMs) <= 5 * 60_000L
     val temperature = temperatureRows.maxByOrNull { it.timestampEpochMs }
 
     return HomeVitalsSnapshot(
