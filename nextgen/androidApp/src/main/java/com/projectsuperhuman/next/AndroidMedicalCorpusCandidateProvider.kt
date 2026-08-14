@@ -14,36 +14,42 @@ import java.util.Locale
  *
  * Retrieval is deliberately lexical and non-diagnostic: scores only decide which reference records
  * are useful context for Trudy. They are never probabilities and are never persisted as diagnoses.
+ *
+ * Corpus parsing and lexical normalization are lazy and cached so cold app startup does not pay the
+ * cost of medical indexing unless Trudy actually needs medical retrieval.
  */
 internal class AndroidMedicalCorpusCandidateProvider(
     context: Context,
-    assetName: String = "conditions.v1.json"
+    private val assetName: String = "conditions.v1.json"
 ) : MedicalConditionCandidateProvider {
-    private val records: List<CorpusConditionRecord> = runCatching {
-        context.applicationContext.assets.open(assetName).bufferedReader().use { reader ->
-            parseCorpus(JSONObject(reader.readText()))
-        }
-    }.getOrElse { emptyList() }
+    private val appContext = context.applicationContext
+
+    private val records: List<CorpusConditionRecord> by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        runCatching {
+            appContext.assets.open(assetName).bufferedReader().use { reader ->
+                parseCorpus(JSONObject(reader.readText()))
+            }
+        }.getOrElse { emptyList() }
+    }
 
     override suspend fun candidates(request: MedicalConditionCandidateRequest): List<MedicalConditionCandidate> {
-        if (records.isEmpty()) return emptyList()
-        val normalized = normalize(request.question)
-        val queryTokens = tokens(normalized)
+        val corpus = records
+        if (corpus.isEmpty()) return emptyList()
 
-        val ranked = records.mapNotNull { record ->
-            val directTerms = (record.aliases + record.displayName + record.id.replace('_', ' '))
-                .map(::normalize)
-                .filter { it.length >= 3 }
-            val directMatches = directTerms.filter { normalized.contains(it) }
+        val normalized = normalize(request.question)
+        val queryTokens = tokensFromNormalized(normalized)
+        val explicitlyRecordedIds = request.explicitlyRecordedConditionIds
+
+        val ranked = corpus.mapNotNull { record ->
+            val directMatches = record.directTerms.filter { normalized.contains(it) }
 
             val featureMatches = record.features.mapNotNull { feature ->
-                val featureTerms = listOf(feature.id.replace('_', ' '), feature.label).map(::normalize)
-                val exact = featureTerms.any { it.length >= 3 && normalized.contains(it) }
-                val overlap = featureTerms.flatMap(::tokens).toSet().intersect(queryTokens)
-                if (exact || overlap.size >= feature.minimumTokenOverlap()) feature else null
+                val exact = feature.normalizedTerms.any { it.length >= 3 && normalized.contains(it) }
+                val overlap = feature.tokens.count(queryTokens::contains)
+                if (exact || overlap >= feature.minimumTokenOverlap) feature else null
             }.distinctBy { it.id }
 
-            val explicitlyRecorded = record.id in request.explicitlyRecordedConditionIds
+            val explicitlyRecorded = record.id in explicitlyRecordedIds
             if (directMatches.isEmpty() && featureMatches.isEmpty() && !explicitlyRecorded) return@mapNotNull null
 
             val score = (
@@ -60,7 +66,7 @@ internal class AndroidMedicalCorpusCandidateProvider(
         return ranked.take(request.maxCandidates).map { rankedCandidate ->
             val record = rankedCandidate.record
             val fit = buildList {
-                if (record.id in request.explicitlyRecordedConditionIds) {
+                if (record.id in explicitlyRecordedIds) {
                     add("This condition is explicitly recorded in the user's health context.")
                 }
                 rankedCandidate.directMatches.take(2).forEach { term ->
@@ -106,11 +112,19 @@ internal class AndroidMedicalCorpusCandidateProvider(
                 val id = item.optString("id")
                 val displayName = item.optString("display_name")
                 if (id.isBlank() || displayName.isBlank()) continue
+
+                val aliases = item.optJSONArray("aliases").strings()
+                val directTerms = (aliases + displayName + id.replace('_', ' '))
+                    .map(::normalize)
+                    .filter { it.length >= 3 }
+                    .distinct()
+
                 add(
                     CorpusConditionRecord(
                         id = id,
                         displayName = displayName,
-                        aliases = item.optJSONArray("aliases").strings(),
+                        aliases = aliases,
+                        directTerms = directTerms,
                         features = parseFeatures(item.optJSONObject("features")),
                         differentiators = item.optJSONArray("differentiating_features").nestedSecondStrings(),
                         investigations = item.optJSONArray("common_investigations").nestedFirstStrings(),
@@ -132,24 +146,38 @@ internal class AndroidMedicalCorpusCandidateProvider(
                     val id = row.optString(0)
                     val label = row.optString(1)
                     if (id.isBlank() || label.isBlank()) continue
-                    add(CorpusFeature(id, label, frequency, row.optString(2).takeIf(String::isNotBlank)))
+
+                    val normalizedTerms = listOf(id.replace('_', ' '), label)
+                        .map(::normalize)
+                        .filter(String::isNotBlank)
+                    val featureTokens = normalizedTerms.flatMap(::tokensFromNormalized).toSet()
+                    val minimumOverlap = if (featureTokens.size <= 1) 1 else 2
+
+                    add(
+                        CorpusFeature(
+                            id = id,
+                            label = label,
+                            frequency = frequency,
+                            context = row.optString(2).takeIf(String::isNotBlank),
+                            normalizedTerms = normalizedTerms,
+                            tokens = featureTokens,
+                            minimumTokenOverlap = minimumOverlap
+                        )
+                    )
                 }
             }
         }
     }
 
     private fun normalize(value: String): String = value.lowercase(Locale.ROOT)
-        .replace(Regex("[^a-z0-9]+"), " ")
+        .replace(NON_ALPHANUMERIC, " ")
         .trim()
 
-    private fun tokens(value: String): Set<String> = normalize(value)
+    private fun tokensFromNormalized(value: String): Set<String> = value
         .split(' ')
         .asSequence()
         .filter { it.length >= 4 && it !in STOP_WORDS }
         .toSet()
-
-    private fun CorpusFeature.minimumTokenOverlap(): Int =
-        if (tokens(label).size <= 1 || tokens(id.replace('_', ' ')).size <= 1) 1 else 2
 
     private fun JSONArray?.strings(): List<String> = if (this == null) emptyList() else buildList {
         for (index in 0 until length()) optString(index).takeIf(String::isNotBlank)?.let(::add)
@@ -169,6 +197,7 @@ internal class AndroidMedicalCorpusCandidateProvider(
         val id: String,
         val displayName: String,
         val aliases: List<String>,
+        val directTerms: List<String>,
         val features: List<CorpusFeature>,
         val differentiators: List<String>,
         val investigations: List<String>,
@@ -180,7 +209,10 @@ internal class AndroidMedicalCorpusCandidateProvider(
         val id: String,
         val label: String,
         val frequency: String,
-        val context: String?
+        val context: String?,
+        val normalizedTerms: List<String>,
+        val tokens: Set<String>,
+        val minimumTokenOverlap: Int
     )
 
     private data class RankedCandidate(
@@ -191,6 +223,7 @@ internal class AndroidMedicalCorpusCandidateProvider(
     )
 
     private companion object {
+        val NON_ALPHANUMERIC = Regex("[^a-z0-9]+")
         val STOP_WORDS = setOf(
             "have", "with", "that", "this", "from", "what", "could", "would", "about", "been",
             "does", "feel", "feeling", "when", "your", "some", "more", "very", "also", "like"
