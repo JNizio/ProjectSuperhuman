@@ -117,6 +117,12 @@ SELECT * FROM health_value
 WHERE domain = ? AND metric = ? AND timestamp_epoch_ms BETWEEN ? AND ?
 ORDER BY timestamp_epoch_ms ASC;
 
+boundedBetweenByDomainMetric:
+SELECT * FROM health_value
+WHERE domain = ? AND metric = ? AND timestamp_epoch_ms BETWEEN ? AND ?
+ORDER BY timestamp_epoch_ms DESC
+LIMIT ?;
+
 valuesForDomainBetween:
 SELECT * FROM health_value
 WHERE domain = ? AND timestamp_epoch_ms BETWEEN ? AND ?

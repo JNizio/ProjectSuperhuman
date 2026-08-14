@@ -100,6 +100,7 @@ class TrudyEnvironmentalSynthesizer(
             when (result) {
                 is TrudyToolResult.DomainState -> result.evidence
                 is TrudyToolResult.MetricHistory -> result.evidence
+                is TrudyToolResult.MetricWindow -> result.evidence
                 is TrudyToolResult.DomainHistory -> result.evidence
                 is TrudyToolResult.Context -> result.context.domains.flatMap { it.currentState + it.history }
                 else -> emptyList()
@@ -173,3 +174,4 @@ private fun unitSuffix(unit: String): String {
     val clean = unit.trim()
     return if (clean.isBlank()) "" else if (clean == "%" || clean.startsWith("°")) clean else " $clean"
 }
+

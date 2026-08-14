@@ -43,6 +43,11 @@ private class SqlModuleDataPort(
     override suspend fun latest(metric: String): HealthValue? =
         repository.latest(domain, metric)
 
+    override suspend fun latestForDomain(limit: Int): List<HealthValue> =
+        repository.latestForDomain(domain)
+            .sortedByDescending { it.timestampEpochMs }
+            .take(limit.coerceIn(1, MAX_PAGE_SIZE))
+
     override suspend fun between(
         metric: String,
         fromEpochMs: Long,
@@ -50,6 +55,22 @@ private class SqlModuleDataPort(
     ): List<HealthValue> {
         require(fromEpochMs <= toEpochMs) { "fromEpochMs must be <= toEpochMs" }
         return repository.between(domain, metric, fromEpochMs, toEpochMs)
+    }
+
+    override suspend fun boundedBetween(
+        metric: String,
+        fromEpochMs: Long,
+        toEpochMs: Long,
+        limit: Int
+    ): List<HealthValue> {
+        require(fromEpochMs <= toEpochMs) { "fromEpochMs must be <= toEpochMs" }
+        return repository.boundedBetween(
+            domain = domain,
+            metric = metric,
+            fromEpochMs = fromEpochMs,
+            toEpochMs = toEpochMs,
+            limit = limit.coerceIn(1, MAX_PAGE_SIZE).toLong()
+        )
     }
 
     override suspend fun page(

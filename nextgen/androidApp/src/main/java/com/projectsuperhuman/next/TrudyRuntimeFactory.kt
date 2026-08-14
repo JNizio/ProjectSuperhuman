@@ -3,19 +3,26 @@ package com.projectsuperhuman.next
 import android.content.Context
 import com.projectsuperhuman.next.core.ModuleParityService
 import com.projectsuperhuman.next.trudy.CompositeTrudyToolExecutor
+import com.projectsuperhuman.next.trudy.EmptyTrudyCanonicalExperimentRepository
 import com.projectsuperhuman.next.trudy.HealthContextPersonalEvidenceSource
 import com.projectsuperhuman.next.trudy.HybridTrudyModelClient
 import com.projectsuperhuman.next.trudy.LocalTrudyModelClient
 import com.projectsuperhuman.next.trudy.LocalTrudyModelEngine
 import com.projectsuperhuman.next.trudy.OfflineDeterministicTrudyModelClient
 import com.projectsuperhuman.next.trudy.TrudyConversationService
+import com.projectsuperhuman.next.trudy.TrudyCanonicalExperimentRepository
 import com.projectsuperhuman.next.trudy.TrudyHealthContextService
 import com.projectsuperhuman.next.trudy.TrudyHealthToolService
 import com.projectsuperhuman.next.trudy.TrudyIntelligenceToolService
+import com.projectsuperhuman.next.trudy.TrudyKnowledgeCoordinator
+import com.projectsuperhuman.next.trudy.TrudyKnowledgeSource
 import com.projectsuperhuman.next.trudy.TrudyModelClient
 import com.projectsuperhuman.next.trudy.TrudyModelRuntimeMode
 import com.projectsuperhuman.next.trudy.TrudyOrchestrator
 import com.projectsuperhuman.next.trudy.TrudyPersonalEvidenceLibrary
+import com.projectsuperhuman.next.trudy.TrudySystemInvestigationPlanner
+import com.projectsuperhuman.next.trudy.TrudyTemporalBoundaryProvider
+import com.projectsuperhuman.next.trudy.TrudyTemporalResolver
 import com.projectsuperhuman.next.trudy.medical.CuratedMedicalManagementRepository
 import com.projectsuperhuman.next.trudy.medical.EmptyMedicalConditionCandidateProvider
 import com.projectsuperhuman.next.trudy.medical.MedicalContextAwareTrudyModelClient
@@ -70,7 +77,10 @@ internal object TrudyRuntimeFactory {
         hostedCredentialProvider: () -> String? = {
             BuildConfig.TRUDY_GEMINI_API_KEY.takeIf { it.isNotBlank() }
         },
-        appContext: Context? = null
+        appContext: Context? = null,
+        experimentRepository: TrudyCanonicalExperimentRepository = EmptyTrudyCanonicalExperimentRepository,
+        knowledgeSources: List<TrudyKnowledgeSource> = emptyList(),
+        temporalBoundaries: TrudyTemporalBoundaryProvider = AndroidTrudyTemporalBoundaryProvider()
     ): TrudyRuntime {
         val effectiveHostedTransport = hostedTransport ?: when {
             config.hostedProviderId.equals("gemini", ignoreCase = true) -> GeminiHostedTrudyTransport()
@@ -92,7 +102,8 @@ internal object TrudyRuntimeFactory {
             val evidenceSource = HealthContextPersonalEvidenceSource(context)
             val intelligenceTools = TrudyIntelligenceToolService(
                 library = TrudyPersonalEvidenceLibrary(evidenceSource),
-                source = evidenceSource
+                source = evidenceSource,
+                experimentRepository = experimentRepository
             )
             val tools = CompositeTrudyToolExecutor(
                 healthExecutor = healthTools,
@@ -113,7 +124,12 @@ internal object TrudyRuntimeFactory {
                 delegate = domainReasoningClient,
                 planner = medicalPlanner
             )
-            val orchestrator = TrudyOrchestrator(reasoningClient, tools)
+            val orchestrator = TrudyOrchestrator(
+                modelClient = reasoningClient,
+                tools = tools,
+                preflightPlanner = TrudySystemInvestigationPlanner(TrudyTemporalResolver(temporalBoundaries)),
+                knowledgeCoordinator = TrudyKnowledgeCoordinator(knowledgeSources)
+            )
             val service = TrudyConversationService(orchestrator)
             val backend = SharedTrudyBackendAdapter(
                 service = service,

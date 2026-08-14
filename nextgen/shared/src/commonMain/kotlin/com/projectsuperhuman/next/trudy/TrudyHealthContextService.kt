@@ -47,17 +47,27 @@ class TrudyHealthContextService(
         val safeLimit = limit.coerceIn(1, MAX_METRIC_HISTORY)
         val safeOffset = offset.coerceAtLeast(0)
         val canonicalMetric = canonicalMetric(domain, metricId)
-        val scanLimit = ((safeLimit + safeOffset) * METRIC_SCAN_MULTIPLIER)
-            .coerceAtLeast(safeLimit)
-            .coerceAtMost(MAX_METRIC_SCAN)
-        val history = parity.history(domain, scanLimit, 0)
+        val history = parity.metricHistory(domain, canonicalMetric, safeLimit, safeOffset)
         val quality = dataQuality(domain)
-        return history.values.asSequence()
-            .filter { it.metric == canonicalMetric }
-            .drop(safeOffset)
-            .take(safeLimit)
-            .map { it.toMetricEvidence(quality) }
-            .toList()
+        return history.values.map { it.toMetricEvidence(quality) }
+    }
+
+    suspend fun metricWindow(
+        domain: HealthDomain,
+        metricId: String,
+        range: TrudyTimeRange,
+        limit: Int = DEFAULT_METRIC_WINDOW_LIMIT
+    ): List<TrudyMetricEvidence> {
+        val canonicalMetric = canonicalMetric(domain, metricId)
+        val history = parity.metricWindow(
+            domain = domain,
+            metric = canonicalMetric,
+            fromEpochMs = range.fromEpochMs,
+            toEpochMs = range.toEpochMs,
+            limit = limit.coerceIn(1, MAX_METRIC_HISTORY)
+        )
+        val quality = dataQuality(domain)
+        return history.values.map { it.toMetricEvidence(quality) }
     }
 
     suspend fun derivedFeatures(domain: HealthDomain): List<TrudyDerivedMetricEvidence> {
@@ -190,9 +200,8 @@ class TrudyHealthContextService(
         const val DEFAULT_HISTORY_LIMIT = 250
         const val MAX_DOMAIN_HISTORY = 1_000
         const val DEFAULT_METRIC_HISTORY_LIMIT = 250
+        const val DEFAULT_METRIC_WINDOW_LIMIT = 250
         const val MAX_METRIC_HISTORY = 1_000
-        const val METRIC_SCAN_MULTIPLIER = 4
-        const val MAX_METRIC_SCAN = 5_000
         const val INTERPRETATION_HISTORY_LIMIT = 1_000
         const val MODULE_PARITY_SOURCE = "module-parity"
     }

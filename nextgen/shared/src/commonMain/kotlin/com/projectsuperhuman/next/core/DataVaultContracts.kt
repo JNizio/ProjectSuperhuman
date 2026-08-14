@@ -11,7 +11,28 @@ interface ModuleDataPort {
 
     suspend fun save(values: List<HealthValue>)
     suspend fun latest(metric: String): HealthValue?
+    /**
+     * Latest row for every stored metric in this domain.
+     *
+     * SQL-backed ports override this with one grouped/indexed query. The default keeps existing
+     * test/fake ports source-compatible while still bounding fallback work.
+     */
+    suspend fun latestForDomain(limit: Int = 250): List<HealthValue> =
+        page(metric = null, limit = limit.coerceIn(1, 5_000), offset = 0)
+            .sortedByDescending { it.timestampEpochMs }
+            .distinctBy { it.metric }
     suspend fun between(metric: String, fromEpochMs: Long, toEpochMs: Long): List<HealthValue>
+    /**
+     * Metric-qualified time-window read with a hard result cap. High-frequency streams such as
+     * heart rate must use this boundary instead of materialising every sample in a long window.
+     */
+    suspend fun boundedBetween(
+        metric: String,
+        fromEpochMs: Long,
+        toEpochMs: Long,
+        limit: Int = 250
+    ): List<HealthValue> = between(metric, fromEpochMs, toEpochMs)
+        .takeLast(limit.coerceIn(1, 5_000))
     suspend fun page(metric: String? = null, limit: Int = 250, offset: Int = 0): List<HealthValue>
     suspend fun count(): Long
 }

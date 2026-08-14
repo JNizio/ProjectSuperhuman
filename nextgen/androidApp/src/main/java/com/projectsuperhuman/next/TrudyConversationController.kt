@@ -17,7 +17,8 @@ data class TrudyConversationRequest(
 
 data class TrudyConversationTurn(
     val role: TrudyMessageRole,
-    val text: String
+    val text: String,
+    val evidenceKeys: List<String> = emptyList()
 )
 
 sealed interface TrudyControllerResult {

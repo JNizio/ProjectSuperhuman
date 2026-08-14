@@ -14,7 +14,9 @@ enum class TrudyConversationRole { USER, ASSISTANT }
 
 data class TrudyConversationTurn(
     val role: TrudyConversationRole,
-    val text: String
+    val text: String,
+    /** Opaque structured keys from the assistant turn, retained for evidence follow-ups. */
+    val evidenceKeys: List<String> = emptyList()
 )
 
 data class TrudyModelRequest(
@@ -24,7 +26,8 @@ data class TrudyModelRequest(
     val context: TrudyHealthContext? = null,
     val toolDefinitions: List<TrudyToolDefinition> = emptyList(),
     val toolResults: List<TrudyToolResult> = emptyList(),
-    val iteration: Int = 0
+    val iteration: Int = 0,
+    val knowledgeContext: List<TrudyKnowledgeItem> = emptyList()
 )
 
 data class TrudyEvidenceReference(

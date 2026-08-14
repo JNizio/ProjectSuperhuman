@@ -29,7 +29,8 @@ class SharedTrudyBackendAdapter(
                         TrudyMessageRole.USER -> SharedConversationRole.USER
                         TrudyMessageRole.TRUDY -> SharedConversationRole.ASSISTANT
                     },
-                    text = turn.text.trim()
+                    text = turn.text.trim(),
+                    evidenceKeys = turn.evidenceKeys.take(24)
                 )
             }
             .toList()

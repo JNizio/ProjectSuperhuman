@@ -11,7 +11,8 @@ data class TrudyFormattedModelInput(
     val tools: String,
     val toolResults: String,
     val evidenceIndex: String,
-    val iteration: Int
+    val iteration: Int,
+    val knowledge: String = ""
 ) {
     fun asPrompt(): String = buildString {
         appendLine("SYSTEM"); appendLine(systemInstruction)
@@ -20,6 +21,7 @@ data class TrudyFormattedModelInput(
         appendLine("\nTOOLS"); appendLine(tools.ifBlank { "(none)" })
         appendLine("\nTOOL RESULTS"); appendLine(toolResults.ifBlank { "(none)" })
         appendLine("\nEVIDENCE INDEX"); appendLine(evidenceIndex.ifBlank { "(none)" })
+        appendLine("\nRETRIEVED KNOWLEDGE"); appendLine(knowledge.ifBlank { "(none)" })
         append("\nITERATION ").append(iteration)
     }
 }
@@ -28,16 +30,25 @@ class TrudyPromptFormatter(private val maxConversationTurns: Int = 12, private v
     init { require(maxConversationTurns > 0); require(maxEvidenceRowsPerResult > 0) }
 
     fun format(request: TrudyModelRequest): TrudyFormattedModelInput {
-        val conversation = request.conversationContext.takeLast(maxConversationTurns).joinToString("\n") { "${it.role.name}: ${it.text.trim().take(MAX_TEXT_CHARS)}" }
+        val conversation = request.conversationContext.takeLast(maxConversationTurns).joinToString("\n") {
+            buildString {
+                append(it.role.name).append(": ").append(it.text.trim().take(MAX_TEXT_CHARS))
+                if (it.evidenceKeys.isNotEmpty()) append(" evidence=").append(it.evidenceKeys.take(12).joinToString())
+            }
+        }
         val tools = request.toolDefinitions.joinToString("\n") { "${it.name}(${it.requiredFields.joinToString()}): ${it.description}" }
         val results = request.toolResults.joinToString("\n", transform = ::renderResult)
         val evidence = request.toolResults.flatMap(::evidenceReferences).distinct().take(MAX_EVIDENCE_INDEX).joinToString("\n") { it.renderKey() }
-        return TrudyFormattedModelInput(request.systemInstruction, request.userRequest.trim().take(MAX_TEXT_CHARS), conversation, tools, results, evidence, request.iteration)
+        val knowledge = request.knowledgeContext.take(MAX_KNOWLEDGE_ITEMS).joinToString("\n") {
+            "${it.kind}/${it.stableId} title=${it.title.take(120)} summary=${it.summary.take(500)} source=${it.sourceId} refs=${it.sourceReferences.take(3).joinToString()} uncertainty=${it.uncertainty.orEmpty().take(180)}"
+        }
+        return TrudyFormattedModelInput(request.systemInstruction, request.userRequest.trim().take(MAX_TEXT_CHARS), conversation, tools, results, evidence, request.iteration, knowledge)
     }
 
     private fun renderResult(result: TrudyToolResult): String = when (result) {
         is TrudyToolResult.DomainState -> "domain_state ${result.operation.domain}: ${result.evidence.take(maxEvidenceRowsPerResult).joinToString { it.renderCompact() }}"
         is TrudyToolResult.MetricHistory -> "metric_history ${result.operation.domain}/${result.operation.metricId}: ${result.evidence.take(maxEvidenceRowsPerResult).joinToString { it.renderCompact() }}"
+        is TrudyToolResult.MetricWindow -> "metric_window ${result.operation.domain}/${result.operation.metricId} range=${result.operation.range.fromEpochMs}-${result.operation.range.toEpochMs}: ${result.evidence.take(maxEvidenceRowsPerResult).joinToString { it.renderCompact() }}"
         is TrudyToolResult.DomainHistory -> "domain_history ${result.operation.domain}: ${result.evidence.take(maxEvidenceRowsPerResult).joinToString { it.renderCompact() }}"
         is TrudyToolResult.DerivedFeatures -> "derived ${result.operation.domain}: ${result.evidence.take(maxEvidenceRowsPerResult).joinToString { it.renderCompact() }}"
         is TrudyToolResult.Insights -> "insights ${result.operation.domain}: ${result.evidence.take(maxEvidenceRowsPerResult).joinToString { it.renderCompact() }}"
@@ -48,14 +59,31 @@ class TrudyPromptFormatter(private val maxConversationTurns: Int = 12, private v
         is AssociationToolResult -> "personal_association ${result.association.leftDomain}/${result.association.leftMetricId} vs ${result.association.rightDomain}/${result.association.rightMetricId} method=${result.association.method} coefficient=${result.association.coefficient ?: "n/a"} samples=${result.association.sampleCount} lagMs=${result.association.lagMs} confidence=${result.association.confidence} caveat=association_not_causation"
         is ExperimentHypothesisResult -> "experiment_hypothesis ${result.hypothesis.id} target=${result.hypothesis.targetDomain}/${result.hypothesis.targetMetricId} duration=${result.hypothesis.suggestedDurationDays} intervention=${result.hypothesis.intervention.take(240)}"
         is ExperimentEvaluationResult -> "experiment_result ${result.result.hypothesisId} target=${result.result.targetDomain}/${result.result.targetMetricId} baseline=${result.result.baselineMean ?: "n/a"} intervention=${result.result.interventionMean ?: "n/a"} change=${result.result.absoluteChange ?: "n/a"} confidence=${result.result.confidence} conclusion=${result.result.conclusion}"
+        is ChangeInvestigationResult -> "change_investigation premise=${result.investigation.premiseAssessment} observation=${result.investigation.observationWindow.fromEpochMs}-${result.investigation.observationWindow.toEpochMs} baseline=${result.investigation.baselineWindow.fromEpochMs}-${result.investigation.baselineWindow.toEpochMs} targets=${result.investigation.targetComparisons.joinToString { "${it.domain}/${it.metricId}:delta=${it.absoluteDelta ?: "n/a"},samples=${it.observationSampleCount}/${it.baselineSampleCount}" }} related=${result.investigation.relatedAssociations.joinToString { "${it.leftDomain}/${it.leftMetricId}~${it.rightDomain}/${it.rightMetricId}:r=${it.coefficient ?: "n/a"},n=${it.sampleCount}" }} missing=${result.investigation.missingMetrics.joinToString { "${it.first}/${it.second}" }} caveat=${result.investigation.caveats.joinToString()}"
+        is CanonicalExperimentsResult -> "canonical_experiments persistence=${result.persistenceState} records=${result.experiments.joinToString { "${it.id}:${it.status}:${it.title}:target=${it.targetDomain}/${it.targetMetricId}" }}"
+        is CanonicalExperimentEvaluationResult -> "canonical_experiment_evaluation persistence=${result.persistenceState} experiment=${result.experiment?.id ?: "none"} result=${result.evaluation?.summary ?: "unavailable"}"
+        is SystemAvailabilityResult -> "system_availability unavailable=${result.unavailableReasons.entries.joinToString { "${it.key}:${it.value}" }}"
         is TrudyToolResult.Failure -> "tool_failure ${result.operation}: ${result.code} ${result.message.take(MAX_TEXT_CHARS)}"
     }
 
-    private fun TrudyMetricEvidence.renderCompact() = "${domain.name}/$metricId=$value $unit @${timestampEpochMs} source=$source"
+    private fun TrudyMetricEvidence.renderCompact() = buildString {
+        append("${domain.name}/$metricId=$value $unit @${timestampEpochMs} source=$source")
+        confidence?.let { append(" confidence=").append(it) }
+        dataQuality?.let { append(" quality=").append(it.score).append("/100 stale=").append(it.isStale) }
+        if (metadata.isNotEmpty()) append(" metadata=").append(
+            metadata.entries.take(MAX_METADATA_FIELDS).joinToString { "${it.key}=${it.value.take(MAX_METADATA_VALUE_CHARS)}" }
+        )
+    }
     private fun TrudyDerivedMetricEvidence.renderCompact() = "${domain.name}/$metricId latest=$latest $unit mean=$mean samples=$sampleCount change=${change ?: "n/a"} range=${range.fromEpochMs}-${range.toEpochMs}"
     private fun TrudyInsightEvidence.renderCompact() = "${domain.name}/$id kind=${evidenceKind.name} confidence=${confidence ?: "n/a"} evidence=${evidenceMetricIds.joinToString()} title=${title.take(180)}"
     private fun TrudyDataQualityEvidence.renderCompact() = "${domain.name} score=$score records=$recordCount metrics=$distinctMetricCount stale=$isStale notes=${notes.joinToString(";").take(240)}"
-    private companion object { const val MAX_TEXT_CHARS = 2_000; const val MAX_EVIDENCE_INDEX = 128 }
+    private companion object {
+        const val MAX_TEXT_CHARS = 2_000
+        const val MAX_EVIDENCE_INDEX = 128
+        const val MAX_KNOWLEDGE_ITEMS = 8
+        const val MAX_METADATA_FIELDS = 8
+        const val MAX_METADATA_VALUE_CHARS = 120
+    }
 }
 
 interface LocalTrudyModelEngine { val engineId: String; suspend fun generate(input: TrudyFormattedModelInput): LocalTrudyModelResponse }
@@ -92,6 +120,51 @@ class OfflineDeterministicTrudyModelClient : TrudyModelClient {
     }
 
     private fun summarize(question:String,results:List<TrudyToolResult>):String {
+        results.filterIsInstance<ChangeInvestigationResult>().firstOrNull()?.let { result ->
+            val investigation = result.investigation
+            val available = investigation.targetComparisons.filter { it.absoluteDelta != null }
+            if (available.isEmpty()) return "I don't have enough data in both time windows to verify that change, so I can't investigate a cause from your records yet."
+            return buildString {
+                when (investigation.premiseAssessment) {
+                    TrudyPremiseAssessment.NOT_SUPPORTED -> append("The recorded metrics don't support the premise as stated. ")
+                    TrudyPremiseAssessment.MIXED -> append("The recorded picture is mixed rather than clearly better or worse. ")
+                    TrudyPremiseAssessment.SUPPORTED -> append("The recorded data does show a change in the requested period. ")
+                    TrudyPremiseAssessment.INSUFFICIENT -> append("There isn't enough comparable data to verify the premise. ")
+                }
+                append(available.take(3).joinToString(" ") { comparison ->
+                    "${comparison.metricId.replace('_', ' ')} changed by ${fmt(comparison.absoluteDelta ?: 0.0)} in its recorded units."
+                })
+                val related = investigation.relatedAssociations.filter { it.coefficient != null }
+                    .sortedByDescending { kotlin.math.abs(it.coefficient ?: 0.0) }
+                if (related.isNotEmpty()) {
+                    val signal = related.first()
+                    append(" The clearest related pattern was ${signal.leftMetricId.replace('_', ' ')} with ${signal.rightMetricId.replace('_', ' ')}, based on ${signal.sampleCount} aligned samples. That pattern is a possible association, not proof of the reason.")
+                }
+                if (investigation.missingMetrics.isNotEmpty()) append(" Some relevant inputs were missing, so the investigation is incomplete.")
+            }
+        }
+        results.filterIsInstance<CanonicalExperimentsResult>().firstOrNull()?.let { result ->
+            if (result.persistenceState == TrudyExperimentPersistenceState.NOT_CONNECTED) return "I can't see a canonical saved experiment yet. The current Experiments surface is preview-only, so I won't treat its mock protocols as your history."
+            val experiment = result.experiments.firstOrNull() ?: return "There is no saved experiment matching that status."
+            return "You're running ${experiment.title}. The intervention is ${experiment.intervention}; the primary measurement is ${experiment.targetMetricId.replace('_', ' ')}."
+        }
+        results.filterIsInstance<CanonicalExperimentEvaluationResult>().firstOrNull()?.let { result ->
+            if (result.persistenceState == TrudyExperimentPersistenceState.NOT_CONNECTED) return "I can't compare an experiment yet because no canonical Experiments persistence source is connected. I won't use the preview data as if it were yours."
+            return result.evaluation?.let { "${it.summary} Baseline mean: ${it.baselineMean ?: "not available"}; intervention mean: ${it.interventionMean ?: "not available"}." }
+                ?: "I found no saved experiment with enough identified baseline and intervention data to compare."
+        }
+        results.filterIsInstance<SystemAvailabilityResult>().firstOrNull()?.let { result ->
+            return result.unavailableReasons.values.joinToString(" ").ifBlank { "That module is not connected to a canonical Trudy data source yet." }
+        }
+        val windows = results.filterIsInstance<TrudyToolResult.MetricWindow>()
+        if (windows.isNotEmpty()) {
+            val available = windows.filter { it.evidence.isNotEmpty() }
+            if (available.isEmpty()) return "There is no stored measurement for that metric in the requested time window."
+            return available.joinToString(" ") { window ->
+                val latest = window.evidence.maxByOrNull { it.timestampEpochMs }!!
+                "${latest.metricId.replace('_', ' ')} was ${fmt(latest.value)} ${latest.unit} at ${latest.timestampEpochMs}."
+            }
+        }
         results.filterIsInstance<AssociationToolResult>().firstOrNull()?.let { a -> return if(a.association.coefficient==null) "There are not enough aligned personal samples to estimate that association reliably. Association is not causation." else "The structured calculation found a ${a.association.direction.name.lowercase()} association (${a.association.method.name.lowercase()}, coefficient ${fmt(a.association.coefficient)}, ${a.association.sampleCount} aligned samples, ${a.association.confidence.name.lowercase()} confidence). This is an association, not evidence of causation." }
         results.filterIsInstance<PersonalTrendResult>().firstOrNull()?.let { c -> return if(c.comparison.absoluteDelta==null) "There is not enough recent and baseline data to assess that trend reliably." else "The recent structured comparison is ${c.comparison.direction.name.lowercase()} by ${fmt(c.comparison.absoluteDelta)} in the metric's native units, with ${c.comparison.confidence.name.lowercase()} confidence. This is a descriptive personal trend." }
         results.filterIsInstance<ExperimentHypothesisResult>().firstOrNull()?.let { h -> return "A safe structured option is: ${h.hypothesis.intervention} Track ${h.hypothesis.targetMetricId} for ${h.hypothesis.suggestedDurationDays} days. This would create personal evidence, not universal or causal proof." }
@@ -151,6 +224,7 @@ class OfflineDeterministicTrudyModelClient : TrudyModelClient {
 internal fun evidenceReferences(result:TrudyToolResult):List<TrudyEvidenceReference> = when(result) {
     is TrudyToolResult.DomainState -> result.evidence.map { it.toReference() }
     is TrudyToolResult.MetricHistory -> result.evidence.map { it.toReference() }
+    is TrudyToolResult.MetricWindow -> result.evidence.map { it.toReference() }
     is TrudyToolResult.DomainHistory -> result.evidence.map { it.toReference() }
     is TrudyToolResult.DerivedFeatures -> result.evidence.map { it.toReference() }
     is TrudyToolResult.Insights -> result.evidence.map { it.toReference() }
@@ -161,6 +235,10 @@ internal fun evidenceReferences(result:TrudyToolResult):List<TrudyEvidenceRefere
     is AssociationToolResult -> result.association.evidence.supportingEvidenceReferences
     is ExperimentHypothesisResult -> result.hypothesis.evidenceBasis.flatMap { it.supportingEvidenceReferences }.distinct()
     is ExperimentEvaluationResult -> result.result.evidence.supportingEvidenceReferences
+    is ChangeInvestigationResult -> result.investigation.targetComparisons.flatMap { it.evidence.supportingEvidenceReferences } + result.investigation.relatedAssociations.flatMap { it.evidence.supportingEvidenceReferences }
+    is CanonicalExperimentsResult -> emptyList()
+    is CanonicalExperimentEvaluationResult -> result.evaluation?.evidence?.supportingEvidenceReferences.orEmpty()
+    is SystemAvailabilityResult -> emptyList()
     is TrudyToolResult.Failure -> emptyList()
 }
 private fun TrudyMetricEvidence.toReference()=TrudyEvidenceReference(domain,metricId,evidenceKind=evidenceKind,timestampEpochMs=timestampEpochMs)

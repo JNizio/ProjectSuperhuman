@@ -7,12 +7,21 @@ import kotlin.math.sqrt
 
 interface TrudyPersonalEvidenceSource {
     suspend fun metricHistory(domain: HealthDomain, metricId: String, limit: Int = 1000): List<TrudyMetricEvidence>
+    suspend fun metricWindow(
+        domain: HealthDomain,
+        metricId: String,
+        range: TrudyTimeRange,
+        limit: Int = 1000
+    ): List<TrudyMetricEvidence> = metricHistory(domain, metricId, limit)
+        .filter { it.timestampEpochMs in range.fromEpochMs..range.toEpochMs }
     suspend fun dataQuality(domain: HealthDomain): TrudyDataQualityEvidence
 }
 
 class HealthContextPersonalEvidenceSource(private val healthContext: TrudyHealthContextService) : TrudyPersonalEvidenceSource {
     override suspend fun metricHistory(domain: HealthDomain, metricId: String, limit: Int) =
         healthContext.metricHistory(domain, metricId, limit.coerceIn(1, 1000), 0)
+    override suspend fun metricWindow(domain: HealthDomain, metricId: String, range: TrudyTimeRange, limit: Int) =
+        healthContext.metricWindow(domain, metricId, range, limit.coerceIn(1, 1000))
     override suspend fun dataQuality(domain: HealthDomain) = healthContext.dataQuality(domain)
 }
 
@@ -129,7 +138,11 @@ class TrudyPersonalEvidenceLibrary(private val source: TrudyPersonalEvidenceSour
     }
 
     suspend fun compareBaseline(domain: HealthDomain, metricId: String, observationWindow: TrudyTimeRange, baselineWindow: TrudyTimeRange): TrudyBaselineComparison {
-        val all = source.metricHistory(domain, metricId, 1000)
+        val observationRows = source.metricWindow(domain, metricId, observationWindow, MAX_WINDOW_ROWS)
+        val baselineRows = source.metricWindow(domain, metricId, baselineWindow, MAX_WINDOW_ROWS)
+        val all = (observationRows + baselineRows).distinctBy {
+            listOf(it.domain.name, it.metricId, it.timestampEpochMs.toString(), it.source, it.value.toString()).joinToString("|")
+        }
         require(all.all { it.domain == domain && it.metricId == metricId }) { "Evidence source leaked a different domain or metric" }
         val usable = all.filter(TrudyStatistics::usableEvidence)
         val obs = usable.filter { it.timestampEpochMs in observationWindow.fromEpochMs..observationWindow.toEpochMs }
@@ -146,11 +159,14 @@ class TrudyPersonalEvidenceLibrary(private val source: TrudyPersonalEvidenceSour
         return TrudyBaselineComparison(domain, metricId, observationWindow, baselineWindow, om, bm, delta, pct, standardized, obs.size, base.size, effectDirection(delta), confidence, status, caveats, evidence)
     }
 
-    suspend fun association(leftDomain: HealthDomain, leftMetricId: String, rightDomain: HealthDomain, rightMetricId: String, method: TrudyAssociationMethod = TrudyAssociationMethod.PEARSON, lagMs: Long = 0, alignmentWindowMs: Long = 21_600_000L, limit: Int = 365): TrudyAssociationResult {
+    suspend fun association(leftDomain: HealthDomain, leftMetricId: String, rightDomain: HealthDomain, rightMetricId: String, method: TrudyAssociationMethod = TrudyAssociationMethod.PEARSON, lagMs: Long = 0, alignmentWindowMs: Long = 21_600_000L, limit: Int = 365, window: TrudyTimeRange? = null): TrudyAssociationResult {
         require(leftMetricId.isNotBlank() && rightMetricId.isNotBlank())
         require(lagMs in 0..TrudyStatistics.MAX_LAG_MS && alignmentWindowMs in 0..TrudyStatistics.MAX_ALIGNMENT_WINDOW_MS)
         require(limit in 1..1000)
-        val rawLeft = source.metricHistory(leftDomain, leftMetricId, limit); val rawRight = source.metricHistory(rightDomain, rightMetricId, limit)
+        val rawLeft = if (window == null) source.metricHistory(leftDomain, leftMetricId, limit)
+        else source.metricWindow(leftDomain, leftMetricId, window, limit)
+        val rawRight = if (window == null) source.metricHistory(rightDomain, rightMetricId, limit)
+        else source.metricWindow(rightDomain, rightMetricId, window, limit)
         require(rawLeft.all { it.domain == leftDomain && it.metricId == leftMetricId }); require(rawRight.all { it.domain == rightDomain && it.metricId == rightMetricId })
         val left = rawLeft.filter(TrudyStatistics::usableEvidence); val right = rawRight.filter(TrudyStatistics::usableEvidence)
         val pairs = TrudyStatistics.align(left, right, lagMs, alignmentWindowMs)
@@ -180,7 +196,11 @@ class TrudyPersonalEvidenceLibrary(private val source: TrudyPersonalEvidenceSour
     private fun saturatedSubtract(value: Long, amount: Long): Long =
         if (amount > 0L && value < Long.MIN_VALUE + amount) Long.MIN_VALUE else value - amount
 
-    private companion object { const val DAY_MS = 86_400_000L; const val MAX_WINDOW_DAYS = 3650 }
+    private companion object {
+        const val DAY_MS = 86_400_000L
+        const val MAX_WINDOW_DAYS = 3650
+        const val MAX_WINDOW_ROWS = 1_000
+    }
 }
 
 private fun TrudyMetricEvidence.ref() = TrudyEvidenceReference(domain, metricId, evidenceKind = evidenceKind, timestampEpochMs = timestampEpochMs)

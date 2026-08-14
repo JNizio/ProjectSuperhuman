@@ -102,7 +102,7 @@ class TrudyConversationState(
 
         val history = uiState.messages
             .filter { it.status == TrudyMessageStatus.COMPLETE && it.text.isNotBlank() }
-            .map { TrudyConversationTurn(it.role, it.text) }
+            .map { TrudyConversationTurn(it.role, it.text, it.evidence.map(TrudyEvidenceItem::id)) }
 
         val userMessage = TrudyMessage(
             id = nextMessageId++,
@@ -185,7 +185,7 @@ class TrudyConversationState(
         val requestId = nextRequestId++
         val history = uiState.messages.take(index)
             .filter { it.status == TrudyMessageStatus.COMPLETE && it.text.isNotBlank() }
-            .map { TrudyConversationTurn(it.role, it.text) }
+            .map { TrudyConversationTurn(it.role, it.text, it.evidence.map(TrudyEvidenceItem::id)) }
         val replacement = failed.copy(
             text = "",
             status = TrudyMessageStatus.SENDING,

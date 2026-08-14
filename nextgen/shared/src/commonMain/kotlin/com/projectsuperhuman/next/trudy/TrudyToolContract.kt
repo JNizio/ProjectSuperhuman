@@ -19,6 +19,15 @@ sealed interface TrudyToolOperation {
         override val domains: List<HealthDomain> = listOf(domain)
     }
 
+    data class GetMetricWindow(
+        val domain: HealthDomain,
+        val metricId: String,
+        val range: TrudyTimeRange,
+        val limit: Int = 250
+    ) : TrudyToolOperation {
+        override val domains: List<HealthDomain> = listOf(domain)
+    }
+
     data class GetDomainHistory(
         val domain: HealthDomain,
         val limit: Int = 250,
@@ -62,6 +71,7 @@ sealed interface TrudyToolResult {
 
     data class DomainState(override val operation: TrudyToolOperation.GetDomainState, val evidence: List<TrudyMetricEvidence>) : TrudyToolResult
     data class MetricHistory(override val operation: TrudyToolOperation.GetMetricHistory, val evidence: List<TrudyMetricEvidence>) : TrudyToolResult
+    data class MetricWindow(override val operation: TrudyToolOperation.GetMetricWindow, val evidence: List<TrudyMetricEvidence>) : TrudyToolResult
     data class DomainHistory(override val operation: TrudyToolOperation.GetDomainHistory, val evidence: List<TrudyMetricEvidence>) : TrudyToolResult
     data class DerivedFeatures(override val operation: TrudyToolOperation.GetDerivedFeatures, val evidence: List<TrudyDerivedMetricEvidence>) : TrudyToolResult
     data class Insights(override val operation: TrudyToolOperation.GetInsights, val evidence: List<TrudyInsightEvidence>) : TrudyToolResult
@@ -83,6 +93,7 @@ class TrudyHealthToolService(
     override val definitions: List<TrudyToolDefinition> = listOf(
         TrudyToolDefinition("get_domain_state", "Get current structured state for one health domain.", listOf("domain")),
         TrudyToolDefinition("get_metric_history", "Get bounded history for one domain-qualified metric.", listOf("domain", "metricId")),
+        TrudyToolDefinition("get_metric_window", "Get a bounded, domain-qualified metric inside one explicit time window.", listOf("domain", "metricId", "range")),
         TrudyToolDefinition("get_domain_history", "Get bounded history for one health domain.", listOf("domain")),
         TrudyToolDefinition("get_derived_features", "Get derived personal features for one health domain.", listOf("domain")),
         TrudyToolDefinition("get_insights", "Get current structured insights for one health domain.", listOf("domain")),
@@ -97,6 +108,7 @@ class TrudyHealthToolService(
         return when (operation) {
             is TrudyToolOperation.GetDomainState -> TrudyToolResult.DomainState(operation, healthContext.currentState(operation.domain))
             is TrudyToolOperation.GetMetricHistory -> TrudyToolResult.MetricHistory(operation, healthContext.metricHistory(operation.domain, operation.metricId, operation.limit, operation.offset))
+            is TrudyToolOperation.GetMetricWindow -> TrudyToolResult.MetricWindow(operation, healthContext.metricWindow(operation.domain, operation.metricId, operation.range, operation.limit))
             is TrudyToolOperation.GetDomainHistory -> TrudyToolResult.DomainHistory(operation, healthContext.domainHistory(operation.domain, operation.limit, operation.offset))
             is TrudyToolOperation.GetDerivedFeatures -> TrudyToolResult.DerivedFeatures(operation, healthContext.derivedFeatures(operation.domain))
             is TrudyToolOperation.GetInsights -> TrudyToolResult.Insights(operation, healthContext.insights(operation.domain))
@@ -112,6 +124,11 @@ class TrudyHealthToolService(
             operation.metricId.isBlank() -> "metricId must not be blank"
             operation.limit !in 1..MAX_RESULT_LIMIT -> "limit must be between 1 and $MAX_RESULT_LIMIT"
             operation.offset < 0 -> "offset must be >= 0"
+            else -> null
+        }
+        is TrudyToolOperation.GetMetricWindow -> when {
+            operation.metricId.isBlank() -> "metricId must not be blank"
+            operation.limit !in 1..MAX_RESULT_LIMIT -> "limit must be between 1 and $MAX_RESULT_LIMIT"
             else -> null
         }
         is TrudyToolOperation.GetDomainHistory -> when {

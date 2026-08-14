@@ -70,6 +70,22 @@ class SqlHealthRepository(
     ): List<HealthValue> =
         q.betweenByDomainMetric(domain.name, metric, fromEpochMs, toEpochMs, ::mapHealthValue).executeAsList()
 
+    suspend fun boundedBetween(
+        domain: HealthDomain,
+        metric: String,
+        fromEpochMs: Long,
+        toEpochMs: Long,
+        limit: Long
+    ): List<HealthValue> =
+        q.boundedBetweenByDomainMetric(
+            domain.name,
+            metric,
+            fromEpochMs,
+            toEpochMs,
+            limit,
+            ::mapHealthValue
+        ).executeAsList().asReversed()
+
     suspend fun domainBetween(
         domain: HealthDomain,
         fromEpochMs: Long,

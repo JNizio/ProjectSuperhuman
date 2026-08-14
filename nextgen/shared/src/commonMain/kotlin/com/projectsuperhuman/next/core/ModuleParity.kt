@@ -96,7 +96,7 @@ class ModuleParityService(
     private val registry: MetricRegistry = CoreMetricRegistry
 ) {
     suspend fun currentState(domain: HealthDomain): ModuleCurrentState {
-        val rows = modulePort(domain).page(metric = null, limit = MAX_SCAN_ROWS, offset = 0)
+        val rows = modulePort(domain).latestForDomain(MAX_LATEST_METRICS)
             .map(::canonicalize)
             .sortedByDescending { it.timestampEpochMs }
         val latest = rows.distinctBy { it.metric }
@@ -120,6 +120,50 @@ class ModuleParityService(
             offset = safeOffset
         ).map(::canonicalize).sortedByDescending { it.timestampEpochMs }
         return ModuleHistory(domain, rows, safeLimit, safeOffset)
+    }
+
+    /** Metric-qualified pagination avoids scanning unrelated observations in a busy domain. */
+    suspend fun metricHistory(
+        domain: HealthDomain,
+        metric: String,
+        limit: Int = DEFAULT_HISTORY_LIMIT,
+        offset: Int = 0
+    ): ModuleHistory {
+        val safeLimit = limit.coerceIn(1, MAX_SCAN_ROWS)
+        val safeOffset = offset.coerceAtLeast(0)
+        val fetchLimit = (safeLimit.toLong() + safeOffset.toLong())
+            .coerceAtMost(MAX_SCAN_ROWS.toLong())
+            .toInt()
+        val names = storedMetricNames(domain, metric)
+        val rows = names.flatMap { storedName ->
+            modulePort(domain).page(
+                metric = storedName,
+                limit = fetchLimit,
+                offset = 0
+            )
+        }.map(::canonicalize)
+            .sortedByDescending { it.timestampEpochMs }
+            .drop(safeOffset)
+            .take(safeLimit)
+        return ModuleHistory(domain, rows, safeLimit, safeOffset)
+    }
+
+    /** Exact metric/time-window retrieval with a hard cap for Trudy and interpretation callers. */
+    suspend fun metricWindow(
+        domain: HealthDomain,
+        metric: String,
+        fromEpochMs: Long,
+        toEpochMs: Long,
+        limit: Int = DEFAULT_HISTORY_LIMIT
+    ): ModuleHistory {
+        require(fromEpochMs <= toEpochMs) { "fromEpochMs must be <= toEpochMs" }
+        val safeLimit = limit.coerceIn(1, MAX_SCAN_ROWS)
+        val rows = storedMetricNames(domain, metric).flatMap { storedName ->
+            modulePort(domain).boundedBetween(storedName, fromEpochMs, toEpochMs, safeLimit)
+        }.map(::canonicalize)
+            .sortedByDescending { it.timestampEpochMs }
+            .take(safeLimit)
+        return ModuleHistory(domain, rows, safeLimit, 0)
     }
 
     suspend fun derivedFeatures(
@@ -196,7 +240,7 @@ class ModuleParityService(
     suspend fun dataQuality(domain: HealthDomain): ModuleDataQuality {
         val port = modulePort(domain)
         val recordCount = port.count()
-        val recent = port.page(metric = null, limit = MAX_SCAN_ROWS, offset = 0)
+        val recent = port.latestForDomain(MAX_LATEST_METRICS)
             .map(::canonicalize)
             .sortedByDescending { it.timestampEpochMs }
         val latestTimestamp = recent.firstOrNull()?.timestampEpochMs
@@ -272,6 +316,14 @@ class ModuleParityService(
         )
     }
 
+    private fun storedMetricNames(domain: HealthDomain, metric: String): Set<String> {
+        val definition = registry.definition(domain, metric) ?: return setOf(metric.trim())
+        return buildSet {
+            add(definition.id)
+            addAll(definition.aliases)
+        }
+    }
+
     private fun formatMagnitude(value: Double): String =
         if (value >= 10.0) value.toInt().toString() else ((value * 10.0).toInt() / 10.0).toString()
 
@@ -279,6 +331,7 @@ class ModuleParityService(
         const val DEFAULT_HISTORY_LIMIT = 250
         const val DEFAULT_FEATURE_ROWS = 1_000
         const val MAX_SCAN_ROWS = 5_000
+        const val MAX_LATEST_METRICS = 500
         const val MIN_TREND_SAMPLES = 3
         const val MIN_RELATIVE_CHANGE = 0.05
         const val MIN_SCALE = 0.0001
