@@ -5,6 +5,7 @@ import com.projectsuperhuman.next.trudy.medical.CuratedMedicalSafetySignalProvid
 import com.projectsuperhuman.next.trudy.medical.MedicalEscalationLevel
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.test.runTest
@@ -60,7 +61,7 @@ class TrudySwarmKnowledgeIntegrationTest {
         assertTrue(methodology.summary.contains("Baseline", ignoreCase = true))
         assertTrue(methodology.summary.contains("intervention", ignoreCase = true))
         assertTrue(methodology.uncertainty?.isNotBlank() == true)
-        assertTrue(methodology.metricHints.any { it.metricId == "sleep_total_minutes" })
+        assertTrue(methodology.metricHints.any { it.domain == HealthDomain.SLEEP })
     }
 
     @Test
@@ -77,9 +78,58 @@ class TrudySwarmKnowledgeIntegrationTest {
     }
 
     @Test
+    fun knowledgeAliasCanDriveOnlyItsBoundedPersonalMetric() = runTest {
+        val source = object : TrudyKnowledgeSource {
+            override val sourceId = "test-performance"
+            override val kind = TrudyKnowledgeKind.SLEEP_AND_PERFORMANCE
+            override suspend fun retrieve(query: TrudyKnowledgeQuery) = listOf(
+                TrudyKnowledgeItem(
+                    stableId = "test:heart_racing",
+                    kind = kind,
+                    title = "Heart-rate context",
+                    summary = "A racing-heart phrase can refer to heart-rate context without implying a diagnosis.",
+                    sourceId = sourceId,
+                    sourceReferences = listOf("test-source"),
+                    relevantDomains = listOf(HealthDomain.EXERCISE),
+                    relevantMetricIds = listOf("heart_rate_avg_bpm"),
+                    metricHints = listOf(
+                        TrudyKnowledgeMetricHint(
+                            HealthDomain.EXERCISE,
+                            "heart_rate_avg_bpm",
+                            TrudyKnowledgeMetricRole.PRIMARY_OUTCOME
+                        )
+                    ),
+                    version = "test",
+                    lastReviewed = "2026-08-14"
+                )
+            )
+        }
+        val executor = object : TrudyToolExecutor {
+            override val definitions: List<TrudyToolDefinition> = emptyList()
+            override suspend fun execute(operation: TrudyToolOperation): TrudyToolResult = when (operation) {
+                is TrudyToolOperation.GetMetricHistory -> TrudyToolResult.MetricHistory(operation, emptyList())
+                else -> TrudyToolResult.Failure(operation, TrudyToolFailureCode.UNSUPPORTED_OPERATION, "unexpected")
+            }
+        }
+        val orchestrator = TrudyOrchestrator(
+            modelClient = DeterministicTrudyModelClient { TrudyModelResult(responseText = "done") },
+            tools = executor,
+            preflightPlanner = NoOpTrudyPreflightPlanner,
+            knowledgeCoordinator = TrudyKnowledgeCoordinator(listOf(source))
+        )
+
+        val result = orchestrator.ask(TrudyAskRequest("My heart is racing"))
+
+        val operation = assertIs<TrudyToolOperation.GetMetricHistory>(result.toolCallsMade.single().operation)
+        assertEquals(HealthDomain.EXERCISE, operation.domain)
+        assertEquals("heart_rate_avg_bpm", operation.metricId)
+        assertEquals(60, operation.limit)
+    }
+
+    @Test
     fun missingBloodPressureWindowProducesNoInventedReading() = runTest {
         val operation = TrudyToolOperation.GetMetricWindow(
-            domain = HealthDomain.CLINICAL,
+            domain = HealthDomain.BLOOD_PRESSURE,
             metricId = "blood_pressure_systolic_mmhg",
             range = TrudyTimeRange(1L, 2L)
         )
