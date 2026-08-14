@@ -80,6 +80,7 @@ private enum class HomeTile(val storageKey: String) {
     INSIGHTS("insights"),
     EMOTIONAL("emotional"),
     ENVIRONMENT("environment"),
+    EXPERIMENTS("experiments"),
     HYDRATION("hydration"),
     CLINICAL("clinical"),
     EXERCISE("exercise"),
@@ -101,6 +102,7 @@ private val defaultHomeTileOrder = listOf(
     HomeTile.INSIGHTS,
     HomeTile.EMOTIONAL,
     HomeTile.ENVIRONMENT,
+    HomeTile.EXPERIMENTS,
     HomeTile.HYDRATION,
     HomeTile.CLINICAL,
     HomeTile.EXERCISE,
@@ -127,6 +129,7 @@ internal fun NativeLiveHome(
     openEnvironment: () -> Unit,
     openEmotional: () -> Unit,
     openInsights: () -> Unit,
+    openExperiments: () -> Unit,
     openMiniMetric: (HomeMiniMetric) -> Unit,
     topContent: @Composable () -> Unit = {}
 ) {
@@ -323,6 +326,7 @@ internal fun NativeLiveHome(
                             HomeTile.INSIGHTS -> HomeInsightsTile(InsightsUiRuntime.provider.load(), openInsights)
                             HomeTile.EMOTIONAL -> HomeEmotionalTile(emotionalCurrent, openEmotional)
                             HomeTile.ENVIRONMENT -> HomeEnvironmentalTile(onClick = openEnvironment)
+                            HomeTile.EXPERIMENTS -> HomeExperimentsTile(MockExperimentData.active, openExperiments)
                             HomeTile.HYDRATION -> PremiumHomeHydrationTile(snapshot, openHydration)
                             HomeTile.CLINICAL -> LegacyClinicalCard(snapshot, openClinical)
                             HomeTile.EXERCISE -> LegacyTrainingCard(snapshot, openExercise)
@@ -424,7 +428,7 @@ private fun loadHomeTileOrder(context: Context): List<HomeTile> {
         .mapNotNull { key -> HomeTile.entries.firstOrNull { it.storageKey == key.trim() } }
         .distinct()
 
-    val newcomers = listOf(HomeTile.INSIGHTS, HomeTile.EMOTIONAL, HomeTile.ENVIRONMENT).filterNot(parsed::contains)
+    val newcomers = listOf(HomeTile.INSIGHTS, HomeTile.EMOTIONAL, HomeTile.ENVIRONMENT, HomeTile.EXPERIMENTS).filterNot(parsed::contains)
     val existingAndDefaults = parsed + defaultHomeTileOrder.filterNot { it in parsed || it in newcomers }
     return (newcomers + existingAndDefaults).ifEmpty { defaultHomeTileOrder }
 }
