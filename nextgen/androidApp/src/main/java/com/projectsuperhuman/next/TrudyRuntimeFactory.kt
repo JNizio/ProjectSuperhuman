@@ -1,5 +1,6 @@
 package com.projectsuperhuman.next
 
+import android.content.Context
 import com.projectsuperhuman.next.core.ModuleParityService
 import com.projectsuperhuman.next.trudy.CompositeTrudyToolExecutor
 import com.projectsuperhuman.next.trudy.HealthContextPersonalEvidenceSource
@@ -15,6 +16,10 @@ import com.projectsuperhuman.next.trudy.TrudyModelClient
 import com.projectsuperhuman.next.trudy.TrudyModelRuntimeMode
 import com.projectsuperhuman.next.trudy.TrudyOrchestrator
 import com.projectsuperhuman.next.trudy.TrudyPersonalEvidenceLibrary
+import com.projectsuperhuman.next.trudy.medical.CuratedMedicalManagementRepository
+import com.projectsuperhuman.next.trudy.medical.EmptyMedicalConditionCandidateProvider
+import com.projectsuperhuman.next.trudy.medical.MedicalContextAwareTrudyModelClient
+import com.projectsuperhuman.next.trudy.medical.TrudyMedicalContextPlanner
 import com.projectsuperhuman.next.trudy.withEmotionalReasoning
 import com.projectsuperhuman.next.trudy.withEnvironmentalReasoning
 
@@ -64,7 +69,8 @@ internal object TrudyRuntimeFactory {
         hostedTransport: HostedTrudyTransport? = null,
         hostedCredentialProvider: () -> String? = {
             BuildConfig.TRUDY_GEMINI_API_KEY.takeIf { it.isNotBlank() }
-        }
+        },
+        appContext: Context? = null
     ): TrudyRuntime {
         val effectiveHostedTransport = hostedTransport ?: when {
             config.hostedProviderId.equals("gemini", ignoreCase = true) -> GeminiHostedTrudyTransport()
@@ -92,9 +98,21 @@ internal object TrudyRuntimeFactory {
                 healthExecutor = healthTools,
                 intelligenceExecutor = intelligenceTools
             )
-            // Domain decorators are provider-neutral. Environmental wraps Emotional so mixed
-            // environment/mood questions are handled by the cross-domain planner first.
-            val reasoningClient = selection.client.withEmotionalReasoning().withEnvironmentalReasoning()
+
+            // Domain decorators remain provider-neutral. Medical reasoning is the outer context layer
+            // so it can request bounded Data Vault evidence and then hand the enriched request to the
+            // existing Emotional/Environmental/model pipeline without replacing any of it.
+            val domainReasoningClient = selection.client.withEmotionalReasoning().withEnvironmentalReasoning()
+            val candidateProvider = appContext?.let(::AndroidMedicalCorpusCandidateProvider)
+                ?: EmptyMedicalConditionCandidateProvider
+            val medicalPlanner = TrudyMedicalContextPlanner(
+                knowledge = CuratedMedicalManagementRepository(),
+                conditionCandidates = candidateProvider
+            )
+            val reasoningClient = MedicalContextAwareTrudyModelClient(
+                delegate = domainReasoningClient,
+                planner = medicalPlanner
+            )
             val orchestrator = TrudyOrchestrator(reasoningClient, tools)
             val service = TrudyConversationService(orchestrator)
             val backend = SharedTrudyBackendAdapter(
