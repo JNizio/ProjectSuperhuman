@@ -92,6 +92,8 @@ android {
         res.srcDir("../../app/src/main/res")
         assets.srcDir("../../app/src/main/assets")
         assets.srcDir(repDbAssets)
+        // Canonical offline condition/symptom corpus used by Trudy's Android retrieval adapter.
+        assets.srcDir("../medical-knowledge")
     }
     buildTypes {
         getByName("debug") {
