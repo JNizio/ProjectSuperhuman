@@ -75,13 +75,29 @@ internal fun NativeTrudy(
     val listState = rememberLazyListState()
     val uiState = state.uiState
     val voiceState by voiceController.state.collectAsState()
+    val speechInputController = rememberTrudySpeechInputController()
+    val speechInputState by speechInputController.state.collectAsState()
+    var voiceModeActive by remember { mutableStateOf(false) }
     var showVoiceSettings by remember { mutableStateOf(false) }
+    var voiceContextModules by remember {
+        mutableStateOf(emptyList<TrudyVoiceContextModule>())
+    }
 
     fun leaveTrudy() {
+        speechInputController.cancel()
         voiceController.onTrudyHidden()
         onBack()
     }
-    BackHandler(onBack = ::leaveTrudy)
+
+    fun closeVoiceMode() {
+        speechInputController.cancel()
+        voiceController.stop()
+        showVoiceSettings = false
+        voiceModeActive = false
+    }
+
+    BackHandler(enabled = voiceModeActive, onBack = ::closeVoiceMode)
+    BackHandler(enabled = !voiceModeActive, onBack = ::leaveTrudy)
 
     DisposableEffect(voiceController) {
         onDispose { voiceController.onTrudyHidden() }
@@ -100,7 +116,12 @@ internal fun NativeTrudy(
             }
             val accepted = state.complete(request, result)
             if (accepted && result is TrudyControllerResult.Success) {
-                voiceController.maybeAutoSpeak(request.assistantMessageId, result.reply.text)
+                voiceContextModules = TrudyVoiceContextMapper.modulesFor(result.reply)
+                if (voiceModeActive) {
+                    voiceController.speak(request.assistantMessageId, result.reply.text)
+                } else {
+                    voiceController.maybeAutoSpeak(request.assistantMessageId, result.reply.text)
+                }
             }
         }
     }
@@ -114,6 +135,59 @@ internal fun NativeTrudy(
     fun send(textOverride: String? = null) = submit(state.beginSend(textOverride))
     fun retry(messageId: Long) = submit(state.retryFailed(messageId))
 
+    LaunchedEffect(speechInputState.resultId) {
+        if (speechInputState.resultId > 0L) {
+            val transcript = speechInputState.finalTranscript
+            speechInputController.acknowledgeResult()
+            if (transcript.isNotBlank()) send(transcript)
+        }
+    }
+
+    if (voiceModeActive) {
+        val visibleContextModules = when (voiceState.status) {
+            TrudyVoiceUiStatus.LOADING,
+            TrudyVoiceUiStatus.SYNTHESIZING,
+            TrudyVoiceUiStatus.SPEAKING -> voiceContextModules
+            else -> emptyList()
+        }
+        TrudyVoiceModeScreen(
+            conversationState = uiState,
+            voiceState = voiceState,
+            speechInputState = speechInputState,
+            speechInputController = speechInputController,
+            contextModules = visibleContextModules,
+            settingsExpanded = showVoiceSettings,
+            onToggleSettings = { showVoiceSettings = !showVoiceSettings },
+            onKeyboardMode = { partialTranscript ->
+                if (partialTranscript.isNotBlank()) state.updateInput(partialTranscript)
+                closeVoiceMode()
+            },
+            onEndSession = ::closeVoiceMode,
+            onStopSpeaking = voiceController::stop,
+            settingsContent = {
+                TrudyVoiceSettingsCard(
+                    state = voiceState,
+                    onEnabled = voiceController::setEnabled,
+                    onAutoSpeak = voiceController::setAutoSpeak,
+                    onVoice = voiceController::selectVoice,
+                    onSpeed = voiceController::setSpeed,
+                    onInstall = voiceController::installModel,
+                    onRemove = voiceController::removeModel,
+                    onReinstall = voiceController::reinstallModel
+                )
+            },
+            promptContent = {
+                TrudyVoicePrompt(
+                    state = voiceState,
+                    onInstall = voiceController::installModel,
+                    onRetry = voiceController::retryLastVoiceAction,
+                    onDismiss = voiceController::dismissPrompt
+                )
+            }
+        )
+        return
+    }
+
     LaunchedEffect(uiState.messages.size, uiState.isThinking) {
         if (uiState.messages.isNotEmpty()) listState.animateScrollToItem(uiState.messages.lastIndex)
     }
@@ -121,22 +195,12 @@ internal fun NativeTrudy(
     Column(Modifier.fillMaxSize().background(TrudyBg).imePadding()) {
         TrudyHeader(
             onBack = ::leaveTrudy,
-            onVoiceSettings = { showVoiceSettings = !showVoiceSettings },
+            onVoiceMode = {
+                showVoiceSettings = false
+                voiceModeActive = true
+            },
             voiceEnabled = voiceState.preferences.enabled
         )
-
-        if (showVoiceSettings) {
-            TrudyVoiceSettingsCard(
-                state = voiceState,
-                onEnabled = voiceController::setEnabled,
-                onAutoSpeak = voiceController::setAutoSpeak,
-                onVoice = voiceController::selectVoice,
-                onSpeed = voiceController::setSpeed,
-                onInstall = voiceController::installModel,
-                onRemove = voiceController::removeModel,
-                onReinstall = voiceController::reinstallModel
-            )
-        }
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (uiState.showWelcome) {
@@ -185,7 +249,7 @@ internal fun NativeTrudy(
 @Composable
 private fun TrudyHeader(
     onBack: () -> Unit,
-    onVoiceSettings: () -> Unit,
+    onVoiceMode: () -> Unit,
     voiceEnabled: Boolean
 ) {
     Row(
@@ -205,8 +269,8 @@ private fun TrudyHeader(
             Text("Project Superhuman assistant", color = TrudyMuted, fontSize = 11.sp)
         }
         Box(
-            Modifier.superhumanTopButton(onClick = onVoiceSettings)
-                .semantics { contentDescription = "Trudy voice settings, ${if (voiceEnabled) "voice on" else "voice off"}" },
+            Modifier.superhumanTopButton(onClick = onVoiceMode)
+                .semantics { contentDescription = "Open Trudy voice mode, ${if (voiceEnabled) "voice on" else "voice off"}" },
             contentAlignment = Alignment.Center
         ) {
             Text(if (voiceEnabled) "♪" else "♪̸", color = if (voiceEnabled) TrudyCyan else TrudyMuted, fontSize = 20.sp, fontWeight = FontWeight.Bold)
