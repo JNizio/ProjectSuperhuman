@@ -1,0 +1,1974 @@
+{
+  "schema_version": "1.0.0",
+  "description": "Curated consumer symptom terminology. Aliases are lexical equivalents for retrieval; related_terms are deliberately non-equivalent and are not indexed as synonyms.",
+  "terms": [
+    {
+      "symptom_id": "abdominal_pain",
+      "aliases": [
+        {
+          "term": "tummy ache",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "tummy pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "stomach ache",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "stomach pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "belly ache",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "belly pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "abdominal discomfort",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": [
+        {
+          "term": "indigestion",
+          "relationship": "related_not_equivalent",
+          "note": "Indigestion is an upper-digestive symptom cluster, not all abdominal pain."
+        }
+      ]
+    },
+    {
+      "symptom_id": "acid_regurgitation",
+      "aliases": [
+        {
+          "term": "acid coming up",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "sour taste",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "reflux into mouth",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "ankle_swelling",
+      "aliases": [
+        {
+          "term": "swollen ankles",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "anxiety",
+      "aliases": [
+        {
+          "term": "feeling anxious",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "worry",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "back_pain",
+      "aliases": [
+        {
+          "term": "backache",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "black_stools",
+      "aliases": [
+        {
+          "term": "melaena",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "melena",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "tarry stools",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "bloating",
+      "aliases": [
+        {
+          "term": "bloated",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "swollen tummy",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "abdominal fullness",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "blurred_vision",
+      "aliases": [
+        {
+          "term": "blurry vision",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "fuzzy vision",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "brain_fog",
+      "aliases": [
+        {
+          "term": "foggy thinking",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "mental fog",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "cognitive fog",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "breathing_difficulty",
+      "aliases": [
+        {
+          "term": "struggling to breathe",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "hard to breathe",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "laboured breathing",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "labored breathing",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "bright_red_rectal_bleeding",
+      "aliases": [
+        {
+          "term": "bright red blood after poo",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "burning_pain",
+      "aliases": [
+        {
+          "term": "burning sensation",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "burning nerve pain",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "calf_pain",
+      "aliases": [
+        {
+          "term": "pain in calf",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "chest_pain",
+      "aliases": [
+        {
+          "term": "chest discomfort",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "pain in chest",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "chest ache",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "chills",
+      "aliases": [
+        {
+          "term": "shivering",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "rigors",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "confusion",
+      "aliases": [
+        {
+          "term": "confused",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "disoriented",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "constipation",
+      "aliases": [
+        {
+          "term": "constipated",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "difficulty pooing",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "difficulty pooping",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "hard stools",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "continuous_vertigo",
+      "aliases": [
+        {
+          "term": "constant room spinning",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "cough",
+      "aliases": [
+        {
+          "term": "coughing",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "dark_urine",
+      "aliases": [
+        {
+          "term": "tea coloured urine",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "tea colored urine",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "daytime_sleepiness",
+      "aliases": [
+        {
+          "term": "sleepy in the day",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "excessive daytime sleepiness",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "depressed_mood",
+      "aliases": [
+        {
+          "term": "low mood",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "feeling depressed",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "diarrhea",
+      "aliases": [
+        {
+          "term": "diarrhoea",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "loose stools",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "the runs",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "watery stool",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "difficulty_falling_asleep",
+      "aliases": [
+        {
+          "term": "can't get to sleep",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "cannot fall asleep",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "difficulty_staying_asleep",
+      "aliases": [
+        {
+          "term": "keep waking up",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "waking through the night",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "dizziness",
+      "aliases": [
+        {
+          "term": "dizzy",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "giddy",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "off balance",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": [
+        {
+          "term": "lightheadedness",
+          "relationship": "related_not_equivalent",
+          "note": "Lightheadedness is a faint or woozy sensation, not necessarily spinning."
+        },
+        {
+          "term": "vertigo",
+          "relationship": "related_not_equivalent",
+          "note": "Vertigo is an illusion of movement or spinning."
+        },
+        {
+          "term": "imbalance",
+          "relationship": "related_not_equivalent",
+          "note": "Imbalance is unsteadiness rather than a single dizziness sensation."
+        }
+      ]
+    },
+    {
+      "symptom_id": "double_vision",
+      "aliases": [
+        {
+          "term": "seeing double",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "diplopia",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "dry_cough",
+      "aliases": [
+        {
+          "term": "tickly cough",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "non-productive cough",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "dysuria",
+      "aliases": [
+        {
+          "term": "burning when peeing",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "pain when urinating",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "ear_pain",
+      "aliases": [
+        {
+          "term": "earache",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "pain in ear",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "easy_bruising",
+      "aliases": [
+        {
+          "term": "bruising easily",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "unexplained bruises",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "electric_shock_pain",
+      "aliases": [
+        {
+          "term": "electric pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "zapping pain",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "episodic_vertigo",
+      "aliases": [
+        {
+          "term": "spinning attacks",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "exercise_induced_breathlessness",
+      "aliases": [
+        {
+          "term": "breathless on exertion",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "short of breath exercising",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "exercise_intolerance",
+      "aliases": [
+        {
+          "term": "reduced exercise capacity",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "can't exercise like before",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "eye_pain",
+      "aliases": [
+        {
+          "term": "painful eye",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "facial_weakness",
+      "aliases": [
+        {
+          "term": "face droop",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "facial droop",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "fast_heartbeat",
+      "aliases": [
+        {
+          "term": "rapid heartbeat",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "high heart rate",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "tachycardia",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "heart beating fast",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "fatigue",
+      "aliases": [
+        {
+          "term": "tiredness",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "low energy",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "exhaustion",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "feeling drained",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": [
+        {
+          "term": "sleepiness",
+          "relationship": "related_not_equivalent",
+          "note": "Fatigue is low energy; sleepiness is propensity to fall asleep."
+        }
+      ]
+    },
+    {
+      "symptom_id": "fever",
+      "aliases": [
+        {
+          "term": "high temperature",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "temperature",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "feverish",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "flashing_lights",
+      "aliases": [
+        {
+          "term": "flashes in vision",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "photopsia",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "flatulence",
+      "aliases": [
+        {
+          "term": "wind",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "gas",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "passing wind",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "focal_weakness",
+      "aliases": [
+        {
+          "term": "weakness in one area",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "frequent_urination",
+      "aliases": [
+        {
+          "term": "peeing a lot",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "passing urine often",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "gasping_during_sleep",
+      "aliases": [
+        {
+          "term": "waking up gasping",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "choking in sleep",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "gastrointestinal_bleeding",
+      "aliases": [
+        {
+          "term": "GI bleed",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "digestive tract bleeding",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "headache",
+      "aliases": [
+        {
+          "term": "head pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "head ache",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "hearing_loss",
+      "aliases": [
+        {
+          "term": "reduced hearing",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "can't hear well",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "heartburn",
+      "aliases": [
+        {
+          "term": "acid burning",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "burning behind breastbone",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "heavy_menstrual_bleeding",
+      "aliases": [
+        {
+          "term": "heavy periods",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "very heavy menstrual bleeding",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "hemoptysis",
+      "aliases": [
+        {
+          "term": "coughing blood",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "blood in phlegm",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "irregular_periods",
+      "aliases": [
+        {
+          "term": "irregular menstruation",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "irregular cycle",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "itching",
+      "aliases": [
+        {
+          "term": "itchy",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "itch",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "pruritus",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "joint_pain",
+      "aliases": [
+        {
+          "term": "aching joints",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "arthralgia",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "joint_swelling",
+      "aliases": [
+        {
+          "term": "swollen joint",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "left_lower_abdominal_pain",
+      "aliases": [
+        {
+          "term": "left lower quadrant pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "LLQ pain",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "leg_swelling",
+      "aliases": [
+        {
+          "term": "swollen leg",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "lightheadedness",
+      "aliases": [
+        {
+          "term": "light-headed",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "light headed",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "woozy",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "feeling faint",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "head rush",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "limb_weakness",
+      "aliases": [
+        {
+          "term": "weak arm or leg",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "loss_of_appetite",
+      "aliases": [
+        {
+          "term": "poor appetite",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "not hungry",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "loud_snoring",
+      "aliases": [
+        {
+          "term": "snoring loudly",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "low_back_pain",
+      "aliases": [
+        {
+          "term": "lower back pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "low back ache",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "lower_abdominal_pain",
+      "aliases": [
+        {
+          "term": "lower tummy pain",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "memory_loss",
+      "aliases": [
+        {
+          "term": "forgetfulness",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "poor memory",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "mucosal_bleeding",
+      "aliases": [
+        {
+          "term": "gum or nose bleeding",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "muscle_pain",
+      "aliases": [
+        {
+          "term": "aching muscles",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "myalgia",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "muscle_weakness",
+      "aliases": [
+        {
+          "term": "weak muscles",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "nasal_congestion",
+      "aliases": [
+        {
+          "term": "blocked nose",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "stuffy nose",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "nausea",
+      "aliases": [
+        {
+          "term": "feeling sick",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "queasy",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "neck_pain",
+      "aliases": [
+        {
+          "term": "neck ache",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "neuropathic_pain",
+      "aliases": [
+        {
+          "term": "nerve pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "shooting nerve pain",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "new_floaters",
+      "aliases": [
+        {
+          "term": "new spots in vision",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "cobwebs in vision",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "night_sweats",
+      "aliases": [
+        {
+          "term": "sweating at night",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "drenching sweats",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "nocturia",
+      "aliases": [
+        {
+          "term": "peeing at night",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "night-time urination",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "non_blanching_rash",
+      "aliases": [
+        {
+          "term": "rash that doesn't fade",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "rash that does not fade under glass",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "numbness",
+      "aliases": [
+        {
+          "term": "loss of sensation",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "can't feel",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "cannot feel",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "pain_radiation",
+      "aliases": [
+        {
+          "term": "spreading pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "radiating pain",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "painful_urination",
+      "aliases": [
+        {
+          "term": "painful peeing",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "stinging urine",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "pallor",
+      "aliases": [
+        {
+          "term": "pale skin",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "looking pale",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "palpitations",
+      "aliases": [
+        {
+          "term": "heart racing",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "heart pounding",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "pounding heartbeat",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "fluttering heartbeat",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "heart flutter",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "skipped beats",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "feeling heartbeat",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": [
+        {
+          "term": "fast heartbeat",
+          "relationship": "related_not_equivalent",
+          "note": "Palpitations are awareness of heartbeat; measured tachycardia may or may not be felt."
+        }
+      ]
+    },
+    {
+      "symptom_id": "panic_attacks",
+      "aliases": [
+        {
+          "term": "panic attack",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "sudden panic",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "pelvic_pain",
+      "aliases": [
+        {
+          "term": "lower pelvic pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "pain in pelvis",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "persistent_cough",
+      "aliases": [
+        {
+          "term": "cough that won't go away",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "long lasting cough",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "petechiae",
+      "aliases": [
+        {
+          "term": "pinpoint rash",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "tiny red spots",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "photophobia",
+      "aliases": [
+        {
+          "term": "light hurts eyes",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "sensitivity to light",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "pleuritic_chest_pain",
+      "aliases": [
+        {
+          "term": "pain when breathing in",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "sharp breathing pain",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "polydipsia",
+      "aliases": [
+        {
+          "term": "very thirsty",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "excessive thirst",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "polyuria",
+      "aliases": [
+        {
+          "term": "peeing a lot",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "passing lots of urine",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "poor_concentration",
+      "aliases": [
+        {
+          "term": "can't concentrate",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "cannot focus",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "poor focus",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "presyncope",
+      "aliases": [
+        {
+          "term": "near faint",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "almost fainted",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "about to pass out",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "profound_fatigue",
+      "aliases": [
+        {
+          "term": "crushing fatigue",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "severe exhaustion",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "rash",
+      "aliases": [
+        {
+          "term": "skin rash",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "eruption",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "rectal_bleeding",
+      "aliases": [
+        {
+          "term": "blood from bottom",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "blood in poo",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "blood in poop",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "red_eye",
+      "aliases": [
+        {
+          "term": "bloodshot eye",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "eye redness",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "reduced_urine",
+      "aliases": [
+        {
+          "term": "not peeing much",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "low urine output",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "right_upper_abdominal_pain",
+      "aliases": [
+        {
+          "term": "right upper quadrant pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "RUQ pain",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "seizure",
+      "aliases": [
+        {
+          "term": "fit",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "convulsion",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "severe_headache",
+      "aliases": [
+        {
+          "term": "bad headache",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "intense headache",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "shortness_of_breath",
+      "aliases": [
+        {
+          "term": "short of breath",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "breathless",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "breathlessness",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "difficulty breathing",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "can't catch my breath",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "cannot catch my breath",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "dyspnoea",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "dyspnea",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": [
+        {
+          "term": "low oxygen",
+          "relationship": "related_not_equivalent",
+          "note": "Breathlessness is subjective; oxygen saturation can be normal or low."
+        }
+      ]
+    },
+    {
+      "symptom_id": "skin_swelling",
+      "aliases": [
+        {
+          "term": "swollen skin",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "sleep_paralysis",
+      "aliases": [
+        {
+          "term": "awake but can't move",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "awake but cannot move",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "slow_heart_rate",
+      "aliases": [
+        {
+          "term": "low heart rate",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "bradycardia",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "slow pulse",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "sore_throat",
+      "aliases": [
+        {
+          "term": "throat pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "scratchy throat",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "sputum",
+      "aliases": [
+        {
+          "term": "phlegm",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "mucus",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "productive cough",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "syncope",
+      "aliases": [
+        {
+          "term": "fainting",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "faint",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "passed out",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "blackout",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "loss of consciousness",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": [
+        {
+          "term": "seizure",
+          "relationship": "related_not_equivalent",
+          "note": "A faint and a seizure can overlap in appearance but have different mechanisms."
+        }
+      ]
+    },
+    {
+      "symptom_id": "testicular_pain",
+      "aliases": [
+        {
+          "term": "testicle pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "pain in testis",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "thunderclap_headache",
+      "aliases": [
+        {
+          "term": "sudden worst headache",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "explosive headache",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "tingling",
+      "aliases": [
+        {
+          "term": "pins and needles",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "prickling",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "paresthesia",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "paraesthesia",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "tinnitus",
+      "aliases": [
+        {
+          "term": "ringing in ears",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "buzzing in ears",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "tremor",
+      "aliases": [
+        {
+          "term": "shaking",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "shaky",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "trembling",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "unilateral_leg_swelling",
+      "aliases": [
+        {
+          "term": "one swollen leg",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "one-sided leg swelling",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "unintentional_weight_loss",
+      "aliases": [
+        {
+          "term": "losing weight without trying",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "unexplained weight loss",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "unrefreshing_sleep",
+      "aliases": [
+        {
+          "term": "wake up tired",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "sleep not refreshing",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "upper_abdominal_pain",
+      "aliases": [
+        {
+          "term": "upper tummy pain",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "epigastric pain",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "urinary_frequency",
+      "aliases": [
+        {
+          "term": "peeing often",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "urinating often",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "frequent peeing",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "urinary_retention",
+      "aliases": [
+        {
+          "term": "can't pee",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "cannot urinate",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "unable to pass urine",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "urinary_urgency",
+      "aliases": [
+        {
+          "term": "sudden need to pee",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "can't hold urine",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "cannot hold urine",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "urticaria",
+      "aliases": [
+        {
+          "term": "hives",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "nettle rash",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "vaginal_bleeding",
+      "aliases": [
+        {
+          "term": "bleeding from vagina",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "vertigo",
+      "aliases": [
+        {
+          "term": "room spinning",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "spinning sensation",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "the room is spinning",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "vision_loss",
+      "aliases": [
+        {
+          "term": "loss of vision",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "sight loss",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "visual_loss",
+      "aliases": [
+        {
+          "term": "loss of sight",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "can't see",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "cannot see",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "vomiting",
+      "aliases": [
+        {
+          "term": "being sick",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "throwing up",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "puking",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "weakness",
+      "aliases": [
+        {
+          "term": "feeling weak",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "weight_gain",
+      "aliases": [
+        {
+          "term": "putting on weight",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "gaining weight",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "wheeze",
+      "aliases": [
+        {
+          "term": "wheezing",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "whistling breathing",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    },
+    {
+      "symptom_id": "witnessed_apneas",
+      "aliases": [
+        {
+          "term": "stops breathing in sleep",
+          "match_type": "lexical_equivalent"
+        },
+        {
+          "term": "breathing pauses at night",
+          "match_type": "lexical_equivalent"
+        }
+      ],
+      "related_terms": []
+    }
+  ]
+}

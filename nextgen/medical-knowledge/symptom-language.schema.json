@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectsuperhuman.local/schemas/medical-symptom-language-v1.json",
+  "title": "Project Superhuman curated symptom language v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "description",
+    "terms"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 20
+    },
+    "terms": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/term"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "term": {
+      "type": "object",
+      "required": [
+        "symptom_id",
+        "aliases",
+        "related_terms"
+      ],
+      "properties": {
+        "symptom_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/alias"
+          }
+        },
+        "related_terms": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/related"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "alias": {
+      "type": "object",
+      "required": [
+        "term",
+        "match_type"
+      ],
+      "properties": {
+        "term": {
+          "$ref": "#/$defs/text"
+        },
+        "match_type": {
+          "const": "lexical_equivalent"
+        }
+      },
+      "additionalProperties": false
+    },
+    "related": {
+      "type": "object",
+      "required": [
+        "term",
+        "relationship",
+        "note"
+      ],
+      "properties": {
+        "term": {
+          "$ref": "#/$defs/text"
+        },
+        "relationship": {
+          "const": "related_not_equivalent"
+        },
+        "note": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

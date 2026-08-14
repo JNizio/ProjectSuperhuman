@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectsuperhuman.local/schemas/medical-lexical-index-v1.json",
+  "title": "Project Superhuman bounded medical lexical index v1",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "corpus_version",
+    "generated_from",
+    "normalization",
+    "limits",
+    "condition_phrase_postings",
+    "symptom_phrase_postings",
+    "condition_token_postings",
+    "symptom_token_postings",
+    "symptom_condition_postings",
+    "stats"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "corpus_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "generated_from": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "normalization": {
+      "const": "lowercase_ascii_alphanumeric_space_v1"
+    },
+    "limits": {
+      "type": "object",
+      "required": [
+        "max_ngram_words",
+        "max_posting_size",
+        "max_runtime_candidates"
+      ],
+      "properties": {
+        "max_ngram_words": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "max_posting_size": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        },
+        "max_runtime_candidates": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 256
+        }
+      },
+      "additionalProperties": false
+    },
+    "condition_phrase_postings": {
+      "$ref": "#/$defs/postings"
+    },
+    "symptom_phrase_postings": {
+      "$ref": "#/$defs/postings"
+    },
+    "condition_token_postings": {
+      "$ref": "#/$defs/postings"
+    },
+    "symptom_token_postings": {
+      "$ref": "#/$defs/postings"
+    },
+    "symptom_condition_postings": {
+      "$ref": "#/$defs/postings"
+    },
+    "stats": {
+      "type": "object",
+      "required": [
+        "condition_count",
+        "symptom_count",
+        "condition_phrase_count",
+        "symptom_phrase_count"
+      ],
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "postings": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        }
+      }
+    }
+  }
+}
