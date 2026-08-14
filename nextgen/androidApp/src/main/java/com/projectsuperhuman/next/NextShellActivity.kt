@@ -120,7 +120,7 @@ private fun SuperhumanShell(
                             )
                         }
                     )
-                    ShellPage.INSIGHTS -> NativeInsightsPage { page = ShellPage.HOME }
+                    ShellPage.INSIGHTS -> NativeInsightsPage(onBack = { page = ShellPage.HOME })
                     ShellPage.EXPERIMENTS -> NativeExperimentsPage { page = ShellPage.HOME }
                     ShellPage.SETTINGS -> NativeSettingsWithUsage(noCompatibility)
                     ShellPage.TRUDY -> NativeTrudy(
