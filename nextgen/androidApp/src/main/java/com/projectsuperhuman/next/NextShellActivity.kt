@@ -45,7 +45,7 @@ class NextShellActivity : ComponentActivity() {
         NativeDataHub.initialize(this)
         EnvironmentalUiRuntime.installSource(AndroidEnvironmentalSource(this))
         MiniMetricsBackgroundSync.ensureScheduled(this)
-        val trudyRuntime = TrudyRuntimeFactory.create()
+        val trudyRuntime = TrudyRuntimeFactory.create(appContext = applicationContext)
         trudyVoiceController = AndroidTrudyVoiceControllerFactory.create(this)
         enableEdgeToEdge()
         setContent {
