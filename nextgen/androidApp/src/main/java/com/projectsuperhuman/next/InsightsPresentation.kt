@@ -96,7 +96,9 @@ internal object InsightsUiRuntime {
 }
 
 internal object MockInsightsPresentationProvider : InsightsPresentationProvider {
-    override fun load(): InsightsPresentationState = InsightsPresentationState(
+    // Mock data is immutable. Build it once so dashboard recompositions do not repeatedly allocate
+    // the complete insight/timeline graph. A future live provider can still replace this object.
+    private val state = InsightsPresentationState(
         summaryHeadline = "3 patterns worth watching",
         summaryDescription = "Recent connections across recovery, activity and daily context.",
         insights = listOf(
@@ -167,4 +169,6 @@ internal object MockInsightsPresentationProvider : InsightsPresentationProvider 
             )
         )
     )
+
+    override fun load(): InsightsPresentationState = state
 }
