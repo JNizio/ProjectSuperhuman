@@ -71,7 +71,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, SETTINGS, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, BLOOD_PRESSURE, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
+    HOME, SETTINGS, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
 }
 
 @Composable
@@ -95,7 +95,8 @@ private fun SuperhumanShell(
                         openClinical = { page = ShellPage.CLINICAL },
                         openBody = { page = ShellPage.BODY },
                         openSleep = { page = ShellPage.SLEEP },
-                        openBloodPressure = { page = ShellPage.BLOOD_PRESSURE },
+                        // Agent 4 can rename this dashboard callback to openVitals during tile integration.
+                        openBloodPressure = { page = ShellPage.VITALS },
                         openHydration = { page = ShellPage.HYDRATION },
                         openNutrition = { page = ShellPage.NUTRITION },
                         openExercise = { page = ShellPage.EXERCISE },
@@ -130,7 +131,7 @@ private fun SuperhumanShell(
                     ShellPage.SLEEP -> UnifiedSleepPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.EMOTIONAL -> NativeEmotionalPage { page = ShellPage.HOME }
                     ShellPage.ENVIRONMENT -> NativeEnvironmentalPage { page = ShellPage.HOME }
-                    ShellPage.BLOOD_PRESSURE -> NativeBloodPressurePage({ page = ShellPage.HOME }, openCompatibility)
+                    ShellPage.VITALS -> NativeVitalsPage { page = ShellPage.HOME }
                     ShellPage.HYDRATION -> NativeHydrationScreen { page = ShellPage.HOME }
                     ShellPage.NUTRITION -> NativeNutritionWithFoodEditorPage { page = ShellPage.HOME }
                     ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openCompatibility)

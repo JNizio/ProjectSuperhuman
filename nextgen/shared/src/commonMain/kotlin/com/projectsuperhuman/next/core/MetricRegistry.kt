@@ -129,6 +129,18 @@ object CoreMetricRegistry : MetricRegistry {
         MetricDefinition("body_waist_cm", HealthDomain.BODY, "cm", aliases = setOf("waist_cm"), aggregation = MetricAggregation.AVERAGE, minAccepted = 30.0, maxAccepted = 300.0),
         MetricDefinition("body_goal_weight_kg", HealthDomain.BODY, "kg", aggregation = MetricAggregation.LAST, minAccepted = 20.0, maxAccepted = 400.0),
 
+        // Manual body-temperature capture. Site/method remains observation metadata because
+        // values from different sites should be preserved rather than silently adjusted.
+        MetricDefinition(
+            "body_temperature_celsius",
+            HealthDomain.BODY,
+            "°C",
+            aliases = setOf("body_temperature_c", "temperature_celsius", "temperature_c"),
+            aggregation = MetricAggregation.MIN_MAX_AVG,
+            minAccepted = 20.0,
+            maxAccepted = 50.0
+        ),
+
         // Blood oxygen arrives from Samsung Health / Health Connect and is currently grouped with
         // body vitals. These IDs match the native importer so no historical row rewrite is needed.
         MetricDefinition("blood_oxygen_percent", HealthDomain.BODY, "%", aliases = setOf("spo2_pct", "spo2_percent"), aggregation = MetricAggregation.AVERAGE, minAccepted = 40.0, maxAccepted = 100.0),
