@@ -13,7 +13,8 @@ class TrudyOrchestrator(
     private val tools: TrudyToolExecutor,
     private val maxModelIterations: Int = 4,
     private val preflightPlanner: TrudyPreflightPlanner = NoOpTrudyPreflightPlanner,
-    private val knowledgeCoordinator: TrudyKnowledgeCoordinator = TrudyKnowledgeCoordinator()
+    private val knowledgeCoordinator: TrudyKnowledgeCoordinator = TrudyKnowledgeCoordinator(),
+    private val answerEngine: TrudyAnswerEngine = TrudyAnswerEngine()
 ) {
     init { require(maxModelIterations > 0) }
 
@@ -62,6 +63,11 @@ class TrudyOrchestrator(
 
         val modelKnowledge = knowledge.map(::withSafetyInSummary)
         repeat(maxModelIterations) { iteration ->
+            val answerPlan = answerEngine.plan(
+                question = request.userMessage,
+                results = results,
+                conversation = request.conversationContext
+            )
             val model = try {
                 modelClient.complete(
                     TrudyModelRequest(
@@ -72,7 +78,8 @@ class TrudyOrchestrator(
                         tools.definitions,
                         results.toList(),
                         iteration,
-                        modelKnowledge
+                        modelKnowledge,
+                        answerPlan
                     )
                 )
             } catch (_: Throwable) {
@@ -85,8 +92,8 @@ class TrudyOrchestrator(
             }
             metadata = model.metadata ?: metadata
             if (model.requestedTools.isEmpty()) {
-                val answer = model.responseText?.trim()
-                if (answer.isNullOrEmpty()) {
+                val proposedAnswer = model.responseText?.trim()
+                if (proposedAnswer.isNullOrEmpty()) {
                     return fallback(
                         "I don't have enough reliable information to answer that yet.",
                         calls,
@@ -98,6 +105,7 @@ class TrudyOrchestrator(
                 if (failures.isNotEmpty() && results.count { it !is TrudyToolResult.Failure } == 0) {
                     return fallback("I couldn't access the requested health data reliably, so I won't guess.", calls, deriveWarnings(results), metadata)
                 }
+                val answer = answerEngine.finalize(answerPlan, proposedAnswer)
                 val available = results.flatMap(::evidenceReferencesFrom)
                 val bound = model.evidenceReferences.mapNotNull { requested ->
                     available.firstOrNull { it.matchesExactly(requested) }
@@ -437,3 +445,4 @@ class TrudyOrchestrator(
         const val MAX_MODEL_KNOWLEDGE_SUMMARY_CHARS = 1_800
     }
 }
+

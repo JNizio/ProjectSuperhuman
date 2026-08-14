@@ -27,7 +27,8 @@ data class TrudyModelRequest(
     val toolDefinitions: List<TrudyToolDefinition> = emptyList(),
     val toolResults: List<TrudyToolResult> = emptyList(),
     val iteration: Int = 0,
-    val knowledgeContext: List<TrudyKnowledgeItem> = emptyList()
+    val knowledgeContext: List<TrudyKnowledgeItem> = emptyList(),
+    val answerPlan: TrudyAnswerPlan? = null
 )
 
 data class TrudyEvidenceReference(
@@ -59,3 +60,4 @@ class DeterministicTrudyModelClient(
 ) : TrudyModelClient {
     override suspend fun complete(request: TrudyModelRequest): TrudyModelResult = responder(request)
 }
+

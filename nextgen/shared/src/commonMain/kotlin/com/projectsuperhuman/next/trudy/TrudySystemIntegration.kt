@@ -216,6 +216,8 @@ class TrudyTemporalResolver(private val boundaries: TrudyTemporalBoundaryProvide
         val observation = when {
             "since yesterday" in text -> TrudyTimeRange((today - DAY_MS).coerceAtLeast(0L), now)
             "yesterday" in text -> TrudyTimeRange((today - DAY_MS).coerceAtLeast(0L), (today - 1L).coerceAtLeast(0L))
+            "last week or so" in text || "past week or so" in text ->
+                TrudyTimeRange((now - 7L * DAY_MS).coerceAtLeast(0L), now)
             "last week" in text -> TrudyTimeRange((week - 7L * DAY_MS).coerceAtLeast(0L), (week - 1L).coerceAtLeast(0L))
             "this week" in text -> TrudyTimeRange(week.coerceAtLeast(0L), now)
             "last month" in text -> TrudyTimeRange(boundaries.startOfMonthEpochMs(1), (month - 1L).coerceAtLeast(0L))
@@ -233,6 +235,7 @@ class TrudyTemporalResolver(private val boundaries: TrudyTemporalBoundaryProvide
             observation = observation,
             baseline = baseline,
             label = when {
+                "last week or so" in text || "past week or so" in text -> "roughly the past week"
                 "yesterday" in text -> "yesterday"
                 "last week" in text -> "last week"
                 "this week" in text -> "this week"
@@ -251,7 +254,7 @@ class TrudyTemporalResolver(private val boundaries: TrudyTemporalBoundaryProvide
 
     private companion object {
         const val DAY_MS = 86_400_000L
-        val TEMPORAL_PHRASES = listOf("today", "yesterday", "this week", "last week", "recently", "recent", "few weeks", "this month", "last month", "since yesterday")
+        val TEMPORAL_PHRASES = listOf("today", "yesterday", "this week", "last week", "past week", "recently", "recent", "lately", "few weeks", "this month", "last month", "since yesterday")
     }
 }
 
@@ -537,17 +540,19 @@ class TrudySystemInvestigationPlanner(
         TrudyInvestigationMetric(domain, metricId, role, preference)
 
     private fun looksInvestigative(text: String) = listOf(
-        "why", "what changed", "what was different", "explain", "could anything", "seem connected", "changed this"
+        "why", "what changed", "what was different", "explain", "could anything", "seem connected", "changed this",
+        "suffered", "terrible", "awful", "worsened", "worse lately", "bad lately"
     ).any { it in text }
 
     private fun requiresChangeInvestigation(text: String) = listOf(
-        "why", "what changed", "what was different", "explain", "could anything", "changed this"
+        "why", "what changed", "what was different", "explain", "could anything", "changed this",
+        "suffered", "terrible", "awful", "worsened", "worse lately", "bad lately"
     ).any { it in text }
 
     private fun looksLikeFollowUp(text: String) = listOf("what about", "could that", "and last", "how about", "basing that on", "based on").any { it in text }
     private fun asksForEvidence(text: String) = "basing that on" in text || "based on" in text || "what data" in text
     private fun claim(text: String) = when {
-        listOf("worse", "worsened", "lower", "declined", "more tired").any { it in text } -> TrudyChangeClaim.WORSENED
+        listOf("worse", "worsened", "lower", "declined", "more tired", "suffered", "terrible", "awful", "bad lately").any { it in text } -> TrudyChangeClaim.WORSENED
         listOf("better", "improved", "higher").any { it in text } -> TrudyChangeClaim.IMPROVED
         "changed" in text || "different" in text -> TrudyChangeClaim.CHANGED
         else -> TrudyChangeClaim.UNSPECIFIED
@@ -568,3 +573,4 @@ data class SystemAvailabilityResult(
     override val operation: GetSystemAvailability,
     val unavailableReasons: Map<String, String>
 ) : TrudyToolResult
+
