@@ -12,8 +12,6 @@ kotlin {
     iosSimulatorArm64()
 
     sourceSets {
-        // Ships the canonical, platform-neutral medical corpus as an offline KMP resource.
-        commonMain.resources.srcDir("../medical-knowledge")
         commonMain.dependencies {
             implementation(compose.runtime)
             implementation("app.cash.sqldelight:runtime:2.1.0")
