@@ -177,8 +177,12 @@ class TrudyOrchestrator(
                 if (key in existingTargetKeys || !existingRelatedKeys.add(key)) null else hint.toInvestigationMetric()
             }
             val enriched = investigation.copy(
-                targets = (investigation.targets + extraTargets).take(MAX_INVESTIGATION_TARGETS),
-                related = (investigation.related + extraRelated).take(MAX_INVESTIGATION_RELATED)
+                targets = (investigation.targets + extraTargets).take(
+                    minOf(MAX_INVESTIGATION_TARGETS, investigation.budget.maxTargets)
+                ),
+                related = (investigation.related + extraRelated).take(
+                    minOf(MAX_INVESTIGATION_RELATED, investigation.budget.maxRelatedSignals)
+                )
             )
             return base.toMutableList().also { it[investigationIndex] = enriched }
         }
@@ -319,7 +323,17 @@ class TrudyOrchestrator(
                 }
                 is ExperimentHypothesisResult -> Unit
                 is ExperimentEvaluationResult -> if (result.result.confidence == TrudyConfidence.INSUFFICIENT) add(emptyWarning("The personal experiment is inconclusive with the available samples/adherence."))
-                is ChangeInvestigationResult -> if (result.investigation.premiseAssessment == TrudyPremiseAssessment.INSUFFICIENT) add(emptyWarning("The requested change could not be verified in both time windows."))
+                is ChangeInvestigationResult -> {
+                    if (result.investigation.structuredResult.premiseStatus == TrudyPremiseStatus.PREMISE_UNVERIFIABLE) {
+                        add(emptyWarning("The requested change could not be verified in both time windows."))
+                    }
+                    if (result.investigation.structuredResult.quality.status == TrudyDataQualityStatus.STALE) {
+                        add(TrudyWarning(TrudyWarningKind.STALE_DATA, "Investigation inputs are stale."))
+                    }
+                    if (result.investigation.structuredResult.quality.status == TrudyDataQualityStatus.LIMITED) {
+                        add(TrudyWarning(TrudyWarningKind.LOW_DATA_QUALITY, "Investigation input quality is limited."))
+                    }
+                }
                 is CanonicalExperimentsResult -> if (result.experiments.isEmpty()) add(emptyWarning(if (result.persistenceState == TrudyExperimentPersistenceState.NOT_CONNECTED) "Canonical Experiments persistence is not connected." else "No saved experiment matched the request."))
                 is CanonicalExperimentEvaluationResult -> if (result.evaluation == null) add(emptyWarning(if (result.persistenceState == TrudyExperimentPersistenceState.NOT_CONNECTED) "Canonical Experiments persistence is not connected." else "No saved experiment was available to evaluate."))
                 is SystemAvailabilityResult -> Unit
