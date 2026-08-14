@@ -103,7 +103,7 @@ internal object TrudyRuntimeFactory {
             // so it can request bounded Data Vault evidence and then hand the enriched request to the
             // existing Emotional/Environmental/model pipeline without replacing any of it.
             val domainReasoningClient = selection.client.withEmotionalReasoning().withEnvironmentalReasoning()
-            val candidateProvider = appContext?.let(::AndroidMedicalCorpusCandidateProvider)
+            val candidateProvider = appContext?.let { AndroidMedicalCorpusCandidateProvider(it) }
                 ?: EmptyMedicalConditionCandidateProvider
             val medicalPlanner = TrudyMedicalContextPlanner(
                 knowledge = CuratedMedicalManagementRepository(),
