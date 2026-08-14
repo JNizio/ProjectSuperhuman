@@ -26,6 +26,12 @@ internal object EnvironmentalAutoRecorder {
     private const val PLACE = "place_label"
     private const val SAMPLE_MS = 60L * 60L * 1000L
 
+    // Keep one process-wide caching repository instead of recreating the provider/cache for every
+    // worker invocation. The repository itself still controls freshness and network fallback.
+    private val repository by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        CachingEnvironmentalRepository(OpenMeteoEnvironmentalProvider())
+    }
+
     fun rememberLocation(context: Context, coordinates: EnvironmentalCoordinates, placeLabel: String?) {
         val coarse = coordinates.coarsened(2)
         val edit = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -49,7 +55,6 @@ internal object EnvironmentalAutoRecorder {
 
     suspend fun recordRememberedLocation(context: Context): Boolean {
         val coordinates = rememberedCoordinates(context) ?: return false
-        val repository = CachingEnvironmentalRepository(OpenMeteoEnvironmentalProvider())
         return when (val result = repository.current(coordinates, "local-area", System.currentTimeMillis())) {
             is EnvironmentalFetchResult.Success -> {
                 persistObservation(result.observation, rememberedPlace(context))
@@ -127,7 +132,7 @@ internal object EnvironmentalBackgroundSync {
         ).setConstraints(constraints).build()
         WorkManager.getInstance(context.applicationContext).enqueueUniquePeriodicWork(
             UNIQUE_WORK,
-            ExistingPeriodicWorkPolicy.UPDATE,
+            ExistingPeriodicWorkPolicy.KEEP,
             work
         )
     }
