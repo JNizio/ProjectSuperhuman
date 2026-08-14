@@ -79,6 +79,7 @@ data class NativeHomeSnapshot(
 private enum class HomeTile(val storageKey: String) {
     EMOTIONAL("emotional"),
     ENVIRONMENT("environment"),
+    EXPERIMENTS("experiments"),
     HYDRATION("hydration"),
     CLINICAL("clinical"),
     EXERCISE("exercise"),
@@ -98,6 +99,7 @@ private data class HomeTileBounds(
 private val defaultHomeTileOrder = listOf(
     HomeTile.EMOTIONAL,
     HomeTile.ENVIRONMENT,
+    HomeTile.EXPERIMENTS,
     HomeTile.HYDRATION,
     HomeTile.CLINICAL,
     HomeTile.EXERCISE,
@@ -123,6 +125,7 @@ internal fun NativeLiveHome(
     openMindfulness: () -> Unit,
     openEnvironment: () -> Unit,
     openEmotional: () -> Unit,
+    openExperiments: () -> Unit,
     openMiniMetric: (HomeMiniMetric) -> Unit,
     topContent: @Composable () -> Unit = {}
 ) {
@@ -318,6 +321,7 @@ internal fun NativeLiveHome(
                         when (tile) {
                             HomeTile.EMOTIONAL -> HomeEmotionalTile(emotionalCurrent, openEmotional)
                             HomeTile.ENVIRONMENT -> HomeEnvironmentalTile(onClick = openEnvironment)
+                            HomeTile.EXPERIMENTS -> HomeExperimentsTile(onClick = openExperiments)
                             HomeTile.HYDRATION -> PremiumHomeHydrationTile(snapshot, openHydration)
                             HomeTile.CLINICAL -> LegacyClinicalCard(snapshot, openClinical)
                             HomeTile.EXERCISE -> LegacyTrainingCard(snapshot, openExercise)
@@ -419,7 +423,7 @@ private fun loadHomeTileOrder(context: Context): List<HomeTile> {
         .mapNotNull { key -> HomeTile.entries.firstOrNull { it.storageKey == key.trim() } }
         .distinct()
 
-    val newcomers = listOf(HomeTile.EMOTIONAL, HomeTile.ENVIRONMENT).filterNot(parsed::contains)
+    val newcomers = listOf(HomeTile.EMOTIONAL, HomeTile.ENVIRONMENT, HomeTile.EXPERIMENTS).filterNot(parsed::contains)
     val existingAndDefaults = parsed + defaultHomeTileOrder.filterNot { it in parsed || it in newcomers }
     return (newcomers + existingAndDefaults).ifEmpty { defaultHomeTileOrder }
 }
