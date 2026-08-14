@@ -59,9 +59,9 @@ class CuratedMedicalSafetySignalProvider(
                 level = MedicalEscalationLevel.EMERGENCY,
                 phraseGroups = listOf(
                     setOf("chest pain", "chest pressure", "chest tightness", "heavy chest"),
-                    setOf("spreads to my arm", "spreading to my arm", "spreads to jaw", "spreading to jaw", "sweating", "fainted", "passed out", "severe shortness of breath")
+                    setOf("spreads to my arm", "spreading to my arm", "spreads to jaw", "spreading to jaw", "sweating", "fainted", "passed out", "severe shortness of breath", "difficulty breathing", "struggling to breathe")
                 ),
-                summary = "Chest discomfort with spreading pain, sweating, collapse or severe breathlessness needs emergency assessment.",
+                summary = "Chest discomfort with spreading pain, sweating, collapse or significant breathing difficulty needs emergency assessment.",
                 sourceIds = listOf("nhs_heart_attack")
             ),
             MedicalRedFlagRule(
