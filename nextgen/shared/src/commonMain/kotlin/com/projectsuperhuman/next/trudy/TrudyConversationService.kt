@@ -39,9 +39,12 @@ class TrudyConversationService(
         preselectedContext: TrudyContextRequest? = null,
         inputMode: TrudyConversationInputMode = TrudyConversationInputMode.TEXT
     ): TrudyConversationResult {
+        // Keep the visible/conversation text untouched. Only the one-turn orchestration text receives
+        // a natural canonical hint when a broad overview synonym is not understood by the legacy planner.
+        val planningText = TrudyRecentOverviewAnswerQuality.planningText(userText)
         val coordinator = conversationEvidence
         if (coordinator == null) {
-            val result = orchestrate(userText, conversationContext, preselectedContext)
+            val result = orchestrate(planningText, conversationContext, preselectedContext)
             val trace = answerTurnRegistry?.consume()
             val briefing = trace?.investigation?.let { investigation ->
                 TrudyRecentOverviewAnswerQuality.compose(trace.plan, investigation)
@@ -49,11 +52,13 @@ class TrudyConversationService(
             return if (briefing == null) {
                 result
             } else {
+                val candidates = trace.usedEvidence.map { it.reference }
+                    .ifEmpty { result.evidenceReferences }
                 result.copy(
                     answerText = briefing.answerText,
-                    evidenceReferences = result.evidenceReferences.filter {
-                        TrudyRecentOverviewAnswerQuality.shouldKeepReference(briefing, it)
-                    }
+                    evidenceReferences = candidates
+                        .filter { TrudyRecentOverviewAnswerQuality.shouldKeepReference(briefing, it) }
+                        .distinct()
                 )
             }
         }
@@ -91,7 +96,7 @@ class TrudyConversationService(
 
         planningContextHolder?.set(turnContext)
         val result = try {
-            orchestrate(userText, conversationContext, preselectedContext)
+            orchestrate(planningText, conversationContext, preselectedContext)
         } finally {
             planningContextHolder?.clear()
         }
