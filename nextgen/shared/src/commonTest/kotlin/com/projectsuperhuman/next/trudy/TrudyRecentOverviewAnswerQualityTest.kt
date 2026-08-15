@@ -149,13 +149,13 @@ class TrudyRecentOverviewAnswerQualityTest {
         assertTrue(
             TrudyRecentOverviewAnswerQuality.shouldKeepReference(
                 briefing,
-                TrudyEvidenceReference(HealthDomain.SLEEP, "sleep_score", evidenceKind = TrudyEvidenceKind.RAW_OBSERVATION)
+                TrudyEvidenceReference(HealthDomain.SLEEP, "sleep_score", evidenceKind = TrudyEvidenceKind.DIRECT_PERSONAL_OBSERVATION)
             )
         )
         assertFalse(
             TrudyRecentOverviewAnswerQuality.shouldKeepReference(
                 briefing,
-                TrudyEvidenceReference(HealthDomain.MINDFULNESS, "mindfulness_session_minutes", evidenceKind = TrudyEvidenceKind.RAW_OBSERVATION)
+                TrudyEvidenceReference(HealthDomain.MINDFULNESS, "mindfulness_session_minutes", evidenceKind = TrudyEvidenceKind.DIRECT_PERSONAL_OBSERVATION)
             )
         )
     }
