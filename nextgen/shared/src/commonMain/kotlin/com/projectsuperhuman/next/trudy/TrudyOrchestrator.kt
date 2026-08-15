@@ -160,6 +160,14 @@ class TrudyOrchestrator(
         val investigationIndex = base.indexOfFirst { it is InvestigateChange }
         if (investigationIndex >= 0) {
             val investigation = base[investigationIndex] as InvestigateChange
+            // Broad overview and today-priority scans deliberately have no relationship budget.
+            // Do not let knowledge hints silently widen those fixed scans with extra metrics that
+            // cannot participate in an association anyway.
+            if (investigation.maxAssociations == 0 &&
+                (investigation.targetLabel == "recent health overview" ||
+                    investigation.intent == TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY)
+            ) return base
+
             val existingTargetKeys = investigation.targets.map { it.domain to it.metricId }.toMutableSet()
             val existingRelatedKeys = investigation.related.map { it.domain to it.metricId }.toMutableSet()
             val extraTargets = hints.filter {
