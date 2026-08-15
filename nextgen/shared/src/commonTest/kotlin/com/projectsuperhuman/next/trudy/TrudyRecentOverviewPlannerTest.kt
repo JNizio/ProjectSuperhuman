@@ -32,6 +32,21 @@ class TrudyRecentOverviewPlannerTest {
     }
 
     @Test
+    fun naturalOverviewAliasCanonicalizesIntoSameBoundedPlan() {
+        val planningText = TrudyRecentOverviewAnswerQuality.planningText("Give me a health overview this week")
+        val operation = planner.plan(TrudyAskRequest(planningText))
+            .filterIsInstance<InvestigateChange>()
+            .single()
+
+        assertEquals("recent health overview", operation.targetLabel)
+        assertEquals("this week", operation.timeframeLabel)
+        assertEquals(8, operation.targets.size)
+        assertEquals(8, operation.targets.map { it.domain }.distinct().size)
+        assertEquals(0, operation.maxAssociations)
+        assertTrue(operation.related.isEmpty())
+    }
+
+    @Test
     fun anythingUnusualAlsoUsesOverviewWithoutUnboundedAssociationSearch() {
         val operation = planner.plan(TrudyAskRequest("Anything unusual recently?"))
             .filterIsInstance<InvestigateChange>()
