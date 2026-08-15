@@ -41,7 +41,21 @@ class TrudyConversationService(
     ): TrudyConversationResult {
         val coordinator = conversationEvidence
         if (coordinator == null) {
-            return orchestrate(userText, conversationContext, preselectedContext)
+            val result = orchestrate(userText, conversationContext, preselectedContext)
+            val trace = answerTurnRegistry?.consume()
+            val briefing = trace?.investigation?.let { investigation ->
+                TrudyRecentOverviewAnswerQuality.compose(trace.plan, investigation)
+            }
+            return if (briefing == null) {
+                result
+            } else {
+                result.copy(
+                    answerText = briefing.answerText,
+                    evidenceReferences = result.evidenceReferences.filter {
+                        TrudyRecentOverviewAnswerQuality.shouldKeepReference(briefing, it)
+                    }
+                )
+            }
         }
 
         val turnContext = coordinator.prepare(userText, inputMode)
@@ -82,13 +96,19 @@ class TrudyConversationService(
             planningContextHolder?.clear()
         }
         val trace = answerTurnRegistry?.consume()
+        val briefing = trace?.investigation?.let { investigation ->
+            TrudyRecentOverviewAnswerQuality.compose(trace.plan, investigation)
+        }
+        val answerResult = if (briefing == null) result else result.copy(answerText = briefing.answerText)
         val now = nowEpochMs().coerceAtLeast(0L)
-        val selected = trace?.usedEvidence ?: result.evidenceReferences.map { reference ->
+        val selected = (trace?.usedEvidence ?: result.evidenceReferences.map { reference ->
             TrudySelectedAnswerEvidence(
                 reference = reference,
                 label = reference.metricId?.let(::humanMetricLabel) ?: reference.insightId.orEmpty().replace('_', ' '),
                 summary = "Used to support the answer."
             )
+        }).filter { selectedEvidence ->
+            briefing == null || TrudyRecentOverviewAnswerQuality.shouldKeepReference(briefing, selectedEvidence.reference)
         }
         val records = selected.distinctBy { it.reference }.map { selectedEvidence ->
             val identity = selectedEvidence.reference.toConversationIdentity()
@@ -101,7 +121,7 @@ class TrudyConversationService(
         }
         val retrievedCount = maxOf(trace?.retrievedRecordCount ?: result.retrievedEvidenceCount, records.size)
         val structured = trace?.investigation
-        val missing = buildMissingFindings(turnContext, structured, result, now)
+        val missing = buildMissingFindings(turnContext, structured, answerResult, now)
         val investigationPointer = structured?.let { investigation ->
             val resolved = turnContext.resolvedRequest
             val metrics = if (resolved.metrics.isNotEmpty()) resolved.metrics else {
@@ -140,7 +160,7 @@ class TrudyConversationService(
                 missingDataFindings = missing
             )
         )
-        return result.copy(
+        return answerResult.copy(
             evidenceReferences = presentation.groups.flatMap { group -> group.records.map { it.toEvidenceReference() } },
             retrievedEvidenceCount = presentation.retrievedRecordCount
         )
