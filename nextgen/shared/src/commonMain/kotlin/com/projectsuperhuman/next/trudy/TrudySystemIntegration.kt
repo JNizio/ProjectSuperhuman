@@ -461,7 +461,20 @@ class TrudySystemInvestigationPlanner(
             }
         }
         investigationIntent(text)?.let { intent ->
-            val relevance = TrudyInvestigationRelevanceGraph.plan(text, selected, intent)
+            val broadOverview = isBroadOverview(text, selected)
+            val relevance = if (broadOverview) {
+                TrudyInvestigationRelevancePlan(
+                    targetLabel = "recent health overview",
+                    targets = defaultOverviewMetrics().take(MAX_TARGETS).mapIndexed { index, metric ->
+                        metric.toInvestigation(
+                            if (index == 0) TrudyInvestigationRole.PRIMARY else TrudyInvestigationRole.SUPPORTING
+                        )
+                    },
+                    related = emptyList()
+                )
+            } else {
+                TrudyInvestigationRelevanceGraph.plan(text, selected, intent)
+            }
             val observation = timeframe.observation
             val baseline = if (intent == TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY) {
                 val end = (observation.fromEpochMs - 1L).coerceAtLeast(0L)
@@ -480,11 +493,12 @@ class TrudySystemInvestigationPlanner(
                 timeframeLabel = timeframe.label,
                 timeframeExplicit = timeframe.explicit,
                 budget = TrudyInvestigationBudget(
-                    maxTargets = if (intent == TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY) 8 else 5,
+                    maxTargets = if (intent == TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY || broadOverview) 8 else 5,
                     maxRelatedSignals = MAX_RELATED,
                     maxLookbackDays = (
                         (observation.toEpochMs - baseline.fromEpochMs).coerceAtLeast(0L) / DAY_MS + 1L
-                    ).toInt().coerceIn(7, 90)
+                    ).toInt().coerceIn(7, 90),
+                    maxImportantFindings = if (broadOverview) 3 else 5
                 )
             )
             return if (intent == TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY) {
@@ -594,12 +608,12 @@ class TrudySystemInvestigationPlanner(
     private fun defaultOverviewMetrics() = listOfNotNull(
         TrudySystemCatalog.metric(HealthDomain.SLEEP, "sleep_score"),
         TrudySystemCatalog.metric(HealthDomain.EXERCISE, "resting_heart_rate_bpm"),
-        TrudySystemCatalog.metric(HealthDomain.EXERCISE, "steps"),
         TrudySystemCatalog.metric(HealthDomain.HYDRATION, "water_total_l"),
         TrudySystemCatalog.metric(HealthDomain.EMOTIONAL, "emotional_valence"),
-        TrudySystemCatalog.metric(HealthDomain.EMOTIONAL, "emotional_energy"),
         TrudySystemCatalog.metric(HealthDomain.BODY, "body_weight_kg"),
-        TrudySystemCatalog.metric(HealthDomain.ENVIRONMENT, "environment_temperature_c")
+        TrudySystemCatalog.metric(HealthDomain.ENVIRONMENT, "environment_temperature_c"),
+        TrudySystemCatalog.metric(HealthDomain.NUTRITION, "food_kcal"),
+        TrudySystemCatalog.metric(HealthDomain.MINDFULNESS, "mindfulness_session_minutes")
     )
 
     private fun TrudySystemMetric.toInvestigation(role: TrudyInvestigationRole = TrudyInvestigationRole.SUPPORTING) =
@@ -608,6 +622,7 @@ class TrudySystemInvestigationPlanner(
     private fun investigationIntent(text: String): TrudyInvestigationIntent? = when {
         "what should i pay attention to today" in text || "what matters today" in text || "prioritise today" in text ||
             "prioritize today" in text -> TrudyInvestigationIntent.WHAT_TO_WATCH_TODAY
+        isBroadOverviewPhrase(text) -> TrudyInvestigationIntent.WHAT_CHANGED
         "why" in text -> TrudyInvestigationIntent.WHY
         "what might explain" in text || "what could explain" in text || "explain" in text ->
             TrudyInvestigationIntent.WHAT_MIGHT_EXPLAIN
@@ -616,6 +631,20 @@ class TrudySystemInvestigationPlanner(
         "anything connected" in text || "seem connected" in text -> TrudyInvestigationIntent.IS_ANYTHING_CONNECTED
         else -> null
     }
+
+    private fun isBroadOverview(text: String, selected: List<TrudySystemMetric>): Boolean =
+        selected.isEmpty() && isBroadOverviewPhrase(text)
+
+    private fun isBroadOverviewPhrase(text: String): Boolean = listOf(
+        "what should i know",
+        "anything important",
+        "anything unusual",
+        "what's changed",
+        "what has changed",
+        "what changed",
+        "what's been happening",
+        "what has been happening"
+    ).any { it in text }
 
     private fun looksInvestigative(text: String) = investigationIntent(text) != null
 
