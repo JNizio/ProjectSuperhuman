@@ -46,14 +46,18 @@ class TrudyConversationService(
         if (coordinator == null) {
             val result = orchestrate(planningText, conversationContext, preselectedContext)
             val trace = answerTurnRegistry?.consume()
-            val briefing = trace?.investigation?.let { investigation ->
-                TrudyRecentOverviewAnswerQuality.compose(trace.plan, investigation)
+            val structured = trace?.investigation
+            val briefing = structured?.let { investigation ->
+                trace?.let { TrudyRecentOverviewAnswerQuality.compose(it.plan, investigation) }
             }
             return if (briefing == null) {
                 result
             } else {
-                val candidates = trace.usedEvidence.map { it.reference }
-                    .ifEmpty { result.evidenceReferences }
+                val candidates = (
+                    briefing.structuredSupportingReferences(structured) +
+                        trace.usedEvidence.map { it.reference } +
+                        result.evidenceReferences
+                    ).distinct()
                 result.copy(
                     answerText = briefing.answerText,
                     evidenceReferences = candidates
@@ -101,21 +105,36 @@ class TrudyConversationService(
             planningContextHolder?.clear()
         }
         val trace = answerTurnRegistry?.consume()
-        val briefing = trace?.investigation?.let { investigation ->
-            TrudyRecentOverviewAnswerQuality.compose(trace.plan, investigation)
+        val structured = trace?.investigation
+        val briefing = structured?.let { investigation ->
+            trace?.let { TrudyRecentOverviewAnswerQuality.compose(it.plan, investigation) }
         }
         val answerResult = if (briefing == null) result else result.copy(answerText = briefing.answerText)
         val now = nowEpochMs().coerceAtLeast(0L)
-        val selected = (trace?.usedEvidence ?: result.evidenceReferences.map { reference ->
+        val modelSelected = trace?.usedEvidence ?: result.evidenceReferences.map { reference ->
             TrudySelectedAnswerEvidence(
                 reference = reference,
                 label = reference.metricId?.let(::humanMetricLabel) ?: reference.insightId.orEmpty().replace('_', ' '),
                 summary = "Used to support the answer."
             )
-        }).filter { selectedEvidence ->
-            briefing == null || TrudyRecentOverviewAnswerQuality.shouldKeepReference(briefing, selectedEvidence.reference)
         }
-        val records = selected.distinctBy { it.reference }.map { selectedEvidence ->
+        val structuredSelected = if (briefing != null && structured != null) {
+            briefing.structuredSupportingReferences(structured).map { reference ->
+                TrudySelectedAnswerEvidence(
+                    reference = reference,
+                    label = reference.metricId?.let(::humanMetricLabel) ?: "Recent overview",
+                    summary = "Supports a change reported in the recent overview."
+                )
+            }
+        } else {
+            emptyList()
+        }
+        val selected = (structuredSelected + modelSelected)
+            .distinctBy { it.reference }
+            .filter { selectedEvidence ->
+                briefing == null || TrudyRecentOverviewAnswerQuality.shouldKeepReference(briefing, selectedEvidence.reference)
+            }
+        val records = selected.map { selectedEvidence ->
             val identity = selectedEvidence.reference.toConversationIdentity()
             TrudyConversationEvidenceRecord(
                 id = identity.stableKey(),
@@ -125,7 +144,6 @@ class TrudyConversationService(
             )
         }
         val retrievedCount = maxOf(trace?.retrievedRecordCount ?: result.retrievedEvidenceCount, records.size)
-        val structured = trace?.investigation
         val missing = buildMissingFindings(turnContext, structured, answerResult, now)
         val investigationPointer = structured?.let { investigation ->
             val resolved = turnContext.resolvedRequest
