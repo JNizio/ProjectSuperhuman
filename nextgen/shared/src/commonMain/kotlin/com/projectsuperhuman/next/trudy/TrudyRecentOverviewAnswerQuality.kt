@@ -53,7 +53,7 @@ object TrudyRecentOverviewAnswerQuality {
         val answer = when {
             findings.isNotEmpty() -> findingsAnswer(plan, findings)
             stableWithUsableData -> stableAnswer(plan, usableComparisons)
-            else -> insufficientAnswer(plan, investigation)
+            else -> insufficientAnswer(investigation)
         }
 
         return TrudyRecentOverviewBriefing(
@@ -108,7 +108,7 @@ object TrudyRecentOverviewAnswerQuality {
         val labels = usableComparisons
             .distinctBy { it.domain }
             .take(3)
-            .map { naturalSubject(it.domain, it.metricId).removePrefix("Your ").replaceFirstChar(Char::lowercase) }
+            .map { naturalSubject(it.domain, it.metricId).removePrefix("Your ").lowercaseFirstChar() }
         val checked = when (labels.size) {
             0 -> "the signals I could assess"
             1 -> labels.first()
@@ -122,13 +122,10 @@ object TrudyRecentOverviewAnswerQuality {
         return sentences.joinToString(" ").normalizeOverviewText()
     }
 
-    private fun insufficientAnswer(
-        plan: TrudyAnswerPlan,
-        investigation: TrudyInvestigationResult
-    ): String {
+    private fun insufficientAnswer(investigation: TrudyInvestigationResult): String {
         val missing = investigation.missingEvidence
             .filter { it.reason in setOf(TrudyEvidenceGapReason.NO_DATA, TrudyEvidenceGapReason.SPARSE_DATA, TrudyEvidenceGapReason.STALE_DATA, TrudyEvidenceGapReason.NOT_CONNECTED) }
-            .map { naturalSubject(it.domain, it.metricId).removePrefix("Your ").replaceFirstChar(Char::lowercase) }
+            .map { naturalSubject(it.domain, it.metricId).removePrefix("Your ").lowercaseFirstChar() }
             .distinct()
             .take(2)
         return if (missing.isEmpty()) {
@@ -143,7 +140,7 @@ object TrudyRecentOverviewAnswerQuality {
             .asSequence()
             .filter { it.classification in setOf(TrudyAnswerEvidenceClass.MISSING, TrudyAnswerEvidenceClass.STALE, TrudyAnswerEvidenceClass.LOW_QUALITY) }
             .filter { it.domain != null || it.metricId != null }
-            .map { naturalSubject(it.domain, it.metricId).removePrefix("Your ").replaceFirstChar(Char::lowercase) }
+            .map { naturalSubject(it.domain, it.metricId).removePrefix("Your ").lowercaseFirstChar() }
             .distinct()
             .take(2)
             .toList()
@@ -173,7 +170,7 @@ object TrudyRecentOverviewAnswerQuality {
         metricId == "environment_relative_humidity_pct" -> "Humidity"
         metricId == "food_kcal" -> "Your calorie intake"
         metricId == "mindfulness_session_minutes" -> "Your mindfulness time"
-        metricId != null -> "Your ${humanMetricLabel(metricId).replaceFirstChar(Char::lowercase)}"
+        metricId != null -> "Your ${humanMetricLabel(metricId).lowercaseFirstChar()}"
         domain != null -> "Your ${domain.name.lowercase().replace('_', ' ')} data"
         else -> "That signal"
     }
@@ -206,6 +203,9 @@ object TrudyRecentOverviewAnswerQuality {
         "the last 7 days" -> "over the last 7 days"
         else -> "in ${label.trim().ifBlank { "the recent period" }}"
     }
+
+    private fun String.lowercaseFirstChar(): String =
+        replaceFirstChar { if (it.isUpperCase()) it.lowercase() else it.toString() }
 
     private fun String.normalizeOverviewText(): String =
         replace(Regex("\\s+"), " ").trim()
