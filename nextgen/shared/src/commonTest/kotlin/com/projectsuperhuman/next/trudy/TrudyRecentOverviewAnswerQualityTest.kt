@@ -14,8 +14,10 @@ class TrudyRecentOverviewAnswerQualityTest {
         val heart = finding(HealthDomain.EXERCISE, "resting_heart_rate_bpm", recent = 66.0, baseline = 61.0, priority = .7)
         val plan = plan(
             evidence = listOf(
-                trend(HealthDomain.SLEEP, "sleep_score", 74.0, 82.0, unit = ""),
-                trend(HealthDomain.EXERCISE, "resting_heart_rate_bpm", 66.0, 61.0, unit = "bpm")
+                trend(HealthDomain.SLEEP, "sleep_score", 74.0, 82.0),
+                trend(HealthDomain.EXERCISE, "resting_heart_rate_bpm", 66.0, 61.0, "bpm"),
+                trend(HealthDomain.HYDRATION, "water_total_l", 2.5, 2.6, "L"),
+                trend(HealthDomain.EMOTIONAL, "emotional_valence", 7.0, 7.1)
             ),
             limitations = listOf(missing(HealthDomain.MINDFULNESS, "mindfulness_session_minutes"))
         )
@@ -23,19 +25,22 @@ class TrudyRecentOverviewAnswerQualityTest {
         val briefing = requireNotNull(
             TrudyRecentOverviewAnswerQuality.compose(
                 plan,
-                investigation(findings = listOf(sleep, heart), missing = listOf(
-                    TrudyMissingEvidence(
-                        HealthDomain.MINDFULNESS,
-                        "mindfulness_session_minutes",
-                        "mindfulness",
-                        TrudyEvidenceGapReason.NO_DATA
+                investigation(
+                    findings = listOf(sleep, heart),
+                    missing = listOf(
+                        TrudyMissingEvidence(
+                            HealthDomain.MINDFULNESS,
+                            "mindfulness_session_minutes",
+                            "mindfulness",
+                            TrudyEvidenceGapReason.NO_DATA
+                        )
                     )
-                ))
+                )
             )
         )
 
-        assertTrue("Your sleep is the clearest recent change" in briefing.answerText)
-        assertTrue("74" in briefing.answerText && "82" in briefing.answerText)
+        assertTrue("Sleep is the clearest recent change" in briefing.answerText)
+        assertTrue("fell from 82 to 74" in briefing.answerText)
         assertTrue("resting heart rate" in briefing.answerText.lowercase())
         assertTrue("mindfulness" in briefing.answerText.lowercase())
         assertFalse(briefing.answerText.lowercase().startsWith("mindfulness"))
@@ -43,7 +48,29 @@ class TrudyRecentOverviewAnswerQualityTest {
     }
 
     @Test
-    fun enoughStableDataProducesStableAnswerRatherThanInsufficientEvidence() {
+    fun enoughStableCoverageProducesStableAnswerRatherThanInsufficientEvidence() {
+        val plan = plan(
+            evidence = listOf(
+                trend(HealthDomain.SLEEP, "sleep_score", 80.0, 80.5),
+                trend(HealthDomain.EXERCISE, "resting_heart_rate_bpm", 61.0, 60.5, "bpm"),
+                trend(HealthDomain.HYDRATION, "water_total_l", 2.5, 2.6, "L"),
+                trend(HealthDomain.EMOTIONAL, "emotional_valence", 7.0, 7.1)
+            )
+        )
+
+        val briefing = requireNotNull(
+            TrudyRecentOverviewAnswerQuality.compose(plan, investigation(findings = emptyList()))
+        )
+
+        assertTrue(briefing.stableWithUsableData)
+        assertEquals(4, briefing.assessedMetricCount)
+        assertTrue(briefing.answerText.startsWith("Nothing major stands out recently."))
+        assertFalse("not enough" in briefing.answerText.lowercase())
+        assertEquals(3, briefing.selectedMetrics.size)
+    }
+
+    @Test
+    fun partialCoverageDoesNotPretendTheWholeOverviewIsStable() {
         val plan = plan(
             evidence = listOf(
                 trend(HealthDomain.SLEEP, "sleep_score", 80.0, 80.5),
@@ -56,9 +83,10 @@ class TrudyRecentOverviewAnswerQualityTest {
             TrudyRecentOverviewAnswerQuality.compose(plan, investigation(findings = emptyList()))
         )
 
-        assertTrue(briefing.stableWithUsableData)
-        assertTrue(briefing.answerText.startsWith("Nothing major stands out recently."))
-        assertFalse("not enough" in briefing.answerText.lowercase())
+        assertFalse(briefing.stableWithUsableData)
+        assertEquals(3, briefing.assessedMetricCount)
+        assertTrue("too much of the rest" in briefing.answerText.lowercase())
+        assertTrue(briefing.selectedMetrics.isEmpty())
     }
 
     @Test
@@ -78,6 +106,7 @@ class TrudyRecentOverviewAnswerQualityTest {
 
         assertFalse(briefing.stableWithUsableData)
         assertTrue("don't have enough reliable recent data" in briefing.answerText.lowercase())
+        assertTrue(briefing.selectedMetrics.isEmpty())
     }
 
     @Test
@@ -98,8 +127,124 @@ class TrudyRecentOverviewAnswerQualityTest {
 
         assertEquals(3, briefing.selectedMetrics.size)
         assertTrue("hydration" in briefing.answerText.lowercase())
-        assertTrue("up from" in briefing.answerText.lowercase())
+        assertTrue("rose from" in briefing.answerText.lowercase())
         assertFalse("weight" in briefing.answerText.lowercase())
+    }
+
+    @Test
+    fun sparseOrLowVarianceFindingCannotBecomeHeadline() {
+        val sleep = finding(HealthDomain.SLEEP, "sleep_score", 70.0, 82.0, .95)
+        val plan = plan(
+            evidence = listOf(
+                trend(HealthDomain.SLEEP, "sleep_score", 70.0, 82.0),
+                trend(HealthDomain.EXERCISE, "resting_heart_rate_bpm", 61.0, 60.5, "bpm"),
+                trend(HealthDomain.HYDRATION, "water_total_l", 2.5, 2.6, "L"),
+                trend(HealthDomain.EMOTIONAL, "emotional_valence", 7.0, 7.1),
+                trend(HealthDomain.BODY, "body_weight_kg", 77.0, 77.1, "kg")
+            ),
+            limitations = listOf(lowQuality(HealthDomain.SLEEP, "sleep_score"))
+        )
+
+        val briefing = requireNotNull(
+            TrudyRecentOverviewAnswerQuality.compose(
+                plan,
+                investigation(
+                    findings = listOf(sleep),
+                    missing = listOf(
+                        TrudyMissingEvidence(
+                            HealthDomain.SLEEP,
+                            "sleep_score",
+                            "sleep",
+                            TrudyEvidenceGapReason.LOW_VARIANCE
+                        )
+                    )
+                )
+            )
+        )
+
+        assertFalse("sleep is the clearest" in briefing.answerText.lowercase())
+        assertTrue(briefing.stableWithUsableData)
+    }
+
+    @Test
+    fun smallCelsiusShiftCannotBecomeHeadlineFromPercentageMathAlone() {
+        val temperature = finding(
+            HealthDomain.ENVIRONMENT,
+            "environment_temperature_c",
+            recent = 10.5,
+            baseline = 10.0,
+            priority = .95,
+            standardizedEffect = 1.0
+        )
+        val plan = plan(
+            evidence = listOf(
+                trend(HealthDomain.ENVIRONMENT, "environment_temperature_c", 10.5, 10.0, "°C"),
+                trend(HealthDomain.SLEEP, "sleep_score", 80.0, 80.5),
+                trend(HealthDomain.EXERCISE, "resting_heart_rate_bpm", 61.0, 60.5, "bpm"),
+                trend(HealthDomain.HYDRATION, "water_total_l", 2.5, 2.6, "L"),
+                trend(HealthDomain.EMOTIONAL, "emotional_valence", 7.0, 7.1)
+            )
+        )
+
+        val briefing = requireNotNull(
+            TrudyRecentOverviewAnswerQuality.compose(plan, investigation(findings = listOf(temperature)))
+        )
+
+        assertFalse("outdoor temperature is the clearest" in briefing.answerText.lowercase())
+        assertTrue(briefing.stableWithUsableData)
+    }
+
+    @Test
+    fun unmeasuredSleepConfoundersNeverLeakIntoBroadOverviewLimitations() {
+        val plan = plan(
+            evidence = listOf(
+                trend(HealthDomain.SLEEP, "sleep_score", 80.0, 80.5),
+                trend(HealthDomain.EXERCISE, "resting_heart_rate_bpm", 61.0, 60.5, "bpm"),
+                trend(HealthDomain.HYDRATION, "water_total_l", 2.5, 2.6, "L"),
+                trend(HealthDomain.EMOTIONAL, "emotional_valence", 7.0, 7.1)
+            ),
+            limitations = listOf(
+                TrudyAnswerEvidence(
+                    id = "missing-medication",
+                    classification = TrudyAnswerEvidenceClass.LOW_QUALITY,
+                    kind = TrudyAnswerEvidenceKind.AVAILABILITY,
+                    metricId = "medication_change",
+                    label = "Medication changes",
+                    summary = "not measured"
+                )
+            )
+        )
+
+        val briefing = requireNotNull(
+            TrudyRecentOverviewAnswerQuality.compose(plan, investigation(findings = emptyList()))
+        )
+
+        assertFalse("medication" in briefing.answerText.lowercase())
+        assertTrue(briefing.stableWithUsableData)
+    }
+
+    @Test
+    fun planningAliasesReachBroadOverviewButNamedDomainsStayFocused() {
+        val broad = TrudyRecentOverviewAnswerQuality.planningText("Give me a health overview this week")
+        val focused = TrudyRecentOverviewAnswerQuality.planningText("Give me an overview of my sleep this week")
+
+        assertTrue("What should I know?" in broad)
+        assertTrue("this week" in broad)
+        assertEquals("Give me an overview of my sleep this week", focused)
+        assertEquals("What should I know recently?", TrudyRecentOverviewAnswerQuality.planningText("What should I know recently?"))
+    }
+
+    @Test
+    fun focusedInvestigationNeverUsesBroadOverviewComposer() {
+        val briefing = TrudyRecentOverviewAnswerQuality.compose(
+            plan(evidence = listOf(trend(HealthDomain.SLEEP, "sleep_score", 70.0, 82.0))),
+            investigation(
+                findings = listOf(finding(HealthDomain.SLEEP, "sleep_score", 70.0, 82.0, .9)),
+                targetLabel = "sleep"
+            )
+        )
+
+        assertNull(briefing)
     }
 
     @Test
@@ -160,6 +305,30 @@ class TrudyRecentOverviewAnswerQualityTest {
         )
     }
 
+    @Test
+    fun stableBriefingEvidenceIsRepresentativeRatherThanEveryRetrievedMetric() {
+        val plan = plan(
+            evidence = listOf(
+                trend(HealthDomain.SLEEP, "sleep_score", 80.0, 80.5),
+                trend(HealthDomain.EXERCISE, "resting_heart_rate_bpm", 61.0, 60.5, "bpm"),
+                trend(HealthDomain.HYDRATION, "water_total_l", 2.5, 2.6, "L"),
+                trend(HealthDomain.EMOTIONAL, "emotional_valence", 7.0, 7.1),
+                trend(HealthDomain.BODY, "body_weight_kg", 77.0, 77.1, "kg")
+            )
+        )
+        val briefing = requireNotNull(
+            TrudyRecentOverviewAnswerQuality.compose(plan, investigation(findings = emptyList()))
+        )
+
+        assertEquals(3, briefing.selectedMetrics.size)
+        assertFalse(
+            TrudyRecentOverviewAnswerQuality.shouldKeepReference(
+                briefing,
+                TrudyEvidenceReference(HealthDomain.BODY, "body_weight_kg", evidenceKind = TrudyEvidenceKind.DIRECT_PERSONAL_OBSERVATION)
+            )
+        )
+    }
+
     private fun plan(
         evidence: List<TrudyAnswerEvidence>,
         limitations: List<TrudyAnswerEvidence> = emptyList(),
@@ -206,12 +375,23 @@ class TrudyRecentOverviewAnswerQualityTest {
         summary = "missing"
     )
 
+    private fun lowQuality(domain: HealthDomain, metric: String) = TrudyAnswerEvidence(
+        id = "low-quality:$domain:$metric",
+        classification = TrudyAnswerEvidenceClass.LOW_QUALITY,
+        kind = TrudyAnswerEvidenceKind.AVAILABILITY,
+        domain = domain,
+        metricId = metric,
+        label = metric,
+        summary = "low variance"
+    )
+
     private fun finding(
         domain: HealthDomain,
         metric: String,
         recent: Double,
         baseline: Double,
-        priority: Double
+        priority: Double,
+        standardizedEffect: Double = 1.0
     ) = TrudyInvestigationFinding(
         classification = TrudyFindingClassification.OBSERVED_CHANGE,
         domain = domain,
@@ -220,7 +400,7 @@ class TrudyRecentOverviewAnswerQualityTest {
         baselineMean = baseline,
         absoluteDelta = recent - baseline,
         percentDelta = if (baseline == 0.0) null else (recent - baseline) / baseline * 100.0,
-        standardizedEffect = 1.0,
+        standardizedEffect = standardizedEffect,
         favourableDirection = if (recent >= baseline) TrudyEffectDirection.INCREASE else TrudyEffectDirection.DECREASE,
         priorityScore = priority,
         quality = quality(),
@@ -229,13 +409,15 @@ class TrudyRecentOverviewAnswerQualityTest {
 
     private fun investigation(
         findings: List<TrudyInvestigationFinding>,
-        missing: List<TrudyMissingEvidence> = emptyList()
+        missing: List<TrudyMissingEvidence> = emptyList(),
+        targetLabel: String = "recent health overview",
+        requestedMetricCount: Int = 8
     ) = TrudyInvestigationResult(
         target = TrudyInvestigationTarget(
             domain = HealthDomain.SLEEP,
             primaryMetricId = "sleep_score",
             supportingMetricIds = emptyList(),
-            label = "recent health overview",
+            label = targetLabel,
             includesSubjectiveClaim = false
         ),
         timeframe = TrudyInvestigationTimeframe(
@@ -252,8 +434,8 @@ class TrudyRecentOverviewAnswerQualityTest {
         confidence = TrudyConfidence.MODERATE,
         caveats = listOf("Observed changes do not establish causation."),
         execution = TrudyInvestigationExecutionStats(
-            requestedMetricCount = 8,
-            requestedDomainCount = 8,
+            requestedMetricCount = requestedMetricCount,
+            requestedDomainCount = requestedMetricCount,
             rowsInspected = 56,
             relationshipCount = 0,
             maxRowsPerMetric = 256,
