@@ -47,10 +47,12 @@ class TrudyConversationService(
             val result = orchestrate(planningText, conversationContext, preselectedContext)
             val trace = answerTurnRegistry?.consume()
             val structured = trace?.investigation
-            val briefing = structured?.let { investigation ->
-                trace?.let { TrudyRecentOverviewAnswerQuality.compose(it.plan, investigation) }
+            val briefing = if (trace != null && structured != null) {
+                TrudyRecentOverviewAnswerQuality.compose(trace.plan, structured)
+            } else {
+                null
             }
-            return if (briefing == null) {
+            return if (briefing == null || trace == null || structured == null) {
                 result
             } else {
                 val candidates = (
@@ -106,8 +108,10 @@ class TrudyConversationService(
         }
         val trace = answerTurnRegistry?.consume()
         val structured = trace?.investigation
-        val briefing = structured?.let { investigation ->
-            trace?.let { TrudyRecentOverviewAnswerQuality.compose(it.plan, investigation) }
+        val briefing = if (trace != null && structured != null) {
+            TrudyRecentOverviewAnswerQuality.compose(trace.plan, structured)
+        } else {
+            null
         }
         val answerResult = if (briefing == null) result else result.copy(answerText = briefing.answerText)
         val now = nowEpochMs().coerceAtLeast(0L)
