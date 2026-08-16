@@ -145,29 +145,110 @@ internal fun LegacyHydrationCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
 
 @Composable
 internal fun LegacyClinicalCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
-    val normal = (snapshot.clinicalMarkers - snapshot.clinicalAlerts).coerceAtLeast(0)
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(25.dp)).background(HomeCard).border(1.dp, HomeBorder, RoundedCornerShape(25.dp)).clickable(onClick = onClick).padding(18.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("CLINICAL", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Text("→", color = Color(0xFF8CA6B5), fontSize = 23.sp)
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(13.dp).height(13.dp).background(if (snapshot.clinicalAlerts > 0) HomeRed else HomeGreen, CircleShape))
-            Spacer(Modifier.width(8.dp))
-            Text("${snapshot.clinicalMarkers} markers", color = HomeNavy, fontSize = 21.sp, fontWeight = FontWeight.Black)
-        }
-        Spacer(Modifier.height(14.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Bottom) {
-            repeat(20) { index ->
-                val isAlert = snapshot.clinicalMarkers > 0 && index < snapshot.clinicalAlerts.coerceAtMost(6)
-                val isHealthy = snapshot.clinicalMarkers > 0 && !isAlert && index % 5 == 0
-                val tone = when { isAlert -> HomeRed; isHealthy -> HomeGreen; else -> Color(0xFFC6D4DE) }
-                Box(Modifier.weight(1f).height(if (isAlert || isHealthy) 20.dp else 10.dp).background(tone, RoundedCornerShape(7.dp)))
+    val hasMarkers = snapshot.clinicalMarkers > 0
+    val hasAlerts = snapshot.clinicalAlerts > 0
+    val accent = when {
+        hasAlerts -> HomeRed
+        hasMarkers -> HomeGreen
+        else -> HomePurple
+    }
+    val headline = when {
+        hasAlerts -> "${snapshot.clinicalAlerts} marker${if (snapshot.clinicalAlerts == 1) "" else "s"} flagged"
+        hasMarkers -> "${snapshot.clinicalMarkers} markers tracked"
+        else -> "Build your clinical picture"
+    }
+    val supporting = when {
+        hasAlerts -> "Outside recorded reference range · review in Clinical"
+        hasMarkers -> "No markers currently flagged outside recorded ranges"
+        else -> "Import lab results or add your clinical context"
+    }
+
+    Column(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(25.dp))
+            .background(
+                Brush.horizontalGradient(
+                    listOf(Color(0xFFFCFDFE), Color(0xFFFAF9FF), Color(0xFFF7F5FF))
+                )
+            )
+            .border(1.dp, HomePurple.copy(alpha = .16f), RoundedCornerShape(25.dp))
+            .superhumanHomeTileClickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 16.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.width(8.dp).height(8.dp).background(accent, CircleShape)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    "CLINICAL",
+                    color = HomeMuted,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.1.sp
+                )
+            }
+            Box(
+                Modifier.width(34.dp).height(34.dp)
+                    .background(HomePurple.copy(alpha = .08f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("→", color = HomePurple, fontSize = 19.sp, fontWeight = FontWeight.Bold)
             }
         }
-        Spacer(Modifier.height(12.dp))
-        Text("$normal normal · ${snapshot.clinicalAlerts} outside range", color = HomeMuted, fontSize = 10.sp)
+
+        Spacer(Modifier.height(9.dp))
+        Text(headline, color = HomeNavy, fontSize = 21.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(3.dp))
+        Text(supporting, color = HomeMuted, fontSize = 9.sp, lineHeight = 13.sp)
+
+        Spacer(Modifier.height(13.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ClinicalHomeStat(
+                value = snapshot.clinicalMarkers.toString(),
+                label = "MARKERS",
+                accent = HomePurple,
+                modifier = Modifier.weight(1f)
+            )
+            ClinicalHomeStat(
+                value = snapshot.clinicalAlerts.toString(),
+                label = "FLAGGED",
+                accent = if (hasAlerts) HomeRed else HomeGreen,
+                modifier = Modifier.weight(1f)
+            )
+            Box(
+                Modifier.weight(1.18f)
+                    .height(47.dp)
+                    .background(HomePurple.copy(alpha = .075f), RoundedCornerShape(14.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (hasAlerts) "Review  →" else "Overview  →",
+                    color = HomePurple,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClinicalHomeStat(value: String, label: String, accent: Color, modifier: Modifier = Modifier) {
+    Column(
+        modifier.height(47.dp)
+            .background(Color.White.copy(alpha = .84f), RoundedCornerShape(14.dp))
+            .border(1.dp, accent.copy(alpha = .11f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 10.dp, vertical = 7.dp)
+    ) {
+        Text(label, color = HomeMuted, fontSize = 6.sp, fontWeight = FontWeight.Black, letterSpacing = .55.sp)
+        Spacer(Modifier.height(1.dp))
+        Text(value, color = accent, fontSize = 15.sp, fontWeight = FontWeight.Black)
     }
 }
 
