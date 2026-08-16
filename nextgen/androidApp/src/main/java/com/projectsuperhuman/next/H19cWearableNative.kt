@@ -511,7 +511,11 @@ internal object H19cWearableRuntime {
     private fun persistActivitySummary(daysAgo: Int, steps: Int, distance: Int, calories: Int) {
         val zone = ZoneId.systemDefault()
         val date = LocalDate.now(zone).minusDays(daysAgo.toLong())
-        val timestamp = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+        val timestamp = if (daysAgo == 0) {
+            System.currentTimeMillis()
+        } else {
+            date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+        }
         ioScope.launch {
             val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
             val end = timestamp
