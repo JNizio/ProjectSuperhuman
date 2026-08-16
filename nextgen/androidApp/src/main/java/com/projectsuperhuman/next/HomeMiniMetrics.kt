@@ -84,9 +84,9 @@ private data class MiniMetricDetailData(
     val secondaryLabel: String = "RANGE",
     val secondaryValue: String = "—",
     val tertiaryLabel: String = "SOURCE",
-    val tertiaryValue: String = "Samsung",
+    val tertiaryValue: String = "—",
     val history: List<Double?> = emptyList(),
-    val hasSamsungData: Boolean = false
+    val sourceLabel: String? = null
 )
 
 private val MiniNavy = Color(0xFF123D70)
@@ -166,15 +166,15 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
     LaunchedEffect(isForeground) {
         metrics = loadMiniMetricSnapshot()
         if (!isForeground) return@LaunchedEffect
-        if (MiniMetricsHealthConnect.hasAnyPermission(context)) {
-            // Reconcile history whenever the app becomes active, then poll only while resumed.
+        val hasHealthConnect = MiniMetricsHealthConnect.hasAnyPermission(context)
+        if (hasHealthConnect) {
             MiniMetricsHealthConnect.sync(context)
             metrics = loadMiniMetricSnapshot()
-            while (true) {
-                delay(10_000L)
-                MiniMetricsHealthConnect.syncCurrent(context)
-                metrics = loadMiniMetricSnapshot()
-            }
+        }
+        while (true) {
+            delay(5_000L)
+            if (hasHealthConnect) MiniMetricsHealthConnect.syncCurrent(context)
+            metrics = loadMiniMetricSnapshot()
         }
     }
 
@@ -205,7 +205,17 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
             )
         }
 
-        Row(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MiniMetricCard(
+                metric = HomeMiniMetric.HEART_RATE,
+                value = metrics.heartRateBpm?.toString() ?: "—",
+                unit = if (metrics.heartRateBpm != null) "bpm" else "",
+                status = if (metrics.heartRateBpm != null) freshnessLabel(metrics.heartRateTimestampMs) else "Tap to connect",
+                accent = MiniHeart,
+                modifier = Modifier.weight(1f),
+                style = MiniVisualStyle.PULSE,
+                onClick = { openMetric(HomeMiniMetric.HEART_RATE) }
+            )
             MiniMetricCard(
                 metric = HomeMiniMetric.CALORIES,
                 value = metrics.caloriesActiveBurned?.let(::compactCount) ?: "—",
@@ -218,7 +228,7 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
                     metrics.caloriesEaten?.let { "${compactCount(it)} eaten · connect burn" } ?: "Tap to connect"
                 },
                 accent = MiniCalories,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.weight(1f),
                 style = MiniVisualStyle.WAVES,
                 onClick = { openMetric(HomeMiniMetric.CALORIES) }
             )
@@ -340,7 +350,7 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
     var connected by remember(metric) { mutableStateOf(false) }
     var backgroundAvailable by remember(metric) { mutableStateOf(false) }
     var backgroundEnabled by remember(metric) { mutableStateOf(false) }
-    var status by remember(metric) { mutableStateOf("Checking Samsung Health…") }
+    var status by remember(metric) { mutableStateOf("Checking Health Connect…") }
 
     suspend fun refresh() {
         detail = loadMiniMetricDetail(metric)
@@ -404,7 +414,7 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
             !available -> "Health Connect isn’t available on this device"
             connected && backgroundEnabled -> "Samsung Health connected · background sync enabled"
             connected -> "Samsung Health connected through Health Connect"
-            else -> "Connect this metric from Samsung Health"
+            else -> "Samsung Health is optional when using H19C direct BLE"
         }
         if (connected) sync()
     }
@@ -419,6 +429,13 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
         while (true) {
             delay(intervalMs)
             MiniMetricsHealthConnect.syncCurrent(context, metric)
+        }
+    }
+
+    LaunchedEffect(metric, isForeground) {
+        if (!isForeground) return@LaunchedEffect
+        while (true) {
+            delay(3_000L)
             refresh()
         }
     }
@@ -432,19 +449,18 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
     ) {
         MiniMetricHeader(metric, onBack)
 
-        run {
-            MiniMetricHero(metric, detail, accent)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MetricStat(detail.primaryLabel, detail.primaryValue, Modifier.weight(1f))
-                MetricStat(detail.secondaryLabel, detail.secondaryValue, Modifier.weight(1f))
-                MetricStat(detail.tertiaryLabel, detail.tertiaryValue, Modifier.weight(1f))
-            }
-            MiniMetricHistoryCard(metric, detail.history, accent)
-            if (metric == HomeMiniMetric.HEART_RATE) {
-                AdvancedHeartRateSection(syncing = syncing, refreshSignal = status)
-            }
+        MiniMetricHero(metric, detail, accent)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MetricStat(detail.primaryLabel, detail.primaryValue, Modifier.weight(1f))
+            MetricStat(detail.secondaryLabel, detail.secondaryValue, Modifier.weight(1f))
+            MetricStat(detail.tertiaryLabel, detail.tertiaryValue, Modifier.weight(1f))
+        }
+        MiniMetricHistoryCard(metric, detail.history, accent)
+        if (metric == HomeMiniMetric.HEART_RATE) {
+            AdvancedHeartRateSection(syncing = syncing, refreshSignal = status)
         }
 
+        H19cMiniMetricCard(metric)
         HealthConnectMiniCard(
             connected = connected,
             syncing = syncing,
@@ -497,7 +513,7 @@ private fun MiniMetricHero(metric: HomeMiniMetric, detail: MiniMetricDetailData,
             .padding(20.dp)
     ) {
         Text(
-            if (detail.hasSamsungData) "SAMSUNG HEALTH" else "NO SAMSUNG DATA YET",
+            detail.sourceLabel?.uppercase() ?: "NO WEARABLE DATA YET",
             color = accent,
             fontSize = 9.sp,
             fontWeight = FontWeight.Black,
@@ -514,10 +530,10 @@ private fun MiniMetricHero(metric: HomeMiniMetric, detail: MiniMetricDetailData,
         Spacer(Modifier.height(5.dp))
         Text(
             when (metric) {
-                HomeMiniMetric.HEART_RATE -> "Latest Fit3 / Samsung Health heart-rate reading"
-                HomeMiniMetric.STEPS -> "Samsung Health steps accumulated today"
-                HomeMiniMetric.BLOOD_OXYGEN -> "Latest blood-oxygen reading shared by Samsung Health"
-                HomeMiniMetric.CALORIES -> "Active Fit3 / Samsung burn today compared with food logged in Project Superhuman"
+                HomeMiniMetric.HEART_RATE -> "Latest heart-rate reading from a connected wearable source"
+                HomeMiniMetric.STEPS -> "Wearable steps accumulated today"
+                HomeMiniMetric.BLOOD_OXYGEN -> "Latest blood-oxygen reading from a connected wearable source"
+                HomeMiniMetric.CALORIES -> "Wearable active burn today compared with food logged in Project Superhuman"
             },
             color = MiniMuted,
             fontSize = 10.sp,
@@ -613,7 +629,7 @@ private fun HealthConnectMiniCard(
         Text("HEALTH CONNECT", color = MiniMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
         Spacer(Modifier.height(6.dp))
         Text(
-            if (connected) "Samsung Health connected" else "Bring in your Fit3 data",
+            if (connected) "Samsung Health connected" else "Optional Samsung / Health Connect source",
             color = MiniNavy,
             fontSize = 16.sp,
             fontWeight = FontWeight.Black
@@ -689,6 +705,15 @@ private fun accentFor(metric: HomeMiniMetric): Color = when (metric) {
     HomeMiniMetric.CALORIES -> MiniCalories
 }
 
+private fun isSupportedWearableSource(value: HealthValue): Boolean =
+    value.source == MiniMetricsHealthConnect.SOURCE || value.source == H19cWearableRuntime.SOURCE
+
+private fun wearableSourceLabel(value: HealthValue?): String? = when (value?.source) {
+    H19cWearableRuntime.SOURCE -> "H19C direct"
+    MiniMetricsHealthConnect.SOURCE -> "Samsung Health"
+    else -> null
+}
+
 private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
     val zone = ZoneId.systemDefault()
     val today = LocalDate.now(zone)
@@ -696,24 +721,24 @@ private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
     val todayStart = today.atStartOfDay(zone).toInstant().toEpochMilli()
     val sevenDaysAgo = today.minusDays(6).atStartOfDay(zone).toInstant().toEpochMilli()
 
-    fun latestSamsung(rows: List<HealthValue>): HealthValue? =
-        rows.filter { it.source == MiniMetricsHealthConnect.SOURCE }.maxByOrNull { it.timestampEpochMs }
+    fun latestWearable(rows: List<HealthValue>): HealthValue? =
+        rows.filter(::isSupportedWearableSource).maxByOrNull { it.timestampEpochMs }
 
-    val heart = latestSamsung(NativeDataHub.between(HealthDomain.EXERCISE, "heart_rate_bpm", sevenDaysAgo, now))
+    val heart = latestWearable(NativeDataHub.between(HealthDomain.EXERCISE, "heart_rate_bpm", sevenDaysAgo, now))
     val stepRows = NativeDataHub.between(HealthDomain.EXERCISE, "steps", sevenDaysAgo, now)
-        .filter { it.source == MiniMetricsHealthConnect.SOURCE && it.metadata["summaryDate"] != null }
-    val steps = latestSamsung(stepRows.filter { it.timestampEpochMs >= todayStart })
+        .filter { isSupportedWearableSource(it) && it.metadata["summaryDate"] != null }
+    val steps = latestWearable(stepRows.filter { it.timestampEpochMs >= todayStart })
     val latestStepPerDay = stepRows.groupBy { it.metadata["summaryDate"].orEmpty() }
         .values
         .mapNotNull { rows -> rows.maxByOrNull { it.timestampEpochMs } }
     val completedStepDays = latestStepPerDay.filter { it.metadata["summaryDate"] != today.toString() }
     val stepsRecentAverage = completedStepDays.takeIf { it.isNotEmpty() }?.map { it.value }?.average()?.roundToInt()
-    val oxygen = latestSamsung(NativeDataHub.between(HealthDomain.BODY, "blood_oxygen_percent", sevenDaysAgo, now))
+    val oxygen = latestWearable(NativeDataHub.between(HealthDomain.BODY, "blood_oxygen_percent", sevenDaysAgo, now))
 
-    val caloriesActiveBurned = latestSamsung(
+    val caloriesActiveBurned = latestWearable(
         NativeDataHub.between(HealthDomain.EXERCISE, "calories_burned_active_kcal", todayStart, now)
     )?.value
-    val caloriesTotalBurned = latestSamsung(
+    val caloriesTotalBurned = latestWearable(
         NativeDataHub.between(HealthDomain.EXERCISE, "calories_burned_total_kcal", todayStart, now)
     )?.value
     val caloriesEaten = NativeDataHub.between(HealthDomain.NUTRITION, "food_kcal", todayStart, now)
@@ -724,7 +749,7 @@ private suspend fun loadMiniMetricSnapshot(): MiniMetricSnapshot {
         heartRateTimestampMs = heart?.timestampEpochMs,
         steps = steps?.value?.roundToInt(),
         stepsRecentAverage = stepsRecentAverage,
-        stepsSourceUpdatedAtMs = steps?.metadata?.get("sourceLastModifiedMs")?.toLongOrNull(),
+        stepsSourceUpdatedAtMs = steps?.metadata?.get("sourceLastModifiedMs")?.toLongOrNull() ?: steps?.timestampEpochMs,
         bloodOxygenPct = oxygen?.value?.roundToInt(),
         bloodOxygenTimestampMs = oxygen?.timestampEpochMs,
         caloriesActiveBurned = caloriesActiveBurned?.roundToInt(),
@@ -739,28 +764,43 @@ private suspend fun loadMiniMetricDetail(metric: HomeMiniMetric): MiniMetricDeta
     val dates = (6 downTo 0).map { today.minusDays(it.toLong()) }
     val now = System.currentTimeMillis()
 
-    suspend fun latestSamsung(domain: HealthDomain, metricName: String, from: Long): HealthValue? =
+    suspend fun latestWearable(domain: HealthDomain, metricName: String, from: Long): HealthValue? =
         NativeDataHub.between(domain, metricName, from, now)
-            .filter { it.source == MiniMetricsHealthConnect.SOURCE }
+            .filter(::isSupportedWearableSource)
             .maxByOrNull { it.timestampEpochMs }
 
-    suspend fun summary(domain: HealthDomain, metricName: String, date: LocalDate): Double? {
+    suspend fun summaryRow(domain: HealthDomain, metricName: String, date: LocalDate): HealthValue? {
         val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
         val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
-        return NativeDataHub.between(domain, metricName, start, end)
-            .filter { it.source == MiniMetricsHealthConnect.SOURCE && it.metadata["summaryDate"] == date.toString() }
+        return NativeDataHub.between(domain, metricName, start, minOf(end, now))
+            .filter { isSupportedWearableSource(it) && it.metadata["summaryDate"] == date.toString() }
             .maxByOrNull { it.timestampEpochMs }
-            ?.value
+    }
+
+    suspend fun summary(domain: HealthDomain, metricName: String, date: LocalDate): Double? =
+        summaryRow(domain, metricName, date)?.value
+
+    suspend fun directHeartRateValues(date: LocalDate): List<Double> {
+        val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = minOf(date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L, now)
+        return NativeDataHub.between(HealthDomain.EXERCISE, "heart_rate_bpm", start, end)
+            .filter { it.source == H19cWearableRuntime.SOURCE }
+            .map { it.value }
     }
 
     val sevenDaysAgo = dates.first().atStartOfDay(zone).toInstant().toEpochMilli()
     return when (metric) {
         HomeMiniMetric.HEART_RATE -> {
-            val current = latestSamsung(HealthDomain.EXERCISE, "heart_rate_bpm", sevenDaysAgo)?.value
-            val avg = summary(HealthDomain.EXERCISE, "heart_rate_avg_bpm", today)
-            val min = summary(HealthDomain.EXERCISE, "heart_rate_min_bpm", today)
-            val max = summary(HealthDomain.EXERCISE, "heart_rate_max_bpm", today)
-            val history = dates.map { summary(HealthDomain.EXERCISE, "heart_rate_avg_bpm", it) }
+            val currentRow = latestWearable(HealthDomain.EXERCISE, "heart_rate_bpm", sevenDaysAgo)
+            val current = currentRow?.value
+            val directToday = directHeartRateValues(today)
+            val avg = summary(HealthDomain.EXERCISE, "heart_rate_avg_bpm", today) ?: directToday.takeIf { it.isNotEmpty() }?.average()
+            val min = summary(HealthDomain.EXERCISE, "heart_rate_min_bpm", today) ?: directToday.minOrNull()
+            val max = summary(HealthDomain.EXERCISE, "heart_rate_max_bpm", today) ?: directToday.maxOrNull()
+            val history = dates.map { date ->
+                summary(HealthDomain.EXERCISE, "heart_rate_avg_bpm", date)
+                    ?: directHeartRateValues(date).takeIf { it.isNotEmpty() }?.average()
+            }
             MiniMetricDetailData(
                 current = current,
                 unit = "bpm",
@@ -768,13 +808,17 @@ private suspend fun loadMiniMetricDetail(metric: HomeMiniMetric): MiniMetricDeta
                 primaryValue = avg?.roundToInt()?.let { "$it bpm" } ?: "—",
                 secondaryLabel = "TODAY RANGE",
                 secondaryValue = if (min != null && max != null) "${min.roundToInt()}–${max.roundToInt()}" else "—",
+                tertiaryLabel = "SOURCE",
+                tertiaryValue = wearableSourceLabel(currentRow) ?: "—",
                 history = history,
-                hasSamsungData = current != null || history.any { it != null }
+                sourceLabel = wearableSourceLabel(currentRow) ?: if (history.any { it != null }) "Wearable history" else null
             )
         }
         HomeMiniMetric.STEPS -> {
-            val history = dates.map { summary(HealthDomain.EXERCISE, "steps", it) }
-            val current = history.lastOrNull()
+            val rows = dates.map { summaryRow(HealthDomain.EXERCISE, "steps", it) }
+            val history = rows.map { it?.value }
+            val currentRow = rows.lastOrNull()
+            val current = currentRow?.value
             val average = history.filterNotNull().takeIf { it.isNotEmpty() }?.average()
             MiniMetricDetailData(
                 current = current,
@@ -783,12 +827,15 @@ private suspend fun loadMiniMetricDetail(metric: HomeMiniMetric): MiniMetricDeta
                 primaryValue = average?.roundToInt()?.let(::compactCount) ?: "—",
                 secondaryLabel = "TODAY",
                 secondaryValue = current?.roundToInt()?.let(::compactCount) ?: "—",
+                tertiaryLabel = "SOURCE",
+                tertiaryValue = wearableSourceLabel(currentRow) ?: "—",
                 history = history,
-                hasSamsungData = history.any { it != null }
+                sourceLabel = wearableSourceLabel(currentRow) ?: rows.asReversed().firstNotNullOfOrNull(::wearableSourceLabel)
             )
         }
         HomeMiniMetric.BLOOD_OXYGEN -> {
-            val current = latestSamsung(HealthDomain.BODY, "blood_oxygen_percent", sevenDaysAgo)?.value
+            val currentRow = latestWearable(HealthDomain.BODY, "blood_oxygen_percent", sevenDaysAgo)
+            val current = currentRow?.value
             val avg = summary(HealthDomain.BODY, "blood_oxygen_avg_percent", today)
             val min = summary(HealthDomain.BODY, "blood_oxygen_min_percent", today)
             val max = summary(HealthDomain.BODY, "blood_oxygen_max_percent", today)
@@ -797,23 +844,27 @@ private suspend fun loadMiniMetricDetail(metric: HomeMiniMetric): MiniMetricDeta
                 current = current,
                 unit = "%",
                 primaryLabel = "TODAY AVG",
-                primaryValue = avg?.let { "${it.roundToInt()}%" } ?: "—",
+                primaryValue = avg?.let { "${it.roundToInt()}%" } ?: current?.let { "${it.roundToInt()}%" } ?: "—",
                 secondaryLabel = "TODAY RANGE",
                 secondaryValue = if (min != null && max != null) "${min.roundToInt()}–${max.roundToInt()}%" else "—",
+                tertiaryLabel = "SOURCE",
+                tertiaryValue = wearableSourceLabel(currentRow) ?: "—",
                 history = history,
-                hasSamsungData = current != null || history.any { it != null }
+                sourceLabel = wearableSourceLabel(currentRow) ?: if (history.any { it != null }) "Wearable history" else null
             )
         }
         HomeMiniMetric.CALORIES -> {
             suspend fun eaten(date: LocalDate): Double? {
                 val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
-                val end = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+                val end = minOf(date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L, now)
                 val total = NativeDataHub.between(HealthDomain.NUTRITION, "food_kcal", start, end).sumOf { it.value }
                 return total.takeIf { it > 0.0 }
             }
 
-            val history = dates.map { summary(HealthDomain.EXERCISE, "calories_burned_active_kcal", it) }
-            val current = history.lastOrNull()
+            val rows = dates.map { summaryRow(HealthDomain.EXERCISE, "calories_burned_active_kcal", it) }
+            val history = rows.map { it?.value }
+            val currentRow = rows.lastOrNull()
+            val current = currentRow?.value
             val totalToday = summary(HealthDomain.EXERCISE, "calories_burned_total_kcal", today)
             val eatenToday = eaten(today)
             MiniMetricDetailData(
@@ -823,17 +874,17 @@ private suspend fun loadMiniMetricDetail(metric: HomeMiniMetric): MiniMetricDeta
                 primaryValue = current?.roundToInt()?.let { "${compactCount(it)} kcal" } ?: "—",
                 secondaryLabel = "EATEN",
                 secondaryValue = eatenToday?.roundToInt()?.let { "${compactCount(it)} kcal" } ?: "0 kcal",
-                tertiaryLabel = "TOTAL",
-                tertiaryValue = totalToday?.roundToInt()?.let { "${compactCount(it)} kcal" } ?: "—",
+                tertiaryLabel = "SOURCE",
+                tertiaryValue = wearableSourceLabel(currentRow) ?: "—",
                 history = history,
-                hasSamsungData = history.any { it != null } || totalToday != null
+                sourceLabel = wearableSourceLabel(currentRow) ?: rows.asReversed().firstNotNullOfOrNull(::wearableSourceLabel)
             )
         }
     }
 }
 
 private fun freshnessLabel(timestampMs: Long?): String {
-    if (timestampMs == null) return "Samsung Health"
+    if (timestampMs == null) return "wearable data"
     val ageMs = (System.currentTimeMillis() - timestampMs).coerceAtLeast(0L)
     val minutes = ageMs / 60_000L
     return when {
