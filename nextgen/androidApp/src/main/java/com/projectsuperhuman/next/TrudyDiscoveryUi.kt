@@ -33,15 +33,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 
-private val DiscoveryNavy = Color(0xFF123D70)
-private val DiscoveryInk = Color(0xFF19354F)
-private val DiscoveryMuted = Color(0xFF748294)
-private val DiscoveryCyan = Color(0xFF1CC8C8)
-private val DiscoveryCyanSoft = Color(0xFFE8FAFA)
-private val DiscoveryBlueSoft = Color(0xFFEDF5FB)
-private val DiscoveryVioletSoft = Color(0xFFF2EFFB)
-private val DiscoveryBorder = Color(0xFFDDE7ED)
-private val DiscoveryWhite = Color(0xFFFEFFFF)
+private val DiscoveryNavy get() = superhumanBrandText
+private val DiscoveryInk get() = superhumanTextPrimary
+private val DiscoveryMuted get() = superhumanTextMuted
+private val DiscoveryCyan get() = superhumanAccent
+private val DiscoveryCyanSoft get() = superhumanAccentSoft
+private val DiscoveryBorder get() = superhumanBorder
+private val DiscoveryWhite get() = superhumanSurfaceElevated
+private val DiscoveryActionBg get() = if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else Color(0xFF123D70)
+
+private val DiscoveryBlueSoftLight = Color(0xFFEDF5FB)
+private val DiscoveryVioletSoftLight = Color(0xFFF2EFFB)
+private val DiscoveryCyanSoftLight = Color(0xFFE8FAFA)
 
 private data class TrudyStarter(
     val eyebrow: String,
@@ -57,42 +60,42 @@ private val trudyStarters = listOf(
         title = "Check a value",
         description = "Ask for a recorded metric at a specific time.",
         prompt = "What was my resting heart rate yesterday?",
-        tint = DiscoveryCyanSoft
+        tint = DiscoveryCyanSoftLight
     ),
     TrudyStarter(
         eyebrow = "TREND",
         title = "See a trend",
         description = "Look across days, weeks or months instead of one reading.",
         prompt = "How has my sleep changed this month?",
-        tint = DiscoveryBlueSoft
+        tint = DiscoveryBlueSoftLight
     ),
     TrudyStarter(
         eyebrow = "WHY",
         title = "Investigate why",
         description = "Check what changed and which related signals are worth attention.",
         prompt = "Why have I felt more tired lately?",
-        tint = DiscoveryVioletSoft
+        tint = DiscoveryVioletSoftLight
     ),
     TrudyStarter(
         eyebrow = "PATTERN",
         title = "Find connections",
         description = "Compare signals across sleep, training, food, mood and environment.",
         prompt = "Does caffeine line up with worse sleep?",
-        tint = DiscoveryCyanSoft
+        tint = DiscoveryCyanSoftLight
     ),
     TrudyStarter(
         eyebrow = "COMPARE",
         title = "Compare periods",
         description = "Put two time windows side by side and quantify the difference.",
         prompt = "Compare my sleep this month with last month.",
-        tint = DiscoveryBlueSoft
+        tint = DiscoveryBlueSoftLight
     ),
     TrudyStarter(
         eyebrow = "SHIFT",
         title = "Find a turning point",
         description = "Ask when a meaningful change first became visible in your data.",
         prompt = "When did my sleep start getting worse?",
-        tint = DiscoveryVioletSoft
+        tint = DiscoveryVioletSoftLight
     )
 )
 
@@ -159,14 +162,14 @@ internal fun TrudyDiscoveryWelcome(
 
 @Composable
 private fun TrudyDiscoveryHero(onPrompt: (String) -> Unit) {
+    val heroColors = if (SuperhumanAppearance.darkMode) {
+        listOf(Color(0xFF10282A), Color(0xFF101D2A), Color(0xFF201D32))
+    } else {
+        listOf(Color(0xFFE9FAF8), Color(0xFFF5F8FD), Color(0xFFF3F0FC))
+    }
     Column(
         Modifier.fillMaxWidth()
-            .background(
-                Brush.linearGradient(
-                    listOf(Color(0xFFE9FAF8), Color(0xFFF5F8FD), Color(0xFFF3F0FC))
-                ),
-                RoundedCornerShape(28.dp)
-            )
+            .background(Brush.linearGradient(heroColors), RoundedCornerShape(28.dp))
             .border(1.dp, DiscoveryBorder, RoundedCornerShape(28.dp))
             .padding(18.dp)
     ) {
@@ -192,7 +195,7 @@ private fun TrudyDiscoveryHero(onPrompt: (String) -> Unit) {
             Box(
                 Modifier.size(62.dp)
                     .background(
-                        Brush.linearGradient(listOf(DiscoveryNavy, Color(0xFF256C8A), DiscoveryCyan)),
+                        Brush.linearGradient(listOf(Color(0xFF123D70), Color(0xFF256C8A), DiscoveryCyan)),
                         CircleShape
                     ),
                 contentAlignment = Alignment.Center
@@ -219,7 +222,7 @@ private fun TrudyDiscoveryHero(onPrompt: (String) -> Unit) {
         Spacer(Modifier.height(13.dp))
         Box(
             Modifier.fillMaxWidth()
-                .background(DiscoveryNavy, RoundedCornerShape(16.dp))
+                .background(DiscoveryActionBg, RoundedCornerShape(16.dp))
                 .superhumanClickable { onPrompt("What should I pay attention to today?") }
                 .semantics { contentDescription = "Ask Trudy what to pay attention to today" }
                 .padding(horizontal = 15.dp, vertical = 13.dp)
@@ -236,7 +239,7 @@ private fun TrudyDiscoveryHero(onPrompt: (String) -> Unit) {
 @Composable
 private fun TrudyCapabilityPill(text: String) {
     Box(
-        Modifier.background(Color.White.copy(alpha = 0.84f), RoundedCornerShape(30.dp))
+        Modifier.background(superhumanSurface.copy(alpha = if (SuperhumanAppearance.darkMode) .92f else .84f), RoundedCornerShape(30.dp))
             .border(1.dp, DiscoveryBorder, RoundedCornerShape(30.dp))
             .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
@@ -264,7 +267,8 @@ private fun TrudyStarterCard(starter: TrudyStarter, onPrompt: (String) -> Unit, 
             .padding(12.dp)
     ) {
         Box(
-            Modifier.background(starter.tint, RoundedCornerShape(9.dp)).padding(horizontal = 7.dp, vertical = 5.dp)
+            Modifier.background(if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else starter.tint, RoundedCornerShape(9.dp))
+                .padding(horizontal = 7.dp, vertical = 5.dp)
         ) {
             Text(starter.eyebrow, color = DiscoveryNavy, fontSize = 6.sp, fontWeight = FontWeight.Black, letterSpacing = .65.sp)
         }
@@ -283,7 +287,7 @@ private fun TrudyStarterCard(starter: TrudyStarter, onPrompt: (String) -> Unit, 
 private fun TrudyDeepPrompt(label: String, text: String, onPrompt: (String) -> Unit) {
     Row(
         Modifier.fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(17.dp))
+            .background(superhumanSurface, RoundedCornerShape(17.dp))
             .border(1.dp, DiscoveryBorder, RoundedCornerShape(17.dp))
             .superhumanClickable { onPrompt(text) }
             .semantics { contentDescription = "Ask Trudy: $text" }
@@ -304,8 +308,8 @@ private fun TrudyDeepPrompt(label: String, text: String, onPrompt: (String) -> U
 private fun TrudyHowItWorksCard(onGuide: () -> Unit, onVoiceMode: () -> Unit) {
     Column(
         Modifier.fillMaxWidth()
-            .background(Color(0xFFF0F8F8), RoundedCornerShape(22.dp))
-            .border(1.dp, DiscoveryCyan.copy(alpha = .15f), RoundedCornerShape(22.dp))
+            .background(if (SuperhumanAppearance.darkMode) Color(0xFF10292B) else Color(0xFFF0F8F8), RoundedCornerShape(22.dp))
+            .border(1.dp, DiscoveryCyan.copy(alpha = .20f), RoundedCornerShape(22.dp))
             .padding(14.dp)
     ) {
         Text("HOW TRUDY WORKS", color = DiscoveryCyan, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
@@ -335,7 +339,7 @@ private fun TrudySecondaryAction(
 ) {
     Box(
         modifier.defaultMinSize(minHeight = 42.dp)
-            .background(Color.White, RoundedCornerShape(13.dp))
+            .background(superhumanSurface, RoundedCornerShape(13.dp))
             .border(1.dp, DiscoveryBorder, RoundedCornerShape(13.dp))
             .superhumanClickable(onClick = onClick)
             .semantics { contentDescription = description }
@@ -350,7 +354,7 @@ private fun TrudySecondaryAction(
 private fun TrudyConversationTipCard() {
     Row(
         Modifier.fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(18.dp))
+            .background(superhumanSurface, RoundedCornerShape(18.dp))
             .border(1.dp, DiscoveryBorder, RoundedCornerShape(18.dp))
             .padding(13.dp),
         verticalAlignment = Alignment.Top
@@ -429,7 +433,7 @@ internal fun TrudyGuideDialog(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            color = Color(0xFFF9FCFD),
+            color = superhumanSurfaceElevated,
             shape = RoundedCornerShape(28.dp),
             shadowElevation = 12.dp,
             modifier = Modifier.fillMaxWidth()
@@ -509,7 +513,7 @@ internal fun TrudyGuideDialog(
 private fun TrudyGuideFeatureCard(index: Int, feature: TrudyGuideFeature, onPrompt: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(18.dp))
+            .background(superhumanSurface, RoundedCornerShape(18.dp))
             .border(1.dp, DiscoveryBorder, RoundedCornerShape(18.dp))
             .superhumanClickable(onClick = onPrompt)
             .semantics { contentDescription = "${feature.title}. Example: ${feature.example}" }
@@ -551,7 +555,7 @@ internal fun TrudyFollowUpStrip(onPrompt: (String) -> Unit) {
 private fun TrudyFollowUpChip(text: String, onPrompt: (String) -> Unit) {
     Box(
         Modifier.defaultMinSize(minHeight = 38.dp)
-            .background(Color.White, RoundedCornerShape(30.dp))
+            .background(superhumanSurface, RoundedCornerShape(30.dp))
             .border(1.dp, DiscoveryBorder, RoundedCornerShape(30.dp))
             .superhumanClickable { onPrompt(text) }
             .semantics { contentDescription = "Follow up with Trudy: $text" }
