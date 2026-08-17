@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
-/** Premium Home hydration tile. */
+/** Premium Home hydration tile that follows the active Superhuman colour scheme. */
 @Composable
 internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val goalMl = snapshot.waterGoalMl.coerceAtLeast(1)
@@ -47,6 +47,10 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
     val pct = (animatedFraction * 100).roundToInt()
     val remaining = (goalMl - shownMl).coerceAtLeast(0)
     val shape = RoundedCornerShape(27.dp)
+    val palette = superhumanPalette()
+    val dark = superhumanDarkMode()
+    val accent = if (dark) Color(0xFF64C7F2) else Color(0xFF0D6CB4)
+    val ringTrack = if (dark) palette.surfaceRaised else Color(0xFFD9EAF2)
 
     val context = LocalContext.current
     val waterImage = remember {
@@ -59,35 +63,40 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
         Modifier.fillMaxWidth()
             .height(158.dp)
             .clip(shape)
-            .background(Color(0xFFFCFDFE))
-            .border(1.dp, Color(0xFFE1E9EF), shape)
+            .background(palette.surface)
+            .border(1.dp, palette.border, shape)
             .superhumanHomeTileClickable(onClick = onClick)
     ) {
         if (waterImage != null) {
             Image(
                 bitmap = waterImage,
                 contentDescription = null,
-                modifier = Modifier.width(176.dp).fillMaxHeight().align(Alignment.CenterEnd),
+                modifier = Modifier.width(196.dp).fillMaxHeight().align(Alignment.CenterEnd),
                 contentScale = ContentScale.Crop,
-                alpha = .93f
+                alpha = if (dark) .68f else .93f
             )
         }
 
+        // Keep a surface-coloured veil over the photograph all the way to the right in dark mode.
+        // This removes the hard light/dark seam that a transparent gradient produced with bright assets.
         Box(
             Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(
-                    0.00f to Color(0xFFFCFDFE),
-                    0.44f to Color(0xFFFCFDFE),
-                    0.66f to Color(0xFFFCFDFE).copy(alpha = .90f),
-                    0.82f to Color(0xFFFCFDFE).copy(alpha = .28f),
-                    1.00f to Color.Transparent
+                    colorStops = arrayOf(
+                        0.00f to palette.surface,
+                        0.42f to palette.surface,
+                        0.60f to palette.surface.copy(alpha = .98f),
+                        0.75f to palette.surface.copy(alpha = if (dark) .82f else .68f),
+                        0.89f to palette.surface.copy(alpha = if (dark) .61f else .22f),
+                        1.00f to palette.surface.copy(alpha = if (dark) .46f else .04f)
+                    )
                 )
             )
         )
 
         Text(
             "HYDRATION",
-            color = Color(0xFF748294),
+            color = palette.muted,
             fontSize = 9.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 1.15.sp,
@@ -101,11 +110,11 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
             Box(Modifier.size(84.dp), contentAlignment = Alignment.Center) {
                 Canvas(Modifier.fillMaxSize()) {
                     val stroke = 9.dp.toPx()
-                    drawCircle(Color(0xFFD9EAF2), style = Stroke(width = stroke))
+                    drawCircle(ringTrack, style = Stroke(width = stroke))
                     if (animatedFraction > 0f) {
                         drawArc(
                             brush = Brush.sweepGradient(
-                                listOf(Color(0xFF0D6CB4), Color(0xFF20A7C4), Color(0xFF0D6CB4))
+                                listOf(accent, Color(0xFF20A7C4), accent)
                             ),
                             startAngle = -90f,
                             sweepAngle = animatedFraction * 360f,
@@ -115,8 +124,8 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
                     }
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("$pct%", color = Color(0xFF123D70), fontSize = 20.sp, fontWeight = FontWeight.Black, lineHeight = 20.sp)
-                    Text("today", color = Color(0xFF748294), fontSize = 8.sp, fontWeight = FontWeight.Medium, lineHeight = 8.sp)
+                    Text("$pct%", color = palette.ink, fontSize = 20.sp, fontWeight = FontWeight.Black, lineHeight = 20.sp)
+                    Text("today", color = palette.muted, fontSize = 8.sp, fontWeight = FontWeight.Medium, lineHeight = 8.sp)
                 }
             }
 
@@ -128,7 +137,7 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
             ) {
                 Text(
                     if (shownMl >= 1000) "%.1f L".format(shownMl / 1000.0) else "$shownMl ml",
-                    color = Color(0xFF123D70),
+                    color = palette.ink,
                     fontSize = 27.sp,
                     fontWeight = FontWeight.Black,
                     lineHeight = 28.sp
@@ -136,14 +145,14 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "${if (goalMl >= 1000) "%.1f L".format(goalMl / 1000.0) else "$goalMl ml"} daily goal",
-                    color = Color(0xFF748294),
+                    color = palette.muted,
                     fontSize = 9.sp,
                     lineHeight = 11.sp
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
                     if (remaining == 0) "Goal reached" else "${if (remaining >= 1000) "%.1f L".format(remaining / 1000.0) else "$remaining ml"} remaining",
-                    color = if (remaining == 0) Color(0xFF4AAE91) else Color(0xFF0D6CB4),
+                    color = if (remaining == 0) palette.success else accent,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     lineHeight = 11.sp
