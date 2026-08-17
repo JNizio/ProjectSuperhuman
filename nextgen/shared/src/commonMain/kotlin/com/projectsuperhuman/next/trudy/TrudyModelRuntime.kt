@@ -67,20 +67,25 @@ class TrudyPromptFormatter(
         }
 
         val answerPlan = request.answerPlan
-        val selectedKeys = answerPlan?.selectedMetricKeys().orEmpty()
+        val refs = if (synthesisMode && answerPlan != null) {
+            selectedEvidenceReferences(request.toolResults, answerPlan, MAX_FINAL_EVIDENCE_INDEX)
+        } else {
+            request.toolResults.flatMap(::evidenceReferences).distinct().take(MAX_EVIDENCE_INDEX)
+        }
+        // Build raw-row filters from the references that actually survived answer selection. This
+        // preserves both sides of a cross-domain association instead of assigning both metrics to
+        // the AnswerEvidence's display domain.
+        val selectedKeys = if (synthesisMode) {
+            refs.mapNotNull { reference -> reference.metricId?.let { reference.domain to it } }.toSet()
+        } else emptySet()
+
         val resultRows = if (synthesisMode) maxFinalEvidenceRowsPerResult else maxEvidenceRowsPerResult
         val selectedResults = if (synthesisMode && answerPlan != null) {
             prioritizeResultsForPlan(request.toolResults, answerPlan)
         } else request.toolResults
         val results = selectedResults
             .take(if (synthesisMode) MAX_FINAL_RESULT_BLOCKS else Int.MAX_VALUE)
-            .joinToString("\n") { renderResult(it, resultRows, if (synthesisMode) selectedKeys else emptySet()) }
-
-        val refs = if (synthesisMode && answerPlan != null) {
-            selectedEvidenceReferences(request.toolResults, answerPlan, MAX_FINAL_EVIDENCE_INDEX)
-        } else {
-            request.toolResults.flatMap(::evidenceReferences).distinct().take(MAX_EVIDENCE_INDEX)
-        }
+            .joinToString("\n") { renderResult(it, resultRows, selectedKeys) }
         val evidence = refs.joinToString("\n") { it.renderKey() }
 
         val knowledgeLimit = if (synthesisMode) MAX_FINAL_KNOWLEDGE_ITEMS else MAX_KNOWLEDGE_ITEMS
@@ -306,30 +311,19 @@ internal fun selectedEvidenceReferences(
     if (limit <= 0 || plan.rankedEvidence.isEmpty()) return emptyList()
     val available = results.flatMap(::evidenceReferences).distinct()
     return plan.rankedEvidence.asSequence()
-        .flatMap { evidence -> available.asSequence().filter(evidence::matches) }
+        .flatMap { evidence -> available.asSequence().filter { reference -> evidence.matches(reference) } }
         .distinct()
         .take(limit)
         .toList()
 }
 
-private fun TrudyAnswerPlan.selectedMetricKeys(): Set<Pair<HealthDomain, String>> =
-    (rankedEvidence + limitations.take(3)).flatMap { evidence ->
-        buildList {
-            val domain = evidence.domain
-            val metric = evidence.metricId
-            if (domain != null && metric != null) add(domain to metric)
-            if (domain != null) {
-                evidence.associationLeftMetricId?.let { add(domain to it) }
-                evidence.associationRightMetricId?.let { add(domain to it) }
-            }
-        }
-    }.toSet()
-
 private fun TrudyAnswerEvidence.matches(reference: TrudyEvidenceReference): Boolean {
+    val associationMetrics = listOfNotNull(associationLeftMetricId, associationRightMetricId).toSet()
+    if (kind == TrudyAnswerEvidenceKind.ASSOCIATION && reference.metricId in associationMetrics) {
+        return true
+    }
     if (domain != null && reference.domain != domain) return false
-    val candidateMetrics = listOfNotNull(metricId, associationLeftMetricId, associationRightMetricId).toSet()
-    if (candidateMetrics.isEmpty()) return false
-    if (reference.metricId !in candidateMetrics) return false
+    if (metricId == null || reference.metricId != metricId) return false
     if (timestampEpochMs != null && reference.timestampEpochMs != null && reference.timestampEpochMs != timestampEpochMs) return false
     if (range != null && reference.range != null && reference.range != range) return false
     return true
