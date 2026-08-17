@@ -99,6 +99,32 @@ class TrudyHighSignalPipelineTest {
     }
 
     @Test
+    fun h19cDirectBleIsPreservedAndClassifiedAsWearableEvidence() = runTest {
+        val h19c = HealthValue(
+            HealthDomain.EXERCISE,
+            "heart_rate_bpm",
+            63.0,
+            "bpm",
+            now,
+            "h19c-direct-ble",
+            metadata = mapOf("deviceName" to "H19C", "transport" to "ble-direct")
+        )
+        val port = HighSignalFakePort(HealthDomain.EXERCISE, listOf(h19c))
+        val ports = HealthDomain.entries.associateWith { domain ->
+            if (domain == HealthDomain.EXERCISE) port else HighSignalFakePort(domain, emptyList())
+        }
+        val service = TrudyHealthContextService(
+            ModuleParityService(modulePort = { ports.getValue(it) }, nowEpochMs = { now })
+        )
+
+        val evidence = service.currentState(HealthDomain.EXERCISE).single()
+
+        assertEquals("h19c-direct-ble", evidence.source)
+        assertEquals("wearable", evidence.metadata["trudyCaptureKind"])
+        assertEquals("H19C", evidence.metadata["deviceName"])
+    }
+
+    @Test
     fun synthesisPromptContainsSelectedEvidenceInsteadOfRetrievalDump() {
         val sleep = metric(HealthDomain.SLEEP, "sleep_score", 78.0, now)
         val steps = metric(HealthDomain.EXERCISE, "steps", 12_000.0, now)
@@ -134,6 +160,48 @@ class TrudyHighSignalPipelineTest {
         assertFalse("steps=12000" in formatted.toolResults)
         assertTrue("sleep_score" in formatted.evidenceIndex)
         assertFalse("EXERCISE/steps" in formatted.evidenceIndex)
+    }
+
+    @Test
+    fun crossDomainAssociationKeepsEvidenceFromBothSides() {
+        val sleep = metric(HealthDomain.SLEEP, "sleep_score", 78.0, now)
+        val exercise = metric(HealthDomain.EXERCISE, "exercise_minutes", 45.0, now)
+        val results = listOf<TrudyToolResult>(
+            TrudyToolResult.MetricHistory(
+                TrudyToolOperation.GetMetricHistory(HealthDomain.SLEEP, "sleep_score"),
+                listOf(sleep)
+            ),
+            TrudyToolResult.MetricHistory(
+                TrudyToolOperation.GetMetricHistory(HealthDomain.EXERCISE, "exercise_minutes"),
+                listOf(exercise)
+            )
+        )
+        val association = TrudyAnswerEvidence(
+            id = "association:exercise:sleep",
+            classification = TrudyAnswerEvidenceClass.SUPPORTING,
+            kind = TrudyAnswerEvidenceKind.ASSOCIATION,
+            domain = HealthDomain.SLEEP,
+            metricId = "sleep_score",
+            label = "Exercise and sleep",
+            summary = "A personal association was detected.",
+            sampleCount = 12,
+            associationLeftMetricId = "exercise_minutes",
+            associationRightMetricId = "sleep_score",
+            relevanceScore = 95.0
+        )
+        val plan = TrudyAnswerPlan(
+            intent = TrudyAnswerIntent.ASSOCIATION,
+            timeframeLabel = "recently",
+            allEvidence = listOf(association),
+            rankedEvidence = listOf(association),
+            limitations = emptyList(),
+            targetSentenceCount = 3
+        )
+
+        val refs = selectedEvidenceReferences(results, plan)
+
+        assertEquals(setOf(HealthDomain.SLEEP, HealthDomain.EXERCISE), refs.map { it.domain }.toSet())
+        assertEquals(setOf("sleep_score", "exercise_minutes"), refs.mapNotNull { it.metricId }.toSet())
     }
 
     @Test
@@ -184,7 +252,11 @@ class TrudyHighSignalPipelineTest {
             domain = domain,
             metricId = metric,
             value = value,
-            unit = if (metric == "steps") "count" else "score",
+            unit = when (metric) {
+                "steps" -> "count"
+                "exercise_minutes" -> "min"
+                else -> "score"
+            },
             timestampEpochMs = timestamp,
             source = "test-wearable"
         )
