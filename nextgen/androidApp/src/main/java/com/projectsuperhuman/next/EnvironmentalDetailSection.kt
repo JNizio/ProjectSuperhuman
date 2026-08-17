@@ -13,14 +13,14 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun EnvironmentalDetailSection(section: EnvironmentalDetailSectionUi) {
-    val palette = superhumanPalette()
+    val palette = superhumanPalette
     Column(
         Modifier.fillMaxWidth().background(palette.surface, RoundedCornerShape(24.dp))
             .border(1.dp, palette.border, RoundedCornerShape(24.dp)).padding(16.dp)
     ) {
-        Text(section.title, color = palette.ink, fontSize = 10.sp, fontWeight = FontWeight.Black)
+        Text(section.title, color = palette.brandText, fontSize = 10.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(3.dp))
-        Text(section.subtitle, color = palette.muted, fontSize = 9.sp, lineHeight = 13.sp)
+        Text(section.subtitle, color = palette.textMuted, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(12.dp))
         section.metrics.chunked(2).forEachIndexed { index, metrics ->
             if (index > 0) Spacer(Modifier.height(8.dp))
