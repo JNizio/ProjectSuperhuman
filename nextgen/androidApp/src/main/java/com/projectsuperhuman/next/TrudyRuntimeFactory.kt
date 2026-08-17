@@ -27,6 +27,7 @@ import com.projectsuperhuman.next.trudy.TrudyOrchestrator
 import com.projectsuperhuman.next.trudy.TrudyPersonalEvidenceLibrary
 import com.projectsuperhuman.next.trudy.TrudySystemInvestigationPlanner
 import com.projectsuperhuman.next.trudy.TrudyTemporalBoundaryProvider
+import com.projectsuperhuman.next.trudy.TrudyTemporalPlanningDecorator
 import com.projectsuperhuman.next.trudy.TrudyTemporalResolver
 import com.projectsuperhuman.next.trudy.defaultTrudyKnowledgeSources
 import com.projectsuperhuman.next.trudy.conversation.TrudyConversationEvidenceCoordinator
@@ -140,7 +141,8 @@ internal object TrudyRuntimeFactory {
 
             val investigationPlanner = TrudySystemInvestigationPlanner(TrudyTemporalResolver(temporalBoundaries))
             val languagePlanner = TrudyLanguageAwarePreflightPlanner(investigationPlanner)
-            val conversationPlanner = TrudyConversationAwarePreflightPlanner(languagePlanner, planningContextHolder)
+            val temporalPlanner = TrudyTemporalPlanningDecorator(languagePlanner, temporalBoundaries)
+            val conversationPlanner = TrudyConversationAwarePreflightPlanner(temporalPlanner, planningContextHolder)
             val orchestrator = TrudyOrchestrator(
                 modelClient = reasoningClient,
                 tools = tools,
