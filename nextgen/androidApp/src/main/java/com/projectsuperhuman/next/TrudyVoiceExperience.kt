@@ -59,12 +59,12 @@ import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
-private val VoiceNavy = Color(0xFF123D70)
-private val VoiceMuted = Color(0xFF6D8192)
-private val VoiceCyan = Color(0xFF1CC8C8)
+private val VoiceNavy get() = superhumanBrandText
+private val VoiceMuted get() = superhumanTextMuted
+private val VoiceCyan get() = superhumanAccent
 private val VoiceAqua = Color(0xFF82EBE3)
 private val VoiceBlue = Color(0xFF4DAFE8)
-private val VoiceBorder = Color(0xFFD8EDEF)
+private val VoiceBorder get() = superhumanBorder
 
 internal enum class TrudyVoiceExperienceState(
     val label: String,
@@ -163,7 +163,9 @@ internal fun TrudyVoiceModeScreen(
     )
     var microphoneEnabled by remember { mutableStateOf(true) }
     var previousOutputStatus by remember { mutableStateOf(voiceState.status) }
-    val background = remember {
+    val background = if (SuperhumanAppearance.darkMode) {
+        Brush.verticalGradient(listOf(Color(0xFF07111B), Color(0xFF0B1D27), Color(0xFF07111B)))
+    } else {
         Brush.verticalGradient(listOf(Color(0xFFF8FDFE), Color(0xFFECF9FB), Color(0xFFF8FBFD)))
     }
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -441,7 +443,7 @@ private fun TrudyOrganicOrb(
 @Composable
 private fun VoiceContextChip(label: String, modifier: Modifier = Modifier) {
     Box(
-        modifier.background(Color.White.copy(alpha = .84f), RoundedCornerShape(14.dp))
+        modifier.background(superhumanSurface.copy(alpha = .90f), RoundedCornerShape(14.dp))
             .border(1.dp, VoiceBorder, RoundedCornerShape(14.dp))
             .padding(horizontal = 11.dp, vertical = 7.dp)
             .semantics { contentDescription = "$label context used" }
@@ -454,7 +456,7 @@ private fun VoiceContextChip(label: String, modifier: Modifier = Modifier) {
 private fun VoiceTranscriptCard(text: String, state: TrudyVoiceExperienceState) {
     Column(
         Modifier.fillMaxWidth().widthIn(max = 430.dp)
-            .background(Color.White.copy(alpha = .78f), RoundedCornerShape(20.dp))
+            .background(superhumanSurface.copy(alpha = .86f), RoundedCornerShape(20.dp))
             .border(1.dp, VoiceBorder, RoundedCornerShape(20.dp))
             .padding(horizontal = 18.dp, vertical = 15.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -523,9 +525,9 @@ private fun VoiceControlButton(
             Modifier.size(if (prominent) 64.dp else 56.dp)
                 .background(
                     color = when {
-                        !enabled -> Color.White.copy(alpha = .54f)
+                        !enabled -> superhumanSurface.copy(alpha = .54f)
                         prominent -> VoiceCyan
-                        else -> Color.White.copy(alpha = .86f)
+                        else -> superhumanSurface.copy(alpha = .90f)
                     },
                     shape = CircleShape
                 )
