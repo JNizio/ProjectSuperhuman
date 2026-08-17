@@ -141,12 +141,15 @@ internal object TrudyRuntimeFactory {
 
             val investigationPlanner = TrudySystemInvestigationPlanner(TrudyTemporalResolver(temporalBoundaries))
             val languagePlanner = TrudyLanguageAwarePreflightPlanner(investigationPlanner)
-            val temporalPlanner = TrudyTemporalPlanningDecorator(languagePlanner, temporalBoundaries)
-            val conversationPlanner = TrudyConversationAwarePreflightPlanner(temporalPlanner, planningContextHolder)
+            val conversationPlanner = TrudyConversationAwarePreflightPlanner(languagePlanner, planningContextHolder)
+            // Temporal retargeting is outermost so only time language the user actually typed is
+            // considered explicit. Conversation planning may add helpful labels internally, but
+            // those labels must not be mistaken for a user-specified window.
+            val temporalPlanner = TrudyTemporalPlanningDecorator(conversationPlanner, temporalBoundaries)
             val orchestrator = TrudyOrchestrator(
                 modelClient = reasoningClient,
                 tools = tools,
-                preflightPlanner = conversationPlanner,
+                preflightPlanner = temporalPlanner,
                 knowledgeCoordinator = TrudyKnowledgeCoordinator(knowledgeSources)
             )
             val service = TrudyConversationService(
