@@ -74,9 +74,9 @@ internal object HomeVitalsDataContract {
 @Composable
 internal fun HomeVitalsTile(onClick: () -> Unit) {
     var snapshot by remember { mutableStateOf(HomeVitalsSnapshot()) }
-    val palette = superhumanPalette()
-    val dark = superhumanDarkMode()
-    val accentBlue = if (dark) palette.accent else VitalsBlue
+    val palette = superhumanPalette
+    val dark = SuperhumanAppearance.darkMode
+    val accentBlue = if (dark) palette.blue else VitalsBlue
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -107,8 +107,8 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
                 Brush.linearGradient(
                     listOf(
                         palette.surface,
-                        palette.surfaceRaised.copy(alpha = if (dark) .90f else .48f),
-                        palette.surfaceAccent.copy(alpha = if (dark) .66f else .32f)
+                        palette.surfaceElevated.copy(alpha = if (dark) .90f else .48f),
+                        palette.accentSoft.copy(alpha = if (dark) .66f else .32f)
                     )
                 ),
                 RoundedCornerShape(27.dp)
@@ -124,11 +124,11 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
                     Box(
                         Modifier.width(28.dp).height(28.dp).background(VitalsRed.copy(alpha = if (dark) .18f else .10f), RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center
-                    ) { Text("♥", color = VitalsRed, fontSize = 13.sp) }
+                    ) { Text("♥", color = if (dark) palette.red else VitalsRed, fontSize = 13.sp) }
                     Spacer(Modifier.width(9.dp))
                     Column {
-                        Text("VITALS", color = palette.ink, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
-                        Text("Latest health readings", color = palette.muted, fontSize = 8.sp)
+                        Text("VITALS", color = palette.brandText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
+                        Text("Latest health readings", color = palette.textMuted, fontSize = 8.sp)
                     }
                 }
                 Text("OPEN  →", color = accentBlue, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .55.sp)
@@ -137,10 +137,10 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
             Spacer(Modifier.height(14.dp))
             Row(Modifier.fillMaxWidth().weight(1f), verticalAlignment = Alignment.CenterVertically) {
                 HeartRateSection(snapshot, Modifier.weight(.95f))
-                Box(Modifier.width(1.dp).height(102.dp).background(palette.border))
+                Box(Modifier.width(1.dp).height(102.dp).background(palette.divider))
                 Column(Modifier.weight(1.15f).padding(start = 16.dp), verticalArrangement = Arrangement.SpaceEvenly) {
                     BloodPressureSection(snapshot)
-                    Box(Modifier.fillMaxWidth().height(1.dp).background(palette.border.copy(alpha = .8f)))
+                    Box(Modifier.fillMaxWidth().height(1.dp).background(palette.divider.copy(alpha = .8f)))
                     TemperatureSection(snapshot)
                 }
             }
@@ -150,58 +150,59 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
 
 @Composable
 private fun HeartRateSection(snapshot: HomeVitalsSnapshot, modifier: Modifier) {
-    val palette = superhumanPalette()
+    val palette = superhumanPalette
     Column(modifier.fillMaxSize(), verticalArrangement = Arrangement.Center) {
-        Text("HEART RATE", color = palette.muted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+        Text("HEART RATE", color = palette.textMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
         Spacer(Modifier.height(3.dp))
         if (snapshot.heartRateBpm != null) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(snapshot.heartRateBpm.toString(), color = palette.ink, fontSize = 34.sp, fontWeight = FontWeight.Black)
+                Text(snapshot.heartRateBpm.toString(), color = palette.brandText, fontSize = 34.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(5.dp))
-                Text("BPM", color = VitalsRed, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
+                Text("BPM", color = palette.red, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
             }
-        } else Text("No reading yet", color = palette.ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        } else Text("No reading yet", color = palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(2.dp))
         PulseTrace(Modifier.fillMaxWidth(.82f).height(22.dp))
-        Text(vitalsFreshness("Heart rate", snapshot.heartRateTimestampMs), color = palette.muted, fontSize = 7.sp, maxLines = 1)
+        Text(vitalsFreshness("Heart rate", snapshot.heartRateTimestampMs), color = palette.textMuted, fontSize = 7.sp, maxLines = 1)
     }
 }
 
 @Composable
 private fun BloodPressureSection(snapshot: HomeVitalsSnapshot) {
-    val palette = superhumanPalette()
-    val accent = if (superhumanDarkMode()) palette.accent else VitalsBlue
+    val palette = superhumanPalette
+    val accent = if (SuperhumanAppearance.darkMode) palette.blue else VitalsBlue
     Column(Modifier.padding(vertical = 5.dp)) {
-        Text("BLOOD PRESSURE", color = palette.muted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .72.sp)
+        Text("BLOOD PRESSURE", color = palette.textMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .72.sp)
         Spacer(Modifier.height(3.dp))
         if (snapshot.systolicMmhg != null && snapshot.diastolicMmhg != null) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text("${snapshot.systolicMmhg} / ${snapshot.diastolicMmhg}", color = palette.ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Text("${snapshot.systolicMmhg} / ${snapshot.diastolicMmhg}", color = palette.brandText, fontSize = 20.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.width(5.dp))
                 Text("mmHg", color = accent, fontSize = 7.sp, modifier = Modifier.padding(bottom = 3.dp))
             }
-        } else Text("No reading yet", color = palette.ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text(vitalsFreshness("BP", snapshot.bloodPressureTimestampMs), color = palette.muted, fontSize = 7.sp, maxLines = 1)
+        } else Text("No reading yet", color = palette.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(vitalsFreshness("BP", snapshot.bloodPressureTimestampMs), color = palette.textMuted, fontSize = 7.sp, maxLines = 1)
     }
 }
 
 @Composable
 private fun TemperatureSection(snapshot: HomeVitalsSnapshot) {
-    val palette = superhumanPalette()
+    val palette = superhumanPalette
     Column(Modifier.padding(vertical = 5.dp)) {
-        Text("BODY TEMPERATURE", color = palette.muted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .66.sp)
+        Text("BODY TEMPERATURE", color = palette.textMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .66.sp)
         Spacer(Modifier.height(3.dp))
         if (snapshot.bodyTemperatureCelsius != null) {
-            Text(String.format(Locale.US, "%.1f°C", snapshot.bodyTemperatureCelsius), color = palette.ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
-        } else Text("No reading yet", color = palette.ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-        Text(vitalsFreshness("Temp", snapshot.bodyTemperatureTimestampMs), color = palette.muted, fontSize = 7.sp, maxLines = 1)
+            Text(String.format(Locale.US, "%.1f°C", snapshot.bodyTemperatureCelsius), color = palette.brandText, fontSize = 18.sp, fontWeight = FontWeight.Black)
+        } else Text("No reading yet", color = palette.textPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        Text(vitalsFreshness("Temp", snapshot.bodyTemperatureTimestampMs), color = palette.textMuted, fontSize = 7.sp, maxLines = 1)
     }
 }
 
 @Composable
 private fun PulseTrace(modifier: Modifier) {
+    val red = if (SuperhumanAppearance.darkMode) superhumanPalette.red else VitalsRed
     Canvas(modifier) {
-        drawLine(VitalsRed.copy(alpha = .12f), Offset(0f, size.height * .55f), Offset(size.width, size.height * .55f), strokeWidth = 2f)
+        drawLine(red.copy(alpha = .12f), Offset(0f, size.height * .55f), Offset(size.width, size.height * .55f), strokeWidth = 2f)
         val path = Path().apply {
             moveTo(0f, size.height * .55f)
             lineTo(size.width * .22f, size.height * .55f)
@@ -211,7 +212,7 @@ private fun PulseTrace(modifier: Modifier) {
             lineTo(size.width * .62f, size.height * .55f)
             lineTo(size.width, size.height * .55f)
         }
-        drawPath(path, VitalsRed.copy(alpha = .78f), style = Stroke(width = 3f))
+        drawPath(path, red.copy(alpha = .78f), style = Stroke(width = 3f))
     }
 }
 
