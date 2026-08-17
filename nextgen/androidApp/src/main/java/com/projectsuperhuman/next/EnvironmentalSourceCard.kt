@@ -7,7 +7,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -22,17 +21,18 @@ internal fun EnvironmentalSourceCard(conditions: EnvironmentalConditionsUi) {
         conditions.freshnessLabel?.takeIf { it.isNotBlank() }?.let { "Freshness" to it }
     )
     if (rows.isEmpty()) return
+    val palette = superhumanPalette()
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
-            .border(1.dp, Color(0xFFE1E9EF), RoundedCornerShape(22.dp)).padding(16.dp)
+        Modifier.fillMaxWidth().background(palette.surface, RoundedCornerShape(22.dp))
+            .border(1.dp, palette.border, RoundedCornerShape(22.dp)).padding(16.dp)
     ) {
-        Text("READING DETAILS", color = Color(0xFF123D70), fontSize = 9.sp, fontWeight = FontWeight.Black)
+        Text("READING DETAILS", color = palette.ink, fontSize = 9.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(9.dp))
         rows.forEachIndexed { index, (label, value) ->
             if (index > 0) Spacer(Modifier.height(7.dp))
             Row(Modifier.fillMaxWidth()) {
-                Text(label, color = Color(0xFF748294), fontSize = 9.sp, modifier = Modifier.width(72.dp))
-                Text(value, color = Color(0xFF0B1F35), fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 2)
+                Text(label, color = palette.muted, fontSize = 9.sp, modifier = Modifier.width(72.dp))
+                Text(value, color = palette.ink, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 2)
             }
         }
     }
