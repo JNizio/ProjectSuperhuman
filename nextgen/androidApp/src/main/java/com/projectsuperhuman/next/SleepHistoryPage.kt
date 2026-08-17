@@ -48,14 +48,17 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-private val HistoryPurple = Color(0xFF6753D8)
-private val HistoryBlue = Color(0xFF4777D9)
-private val HistoryInk = Color(0xFF17233A)
-private val HistoryMuted = Color(0xFF718096)
-private val HistoryGood = Color(0xFF42A58C)
-private val HistoryWarn = Color(0xFFE29B55)
-private val HistoryBg = Color(0xFFF7F8FC)
-private val HistoryBorder = Color(0xFFE6E9F2)
+private val HistoryPurple: Color get() = if (SuperhumanAppearance.darkMode) Color(0xFFA99BEA) else Color(0xFF6753D8)
+private val HistoryBlue: Color get() = if (SuperhumanAppearance.darkMode) Color(0xFF7CA6FF) else Color(0xFF4777D9)
+private val HistoryInk: Color get() = superhumanTextPrimary
+private val HistoryMuted: Color get() = superhumanTextMuted
+private val HistoryGood: Color get() = superhumanGreen
+private val HistoryWarn: Color get() = if (SuperhumanAppearance.darkMode) Color(0xFFF1B36F) else Color(0xFFE29B55)
+private val HistoryBg: Color get() = superhumanBackground
+private val HistoryBorder: Color get() = superhumanBorder
+private val HistorySurface: Color get() = superhumanSurface
+private val HistoryElevated: Color get() = superhumanSurfaceElevated
+private val HistorySoft: Color get() = superhumanSurfaceSoft
 
 internal data class HistoricalSleepNight(
     val wakeDate: LocalDate,
@@ -136,8 +139,6 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
         if (connected) sync()
     }
 
-    // The calendar now loads only the visible month. Switching months triggers one
-    // bounded indexed query instead of keeping every historical night in memory.
     LaunchedEffect(month) {
         refreshHistory()
     }
@@ -159,8 +160,6 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
             onNext = { month = month.plusMonths(1) },
             onSelect = { selectedDate = it }
         )
-
-
         HistorySyncCard(connected, syncing, status, ::connectOrSync)
         Spacer(Modifier.height(24.dp))
     }
@@ -362,7 +361,7 @@ private fun HistoryHeader(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.width(44.dp).height(44.dp)
-                .background(Color.White, RoundedCornerShape(15.dp))
+                .background(HistorySurface, RoundedCornerShape(15.dp))
                 .border(1.dp, HistoryBorder, RoundedCornerShape(15.dp))
                 .superhumanClickable(onClick = onBack),
             contentAlignment = Alignment.Center
@@ -409,7 +408,7 @@ private fun SleepCalendarCard(
     }
 
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp))
+        Modifier.fillMaxWidth().background(HistorySurface, RoundedCornerShape(24.dp))
             .border(1.dp, HistoryBorder, RoundedCornerShape(24.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
@@ -445,7 +444,7 @@ private fun SleepCalendarCard(
                     val score = night?.snapshot?.score
                     val background = when {
                         isSelected -> HistoryPurple
-                        night != null -> HistoryPurple.copy(alpha = .10f)
+                        night != null -> HistoryPurple.copy(alpha = if (SuperhumanAppearance.darkMode) .20f else .10f)
                         else -> Color.Transparent
                     }
                     Column(
@@ -480,7 +479,7 @@ private fun SleepCalendarCard(
 @Composable
 private fun CalendarArrow(symbol: String, onClick: () -> Unit) {
     Box(
-        Modifier.width(36.dp).height(36.dp).background(HistoryBg, CircleShape).superhumanClickable(onClick = onClick),
+        Modifier.width(36.dp).height(36.dp).background(HistoryElevated, CircleShape).superhumanClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -528,7 +527,7 @@ private fun HistoricalSleepDetail(snapshot: NativeSleepSnapshot, date: LocalDate
 @Composable
 private fun SleepViewToggle(view: HistoryDataView, onChange: (HistoryDataView) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp))
+        Modifier.fillMaxWidth().background(HistorySurface, RoundedCornerShape(18.dp))
             .border(1.dp, HistoryBorder, RoundedCornerShape(18.dp)).padding(5.dp),
         horizontalArrangement = Arrangement.spacedBy(5.dp)
     ) {
@@ -588,7 +587,7 @@ private fun InterpretedSleepView(snapshot: NativeSleepSnapshot, date: LocalDate,
                 HistoryMiniStat(analysis.continuityScore.toString(), "continuity")
                 HistoryMiniStat(analysis.stageBalanceScore.toString(), "stage balance")
             }
-            Box(Modifier.fillMaxWidth().background(HistoryPurple.copy(alpha = .08f), RoundedCornerShape(14.dp)).padding(11.dp)) {
+            Box(Modifier.fillMaxWidth().background(HistoryPurple.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .08f), RoundedCornerShape(14.dp)).padding(11.dp)) {
                 Text("Focus: ${analysis.priority}", color = HistoryPurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
         }
@@ -606,7 +605,7 @@ private fun RawSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysi
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(
-            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+            Modifier.fillMaxWidth().background(HistorySurface, RoundedCornerShape(22.dp))
                 .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(11.dp)
         ) {
@@ -631,7 +630,7 @@ private fun RawSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysi
         SleepArchitectureDiagram(snapshot.stageSegments, snapshot.startEpochMs, snapshot.endEpochMs)
 
         Column(
-            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+            Modifier.fillMaxWidth().background(HistorySurface, RoundedCornerShape(22.dp))
                 .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
@@ -656,7 +655,7 @@ private fun RawSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysi
 @Composable
 private fun InfoCard(title: String, body: String, content: @Composable () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+        Modifier.fillMaxWidth().background(HistorySurface, RoundedCornerShape(22.dp))
             .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -669,7 +668,7 @@ private fun InfoCard(title: String, body: String, content: @Composable () -> Uni
 @Composable
 private fun ConfidenceCard(analysis: SleepIntelligenceResult) {
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+        Modifier.fillMaxWidth().background(HistorySurface, RoundedCornerShape(22.dp))
             .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
@@ -715,7 +714,7 @@ private fun HistoryStageRow(name: String, minutes: Int?, accent: Color) {
 @Composable
 private fun HistorySyncCard(connected: Boolean, syncing: Boolean, status: String, onAction: () -> Unit) {
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+        Modifier.fillMaxWidth().background(HistorySurface, RoundedCornerShape(22.dp))
             .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -724,12 +723,12 @@ private fun HistorySyncCard(connected: Boolean, syncing: Boolean, status: String
                 Text("Health Connect", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Text(if (connected) "Sleep history is connected and ready to refresh" else "Connect your sleep data to build history", color = HistoryMuted, fontSize = 9.sp, lineHeight = 14.sp)
             }
-            Box(Modifier.background(if (connected) HistoryGood.copy(alpha = .12f) else HistoryPurple.copy(alpha = .10f), RoundedCornerShape(99.dp)).padding(horizontal = 9.dp, vertical = 6.dp)) {
+            Box(Modifier.background(if (connected) HistoryGood.copy(alpha = .12f) else HistoryPurple.copy(alpha = .14f), RoundedCornerShape(99.dp)).padding(horizontal = 9.dp, vertical = 6.dp)) {
                 Text(if (connected) "CONNECTED" else "NOT CONNECTED", color = if (connected) HistoryGood else HistoryPurple, fontSize = 7.sp, fontWeight = FontWeight.Black)
             }
         }
         Box(
-            Modifier.fillMaxWidth().background(if (connected) Color(0xFFF0F3FF) else HistoryPurple, RoundedCornerShape(15.dp))
+            Modifier.fillMaxWidth().background(if (connected) HistoryElevated else HistoryPurple, RoundedCornerShape(15.dp))
                 .superhumanClickable(enabled = !syncing, onClick = onAction).padding(vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -741,7 +740,7 @@ private fun HistorySyncCard(connected: Boolean, syncing: Boolean, status: String
 
 @Composable
 private fun EmptyHistoryCard(hasHistory: Boolean) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(18.dp)) {
+    Column(Modifier.fillMaxWidth().background(HistorySurface, RoundedCornerShape(22.dp)).border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(18.dp)) {
         Text(if (hasHistory) "No sleep on this date" else "No sleep history yet", color = HistoryInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
         Text(if (hasHistory) "Choose a highlighted date in the calendar to inspect that sleep episode." else "Sync Health Connect after a recorded night and previous nights will appear here.", color = HistoryMuted, fontSize = 10.sp, lineHeight = 15.sp)
     }
