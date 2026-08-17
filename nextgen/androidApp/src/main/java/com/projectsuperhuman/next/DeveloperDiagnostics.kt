@@ -24,6 +24,10 @@ object DeveloperDiagnostics {
     fun initialize(context: Context) {
         val app = context.applicationContext
         appContext = app
+        // During H19C bring-up, seed the exact physical device supplied by the user so the
+        // wearable card can take its existing reconnect path straight to connectGatt() instead
+        // of depending on BLE advertisement discovery.
+        H19cKnownDeviceBootstrap.seed(app)
         enabledCache = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false)
     }
 
