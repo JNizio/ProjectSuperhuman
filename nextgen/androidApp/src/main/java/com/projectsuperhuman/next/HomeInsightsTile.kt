@@ -34,14 +34,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-internal fun HomeInsightsTile(
-    state: InsightsPresentationState,
-    onClick: () -> Unit
-) {
+internal fun HomeInsightsTile(state: InsightsPresentationState, onClick: () -> Unit) {
     val shape = RoundedCornerShape(25.dp)
     val leading = state.insights.firstOrNull()
-    val palette = superhumanPalette()
-    val dark = superhumanDarkMode()
+    val palette = superhumanPalette
+    val dark = SuperhumanAppearance.darkMode
     val animatedStrength by animateFloatAsState(
         targetValue = leading?.strength ?: 0f,
         animationSpec = tween(700),
@@ -54,14 +51,13 @@ internal fun HomeInsightsTile(
     }
 
     Column(
-        Modifier
-            .fillMaxWidth()
+        Modifier.fillMaxWidth()
             .background(
                 Brush.horizontalGradient(
                     listOf(
                         palette.surface,
-                        palette.surfaceAccent.copy(alpha = if (dark) .62f else .30f),
-                        palette.surfaceRaised.copy(alpha = if (dark) .90f else .46f)
+                        palette.accentSoft.copy(alpha = if (dark) .62f else .30f),
+                        palette.surfaceElevated.copy(alpha = if (dark) .90f else .46f)
                     )
                 ),
                 shape
@@ -73,22 +69,22 @@ internal fun HomeInsightsTile(
             .padding(18.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("INSIGHTS", color = palette.muted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Text("→", color = palette.soft, fontSize = 23.sp)
+            Text("INSIGHTS", color = palette.textMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Text("→", color = palette.textMuted, fontSize = 23.sp)
         }
         Spacer(Modifier.height(5.dp))
         Text(
             if (leading == null) "Connections will appear here" else state.summaryHeadline,
-            color = palette.ink,
+            color = palette.brandText,
             fontSize = 20.sp,
             lineHeight = 23.sp,
             fontWeight = FontWeight.Black
         )
         Spacer(Modifier.height(7.dp))
         if (leading == null) {
-            Text("Keep logging a little longer.", color = palette.muted, fontSize = 9.sp)
+            Text("Keep logging a little longer.", color = palette.textMuted, fontSize = 9.sp)
         } else {
-            Text(leading.headline, color = palette.muted, fontSize = 10.sp, lineHeight = 14.sp, maxLines = 2)
+            Text(leading.headline, color = palette.textMuted, fontSize = 10.sp, lineHeight = 14.sp, maxLines = 2)
             Spacer(Modifier.height(11.dp))
             InsightConnectionMiniVisual(leading, animatedStrength)
         }
@@ -97,24 +93,14 @@ internal fun HomeInsightsTile(
 
 @Composable
 private fun InsightConnectionMiniVisual(insight: InsightPresentation, animatedStrength: Float) {
-    val palette = superhumanPalette()
+    val palette = superhumanPalette
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         MetricPill(insight.sourceMetric.label, insight.sourceMetric.tone.color, Modifier.weight(1f))
         Box(Modifier.weight(.55f).height(24.dp)) {
             Canvas(Modifier.matchParentSize()) {
                 val y = size.height / 2f
-                drawLine(
-                    color = palette.border,
-                    start = Offset(0f, y),
-                    end = Offset(size.width, y),
-                    strokeWidth = 2.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                drawCircle(
-                    color = palette.accent,
-                    radius = 3.5.dp.toPx(),
-                    center = Offset(size.width * animatedStrength.coerceIn(0.08f, .92f), y)
-                )
+                drawLine(palette.border, Offset(0f, y), Offset(size.width, y), 2.dp.toPx(), StrokeCap.Round)
+                drawCircle(palette.blue, 3.5.dp.toPx(), Offset(size.width * animatedStrength.coerceIn(0.08f, .92f), y))
             }
         }
         MetricPill(insight.targetMetric.label, insight.targetMetric.tone.color, Modifier.weight(1f))
@@ -123,14 +109,14 @@ private fun InsightConnectionMiniVisual(insight: InsightPresentation, animatedSt
 
 @Composable
 private fun MetricPill(label: String, tone: Color, modifier: Modifier = Modifier) {
-    val palette = superhumanPalette()
+    val palette = superhumanPalette
     Row(
-        modifier.background(palette.surfaceRaised.copy(alpha = .90f), RoundedCornerShape(14.dp)).padding(horizontal = 9.dp, vertical = 8.dp),
+        modifier.background(palette.surfaceElevated.copy(alpha = .90f), RoundedCornerShape(14.dp)).padding(horizontal = 9.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Box(Modifier.size(7.dp).background(tone, CircleShape))
-        Text(label, color = palette.ink, fontSize = 8.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
+        Text(label, color = palette.textPrimary, fontSize = 8.sp, lineHeight = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.weight(1f))
     }
 }
 
