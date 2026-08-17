@@ -30,12 +30,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.next.core.HealthDomain
 
-private val ModuleNavy = Color(0xFF082D66)
-private val ModuleBlue = Color(0xFF0D6CB4)
-private val ModuleInk = Color(0xFF0B1F35)
-private val ModuleMuted = Color(0xFF64748B)
-private val ModuleGood = Color(0xFF168A78)
-private val ModuleBad = Color(0xFFCA3A3A)
+private val ModuleNavy get() = superhumanBrandText
+private val ModuleBlue get() = superhumanBlue
+private val ModuleInk get() = superhumanTextPrimary
+private val ModuleMuted get() = superhumanTextMuted
+private val ModuleGood get() = superhumanGreen
+private val ModuleBad get() = superhumanRed
 
 enum class ClinicalHubPage { CONDITIONS, LABS }
 
@@ -67,7 +67,7 @@ internal fun NativeSleepPage(onBack: () -> Unit, openLegacy: () -> Unit) {
 @Composable
 internal fun NativeBloodPressurePage(onBack: () -> Unit, openLegacy: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
+        modifier = Modifier.fillMaxSize().background(superhumanBackground).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -84,7 +84,7 @@ internal fun NativeBloodPressurePage(onBack: () -> Unit, openLegacy: () -> Unit)
 
         Column(
             Modifier.fillMaxWidth().background(
-                Brush.linearGradient(listOf(Color(0xFFFFECEC), Color.White)), RoundedCornerShape(24.dp)
+                Brush.linearGradient(listOf(superhumanErrorSurface, superhumanSurface)), RoundedCornerShape(24.dp)
             ).padding(18.dp)
         ) {
             Text("COMING LATER", color = ModuleBad, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
@@ -101,12 +101,12 @@ internal fun NativeBloodPressurePage(onBack: () -> Unit, openLegacy: () -> Unit)
             BpStat("PULSE", "—", ModuleGood, Modifier.weight(1f))
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(20.dp)).padding(16.dp)) {
             Text("Existing capture remains available", color = ModuleInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             Text("Until native BP work resumes, the proven existing capture flow remains accessible without affecting the rest of the native app.", color = ModuleMuted, fontSize = 9.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(10.dp))
             Box(
-                Modifier.fillMaxWidth().background(ModuleNavy, RoundedCornerShape(15.dp)).clickable(onClick = openLegacy).padding(13.dp),
+                Modifier.fillMaxWidth().background(if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else Color(0xFF082D66), RoundedCornerShape(15.dp)).clickable(onClick = openLegacy).padding(13.dp),
                 contentAlignment = Alignment.Center
             ) { Text("OPEN BLOOD PRESSURE TOOLS", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black) }
         }
@@ -116,7 +116,7 @@ internal fun NativeBloodPressurePage(onBack: () -> Unit, openLegacy: () -> Unit)
 
 @Composable
 private fun BpStat(label: String, value: String, accent: Color, modifier: Modifier) {
-    Column(modifier.background(Color.White, RoundedCornerShape(16.dp)).padding(11.dp)) {
+    Column(modifier.background(superhumanSurface, RoundedCornerShape(16.dp)).padding(11.dp)) {
         Text(label, color = ModuleMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
         Text(value, color = accent, fontSize = 16.sp, fontWeight = FontWeight.Black)
