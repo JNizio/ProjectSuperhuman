@@ -53,16 +53,17 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
-private val TrudyNavy = Color(0xFF123D70)
-private val TrudyBg = Color(0xFFF8FBFD)
-private val TrudyMuted = Color(0xFF748294)
-private val TrudyCyan = Color(0xFF1CC8C8)
-private val TrudyCyanSoft = Color(0xFFE8FAFA)
-private val TrudyBorder = Color(0xFFE1E8EE)
-private val TrudyWarningBg = Color(0xFFFFF8E8)
-private val TrudyWarningText = Color(0xFF7B6430)
-private val TrudyErrorBg = Color(0xFFFFF1F1)
-private val TrudyErrorText = Color(0xFF8F3B3B)
+private val TrudyNavy get() = superhumanBrandText
+private val TrudyBg get() = superhumanBackground
+private val TrudyMuted get() = superhumanTextMuted
+private val TrudyCyan get() = superhumanAccent
+private val TrudyCyanSoft get() = superhumanAccentSoft
+private val TrudyBorder get() = superhumanBorder
+private val TrudyWarningBg get() = superhumanWarningSurface
+private val TrudyWarningText get() = if (SuperhumanAppearance.darkMode) Color(0xFFE8C979) else Color(0xFF7B6430)
+private val TrudyErrorBg get() = superhumanErrorSurface
+private val TrudyErrorText get() = superhumanRed
+private val TrudyUserBubble get() = if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else Color(0xFF123D70)
 
 @Composable
 internal fun NativeTrudy(
@@ -294,7 +295,7 @@ private fun TrudyHeader(
         }
         Box(
             Modifier.size(42.dp)
-                .background(Color.White, RoundedCornerShape(14.dp))
+                .background(superhumanSurface, RoundedCornerShape(14.dp))
                 .border(1.dp, TrudyBorder, RoundedCornerShape(14.dp))
                 .superhumanClickable(onClick = onGuide)
                 .semantics { contentDescription = "Open guide to Trudy features" },
@@ -305,7 +306,7 @@ private fun TrudyHeader(
         Spacer(Modifier.size(7.dp))
         Box(
             Modifier.defaultMinSize(minWidth = 68.dp, minHeight = 42.dp)
-                .background(if (voiceEnabled) TrudyCyanSoft else Color.White, RoundedCornerShape(14.dp))
+                .background(if (voiceEnabled) TrudyCyanSoft else superhumanSurface, RoundedCornerShape(14.dp))
                 .border(1.dp, if (voiceEnabled) TrudyCyan.copy(alpha = .32f) else TrudyBorder, RoundedCornerShape(14.dp))
                 .superhumanClickable(onClick = onVoiceMode)
                 .semantics { contentDescription = "Open Trudy voice mode, ${if (voiceEnabled) "voice on" else "voice off"}" }
@@ -349,8 +350,8 @@ private fun TrudyMessageBubble(
         }
         Box(
             Modifier.widthIn(max = 350.dp)
-                .background(if (isUser) TrudyNavy else Color(0xFFFEFFFF), RoundedCornerShape(19.dp))
-                .border(1.dp, if (isUser) TrudyNavy else TrudyBorder, RoundedCornerShape(19.dp))
+                .background(if (isUser) TrudyUserBubble else superhumanSurfaceElevated, RoundedCornerShape(19.dp))
+                .border(1.dp, if (isUser) TrudyUserBubble else TrudyBorder, RoundedCornerShape(19.dp))
                 .padding(horizontal = 15.dp, vertical = 12.dp)
         ) {
             when (message.status) {
@@ -358,7 +359,7 @@ private fun TrudyMessageBubble(
                 TrudyMessageStatus.ERROR -> TrudyErrorContent(message, onRetry)
                 TrudyMessageStatus.COMPLETE -> Text(
                     message.text,
-                    color = if (isUser) Color.White else Color(0xFF203246),
+                    color = if (isUser) Color.White else superhumanTextPrimary,
                     fontSize = 14.sp,
                     lineHeight = 20.sp
                 )
@@ -442,7 +443,7 @@ private fun TrudyVoiceSettingsCard(
         ?: state.preferences.selectedVoiceId
 
     Surface(
-        color = Color.White,
+        color = superhumanSurface,
         shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 4.dp),
         shape = RoundedCornerShape(16.dp)
@@ -623,15 +624,15 @@ private fun TrudyThinkingContent(activity: TrudyActivityStatus?) {
 @Composable
 private fun TrudyErrorContent(message: TrudyMessage, onRetry: () -> Unit) {
     Column {
-        Text(message.text, color = Color(0xFF9A3D3D), fontSize = 12.sp, lineHeight = 17.sp)
+        Text(message.text, color = TrudyErrorText, fontSize = 12.sp, lineHeight = 17.sp)
         if (message.retryable) {
             Spacer(Modifier.height(8.dp))
             Box(
-                Modifier.background(Color(0xFFFFF1F1), RoundedCornerShape(10.dp))
-                    .border(1.dp, Color(0xFFF0CACA), RoundedCornerShape(10.dp))
+                Modifier.background(TrudyErrorBg, RoundedCornerShape(10.dp))
+                    .border(1.dp, TrudyErrorText.copy(alpha = .28f), RoundedCornerShape(10.dp))
                     .superhumanClickable(onClick = onRetry)
                     .padding(horizontal = 11.dp, vertical = 7.dp)
-            ) { Text("Retry", color = Color(0xFF8F3B3B), fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+            ) { Text("Retry", color = TrudyErrorText, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
         }
     }
 }
@@ -641,7 +642,7 @@ private fun TrudyNoticeRow(notice: TrudyNotice) {
     val caution = notice.level == TrudyNoticeLevel.CAUTION
     Box(
         Modifier.widthIn(max = 350.dp).padding(top = 6.dp)
-            .background(if (caution) TrudyWarningBg else Color(0xFFF2F7F8), RoundedCornerShape(11.dp))
+            .background(if (caution) TrudyWarningBg else superhumanSurfaceSoft, RoundedCornerShape(11.dp))
             .padding(horizontal = 10.dp, vertical = 7.dp)
     ) {
         Text(
@@ -700,7 +701,7 @@ private fun TrudyEvidenceBlock(
                         }
                         records.forEach { item ->
                             Box(
-                                Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(10.dp))
+                                Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(10.dp))
                                     .border(1.dp, TrudyBorder, RoundedCornerShape(10.dp))
                                     .padding(horizontal = 10.dp, vertical = 7.dp)
                             ) {
@@ -726,7 +727,7 @@ private fun TrudyComposer(
     onValueChange: (String) -> Unit,
     onSend: () -> Unit
 ) {
-    Surface(color = Color.White, shadowElevation = 4.dp) {
+    Surface(color = superhumanSurface, shadowElevation = 4.dp) {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 12.dp),
             verticalAlignment = Alignment.Bottom
@@ -751,7 +752,7 @@ private fun TrudyComposer(
             Spacer(Modifier.size(10.dp))
             val canSend = enabled && value.isNotBlank()
             Box(
-                Modifier.size(52.dp).background(if (canSend) TrudyCyan else Color(0xFFE5ECEF), CircleShape)
+                Modifier.size(52.dp).background(if (canSend) TrudyCyan else superhumanSurfaceSoft, CircleShape)
                     .superhumanClickable(enabled = canSend, onClick = onSend)
                     .semantics {
                         contentDescription = "Send message to Trudy"
@@ -764,4 +765,3 @@ private fun TrudyComposer(
         }
     }
 }
-
