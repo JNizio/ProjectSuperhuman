@@ -47,7 +47,7 @@ internal fun Modifier.superhumanClickable(
 }
 
 /**
- * Home dashboard cards deliberately do not scale when pressed. A restrained grey tint gives
+ * Home dashboard cards deliberately do not scale when pressed. A restrained neutral tint gives
  * immediate feedback while keeping imagery, borders and card geometry perfectly stationary.
  */
 internal fun Modifier.superhumanHomeTileClickable(
@@ -57,7 +57,7 @@ internal fun Modifier.superhumanHomeTileClickable(
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
     val overlayAlpha by animateFloatAsState(
-        targetValue = if (pressed && enabled) 0.075f else 0f,
+        targetValue = if (pressed && enabled) if (SuperhumanAppearance.darkMode) 0.12f else 0.075f else 0f,
         animationSpec = tween(durationMillis = if (pressed) 90 else 170),
         label = "superhuman-home-highlight"
     )
@@ -72,15 +72,15 @@ internal fun Modifier.superhumanHomeTileClickable(
         .drawWithContent {
             drawContent()
             if (overlayAlpha > 0f) {
-                drawRect(Color(0xFF64748B).copy(alpha = overlayAlpha))
+                drawRect(if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = overlayAlpha) else Color(0xFF64748B).copy(alpha = overlayAlpha))
             }
         }
 }
 
 /**
  * Global top-of-screen control style used for back, profile, settings and equivalent header actions.
- * Keeps every module visually consistent: 44dp white rounded tile, subtle outline, no grey ripple,
- * and a light press-scale animation.
+ * The surface and outline follow the persistent app appearance while preserving the same geometry,
+ * no-ripple interaction and restrained press animation.
  */
 internal fun Modifier.superhumanTopButton(
     enabled: Boolean = true,
@@ -90,7 +90,7 @@ internal fun Modifier.superhumanTopButton(
     return this
         .width(44.dp)
         .height(44.dp)
-        .background(Color.White, shape)
-        .border(1.dp, Color(0xFFE1E8EE), shape)
+        .background(superhumanSurface, shape)
+        .border(1.dp, superhumanBorder, shape)
         .superhumanClickable(enabled = enabled, onClick = onClick)
 }
