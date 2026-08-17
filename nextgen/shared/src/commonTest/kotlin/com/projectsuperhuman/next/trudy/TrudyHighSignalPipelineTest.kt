@@ -89,13 +89,15 @@ class TrudyHighSignalPipelineTest {
         val current = service.currentState(HealthDomain.SLEEP)
         val history = service.metricHistory(HealthDomain.SLEEP, "sleep_score")
         val quality = service.dataQuality(HealthDomain.SLEEP)
+        val derived = service.derivedFeatures(HealthDomain.SLEEP)
 
         assertEquals(81.0, current.single().value)
         assertEquals(listOf(81.0), history.map { it.value })
         assertTrue(current.none { it.source == SYNTHETIC_DATA_SOURCE })
         assertTrue(history.none { it.source == SYNTHETIC_DATA_SOURCE })
         assertTrue(quality.notes.any { "synthetic" in it.lowercase() })
-        assertTrue(service.derivedFeatures(HealthDomain.SLEEP).isEmpty())
+        assertEquals(81.0, derived.single().latest)
+        assertEquals("trudy-real-derived-v1", derived.single().source)
     }
 
     @Test
