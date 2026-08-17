@@ -39,10 +39,10 @@ internal fun EnvironmentalContent(conditions: EnvironmentalConditionsUi) {
 private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
     val headline = conditions.headlineMetric()
     val shape = RoundedCornerShape(29.dp)
-    val palette = superhumanPalette()
-    val dark = superhumanDarkMode()
-    val blue = if (dark) palette.accent else EnvCurrentBlue
-    val teal = if (dark) palette.accentTeal else EnvCurrentTeal
+    val palette = superhumanPalette
+    val dark = SuperhumanAppearance.darkMode
+    val blue = if (dark) palette.blue else EnvCurrentBlue
+    val teal = if (dark) palette.green else EnvCurrentTeal
     val quickMetrics = listOfNotNull(
         conditions.metric(EnvironmentalMetricKind.FEELS_LIKE),
         conditions.metric(EnvironmentalMetricKind.HUMIDITY),
@@ -56,9 +56,9 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
             .background(
                 Brush.linearGradient(
                     listOf(
-                        if (dark) palette.surfaceAccent else Color(0xFFE5F4FF),
+                        if (dark) palette.accentSoft else Color(0xFFE5F4FF),
                         palette.surface,
-                        if (dark) palette.surfaceRaised else Color(0xFFEAF8F4)
+                        if (dark) palette.surfaceElevated else Color(0xFFEAF8F4)
                     )
                 ),
                 shape
@@ -66,69 +66,44 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
             .border(1.dp, palette.border, shape)
             .padding(19.dp)
     ) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "LOCAL WEATHER",
-                color = blue,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 1.15.sp
-            )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("LOCAL WEATHER", color = blue, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
             conditions.freshnessLabel?.takeIf { it.isNotBlank() }?.let {
                 Text(
                     it,
                     color = teal,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.background(palette.surfaceRaised.copy(alpha = .90f), RoundedCornerShape(12.dp))
+                    modifier = Modifier.background(palette.surfaceElevated.copy(alpha = .90f), RoundedCornerShape(12.dp))
                         .padding(horizontal = 9.dp, vertical = 5.dp)
                 )
             }
         }
 
         Spacer(Modifier.height(13.dp))
-
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.width(210.dp)) {
                 headline?.let {
-                    Text(
-                        it.displayValue(),
-                        color = palette.ink,
-                        fontSize = 44.sp,
-                        lineHeight = 46.sp,
-                        fontWeight = FontWeight.Black
-                    )
+                    Text(it.displayValue(), color = palette.brandText, fontSize = 44.sp, lineHeight = 46.sp, fontWeight = FontWeight.Black)
                 }
                 Text(
                     conditions.weatherLabel?.takeIf { it.isNotBlank() } ?: "Current conditions",
-                    color = palette.ink,
+                    color = palette.textPrimary,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.ExtraBold,
                     maxLines = 2
                 )
-                val location = conditions.locationLabel?.takeIf { it.isNotBlank() }
-                if (location != null) {
+                conditions.locationLabel?.takeIf { it.isNotBlank() }?.let { location ->
                     Spacer(Modifier.height(3.dp))
-                    Text(location, color = palette.muted, fontSize = 9.sp, fontWeight = FontWeight.Medium)
+                    Text(location, color = palette.textMuted, fontSize = 9.sp, fontWeight = FontWeight.Medium)
                 }
             }
 
             Box(
-                Modifier.size(78.dp)
-                    .background(palette.surfaceRaised.copy(alpha = .90f), RoundedCornerShape(24.dp))
+                Modifier.size(78.dp).background(palette.surfaceElevated.copy(alpha = .90f), RoundedCornerShape(24.dp))
                     .border(1.dp, palette.border, RoundedCornerShape(24.dp)),
                 contentAlignment = Alignment.Center
-            ) {
-                Text(weatherGlyph(conditions.weatherLabel), fontSize = 38.sp)
-            }
+            ) { Text(weatherGlyph(conditions.weatherLabel), fontSize = 38.sp) }
         }
 
         if (quickMetrics.isNotEmpty()) {
@@ -148,29 +123,23 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
         )
         if (timing.isNotEmpty()) {
             Spacer(Modifier.height(13.dp))
-            Text(
-                timing.joinToString("  •  "),
-                color = palette.muted,
-                fontSize = 8.sp,
-                lineHeight = 12.sp
-            )
+            Text(timing.joinToString("  •  "), color = palette.textMuted, fontSize = 8.sp, lineHeight = 12.sp)
         }
     }
 }
 
 @Composable
 private fun WeatherQuickMetric(metric: EnvironmentalMetricUi) {
-    val palette = superhumanPalette()
+    val palette = superhumanPalette
     Column(
-        Modifier.width(145.dp)
-            .background(palette.surfaceRaised.copy(alpha = .90f), RoundedCornerShape(16.dp))
+        Modifier.width(145.dp).background(palette.surfaceElevated.copy(alpha = .90f), RoundedCornerShape(16.dp))
             .padding(horizontal = 11.dp, vertical = 10.dp)
     ) {
-        Text(metric.label.uppercase(), color = palette.muted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(metric.label.uppercase(), color = palette.textMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
-        Text(metric.displayValue(), color = palette.ink, fontSize = 15.sp, fontWeight = FontWeight.Black)
+        Text(metric.displayValue(), color = palette.brandText, fontSize = 15.sp, fontWeight = FontWeight.Black)
         metric.supportingText?.takeIf { it.isNotBlank() }?.let {
-            Text(it, color = palette.muted, fontSize = 7.5.sp, maxLines = 1)
+            Text(it, color = palette.textMuted, fontSize = 7.5.sp, maxLines = 1)
         }
     }
 }
