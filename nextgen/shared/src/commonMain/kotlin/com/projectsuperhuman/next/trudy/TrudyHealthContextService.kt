@@ -88,17 +88,21 @@ class TrudyHealthContextService(
 
     suspend fun derivedFeatures(domain: HealthDomain): List<TrudyDerivedMetricEvidence> {
         val quality = dataQuality(domain)
-        // Module-parity derived values have intentionally lost row-level source identity. If the
-        // underlying domain contains developer synthetic history, suppress these aggregates rather
-        // than risk presenting a mixed real/synthetic trend as personal evidence. Raw deterministic
-        // comparisons remain available through metric-window tools.
-        if (containsRecentSynthetic(domain)) return emptyList()
-        return parity.derivedFeatures(domain).toTrudyEvidence(domain, quality)
+        return if (containsRecentSynthetic(domain)) {
+            // ModuleParity aggregates no longer carry row-level source identity, so recompute the
+            // same small descriptive feature set from filtered real rows instead of either mixing
+            // developer data or throwing away the user's legitimate trends.
+            realDerivedFeatures(domain, quality)
+        } else {
+            parity.derivedFeatures(domain).toTrudyEvidence(domain, quality)
+        }
     }
 
     suspend fun insights(domain: HealthDomain): List<TrudyInsightEvidence> {
         val quality = dataQuality(domain)
         val hasSynthetic = containsRecentSynthetic(domain)
+        // Parity insights may depend on mixed aggregates, so suppress only those when developer
+        // history is present. A configured scientific engine still receives real rows exclusively.
         val parityInsights = if (hasSynthetic) emptyList() else {
             parity.insights(domain).map { it.toTrudyEvidence(quality) }
         }
@@ -148,6 +152,9 @@ class TrudyHealthContextService(
                 request.includeDataQuality || request.includeCurrentState || request.includeHistory ||
                 request.includeDerivedFeatures || request.includeInsights
             ) dataQuality(domain) else null
+            val hasSynthetic = if (request.includeDerivedFeatures || request.includeInsights) {
+                containsRecentSynthetic(domain)
+            } else false
 
             TrudyDomainContext(
                 domain = domain,
@@ -160,14 +167,32 @@ class TrudyHealthContextService(
                     ).map { it.toMetricEvidence(quality) }
                 } else emptyList(),
                 derivedFeatures = if (request.includeDerivedFeatures) {
-                    if (containsRecentSynthetic(domain)) emptyList()
+                    if (hasSynthetic) realDerivedFeatures(domain, quality)
                     else parity.derivedFeatures(domain).toTrudyEvidence(domain, quality)
                 } else emptyList(),
-                insights = if (request.includeInsights) insights(domain) else emptyList(),
+                insights = if (request.includeInsights) {
+                    insights(domain, quality, hasSynthetic)
+                } else emptyList(),
                 dataQuality = if (request.includeDataQuality) quality else null
             )
         }
         return TrudyHealthContext(request.domains, domainContexts)
+    }
+
+    private suspend fun insights(
+        domain: HealthDomain,
+        quality: TrudyDataQualityEvidence?,
+        hasSynthetic: Boolean
+    ): List<TrudyInsightEvidence> {
+        val parityInsights = if (hasSynthetic) emptyList() else {
+            parity.insights(domain).map { it.toTrudyEvidence(quality) }
+        }
+        val science = scientificEngine ?: return parityInsights
+        val boundedValues = realDomainHistory(domain, INTERPRETATION_HISTORY_LIMIT, 0)
+        if (boundedValues.isEmpty()) return parityInsights
+        return parityInsights + science.interpret(boundedValues)
+            .filter { it.domain == domain }
+            .map { it.toTrudyEvidence(quality) }
     }
 
     private suspend fun currentState(
@@ -218,6 +243,35 @@ class TrudyHealthContextService(
         }
         return real.drop(offset).take(limit)
     }
+
+    /** Same descriptive feature semantics as ModuleParity, but over source-filtered rows only. */
+    private suspend fun realDerivedFeatures(
+        domain: HealthDomain,
+        quality: TrudyDataQualityEvidence?
+    ): List<TrudyDerivedMetricEvidence> = realDomainHistory(domain, DERIVED_HISTORY_LIMIT, 0)
+        .groupBy { it.metric }
+        .mapNotNull { (metric, rows) ->
+            val ordered = rows.filter { it.value.isFinite() }.sortedBy { it.timestampEpochMs }
+            if (ordered.isEmpty()) return@mapNotNull null
+            val first = ordered.first()
+            val last = ordered.last()
+            val values = ordered.map { it.value }
+            TrudyDerivedMetricEvidence(
+                domain = domain,
+                metricId = metric,
+                unit = last.unit,
+                sampleCount = ordered.size,
+                latest = last.value,
+                mean = values.average(),
+                minimum = values.minOrNull() ?: last.value,
+                maximum = values.maxOrNull() ?: last.value,
+                change = if (ordered.size >= 2) last.value - first.value else null,
+                range = TrudyTimeRange(first.timestampEpochMs, last.timestampEpochMs),
+                source = REAL_DERIVED_SOURCE,
+                dataQuality = quality
+            )
+        }
+        .sortedBy { it.metricId }
 
     private suspend fun containsRecentSynthetic(domain: HealthDomain): Boolean =
         parity.history(domain, SYNTHETIC_PROBE_LIMIT, 0).values.any(::isSyntheticForTrudy)
@@ -327,6 +381,7 @@ class TrudyHealthContextService(
         const val DEFAULT_METRIC_WINDOW_LIMIT = 250
         const val MAX_METRIC_HISTORY = 5_000
         const val INTERPRETATION_HISTORY_LIMIT = 1_000
+        const val DERIVED_HISTORY_LIMIT = 1_000
         const val SOURCE_FILTER_PAGE = 500
         const val MAX_SOURCE_FILTER_SCAN = 5_000
         const val QUALITY_PROBE_LIMIT = 500
@@ -335,5 +390,6 @@ class TrudyHealthContextService(
         const val HOUR_MS = 3_600_000.0
         const val REAL_DATA_STALE_HOURS = 24.0 * 14.0
         const val MODULE_PARITY_SOURCE = "module-parity"
+        const val REAL_DERIVED_SOURCE = "trudy-real-derived-v1"
     }
 }
