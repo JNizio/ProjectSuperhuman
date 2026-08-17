@@ -24,16 +24,20 @@ class HybridTrudyModelClient(
         val deterministicFallback by lazy { deterministic }
         return runCatching {
             val generated = languageModel.complete(request)
-            val boundEvidence = request.toolResults
-                .filter { it !is TrudyToolResult.Failure }
-                .flatMap(::evidenceReferences)
-                .distinct()
-                .take(maxEvidenceReferences)
+            val boundEvidence = request.answerPlan?.let { plan ->
+                selectedEvidenceReferences(
+                    results = request.toolResults.filter { it !is TrudyToolResult.Failure },
+                    plan = plan,
+                    limit = maxEvidenceReferences
+                )
+            }.orEmpty()
 
             generated.copy(
                 // Tool planning stays deterministic in this runtime. A hosted model cannot request
                 // arbitrary extra operations after seeing personal evidence.
                 requestedTools = emptyList(),
+                // Retrieved records and answer evidence are deliberately different concepts. If an
+                // Answer Plan cannot bind a record to a selected finding, do not mark it as used.
                 evidenceReferences = boundEvidence
             )
         }.getOrElse {
