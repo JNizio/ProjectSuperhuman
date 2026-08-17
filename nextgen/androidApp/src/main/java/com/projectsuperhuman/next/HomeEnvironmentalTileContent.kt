@@ -22,15 +22,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val EnvHomeNavy = Color(0xFF123D70)
-private val EnvHomeInk = Color(0xFF0B1F35)
 private val EnvHomeBlue = Color(0xFF0D6CB4)
 private val EnvHomeTeal = Color(0xFF168A78)
-private val EnvHomeMuted = Color(0xFF748294)
-private val EnvHomeBorder = Color(0xFFDCE8F0)
 
 @Composable
 internal fun EnvironmentalTileData(conditions: EnvironmentalConditionsUi) {
+    val palette = superhumanPalette()
+    val dark = superhumanDarkMode()
     val headline = conditions.headlineMetric()
     val feelsLike = conditions.metric(EnvironmentalMetricKind.FEELS_LIKE)
     val supporting = listOf(
@@ -51,7 +49,7 @@ internal fun EnvironmentalTileData(conditions: EnvironmentalConditionsUi) {
                 conditions.locationLabel?.takeIf { it.isNotBlank() }?.let { place ->
                     Text(
                         place.uppercase(),
-                        color = EnvHomeTeal,
+                        color = if (dark) palette.accentTeal else EnvHomeTeal,
                         fontSize = 8.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = .75.sp,
@@ -63,7 +61,7 @@ internal fun EnvironmentalTileData(conditions: EnvironmentalConditionsUi) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         headline?.displayValue() ?: "—",
-                        color = EnvHomeNavy,
+                        color = palette.ink,
                         fontSize = 33.sp,
                         lineHeight = 34.sp,
                         fontWeight = FontWeight.Black,
@@ -73,7 +71,7 @@ internal fun EnvironmentalTileData(conditions: EnvironmentalConditionsUi) {
                         Spacer(Modifier.width(9.dp))
                         Text(
                             label,
-                            color = EnvHomeInk,
+                            color = palette.ink,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(bottom = 4.dp),
@@ -90,7 +88,7 @@ internal fun EnvironmentalTileData(conditions: EnvironmentalConditionsUi) {
                     Spacer(Modifier.height(3.dp))
                     Text(
                         secondary.joinToString("  •  "),
-                        color = EnvHomeMuted,
+                        color = palette.muted,
                         fontSize = 8.5.sp,
                         maxLines = 1
                     )
@@ -99,8 +97,8 @@ internal fun EnvironmentalTileData(conditions: EnvironmentalConditionsUi) {
 
             Box(
                 Modifier.size(58.dp)
-                    .background(Color.White.copy(alpha = .86f), RoundedCornerShape(18.dp))
-                    .border(1.dp, Color.White, RoundedCornerShape(18.dp)),
+                    .background(palette.surfaceRaised.copy(alpha = .90f), RoundedCornerShape(18.dp))
+                    .border(1.dp, palette.border, RoundedCornerShape(18.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(environmentHomeGlyph(conditions.weatherLabel), fontSize = 28.sp)
@@ -121,15 +119,16 @@ internal fun EnvironmentalTileData(conditions: EnvironmentalConditionsUi) {
 
 @Composable
 private fun EnvironmentalHomeMetricChip(metric: EnvironmentalMetricUi) {
+    val palette = superhumanPalette()
     Column(
         Modifier.width(88.dp)
-            .background(Color.White.copy(alpha = .88f), RoundedCornerShape(13.dp))
-            .border(1.dp, EnvHomeBorder.copy(alpha = .8f), RoundedCornerShape(13.dp))
+            .background(palette.surfaceRaised.copy(alpha = .90f), RoundedCornerShape(13.dp))
+            .border(1.dp, palette.border.copy(alpha = .8f), RoundedCornerShape(13.dp))
             .padding(horizontal = 9.dp, vertical = 7.dp)
     ) {
         Text(
             compactEnvironmentLabel(metric),
-            color = EnvHomeMuted,
+            color = palette.muted,
             fontSize = 6.8.sp,
             fontWeight = FontWeight.Black,
             maxLines = 1
@@ -137,7 +136,7 @@ private fun EnvironmentalHomeMetricChip(metric: EnvironmentalMetricUi) {
         Spacer(Modifier.height(2.dp))
         Text(
             metric.displayValue(),
-            color = EnvHomeNavy,
+            color = palette.ink,
             fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             maxLines = 1
@@ -171,10 +170,11 @@ private fun environmentHomeGlyph(label: String?): String {
 
 @Composable
 internal fun EnvironmentalTileStatus(title: String, detail: String) {
+    val palette = superhumanPalette()
     Column {
-        Text(title, color = EnvHomeNavy, fontSize = 19.sp, fontWeight = FontWeight.Black, lineHeight = 22.sp)
+        Text(title, color = palette.ink, fontSize = 19.sp, fontWeight = FontWeight.Black, lineHeight = 22.sp)
         Spacer(Modifier.height(4.dp))
-        Text(detail, color = EnvHomeMuted, fontSize = 9.sp, lineHeight = 12.sp)
+        Text(detail, color = palette.muted, fontSize = 9.sp, lineHeight = 12.sp)
     }
 }
 
