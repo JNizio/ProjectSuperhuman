@@ -31,18 +31,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val ExperimentTileNavy = Color(0xFF123D70)
 private val ExperimentTileBlue = Color(0xFF0D6CB4)
 private val ExperimentTileViolet = Color(0xFF7257B7)
 private val ExperimentTileTeal = Color(0xFF20A7A5)
-private val ExperimentTileMuted = Color(0xFF748294)
-private val ExperimentTileBorder = Color(0xFFDDE5EF)
 
 @Composable
 internal fun HomeExperimentsTile(
     experiment: ExperimentPresentation = MockExperimentData.active,
     onClick: () -> Unit
 ) {
+    val palette = superhumanPalette()
+    val dark = superhumanDarkMode()
     val primary = experiment.primaryOutcome?.title ?: "No outcome selected"
     val secondary = experiment.outcomes.filter { it.role == ExperimentOutcomeRole.SECONDARY }.joinToString(" · ") { it.title }
     val description = "Experiments. Active experiment ${experiment.title}. Day ${experiment.progress.currentDay} of ${experiment.progress.totalDays}. Primary outcome $primary. Next check-in ${experiment.nextCheckIn ?: "not scheduled"}."
@@ -51,10 +50,16 @@ internal fun HomeExperimentsTile(
         Modifier.fillMaxWidth()
             .height(184.dp)
             .background(
-                Brush.linearGradient(listOf(Color(0xFFF1EDFC), Color.White, Color(0xFFECF8F7))),
+                Brush.linearGradient(
+                    listOf(
+                        if (dark) palette.surfaceAccent.copy(alpha = .78f) else Color(0xFFF1EDFC),
+                        palette.surface,
+                        if (dark) palette.surfaceRaised else Color(0xFFECF8F7)
+                    )
+                ),
                 RoundedCornerShape(28.dp)
             )
-            .border(1.dp, ExperimentTileBorder, RoundedCornerShape(28.dp))
+            .border(1.dp, palette.border, RoundedCornerShape(28.dp))
             .superhumanHomeTileClickable(onClick = onClick)
             .semantics(mergeDescendants = true) { contentDescription = description }
             .padding(horizontal = 18.dp, vertical = 15.dp)
@@ -68,13 +73,15 @@ internal fun HomeExperimentsTile(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     ExperimentOrbitGlyph()
                     Spacer(Modifier.width(8.dp))
-                    Text("EXPERIMENTS", color = ExperimentTileMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
+                    Text("EXPERIMENTS", color = palette.muted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
                 }
                 Box(
-                    Modifier.size(34.dp).background(Color.White.copy(alpha = .85f), CircleShape).border(1.dp, Color.White, CircleShape),
+                    Modifier.size(34.dp)
+                        .background(palette.surfaceRaised.copy(alpha = .92f), CircleShape)
+                        .border(1.dp, palette.border, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("→", color = ExperimentTileBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text("→", color = if (dark) palette.accent else ExperimentTileBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -83,21 +90,22 @@ internal fun HomeExperimentsTile(
                 ExperimentProgressRing(
                     progress = experiment.progress.fraction,
                     center = "${experiment.progress.currentDay}/${experiment.progress.totalDays}",
-                    modifier = Modifier.size(76.dp)
+                    modifier = Modifier.size(76.dp),
+                    textColor = palette.ink
                 )
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("ACTIVE EXPERIMENT", color = ExperimentTileViolet, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Text("ACTIVE EXPERIMENT", color = if (dark) palette.accentPurple else ExperimentTileViolet, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(3.dp))
-                    Text(experiment.title, color = ExperimentTileNavy, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                    Text(experiment.title, color = palette.ink, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     Spacer(Modifier.height(5.dp))
-                    Text("Primary · $primary", color = ExperimentTileNavy, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    if (secondary.isNotBlank()) Text(secondary, color = ExperimentTileMuted, fontSize = 8.sp, maxLines = 1)
+                    Text("Primary · $primary", color = palette.ink, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    if (secondary.isNotBlank()) Text(secondary, color = palette.muted, fontSize = 8.sp, maxLines = 1)
                     Spacer(Modifier.height(7.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(6.dp).background(ExperimentTileTeal, CircleShape))
                         Spacer(Modifier.width(5.dp))
-                        Text(experiment.nextCheckIn ?: "No check-in scheduled", color = ExperimentTileMuted, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
+                        Text(experiment.nextCheckIn ?: "No check-in scheduled", color = palette.muted, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -120,8 +128,9 @@ internal fun ExperimentProgressRing(
     center: String,
     modifier: Modifier = Modifier,
     foreground: Color = ExperimentTileViolet,
-    textColor: Color = ExperimentTileNavy
+    textColor: Color? = null
 ) {
+    val resolvedText = textColor ?: superhumanPalette().ink
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = size.minDimension * .09f
@@ -141,8 +150,8 @@ internal fun ExperimentProgressRing(
             )
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(center, color = textColor, fontSize = 15.sp, fontWeight = FontWeight.Black)
-            Text("DAY", color = textColor.copy(alpha = .62f), fontSize = 6.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+            Text(center, color = resolvedText, fontSize = 15.sp, fontWeight = FontWeight.Black)
+            Text("DAY", color = resolvedText.copy(alpha = .62f), fontSize = 6.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
         }
     }
 }
