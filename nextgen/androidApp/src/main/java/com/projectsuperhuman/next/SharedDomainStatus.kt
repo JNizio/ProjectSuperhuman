@@ -15,19 +15,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.next.core.HealthDomain
 
-/**
- * Shared status card used by native modules.
- *
- * The UI remains intentionally simple, but the read now goes through the same parity API that
- * Trudy will use. Only currentState is requested here: the status card does not need history,
- * features, insights or quality, so it avoids paying for those extra reads on screen entry.
- */
 @Composable
 internal fun SharedDomainStatus(domain: HealthDomain) {
     var summary by remember(domain) { mutableStateOf("Reading shared store…") }
@@ -42,11 +34,11 @@ internal fun SharedDomainStatus(domain: HealthDomain) {
         }
     }
     Column(
-        Modifier.fillMaxWidth().background(Color(0xFFEAF4FC), RoundedCornerShape(17.dp)).padding(14.dp)
+        Modifier.fillMaxWidth().background(superhumanAccentSoft, RoundedCornerShape(17.dp)).padding(14.dp)
     ) {
-        Text("SHARED DATA · LIVE", color = Color(0xFF0D6CB4), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+        Text("SHARED DATA · LIVE", color = superhumanBlue, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
         Spacer(Modifier.height(4.dp))
-        Text(summary, color = Color(0xFF334155), fontSize = 9.sp, lineHeight = 14.sp)
+        Text(summary, color = superhumanTextPrimary, fontSize = 9.sp, lineHeight = 14.sp)
     }
 }
 
