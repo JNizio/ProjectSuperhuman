@@ -38,10 +38,10 @@ import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-private val UsageNavy = Color(0xFF082D66)
-private val UsageMuted = Color(0xFF64748B)
-private val UsageBorder = Color(0xFFE3EAF0)
-private val UsageBg = Color(0xFFF6F9FC)
+private val UsageNavy get() = superhumanBrandText
+private val UsageMuted get() = superhumanTextMuted
+private val UsageBorder get() = superhumanBorder
+private val UsageBg get() = superhumanSurfaceSoft
 
 private data class UsageSlice(
     val label: String,
@@ -73,7 +73,7 @@ internal fun SettingsDataUsageCard() {
     }
 
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+        Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(22.dp))
             .border(1.dp, UsageBorder, RoundedCornerShape(22.dp)).padding(16.dp)
     ) {
         Row(
@@ -97,7 +97,7 @@ internal fun SettingsDataUsageCard() {
         Spacer(Modifier.height(13.dp))
 
         when {
-            error != null -> Text(error.orEmpty(), color = Color(0xFFCA3A3A), fontSize = 9.sp)
+            error != null -> Text(error.orEmpty(), color = superhumanRed, fontSize = 9.sp)
             snapshot == null -> Text("Calculating local storage…", color = UsageMuted, fontSize = 9.sp)
             else -> DataUsageContent(requireNotNull(snapshot))
         }
@@ -115,7 +115,7 @@ private fun DataUsageContent(snapshot: DataUsageSnapshot) {
     snapshot.storageSlices.filter { it.bytes > 0L }.forEach { UsageLegendRow(it) }
 
     Spacer(Modifier.height(14.dp))
-    Box(Modifier.fillMaxWidth().height(1.dp).background(UsageBorder))
+    Box(Modifier.fillMaxWidth().height(1.dp).background(superhumanDivider))
     Spacer(Modifier.height(13.dp))
 
     Text("DATA VAULT BY CATEGORY", color = UsageMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
@@ -149,7 +149,7 @@ private fun UsageBar(slices: List<UsageSlice>) {
     val total = visible.sumOf { it.bytes }.coerceAtLeast(1L)
     Canvas(
         Modifier.fillMaxWidth().height(12.dp)
-            .background(Color(0xFFEDF2F6), RoundedCornerShape(8.dp))
+            .background(superhumanSurfaceSoft, RoundedCornerShape(8.dp))
     ) {
         var left = 0f
         visible.forEachIndexed { index, slice ->
