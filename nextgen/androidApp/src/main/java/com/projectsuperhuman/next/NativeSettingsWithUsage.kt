@@ -29,10 +29,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val SettingsUsageBg = Color(0xFFF6F9FC)
-private val SettingsUsageNavy = Color(0xFF082D66)
-private val SettingsUsageMuted = Color(0xFF64748B)
-private val SettingsUsageBlue = Color(0xFF0D6CB4)
+private val SettingsUsageBg get() = superhumanBackground
+private val SettingsUsageNavy get() = superhumanBrandText
+private val SettingsUsageMuted get() = superhumanTextMuted
+private val SettingsUsageBlue get() = superhumanBlue
 
 @Composable
 internal fun NativeSettingsWithUsage(openLegacy: () -> Unit) {
@@ -72,8 +72,8 @@ private fun SettingsModeButton(label: String, selected: Boolean, width: androidx
     val shape = RoundedCornerShape(14.dp)
     Box(
         Modifier.width(width).height(38.dp)
-            .background(if (selected) SettingsUsageBlue else Color.White, shape)
-            .border(1.dp, if (selected) SettingsUsageBlue else Color(0xFFE1E9EF), shape)
+            .background(if (selected) SettingsUsageBlue else superhumanSurface, shape)
+            .border(1.dp, if (selected) SettingsUsageBlue else superhumanBorder, shape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
