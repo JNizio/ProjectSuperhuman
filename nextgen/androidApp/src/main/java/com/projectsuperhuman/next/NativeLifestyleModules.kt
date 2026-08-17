@@ -24,10 +24,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val LifestyleNavy = Color(0xFF082D66)
-private val LifestyleBlue = Color(0xFF0D6CB4)
-private val LifestyleInk = Color(0xFF0B1F35)
-private val LifestyleMuted = Color(0xFF64748B)
+private val LifestyleNavy get() = superhumanBrandText
+private val LifestyleBlue get() = superhumanBlue
+private val LifestyleInk get() = superhumanTextPrimary
+private val LifestyleMuted get() = superhumanTextMuted
 
 @Composable
 fun NativeExercisePage(onBack: () -> Unit, openLegacy: () -> Unit) {
@@ -41,7 +41,7 @@ fun NativeMindfulnessPage(onBack: () -> Unit, openLegacy: () -> Unit) {
 
 @Composable
 private fun NativeModuleFrame(title: String, subtitle: String, onBack: () -> Unit, content: @Composable () -> Unit) {
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().background(superhumanBackground)) {
         Row(Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.superhumanTopButton(onClick = onBack).padding(horizontal = 15.dp, vertical = 10.dp), contentAlignment = Alignment.Center) {
                 Text("←", color = LifestyleNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
@@ -60,7 +60,7 @@ private fun NativeModuleFrame(title: String, subtitle: String, onBack: () -> Uni
 
 @Composable
 private fun Hero(kicker: String, title: String, body: String, background: Color, accent: Color) {
-    Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(background, Color.White)), RoundedCornerShape(24.dp)).padding(19.dp)) {
+    Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(background.copy(alpha = if (SuperhumanAppearance.darkMode) .24f else 1f), superhumanSurfaceElevated)), RoundedCornerShape(24.dp)).padding(19.dp)) {
         Text(kicker, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
         Spacer(Modifier.height(7.dp))
         Text(title, color = LifestyleInk, fontSize = 23.sp, fontWeight = FontWeight.Black)
@@ -71,7 +71,7 @@ private fun Hero(kicker: String, title: String, body: String, background: Color,
 
 @Composable
 private fun StatCard(label: String, value: String, subtitle: String, modifier: Modifier = Modifier) {
-    Column(modifier.background(Color.White, RoundedCornerShape(18.dp)).padding(14.dp)) {
+    Column(modifier.background(superhumanSurface, RoundedCornerShape(18.dp)).padding(14.dp)) {
         Text(label.uppercase(), color = LifestyleMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(7.dp))
         Text(value, color = LifestyleInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -86,8 +86,8 @@ private fun SectionLabel(text: String) {
 
 @Composable
 private fun ActionRow(title: String, subtitle: String, initials: String, background: Color, accent: Color, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(19.dp)).clickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.background(background, RoundedCornerShape(13.dp)).padding(horizontal = 12.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
+    Row(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(19.dp)).clickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.background(if (SuperhumanAppearance.darkMode) background.copy(alpha = .18f) else background, RoundedCornerShape(13.dp)).padding(horizontal = 12.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
             Text(initials, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
         Column(Modifier.weight(1f).padding(start = 12.dp)) {
@@ -100,7 +100,7 @@ private fun ActionRow(title: String, subtitle: String, initials: String, backgro
 
 @Composable
 private fun BridgeNote(text: String, openLegacy: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp)).clickable(onClick = openLegacy).padding(15.dp)) {
+    Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(18.dp)).clickable(onClick = openLegacy).padding(15.dp)) {
         Text("Migration bridge", color = LifestyleNavy, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(4.dp))
         Text(text, color = LifestyleMuted, fontSize = 9.sp, lineHeight = 14.sp)
