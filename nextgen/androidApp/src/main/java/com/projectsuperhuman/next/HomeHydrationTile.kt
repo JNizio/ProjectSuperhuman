@@ -47,10 +47,10 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
     val pct = (animatedFraction * 100).roundToInt()
     val remaining = (goalMl - shownMl).coerceAtLeast(0)
     val shape = RoundedCornerShape(27.dp)
-    val palette = superhumanPalette()
-    val dark = superhumanDarkMode()
-    val accent = if (dark) Color(0xFF64C7F2) else Color(0xFF0D6CB4)
-    val ringTrack = if (dark) palette.surfaceRaised else Color(0xFFD9EAF2)
+    val palette = superhumanPalette
+    val dark = SuperhumanAppearance.darkMode
+    val accent = palette.blue
+    val ringTrack = if (dark) palette.surfaceElevated else Color(0xFFD9EAF2)
 
     val context = LocalContext.current
     val waterImage = remember {
@@ -77,8 +77,8 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
             )
         }
 
-        // Keep a surface-coloured veil over the photograph all the way to the right in dark mode.
-        // This removes the hard light/dark seam that a transparent gradient produced with bright assets.
+        // In dark mode the gradient intentionally retains a surface-coloured veil at the far edge.
+        // Bright photographic pixels therefore melt into the card instead of ending at a hard seam.
         Box(
             Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(
@@ -96,7 +96,7 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
 
         Text(
             "HYDRATION",
-            color = palette.muted,
+            color = palette.textMuted,
             fontSize = 9.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 1.15.sp,
@@ -124,8 +124,8 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
                     }
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("$pct%", color = palette.ink, fontSize = 20.sp, fontWeight = FontWeight.Black, lineHeight = 20.sp)
-                    Text("today", color = palette.muted, fontSize = 8.sp, fontWeight = FontWeight.Medium, lineHeight = 8.sp)
+                    Text("$pct%", color = palette.brandText, fontSize = 20.sp, fontWeight = FontWeight.Black, lineHeight = 20.sp)
+                    Text("today", color = palette.textMuted, fontSize = 8.sp, fontWeight = FontWeight.Medium, lineHeight = 8.sp)
                 }
             }
 
@@ -137,7 +137,7 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
             ) {
                 Text(
                     if (shownMl >= 1000) "%.1f L".format(shownMl / 1000.0) else "$shownMl ml",
-                    color = palette.ink,
+                    color = palette.brandText,
                     fontSize = 27.sp,
                     fontWeight = FontWeight.Black,
                     lineHeight = 28.sp
@@ -145,14 +145,14 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
                 Spacer(Modifier.height(4.dp))
                 Text(
                     "${if (goalMl >= 1000) "%.1f L".format(goalMl / 1000.0) else "$goalMl ml"} daily goal",
-                    color = palette.muted,
+                    color = palette.textMuted,
                     fontSize = 9.sp,
                     lineHeight = 11.sp
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
                     if (remaining == 0) "Goal reached" else "${if (remaining >= 1000) "%.1f L".format(remaining / 1000.0) else "$remaining ml"} remaining",
-                    color = if (remaining == 0) palette.success else accent,
+                    color = if (remaining == 0) palette.green else accent,
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
                     lineHeight = 11.sp
