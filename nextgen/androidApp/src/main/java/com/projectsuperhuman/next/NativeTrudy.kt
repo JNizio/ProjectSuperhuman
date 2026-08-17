@@ -79,6 +79,7 @@ internal fun NativeTrudy(
     val speechInputState by speechInputController.state.collectAsState()
     var voiceModeActive by remember { mutableStateOf(false) }
     var showVoiceSettings by remember { mutableStateOf(false) }
+    var showGuide by remember { mutableStateOf(false) }
     var voiceContextModules by remember {
         mutableStateOf(emptyList<TrudyVoiceContextModule>())
     }
@@ -87,6 +88,12 @@ internal fun NativeTrudy(
         speechInputController.cancel()
         voiceController.onTrudyHidden()
         onBack()
+    }
+
+    fun openVoiceMode() {
+        showGuide = false
+        showVoiceSettings = false
+        voiceModeActive = true
     }
 
     fun closeVoiceMode() {
@@ -192,19 +199,25 @@ internal fun NativeTrudy(
         if (uiState.messages.isNotEmpty()) listState.animateScrollToItem(uiState.messages.lastIndex)
     }
 
+    val latestCompleteTrudyMessageId = uiState.messages.lastOrNull {
+        it.role == TrudyMessageRole.TRUDY && it.status == TrudyMessageStatus.COMPLETE
+    }?.id
+
     Column(Modifier.fillMaxSize().background(TrudyBg).imePadding()) {
         TrudyHeader(
             onBack = ::leaveTrudy,
-            onVoiceMode = {
-                showVoiceSettings = false
-                voiceModeActive = true
-            },
+            onGuide = { showGuide = true },
+            onVoiceMode = ::openVoiceMode,
             voiceEnabled = voiceState.preferences.enabled
         )
 
         Box(Modifier.weight(1f).fillMaxWidth()) {
             if (uiState.showWelcome) {
-                TrudyWelcome(onPrompt = ::send)
+                TrudyDiscoveryWelcome(
+                    onPrompt = ::send,
+                    onVoiceMode = ::openVoiceMode,
+                    onGuide = { showGuide = true }
+                )
             } else {
                 LazyColumn(
                     state = listState,
@@ -219,9 +232,11 @@ internal fun NativeTrudy(
                             message = message,
                             evidenceExpanded = message.id in uiState.expandedEvidenceMessageIds,
                             voiceState = voiceState,
+                            showFollowUps = message.id == latestCompleteTrudyMessageId,
                             onToggleEvidence = { state.toggleEvidence(message.id) },
                             onRetry = { retry(message.id) },
-                            onSpeak = { voiceController.speak(message.id, message.text) }
+                            onSpeak = { voiceController.speak(message.id, message.text) },
+                            onFollowUp = ::send
                         )
                     }
                 }
@@ -244,16 +259,25 @@ internal fun NativeTrudy(
             onSend = { send() }
         )
     }
+
+    if (showGuide) {
+        TrudyGuideDialog(
+            onDismiss = { showGuide = false },
+            onPrompt = ::send,
+            onVoiceMode = ::openVoiceMode
+        )
+    }
 }
 
 @Composable
 private fun TrudyHeader(
     onBack: () -> Unit,
+    onGuide: () -> Unit,
     onVoiceMode: () -> Unit,
     voiceEnabled: Boolean
 ) {
     Row(
-        Modifier.fillMaxWidth().height(82.dp).padding(horizontal = 17.dp),
+        Modifier.fillMaxWidth().height(78.dp).padding(horizontal = 17.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -263,45 +287,36 @@ private fun TrudyHeader(
         ) {
             Text("‹", color = TrudyNavy, fontSize = 29.sp, fontWeight = FontWeight.Medium)
         }
-        Spacer(Modifier.size(14.dp))
+        Spacer(Modifier.size(12.dp))
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
             Text("TRUDY", color = TrudyNavy, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 1.4.sp)
-            Text("Project Superhuman assistant", color = TrudyMuted, fontSize = 11.sp)
+            Text("Reason across your health data", color = TrudyMuted, fontSize = 10.sp)
         }
         Box(
-            Modifier.superhumanTopButton(onClick = onVoiceMode)
-                .semantics { contentDescription = "Open Trudy voice mode, ${if (voiceEnabled) "voice on" else "voice off"}" },
+            Modifier.size(42.dp)
+                .background(Color.White, RoundedCornerShape(14.dp))
+                .border(1.dp, TrudyBorder, RoundedCornerShape(14.dp))
+                .superhumanClickable(onClick = onGuide)
+                .semantics { contentDescription = "Open guide to Trudy features" },
             contentAlignment = Alignment.Center
         ) {
-            Text(if (voiceEnabled) "♪" else "♪̸", color = if (voiceEnabled) TrudyCyan else TrudyMuted, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("?", color = TrudyNavy, fontSize = 15.sp, fontWeight = FontWeight.Black)
         }
-    }
-}
-
-@Composable
-private fun TrudyWelcome(onPrompt: (String) -> Unit) {
-    Column(
-        Modifier.fillMaxSize().padding(horizontal = 26.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.Start
-    ) {
-        Text("Ask Trudy", color = TrudyNavy, fontSize = 24.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.height(7.dp))
-        Text(
-            "Ask about your Project Superhuman context. Evidence and uncertainty can appear with each answer when the backend provides them.",
-            color = TrudyMuted,
-            fontSize = 13.sp,
-            lineHeight = 19.sp
-        )
-        Spacer(Modifier.height(22.dp))
-        listOf("How was my sleep?", "What changed today?", "What should I pay attention to?").forEach { prompt ->
-            Box(
-                Modifier.fillMaxWidth().padding(vertical = 4.dp)
-                    .background(Color.White, RoundedCornerShape(16.dp))
-                    .border(1.dp, TrudyBorder, RoundedCornerShape(16.dp))
-                    .superhumanClickable { onPrompt(prompt) }
-                    .padding(horizontal = 16.dp, vertical = 13.dp)
-            ) { Text(prompt, color = TrudyNavy, fontSize = 13.sp, fontWeight = FontWeight.SemiBold) }
+        Spacer(Modifier.size(7.dp))
+        Box(
+            Modifier.defaultMinSize(minWidth = 68.dp, minHeight = 42.dp)
+                .background(if (voiceEnabled) TrudyCyanSoft else Color.White, RoundedCornerShape(14.dp))
+                .border(1.dp, if (voiceEnabled) TrudyCyan.copy(alpha = .32f) else TrudyBorder, RoundedCornerShape(14.dp))
+                .superhumanClickable(onClick = onVoiceMode)
+                .semantics { contentDescription = "Open Trudy voice mode, ${if (voiceEnabled) "voice on" else "voice off"}" }
+                .padding(horizontal = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("♪", color = if (voiceEnabled) TrudyCyan else TrudyMuted, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.size(5.dp))
+                Text("VOICE", color = TrudyNavy, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .55.sp)
+            }
         }
     }
 }
@@ -311,19 +326,31 @@ private fun TrudyMessageBubble(
     message: TrudyMessage,
     evidenceExpanded: Boolean,
     voiceState: TrudyVoiceUiState,
+    showFollowUps: Boolean,
     onToggleEvidence: () -> Unit,
     onRetry: () -> Unit,
-    onSpeak: () -> Unit
+    onSpeak: () -> Unit,
+    onFollowUp: (String) -> Unit
 ) {
     val isUser = message.role == TrudyMessageRole.USER
     Column(
         Modifier.fillMaxWidth(),
         horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
     ) {
+        if (!isUser) {
+            Text(
+                "TRUDY",
+                color = TrudyCyan,
+                fontSize = 7.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = .8.sp,
+                modifier = Modifier.padding(start = 8.dp, bottom = 4.dp)
+            )
+        }
         Box(
-            Modifier.widthIn(max = 330.dp)
-                .background(if (isUser) TrudyNavy else Color.White, RoundedCornerShape(18.dp))
-                .border(1.dp, if (isUser) TrudyNavy else TrudyBorder, RoundedCornerShape(18.dp))
+            Modifier.widthIn(max = 350.dp)
+                .background(if (isUser) TrudyNavy else Color(0xFFFEFFFF), RoundedCornerShape(19.dp))
+                .border(1.dp, if (isUser) TrudyNavy else TrudyBorder, RoundedCornerShape(19.dp))
                 .padding(horizontal = 15.dp, vertical = 12.dp)
         ) {
             when (message.status) {
@@ -332,8 +359,8 @@ private fun TrudyMessageBubble(
                 TrudyMessageStatus.COMPLETE -> Text(
                     message.text,
                     color = if (isUser) Color.White else Color(0xFF203246),
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
                 )
             }
         }
@@ -355,6 +382,11 @@ private fun TrudyMessageBubble(
             if (message.evidence.isNotEmpty()) {
                 TrudyEvidenceBlock(message.evidence, evidenceExpanded, onToggleEvidence)
             }
+            if (showFollowUps) {
+                Box(Modifier.widthIn(max = 350.dp)) {
+                    TrudyFollowUpStrip(onPrompt = onFollowUp)
+                }
+            }
         }
     }
 }
@@ -374,7 +406,7 @@ private fun TrudySpeakControl(
     }
     Row(
         Modifier.padding(start = 5.dp, top = 4.dp)
-            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp)
+            .defaultMinSize(minWidth = 48.dp, minHeight = 44.dp)
             .superhumanClickable(onClick = onClick)
             .semantics {
                 contentDescription = when {
@@ -608,7 +640,7 @@ private fun TrudyErrorContent(message: TrudyMessage, onRetry: () -> Unit) {
 private fun TrudyNoticeRow(notice: TrudyNotice) {
     val caution = notice.level == TrudyNoticeLevel.CAUTION
     Box(
-        Modifier.widthIn(max = 330.dp).padding(top = 6.dp)
+        Modifier.widthIn(max = 350.dp).padding(top = 6.dp)
             .background(if (caution) TrudyWarningBg else Color(0xFFF2F7F8), RoundedCornerShape(11.dp))
             .padding(horizontal = 10.dp, vertical = 7.dp)
     ) {
@@ -629,23 +661,31 @@ private fun TrudyEvidenceBlock(
 ) {
     val usedEvidence = evidence.distinctBy(TrudyEvidenceItem::id)
     val groups = usedEvidence.groupBy { it.groupLabel ?: "Other" }
-    Column(Modifier.widthIn(max = 330.dp).padding(top = 6.dp)) {
+    Column(Modifier.widthIn(max = 350.dp).padding(top = 6.dp)) {
         Row(
-            Modifier.superhumanClickable(onClick = onToggle).padding(horizontal = 8.dp, vertical = 4.dp),
+            Modifier.fillMaxWidth()
+                .background(TrudyCyanSoft, RoundedCornerShape(13.dp))
+                .border(1.dp, TrudyCyan.copy(alpha = .18f), RoundedCornerShape(13.dp))
+                .superhumanClickable(onClick = onToggle)
+                .semantics {
+                    contentDescription = if (expanded) "Hide evidence used for this Trudy answer" else "View evidence used for this Trudy answer"
+                }
+                .padding(horizontal = 11.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(Modifier.size(6.dp).background(TrudyCyan, CircleShape))
-            Spacer(Modifier.size(6.dp))
-            Text(
-                if (usedEvidence.size == 1) "1 record used" else "${usedEvidence.size} records used",
-                color = TrudyMuted,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            Spacer(Modifier.size(5.dp))
-            Text(if (expanded) "⌃" else "⌄", color = TrudyMuted, fontSize = 11.sp)
+            Column(Modifier.weight(1f)) {
+                Text("EVIDENCE", color = TrudyCyan, fontSize = 6.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                Text(
+                    if (usedEvidence.size == 1) "1 record used" else "${usedEvidence.size} records used",
+                    color = TrudyNavy,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            Text(if (expanded) "HIDE  ↑" else "VIEW  ↓", color = TrudyNavy, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .45.sp)
         }
         if (expanded) {
+            Spacer(Modifier.height(7.dp))
             Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 groups.forEach { (group, records) ->
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
@@ -696,7 +736,13 @@ private fun TrudyComposer(
                 onValueChange = onValueChange,
                 enabled = enabled,
                 modifier = Modifier.weight(1f),
-                placeholder = { Text(if (enabled) "Ask Trudy…" else "Waiting for Trudy…", color = TrudyMuted) },
+                placeholder = {
+                    Text(
+                        if (enabled) "Ask a reading, trend, pattern, or why…" else "Waiting for Trudy…",
+                        color = TrudyMuted,
+                        fontSize = 12.sp
+                    )
+                },
                 maxLines = 4,
                 shape = RoundedCornerShape(18.dp),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
