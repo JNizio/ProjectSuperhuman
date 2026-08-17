@@ -6,15 +6,9 @@ import kotlin.math.max
 import kotlin.math.sqrt
 
 /**
- * Longitudinal extensions for the existing Trudy pipeline.
- *
- * This file deliberately does not introduce another answer/investigation engine. It adds three
- * bounded responsibilities around the existing planner/tools/Answer Engine:
- *  - do not invent dates for user-described life events;
- *  - resolve event-relative questions against canonical experiment windows when possible;
- *  - surface deterministic phase shifts, source disagreement and the most useful missing context.
+ * Bounded longitudinal extensions around Trudy's existing planner, deterministic tools and Answer
+ * Engine. No second reasoning engine is introduced here.
  */
-
 enum class TrudyEventReferenceKind { PERSONAL_EVENT, CANONICAL_EXPERIMENT }
 
 data class TrudyEventReference(
@@ -29,13 +23,20 @@ object TrudyEventReferenceParser {
         if (normalized.isBlank()) return null
         val trigger = EVENT_TRIGGERS.firstOrNull { it in normalized } ?: return null
         val tail = normalized.substringAfter(trigger).trim()
-        val label = cleanEventLabel(tail).ifBlank {
-            if ("experiment" in normalized) "the experiment" else "that change"
-        }
+        val label = cleanEventLabel(tail).ifBlank { fallbackLabel(trigger, normalized) }
         val kind = if ("experiment" in label || "experiment" in normalized) {
             TrudyEventReferenceKind.CANONICAL_EXPERIMENT
         } else TrudyEventReferenceKind.PERSONAL_EVENT
         return TrudyEventReference(kind, label, trigger)
+    }
+
+    private fun fallbackLabel(trigger: String, normalized: String): String = when {
+        "experiment" in normalized -> "the experiment"
+        "cut" in trigger -> "the cut"
+        "bulk" in trigger -> "the bulk"
+        "got sick" in trigger -> "getting sick"
+        "moved" in trigger -> "moving"
+        else -> "that change"
     }
 
     private fun cleanEventLabel(value: String): String {
@@ -67,17 +68,14 @@ object TrudyEventReferenceParser {
     private const val MAX_EVENT_LABEL_CHARS = 100
 }
 
-/**
- * Planner guard that prevents an undated life event from silently becoming a generic recent window.
- * A cheap canonical-experiment lookup is the only preflight read for event-relative questions; the
- * model-side event router either binds that event to stored windows or asks for a stored date.
- */
+/** Prevents an undated event from being silently converted to a generic recent window. */
 class TrudyLongitudinalPreflightPlanner(
     private val delegate: TrudyPreflightPlanner
 ) : TrudyPreflightPlanner {
     override fun plan(request: TrudyAskRequest): List<TrudyToolOperation> {
-        val event = TrudyEventReferenceParser.parse(request.userMessage)
-        if (event != null) {
+        if (TrudyEventReferenceParser.parse(request.userMessage) != null) {
+            // This inexpensive lookup is also useful for non-explicit "experiment" wording: a
+            // personal event can bind to a genuinely matching saved protocol by title/intervention.
             return listOf(GetCanonicalExperiments(TrudyCanonicalExperimentStatus.ANY, EVENT_LOOKUP_LIMIT))
         }
 
@@ -95,8 +93,8 @@ class TrudyLongitudinalPreflightPlanner(
         val planned = delegate.plan(request)
         if (!asksForPhaseTiming(request.userMessage)) return planned
 
-        // Preserve the authoritative investigation/comparison and add only bounded raw windows for
-        // deterministic shift detection. This is intentionally limited to three metrics.
+        // Keep the authoritative comparison/investigation, adding at most three bounded raw series
+        // so the final response guard can run deterministic phase-shift detection.
         val raw = planned.asSequence().flatMap { operation ->
             when (operation) {
                 is CompareBaseline -> sequenceOf(
@@ -121,10 +119,8 @@ class TrudyLongitudinalPreflightPlanner(
         return (planned + raw).distinct().take(MAX_PLANNED_OPERATIONS)
     }
 
-    private fun isBareWhy(text: String): Boolean {
-        val normalized = TrudyEventReferenceParser.normalize(text).trim()
-        return normalized in setOf("why", "why is that", "why would that be", "how come", "and why")
-    }
+    private fun isBareWhy(text: String): Boolean =
+        TrudyEventReferenceParser.normalize(text) in setOf("why", "why is that", "why would that be", "how come", "and why")
 
     private fun asksForPhaseTiming(text: String): Boolean {
         val normalized = TrudyEventReferenceParser.normalize(text)
@@ -145,15 +141,15 @@ class TrudyLongitudinalPreflightPlanner(
 }
 
 /**
- * Runs inside the existing Answer Engine boundary. It can request existing deterministic tools, but
- * never calculates a health conclusion itself.
+ * Sits inside the existing Answer Engine boundary. It may request existing deterministic tools when
+ * a saved event is resolved, but never calculates the final health conclusion itself.
  */
 class TrudyLongitudinalModelClient(
     private val delegate: TrudyModelClient
 ) : TrudyModelClient {
     override suspend fun complete(request: TrudyModelRequest): TrudyModelResult {
         val event = TrudyEventReferenceParser.parse(request.userRequest)
-        if (event != null && request.toolResults.none { it is ChangeInvestigationResult }) {
+        if (event != null && !hasCompletedEventAnalysis(request.toolResults)) {
             val canonical = request.toolResults.filterIsInstance<CanonicalExperimentsResult>().lastOrNull()
             if (canonical != null) {
                 val experiment = TrudyCanonicalEventMatcher.match(event, canonical.experiments)
@@ -168,36 +164,36 @@ class TrudyLongitudinalModelClient(
                     )
                 }
                 return TrudyModelResult(
-                    requestedTools = listOf(buildEventInvestigation(request.userRequest, experiment)),
+                    requestedTools = listOf(buildEventAnalysis(request.userRequest, experiment)),
                     metadata = TrudyModelMetadata(
                         provider = "longitudinal-boundary",
                         model = "canonical-event-router",
-                        attributes = mapOf(
-                            "eventDateResolved" to "true",
-                            "experimentId" to experiment.id
-                        )
+                        attributes = mapOf("eventDateResolved" to "true", "experimentId" to experiment.id)
                     )
                 )
             }
         }
 
         val hints = TrudyLongitudinalContextHints.build(request)
-        val enriched = if (hints.isBlank()) request else request.copy(
-            systemInstruction = request.systemInstruction + "\n\n" + hints
+        return delegate.complete(
+            if (hints.isBlank()) request else request.copy(
+                systemInstruction = request.systemInstruction + "\n\n" + hints
+            )
         )
-        return delegate.complete(enriched)
     }
 
-    private fun buildEventInvestigation(
-        text: String,
-        experiment: TrudyCanonicalExperiment
-    ): TrudyToolOperation {
+    private fun hasCompletedEventAnalysis(results: List<TrudyToolResult>): Boolean = results.any { result ->
+        result is ChangeInvestigationResult || result is BaselineComparisonResult ||
+            result is CanonicalExperimentEvaluationResult ||
+            result is TrudyToolResult.Failure &&
+            (result.operation is InvestigateChange || result.operation is CompareBaseline || result.operation is EvaluateCanonicalExperiment)
+    }
+
+    private fun buildEventAnalysis(text: String, experiment: TrudyCanonicalExperiment): TrudyToolOperation {
         val selected = TrudySystemCatalog.metricsMentioned(text)
-        val intent = when {
-            listOf("why", "explain", "could", "affect").any { it in text.lowercase() } ->
-                TrudyInvestigationIntent.WHAT_MIGHT_EXPLAIN
-            else -> TrudyInvestigationIntent.WHAT_CHANGED
-        }
+        val intent = if (listOf("why", "explain", "could", "affect").any { it in text.lowercase() }) {
+            TrudyInvestigationIntent.WHAT_MIGHT_EXPLAIN
+        } else TrudyInvestigationIntent.WHAT_CHANGED
         val relevance = TrudyInvestigationRelevanceGraph.plan(text, selected, intent)
         val fallbackMetric = selected.firstOrNull()
             ?: TrudySystemCatalog.metric(experiment.targetDomain, experiment.targetMetricId)
@@ -219,13 +215,10 @@ class TrudyLongitudinalModelClient(
         }
         val lookbackDays = daysSpanned(experiment.baselineWindow, experiment.interventionWindow)
         if (lookbackDays > MAX_INVESTIGATION_LOOKBACK_DAYS) {
+            // The cross-domain investigator is intentionally capped at 90 days. Preserve the exact
+            // event windows with a single deterministic comparison rather than widening that cap.
             val target = targets.first()
-            return CompareBaseline(
-                target.domain,
-                target.metricId,
-                experiment.interventionWindow,
-                experiment.baselineWindow
-            )
+            return CompareBaseline(target.domain, target.metricId, experiment.interventionWindow, experiment.baselineWindow)
         }
         return InvestigateChange(
             targets = targets.take(MAX_EVENT_TARGETS),
@@ -268,12 +261,11 @@ class TrudyLongitudinalModelClient(
         event: TrudyEventReference,
         persistence: TrudyExperimentPersistenceState
     ): String {
-        val eventName = event.label.ifBlank { "that change" }
-        val repositoryNote = if (persistence == TrudyExperimentPersistenceState.NOT_CONNECTED) {
+        val repoNote = if (persistence == TrudyExperimentPersistenceState.NOT_CONNECTED) {
             " The Experiments screen is still presentation-only, so there isn't a canonical experiment timeline I can use instead."
         } else ""
-        return "I can compare your data around $eventName, but Project Superhuman doesn't have a stored date for that event. " +
-            "I won't substitute a generic recent window and pretend it's the same thing.$repositoryNote"
+        return "I can compare your data around ${event.label}, but Project Superhuman doesn't have a stored date for that event. " +
+            "I won't substitute a generic recent window and pretend it's the same thing.$repoNote"
     }
 
     private companion object {
@@ -285,41 +277,40 @@ class TrudyLongitudinalModelClient(
     }
 }
 
+/** Matches event wording only against genuine canonical experiment fields. */
 object TrudyCanonicalEventMatcher {
     fun match(event: TrudyEventReference, experiments: List<TrudyCanonicalExperiment>): TrudyCanonicalExperiment? {
         if (experiments.isEmpty()) return null
         val active = experiments.filter { it.status == TrudyCanonicalExperimentStatus.ACTIVE }
         if (event.kind == TrudyEventReferenceKind.CANONICAL_EXPERIMENT &&
             (event.label == "the experiment" || tokenise(event.label).isEmpty())
-        ) {
-            return (active.ifEmpty { experiments }).maxByOrNull { it.updatedEpochMs }
-        }
+        ) return (active.ifEmpty { experiments }).maxByOrNull { it.updatedEpochMs }
 
         val eventTokens = tokenise(event.label)
         if (eventTokens.isEmpty()) return null
-        val ranked = experiments.map { experiment ->
+        return experiments.map { experiment ->
             val candidate = tokenise("${experiment.title} ${experiment.hypothesis} ${experiment.intervention}")
-            val overlap = eventTokens.intersect(candidate).size.toDouble()
-            val score = overlap / eventTokens.size.toDouble().coerceAtLeast(1.0)
+            val score = eventTokens.intersect(candidate).size.toDouble() / eventTokens.size.toDouble().coerceAtLeast(1.0)
             experiment to score
-        }.sortedWith(compareByDescending<Pair<TrudyCanonicalExperiment, Double>> { it.second }
-            .thenByDescending { it.first.status == TrudyCanonicalExperimentStatus.ACTIVE }
-            .thenByDescending { it.first.updatedEpochMs })
-        return ranked.firstOrNull { it.second >= MIN_EVENT_MATCH }?.first
+        }.sortedWith(
+            compareByDescending<Pair<TrudyCanonicalExperiment, Double>> { it.second }
+                .thenByDescending { it.first.status == TrudyCanonicalExperimentStatus.ACTIVE }
+                .thenByDescending { it.first.updatedEpochMs }
+        ).firstOrNull { it.second >= MIN_EVENT_MATCH }?.first
     }
 
     private fun tokenise(text: String): Set<String> = TrudyEventReferenceParser.normalize(text)
-        .split(' ')
-        .asSequence()
-        .map(::stem)
-        .filter { it.length >= 3 && it !in STOPWORDS }
-        .toSet()
+        .split(' ').asSequence().map(::stem)
+        .filter { it.length >= 3 && it !in STOPWORDS }.toSet()
 
-    private fun stem(token: String): String = when {
-        token.length > 5 && token.endsWith("ing") -> token.dropLast(3)
-        token.length > 4 && token.endsWith("ed") -> token.dropLast(2)
-        token.length > 4 && token.endsWith("s") -> token.dropLast(1)
-        else -> token
+    private fun stem(token: String): String {
+        val raw = when {
+            token.length > 5 && token.endsWith("ing") -> token.dropLast(3)
+            token.length > 4 && token.endsWith("ed") -> token.dropLast(2)
+            token.length > 4 && token.endsWith("s") -> token.dropLast(1)
+            else -> token
+        }
+        return if (raw.length >= 4 && raw.takeLast(2).let { it[0] == it[1] }) raw.dropLast(1) else raw
     }
 
     private val STOPWORDS = setOf(
@@ -329,7 +320,6 @@ object TrudyCanonicalEventMatcher {
     private const val MIN_EVENT_MATCH = 0.34
 }
 
-/** Deterministic candidate shift in one metric; descriptive only, never causal. */
 data class TrudyDetectedPhaseShift(
     val domain: HealthDomain,
     val metricId: String,
@@ -342,24 +332,18 @@ data class TrudyDetectedPhaseShift(
     val score: Double
 )
 
+/** Simple bounded daily change-point candidate detector; descriptive only. */
 object TrudyPhaseShiftDetector {
     fun detect(rows: List<TrudyMetricEvidence>): TrudyDetectedPhaseShift? {
         val usable = rows.filter { it.value.isFinite() && it.timestampEpochMs >= 0L }
         val first = usable.firstOrNull() ?: return null
         if (usable.any { it.domain != first.domain || it.metricId != first.metricId }) return null
-
-        val daily = usable.groupBy { it.timestampEpochMs / DAY_MS }
-            .map { (_, dayRows) ->
-                DayPoint(
-                    epochMs = dayRows.maxOf { it.timestampEpochMs },
-                    value = dayRows.map { it.value }.average()
-                )
-            }
-            .sortedBy { it.epochMs }
+        val daily = usable.groupBy { it.timestampEpochMs / DAY_MS }.map { (_, dayRows) ->
+            DayPoint(dayRows.maxOf { it.timestampEpochMs }, dayRows.map { it.value }.average())
+        }.sortedBy { it.epochMs }
         if (daily.size < MIN_DAILY_POINTS) return null
 
-        val allValues = daily.map { it.value }
-        val overallSd = standardDeviation(allValues)
+        val overallSd = standardDeviation(daily.map { it.value })
         var best: TrudyDetectedPhaseShift? = null
         for (split in MIN_SIDE_POINTS..(daily.size - MIN_SIDE_POINTS)) {
             val before = daily.take(split)
@@ -377,15 +361,8 @@ object TrudyPhaseShiftDetector {
             val score = (relative * 3.0).coerceAtMost(3.0) + standardized.coerceAtMost(3.0) + stability
             if (score < MIN_SCORE) continue
             val candidate = TrudyDetectedPhaseShift(
-                domain = first.domain,
-                metricId = first.metricId,
-                shiftEpochMs = after.first().epochMs,
-                beforeMean = beforeMean,
-                afterMean = afterMean,
-                relativeChange = delta / scale,
-                standardizedChange = delta / noiseFloor,
-                dailySampleCount = daily.size,
-                score = score
+                first.domain, first.metricId, after.first().epochMs, beforeMean, afterMean,
+                delta / scale, delta / noiseFloor, daily.size, score
             )
             if (best == null || candidate.score > best.score) best = candidate
         }
@@ -394,8 +371,7 @@ object TrudyPhaseShiftDetector {
 
     private fun postShiftStability(values: List<Double>, noiseFloor: Double): Double {
         if (values.size < MIN_SIDE_POINTS) return 0.0
-        val sd = standardDeviation(values)
-        return (1.0 - (sd / (noiseFloor * 2.0)).coerceIn(0.0, 1.0)) * 0.5
+        return (1.0 - (standardDeviation(values) / (noiseFloor * 2.0)).coerceIn(0.0, 1.0)) * 0.5
     }
 
     private fun standardDeviation(values: List<Double>): Double {
@@ -406,7 +382,6 @@ object TrudyPhaseShiftDetector {
     }
 
     private data class DayPoint(val epochMs: Long, val value: Double)
-
     private const val DAY_MS = 86_400_000L
     private const val MIN_DAILY_POINTS = 8
     private const val MIN_SIDE_POINTS = 4
@@ -418,18 +393,15 @@ object TrudyPhaseShiftDetector {
     private const val EPSILON = 0.000001
 }
 
-/** Adds high-signal longitudinal context for local/hosted synthesis without exposing internal labels. */
+/** High-signal guidance for hosted/local synthesis; all inputs were already deterministically read. */
 object TrudyLongitudinalContextHints {
     fun build(request: TrudyModelRequest): String {
         val notes = mutableListOf<String>()
-        val investigation = request.toolResults.filterIsInstance<ChangeInvestigationResult>().lastOrNull()
-        investigation?.let { result ->
+        request.toolResults.filterIsInstance<ChangeInvestigationResult>().lastOrNull()?.let { result ->
             val structured = result.investigation.structuredResult
             if (structured.importantFindings.size >= 2) {
                 val changes = structured.importantFindings.sortedByDescending { it.priorityScore }.take(3)
-                    .joinToString { finding ->
-                        "${humanMetricLabel(finding.metricId)} ${if (finding.absoluteDelta >= 0) "moved higher" else "moved lower"}"
-                    }
+                    .joinToString { "${humanMetricLabel(it.metricId)} ${if (it.absoluteDelta >= 0) "moved higher" else "moved lower"}" }
                 notes += "Several tracked signals changed together: $changes. Synthesize them as one state where useful instead of dumping separate findings."
             }
             prioritizedMissing(result).take(2).takeIf { it.isNotEmpty() }?.let { missing ->
@@ -439,9 +411,8 @@ object TrudyLongitudinalContextHints {
                 notes += "The user's subjective sleep experience conflicts with the tracked sleep direction. Preserve both: a wearable can estimate sleep patterns but cannot measure how restorative the night felt."
             }
         }
-
         sourceDisagreement(request.toolResults)?.let { notes += it.modelHint }
-        clinicalBoundaryHint(request.toolResults)?.let { notes += it }
+        clinicalBoundaryHint(request.toolResults)?.let(notes::add)
         if (notes.isEmpty()) return ""
         return buildString {
             append("LONGITUDINAL SYNTHESIS NOTES — internal guidance, never repeat this heading to the user:\n")
@@ -450,9 +421,8 @@ object TrudyLongitudinalContextHints {
     }
 
     internal fun prioritizedMissing(result: ChangeInvestigationResult): List<Pair<HealthDomain, String>> {
-        val missing = result.investigation.missingMetrics.distinct()
         val weights = result.operation.related.associate { (it.domain to it.metricId) to it.relevanceWeight }
-        return missing.sortedByDescending { weights[it] ?: 0.25 }
+        return result.investigation.missingMetrics.distinct().sortedByDescending { weights[it] ?: 0.25 }
     }
 
     internal fun sourceDisagreement(results: List<TrudyToolResult>): SourceDisagreement? {
@@ -462,19 +432,16 @@ object TrudyLongitudinalContextHints {
                 .mapValues { (_, values) -> values.maxByOrNull { it.timestampEpochMs }!! }
             if (latestBySource.size < 2) return@mapNotNull null
             val points = latestBySource.values.sortedByDescending { it.timestampEpochMs }.take(3)
-            if (points.maxOf { it.timestampEpochMs } - points.minOf { it.timestampEpochMs } > SOURCE_COMPARISON_WINDOW_MS) {
-                return@mapNotNull null
-            }
+            if (points.maxOf { it.timestampEpochMs } - points.minOf { it.timestampEpochMs } > SOURCE_WINDOW_MS) return@mapNotNull null
             val min = points.minOf { it.value }
             val max = points.maxOf { it.value }
             val scale = max(abs(points.map { it.value }.average()), 1.0)
-            val tolerance = max(absoluteTolerance(points.first().metricId), scale * 0.03)
-            if (max - min <= tolerance) return@mapNotNull null
+            if (max - min <= max(absoluteTolerance(points.first().metricId), scale * 0.03)) return@mapNotNull null
             SourceDisagreement(
-                domain = points.first().domain,
-                metricId = points.first().metricId,
-                sources = points.map { friendlySource(it.source) }.distinct(),
-                modelHint = "Multiple sources disagree for ${humanMetricLabel(points.first().metricId)} within roughly the same day (${points.joinToString { "${friendlySource(it.source)}=${compactNumber(it.value)}" }}). Preserve the source distinction and do not silently average them into one fact."
+                points.first().domain,
+                points.first().metricId,
+                points.map { friendlySource(it.source) }.distinct(),
+                "Multiple sources disagree for ${humanMetricLabel(points.first().metricId)} within roughly the same day (${points.joinToString { "${friendlySource(it.source)}=${compactNumber(it.value)}" }}). Preserve the source distinction and do not silently average them into one fact."
             )
         }.firstOrNull()
     }
@@ -482,11 +449,8 @@ object TrudyLongitudinalContextHints {
     private fun clinicalBoundaryHint(results: List<TrudyToolResult>): String? {
         val clinical = results.flatMap(::metricRows).filter { it.domain == HealthDomain.CLINICAL }
         if (clinical.isEmpty()) return null
-        val conditions = clinical.filter {
-            it.metricId.startsWith("clinical.condition.") || it.metadata["profileType"] == "chronic-condition"
-        }
-        if (conditions.isNotEmpty()) {
-            return "Clinical condition records in this context are recorded Project Superhuman conditions. Do not call them clinician-confirmed unless explicit provenance says so, and do not convert symptoms or lab values into diagnoses."
+        if (clinical.any { it.metricId.startsWith("clinical.condition.") || it.metadata["profileType"] == "chronic-condition" }) {
+            return "Clinical condition records here are recorded Project Superhuman conditions. Do not call them clinician-confirmed unless explicit provenance says so, and do not convert symptoms or lab values into diagnoses."
         }
         if (clinical.any { row -> row.metadata.keys.any { it in setOf("rangeLow", "rangeHigh", "status", "rangeSource") } }) {
             return "Clinical values here are recorded lab results. An out-of-range marker is a measurement finding, not a diagnosis."
@@ -496,10 +460,10 @@ object TrudyLongitudinalContextHints {
 
     private fun isSubjectiveSleepConflict(text: String, result: ChangeInvestigationResult): Boolean {
         val t = text.lowercase()
-        if (listOf("awful", "terrible", "unrested", "not refreshed", "felt worse", "feel worse").none { it in t }) return false
-        if (listOf("sleep", "slept", "night").none { it in t }) return false
-        return result.investigation.premiseAssessment == TrudyPremiseAssessment.NOT_SUPPORTED ||
-            result.investigation.premiseAssessment == TrudyPremiseAssessment.MIXED
+        return listOf("awful", "terrible", "unrested", "not refreshed", "felt worse", "feel worse").any { it in t } &&
+            listOf("sleep", "slept", "night").any { it in t } &&
+            (result.investigation.premiseAssessment == TrudyPremiseAssessment.NOT_SUPPORTED ||
+                result.investigation.premiseAssessment == TrudyPremiseAssessment.MIXED)
     }
 
     internal fun metricRows(result: TrudyToolResult): List<TrudyMetricEvidence> = when (result) {
@@ -544,13 +508,13 @@ object TrudyLongitudinalContextHints {
         val modelHint: String
     )
 
-    private const val SOURCE_COMPARISON_WINDOW_MS = 24L * 3_600_000L
+    private const val SOURCE_WINDOW_MS = 24L * 3_600_000L
     private const val MAX_HINTS = 5
 }
 
 /**
- * Final constrained language guard. It never replaces the Answer Engine; it only naturalizes a few
- * internal phrases and appends deterministic context that would otherwise be easy to lose.
+ * Final constrained wording guard. It naturalizes a small set of internal phrases and can append
+ * deterministic conflict/provenance/missing-context notes; it does not replace answer synthesis.
  */
 class TrudyLongitudinalResponseGuard(
     private val delegate: TrudyModelClient,
@@ -564,64 +528,50 @@ class TrudyLongitudinalResponseGuard(
 
         val additions = mutableListOf<String>()
         val investigation = request.toolResults.filterIsInstance<ChangeInvestigationResult>().lastOrNull()
-
         if (asksForPhaseTiming(request.userRequest)) {
-            val shift = bestShift(request)
-            if (shift != null) {
+            bestShift(request)?.let { shift ->
                 val daysAgo = ((nowEpochMs() - shift.shiftEpochMs).coerceAtLeast(0L) / DAY_MS).toInt()
                 additions += "The clearest shift I can see is about ${daysAgo.coerceAtLeast(0)} days ago: ${humanMetricLabel(shift.metricId).lowercase()} moved from roughly ${TrudyLongitudinalContextHints.compactNumber(shift.beforeMean)} to ${TrudyLongitudinalContextHints.compactNumber(shift.afterMean)}."
-            } else {
+            } ?: run {
                 additions += "I don't see a clean single break point in the available measurements; the change may be gradual or too noisy to date confidently."
             }
         }
-
-        if (investigation != null && subjectiveSleepConflict(request.userRequest, investigation) &&
-            "wearable" !in answer.lowercase()
-        ) {
+        if (investigation != null && subjectiveSleepConflict(request.userRequest, investigation) && "wearable" !in answer.lowercase()) {
             additions += "Your tracked sleep metrics and how you felt don't fully line up here; a wearable can estimate sleep patterns, but it can't measure how restorative the night felt."
         }
-
         if (investigation != null && shouldExplainMissing(request.userRequest)) {
             val missing = TrudyLongitudinalContextHints.prioritizedMissing(investigation).take(2)
             if (missing.isNotEmpty() && missing.none { humanMetricLabel(it.second).lowercase() in answer.lowercase() }) {
                 additions += "The most useful missing context is ${naturalList(missing.map { humanMetricLabel(it.second).lowercase() })}; that would help separate the leading explanations."
             }
         }
-
         TrudyLongitudinalContextHints.sourceDisagreement(request.toolResults)?.let { disagreement ->
             if (disagreement.sources.none { it.lowercase() in answer.lowercase() }) {
                 additions += "I also have different same-day ${humanMetricLabel(disagreement.metricId).lowercase()} readings from ${naturalList(disagreement.sources)}; I wouldn't collapse those into one number."
             }
         }
-
         provenanceBoundary(request)?.let { boundary ->
             if (boundary.keywords.none { it in answer.lowercase() }) additions += boundary.text
         }
-
         if (investigation != null && investigation.investigation.structuredResult.importantFindings.size >= 3 &&
             listOf("why", "what changed", "explain").any { it in request.userRequest.lowercase() } &&
             "changed together" !in answer.lowercase()
         ) {
             val grouped = investigation.investigation.structuredResult.importantFindings
                 .sortedByDescending { it.priorityScore }.take(3)
-                .map { finding ->
-                    "${humanMetricLabel(finding.metricId).lowercase()} moved ${if (finding.absoluteDelta >= 0) "higher" else "lower"}"
-                }
+                .map { "${humanMetricLabel(it.metricId).lowercase()} moved ${if (it.absoluteDelta >= 0) "higher" else "lower"}" }
             additions += "Several signals changed together: ${naturalList(grouped)}."
         }
-
         additions.distinct().take(MAX_ADDITIONS).forEach { sentence ->
-            if (sentence.lowercase() !in answer.lowercase()) answer += " " + sentence
+            if (sentence.lowercase() !in answer.lowercase()) answer += " $sentence"
         }
         return result.copy(responseText = answer.trim())
     }
 
     private fun bestShift(request: TrudyModelRequest): TrudyDetectedPhaseShift? {
-        val preferred = TrudySystemCatalog.metricsMentioned(request.userRequest)
-            .map { it.domain to it.metricId }.toSet()
+        val preferred = TrudySystemCatalog.metricsMentioned(request.userRequest).map { it.domain to it.metricId }.toSet()
         val candidates = request.toolResults.flatMap(TrudyLongitudinalContextHints::metricRows)
-            .groupBy { it.domain to it.metricId }
-            .mapNotNull { (_, rows) -> TrudyPhaseShiftDetector.detect(rows) }
+            .groupBy { it.domain to it.metricId }.mapNotNull { (_, rows) -> TrudyPhaseShiftDetector.detect(rows) }
         return candidates.sortedWith(
             compareByDescending<TrudyDetectedPhaseShift> { (it.domain to it.metricId) in preferred }
                 .thenByDescending { it.score }
@@ -706,7 +656,6 @@ class TrudyLongitudinalResponseGuard(
     }
 
     private data class ProvenanceBoundary(val text: String, val keywords: List<String>)
-
     private companion object {
         const val DAY_MS = 86_400_000L
         const val MAX_ADDITIONS = 3
