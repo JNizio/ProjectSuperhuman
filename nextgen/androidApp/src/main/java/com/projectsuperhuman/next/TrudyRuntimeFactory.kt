@@ -11,6 +11,7 @@ import com.projectsuperhuman.next.trudy.LocalTrudyModelEngine
 import com.projectsuperhuman.next.trudy.OfflineDeterministicTrudyModelClient
 import com.projectsuperhuman.next.trudy.TrudyAnswerEngineModelClient
 import com.projectsuperhuman.next.trudy.TrudyAnswerTurnRegistry
+import com.projectsuperhuman.next.trudy.TrudyCachedPersonalEvidenceSource
 import com.projectsuperhuman.next.trudy.TrudyCanonicalExperimentRepository
 import com.projectsuperhuman.next.trudy.TrudyConversationAwarePreflightPlanner
 import com.projectsuperhuman.next.trudy.TrudyConversationPlanningContextHolder
@@ -107,7 +108,9 @@ internal object TrudyRuntimeFactory {
             )
             val context = TrudyHealthContextService(parity)
             val healthTools = TrudyHealthToolService(context)
-            val evidenceSource = HealthContextPersonalEvidenceSource(context)
+            val evidenceSource = TrudyCachedPersonalEvidenceSource(
+                HealthContextPersonalEvidenceSource(context)
+            )
             val intelligenceTools = TrudyIntelligenceToolService(
                 library = TrudyPersonalEvidenceLibrary(evidenceSource),
                 source = evidenceSource,
