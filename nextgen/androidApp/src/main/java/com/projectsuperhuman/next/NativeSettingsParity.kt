@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,13 +44,15 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
 
-private val SettingsNavy = Color(0xFF082D66)
-private val SettingsBlue = Color(0xFF0D6CB4)
-private val SettingsInk = Color(0xFF0B1F35)
-private val SettingsMuted = Color(0xFF64748B)
-private val SettingsGreen = Color(0xFF168A78)
-private val SettingsRed = Color(0xFFCA3A3A)
-private val SettingsBg = Color(0xFFF6F9FC)
+private val SettingsNavy get() = superhumanBrandText
+private val SettingsBlue get() = superhumanBlue
+private val SettingsInk get() = superhumanTextPrimary
+private val SettingsMuted get() = superhumanTextMuted
+private val SettingsGreen get() = superhumanGreen
+private val SettingsRed get() = superhumanRed
+private val SettingsBg get() = superhumanBackground
+private val SettingsCard get() = superhumanSurface
+private val SettingsSoft get() = superhumanSurfaceSoft
 
 @Composable
 internal fun NativeSettingsParity(openLegacy: () -> Unit) {
@@ -66,6 +71,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
     var status by remember { mutableStateOf("Data Vault ready") }
     var confirmReset by remember { mutableStateOf(false) }
     var confirmSyntheticClear by remember { mutableStateOf(false) }
+    val darkMode = SuperhumanAppearance.darkMode
 
     suspend fun refreshCounts() {
         storedCount = NativeDataHub.storedValueCountAsync()
@@ -144,9 +150,36 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Settings", color = SettingsInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
-        Text("Backup, restore, integrations and app controls.", color = SettingsMuted, fontSize = 11.sp)
+        Text("Appearance, backup, integrations and app controls.", color = SettingsMuted, fontSize = 11.sp)
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Appearance", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                    Text(if (darkMode) "Dark mode is on" else "Light mode is on", color = SettingsMuted, fontSize = 10.sp)
+                }
+                Text(if (darkMode) "DARK" else "LIGHT", color = if (darkMode) superhumanAccent else SettingsBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.fillMaxWidth()
+                    .background(SettingsSoft, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 13.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("Dark mode", color = SettingsInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("Use dark surfaces throughout Project Superhuman and match system-bar contrast.", color = SettingsMuted, fontSize = 8.sp, lineHeight = 12.sp)
+                }
+                Switch(
+                    checked = darkMode,
+                    onCheckedChange = { SuperhumanAppearance.setDarkMode(context, it) },
+                    modifier = Modifier.semantics { contentDescription = "Dark mode" }
+                )
+            }
+        }
+
+        Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Data Vault", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
@@ -190,7 +223,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             Text(status, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Developer mode", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
@@ -213,12 +246,12 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(
-                        Modifier.weight(1f).background(SettingsBg, RoundedCornerShape(12.dp)).clickable {
+                        Modifier.weight(1f).background(SettingsSoft, RoundedCornerShape(12.dp)).clickable {
                             developerEvents = DeveloperDiagnostics.latest(context, 18)
                         }.padding(10.dp), contentAlignment = Alignment.Center
                     ) { Text("REFRESH LOG", color = SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black) }
                     Box(
-                        Modifier.weight(1f).background(Color(0xFFFFF1F1), RoundedCornerShape(12.dp)).clickable {
+                        Modifier.weight(1f).background(superhumanErrorSurface, RoundedCornerShape(12.dp)).clickable {
                             DeveloperDiagnostics.clear(context); developerEvents = emptyList(); developerExportStatus = "Log cleared"
                         }.padding(10.dp), contentAlignment = Alignment.Center
                     ) { Text("CLEAR LOG", color = SettingsRed, fontSize = 9.sp, fontWeight = FontWeight.Black) }
@@ -249,7 +282,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             }
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Developer test data", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
@@ -348,7 +381,7 @@ private fun VaultButton(title: String, subtitle: String, accent: Color, onClick:
 @Composable
 private fun SyntheticSpanButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.background(if (selected) SettingsBlue else SettingsBg, RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 10.dp),
+        modifier.background(if (selected) SettingsBlue else SettingsSoft, RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(label, color = if (selected) Color.White else SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black)
@@ -357,7 +390,7 @@ private fun SyntheticSpanButton(label: String, selected: Boolean, modifier: Modi
 
 @Composable
 private fun SettingsSection(title: String, subtitle: String) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(18.dp)).padding(16.dp)) {
         Text(title, color = SettingsInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
         Text(subtitle, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
