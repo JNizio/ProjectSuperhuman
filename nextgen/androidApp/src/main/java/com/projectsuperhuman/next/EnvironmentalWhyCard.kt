@@ -16,16 +16,16 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun EnvironmentalWhyCard() {
-    val palette = superhumanPalette()
+    val palette = superhumanPalette
     Column(
         Modifier.fillMaxWidth()
-            .background(palette.surfaceAccent, RoundedCornerShape(22.dp))
+            .background(palette.accentSoft, RoundedCornerShape(22.dp))
             .padding(16.dp)
     ) {
-        Text("CONTEXT", color = palette.accent, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        Text("CONTEXT", color = palette.blue, fontSize = 9.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(6.dp))
-        Text("Useful alongside your daily patterns", color = palette.ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+        Text("Useful alongside your daily patterns", color = palette.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(4.dp))
-        Text("Local conditions add another layer of context when reviewing sleep, activity and routines.", color = palette.muted, fontSize = 9.sp, lineHeight = 14.sp)
+        Text("Local conditions add another layer of context when reviewing sleep, activity and routines.", color = palette.textMuted, fontSize = 9.sp, lineHeight = 14.sp)
     }
 }
