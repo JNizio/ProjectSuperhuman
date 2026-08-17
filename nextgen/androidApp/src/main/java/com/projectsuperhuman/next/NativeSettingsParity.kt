@@ -162,9 +162,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             }
             Spacer(Modifier.height(10.dp))
             Row(
-                Modifier.fillMaxWidth()
-                    .background(SettingsSoft, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 13.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().background(SettingsSoft, RoundedCornerShape(16.dp)).padding(horizontal = 13.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -245,23 +243,17 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             if (developerMode) {
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        Modifier.weight(1f).background(SettingsSoft, RoundedCornerShape(12.dp)).clickable {
-                            developerEvents = DeveloperDiagnostics.latest(context, 18)
-                        }.padding(10.dp), contentAlignment = Alignment.Center
-                    ) { Text("REFRESH LOG", color = SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black) }
-                    Box(
-                        Modifier.weight(1f).background(superhumanErrorSurface, RoundedCornerShape(12.dp)).clickable {
-                            DeveloperDiagnostics.clear(context); developerEvents = emptyList(); developerExportStatus = "Log cleared"
-                        }.padding(10.dp), contentAlignment = Alignment.Center
-                    ) { Text("CLEAR LOG", color = SettingsRed, fontSize = 9.sp, fontWeight = FontWeight.Black) }
+                    Box(Modifier.weight(1f).background(SettingsSoft, RoundedCornerShape(12.dp)).clickable { developerEvents = DeveloperDiagnostics.latest(context, 18) }.padding(10.dp), contentAlignment = Alignment.Center) {
+                        Text("REFRESH LOG", color = SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    }
+                    Box(Modifier.weight(1f).background(superhumanErrorSurface, RoundedCornerShape(12.dp)).clickable {
+                        DeveloperDiagnostics.clear(context); developerEvents = emptyList(); developerExportStatus = "Log cleared"
+                    }.padding(10.dp), contentAlignment = Alignment.Center) {
+                        Text("CLEAR LOG", color = SettingsRed, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    }
                 }
                 Spacer(Modifier.height(9.dp))
-                VaultButton(
-                    "Save diagnostics log",
-                    "Export device details and the full persistent runtime timeline as a .txt file",
-                    SettingsBlue
-                ) {
+                VaultButton("Save diagnostics log", "Export device details and the full persistent runtime timeline as a .txt file", SettingsBlue) {
                     developerEvents = DeveloperDiagnostics.latest(context, 18)
                     developerExportLauncher.launch("ProjectSuperhuman_diagnostics_${LocalDate.now()}.txt")
                 }
@@ -276,8 +268,8 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
                 Text("LATEST RUNTIME EVENTS", color = SettingsMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
                 if (developerEvents.isEmpty()) {
                     Text("No diagnostic events yet. Open Trudy and reproduce the issue, then return here.", color = SettingsMuted, fontSize = 8.sp, lineHeight = 12.sp)
-                } else {
-                    developerEvents.forEach { event -> Text(event, color = SettingsInk, fontSize = 7.5.sp, lineHeight = 11.sp, modifier = Modifier.padding(top = 2.dp)) }
+                } else developerEvents.forEach { event ->
+                    Text(event, color = SettingsInk, fontSize = 7.5.sp, lineHeight = 11.sp, modifier = Modifier.padding(top = 2.dp))
                 }
             }
         }
@@ -355,7 +347,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             Text(syntheticStatus, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
         }
 
-        H19cWearableCard()
+        ThemedH19cWearableCard()
         SettingsSection("Health integrations", "Health Connect and direct BLE wearable data share the same native Data Vault.")
         SettingsSection("Permissions", "Camera, barcode/OCR, Bluetooth and health permissions are requested only when the related feature needs them.")
         SettingsSection("Scientific engine", "Health scores and statuses use stored native metrics and explicit reference ranges; missing clinical ranges are not invented.")
@@ -366,10 +358,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
 
 @Composable
 private fun VaultButton(title: String, subtitle: String, accent: Color, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
+    Row(Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
             Text(subtitle, color = Color.White.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
@@ -380,10 +369,7 @@ private fun VaultButton(title: String, subtitle: String, accent: Color, onClick:
 
 @Composable
 private fun SyntheticSpanButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(
-        modifier.background(if (selected) SettingsBlue else SettingsSoft, RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 10.dp),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(modifier.background(if (selected) SettingsBlue else SettingsSoft, RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
         Text(label, color = if (selected) Color.White else SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black)
     }
 }
