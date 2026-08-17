@@ -6,23 +6,23 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun EnvironmentalMetricCard(metric: EnvironmentalMetricUi, modifier: Modifier) {
+    val palette = superhumanPalette()
     Column(
-        modifier.background(Color(0xFFF8FBFD), RoundedCornerShape(16.dp))
+        modifier.background(palette.surfaceRaised, RoundedCornerShape(16.dp))
             .padding(horizontal = 12.dp, vertical = 11.dp)
     ) {
-        Text(metric.label.uppercase(), color = Color(0xFF748294), fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(metric.label.uppercase(), color = palette.muted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
-        Text(metric.displayValue(), color = Color(0xFF123D70), fontSize = 17.sp, fontWeight = FontWeight.Black)
+        Text(metric.displayValue(), color = palette.ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
         metric.supportingText?.takeIf { it.isNotBlank() }?.let {
             Spacer(Modifier.height(3.dp))
-            Text(it, color = Color(0xFF748294), fontSize = 8.sp, maxLines = 2)
+            Text(it, color = palette.muted, fontSize = 8.sp, maxLines = 2)
         }
     }
 }
