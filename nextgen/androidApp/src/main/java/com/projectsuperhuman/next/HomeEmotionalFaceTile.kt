@@ -48,56 +48,34 @@ internal data class EmotionalFaceState(
     val warmth: Float = 0f
 )
 
-/** Pure presentation mapping. Missing axes contribute nothing; they are not treated as observations. */
 internal object EmotionalFaceMapper {
     fun from(values: Map<String, Int>): EmotionalFaceState {
-        fun positivePole(axis: String): Float? = values[axis]
-            ?.let(EmotionalPresentationContract::snap)
-            ?.let { -it / 100f }
-
+        fun positivePole(axis: String): Float? = values[axis]?.let(EmotionalPresentationContract::snap)?.let { -it / 100f }
         val happiness = positivePole(EmotionalPresentationContract.HAPPY_SAD)
         val calm = positivePole(EmotionalPresentationContract.CALM_ANXIOUS)
         val energy = positivePole(EmotionalPresentationContract.ENERGETIC_DRAINED)
         val confidence = positivePole(EmotionalPresentationContract.CONFIDENT_INSECURE)
         val connected = positivePole(EmotionalPresentationContract.CONNECTED_LONELY)
         val focus = positivePole(EmotionalPresentationContract.FOCUSED_DISTRACTED)
-
         val anxiety = (-valueOrNeutral(calm)).coerceAtLeast(0f)
         val sadness = (-valueOrNeutral(happiness)).coerceAtLeast(0f)
         val drained = (-valueOrNeutral(energy)).coerceAtLeast(0f)
         val insecure = (-valueOrNeutral(confidence)).coerceAtLeast(0f)
         val distracted = (-valueOrNeutral(focus)).coerceAtLeast(0f)
-
         return EmotionalFaceState(
-            mouthCurve = weightedAverage(
-                happiness to 0.74f,
-                confidence to 0.14f,
-                connected to 0.12f
-            ).coerceIn(-1f, 1f),
-            mouthOpen = (
-                valueOrNeutral(energy).coerceAtLeast(0f) * 0.17f +
-                    abs(valueOrNeutral(happiness)) * 0.08f
-                ).coerceIn(0f, 0.25f),
-            eyeOpen = (
-                0.56f + anxiety * 0.20f + valueOrNeutral(energy) * 0.13f +
-                    valueOrNeutral(focus) * 0.05f - drained * 0.13f
-                ).coerceIn(0.28f, 0.86f),
-            browRaise = (anxiety * 0.62f + valueOrNeutral(energy) * 0.10f - sadness * 0.12f)
-                .coerceIn(-0.25f, 0.72f),
+            mouthCurve = weightedAverage(happiness to 0.74f, confidence to 0.14f, connected to 0.12f).coerceIn(-1f, 1f),
+            mouthOpen = (valueOrNeutral(energy).coerceAtLeast(0f) * 0.17f + abs(valueOrNeutral(happiness)) * 0.08f).coerceIn(0f, 0.25f),
+            eyeOpen = (0.56f + anxiety * 0.20f + valueOrNeutral(energy) * 0.13f + valueOrNeutral(focus) * 0.05f - drained * 0.13f).coerceIn(0.28f, 0.86f),
+            browRaise = (anxiety * 0.62f + valueOrNeutral(energy) * 0.10f - sadness * 0.12f).coerceIn(-0.25f, 0.72f),
             browTension = (anxiety * 0.76f + insecure * 0.24f).coerceIn(0f, 1f),
             eyelidDroop = (drained * 0.68f + sadness * 0.18f - anxiety * 0.18f).coerceIn(0f, 0.82f),
             pupilDrift = (distracted * 0.12f).coerceIn(0f, 0.12f),
-            cheekLift = (
-                valueOrNeutral(happiness).coerceAtLeast(0f) * 0.72f +
-                    valueOrNeutral(energy).coerceAtLeast(0f) * 0.18f
-                ).coerceIn(0f, 0.9f),
-            warmth = weightedAverage(happiness to 0.55f, calm to 0.22f, connected to 0.23f)
-                .coerceIn(-1f, 1f)
+            cheekLift = (valueOrNeutral(happiness).coerceAtLeast(0f) * 0.72f + valueOrNeutral(energy).coerceAtLeast(0f) * 0.18f).coerceIn(0f, 0.9f),
+            warmth = weightedAverage(happiness to 0.55f, calm to 0.22f, connected to 0.23f).coerceIn(-1f, 1f)
         )
     }
 
     private fun valueOrNeutral(value: Float?): Float = value ?: 0f
-
     private fun weightedAverage(vararg inputs: Pair<Float?, Float>): Float {
         val observed = inputs.filter { it.first != null }
         if (observed.isEmpty()) return 0f
@@ -122,9 +100,7 @@ internal fun emotionalTileInterpretation(values: Map<String, Int>?): String {
 
 internal fun emotionalFreshnessLabel(snapshot: EmotionalPresentationSnapshot, nowEpochMs: Long): String {
     val timestamp = snapshot.recordedAtEpochMs
-    if (timestamp == null || timestamp <= 0L || timestamp > nowEpochMs) {
-        return snapshot.recordedAtLabel?.let { "Checked in $it" } ?: "Latest check-in"
-    }
+    if (timestamp == null || timestamp <= 0L || timestamp > nowEpochMs) return snapshot.recordedAtLabel?.let { "Checked in $it" } ?: "Latest check-in"
     val elapsedMinutes = (nowEpochMs - timestamp) / 60_000L
     return when {
         elapsedMinutes < 1L -> "Checked in just now"
@@ -138,28 +114,22 @@ internal fun emotionalFreshnessLabel(snapshot: EmotionalPresentationSnapshot, no
 @Composable
 internal fun HomeEmotionalFaceTile(current: EmotionalPresentationSnapshot?, onClick: () -> Unit) {
     val shape = RoundedCornerShape(25.dp)
-    val palette = superhumanPalette()
-    val dark = superhumanDarkMode()
+    val palette = superhumanPalette
+    val dark = SuperhumanAppearance.darkMode
     val observed = current?.axisValues.orEmpty()
     val faceState = EmotionalFaceMapper.from(observed)
     val interpretation = emotionalTileInterpretation(current?.axisValues)
-    val supportingText = current?.let { emotionalFreshnessLabel(it, System.currentTimeMillis()) }
-        ?: "Tap for a quick check-in"
-    val description = if (current == null) {
-        "Emotional check-in. No emotional check-in yet. $supportingText"
-    } else {
-        "Emotional check-in. $interpretation. $supportingText"
-    }
+    val supportingText = current?.let { emotionalFreshnessLabel(it, System.currentTimeMillis()) } ?: "Tap for a quick check-in"
+    val description = if (current == null) "Emotional check-in. No emotional check-in yet. $supportingText" else "Emotional check-in. $interpretation. $supportingText"
 
     Column(
-        Modifier
-            .fillMaxWidth()
+        Modifier.fillMaxWidth()
             .background(
                 Brush.horizontalGradient(
                     listOf(
                         palette.surface,
-                        palette.surfaceRaised.copy(alpha = if (dark) .90f else .50f),
-                        palette.surfaceAccent.copy(alpha = if (dark) .60f else .30f)
+                        palette.surfaceElevated.copy(alpha = if (dark) .90f else .50f),
+                        palette.accentSoft.copy(alpha = if (dark) .60f else .30f)
                     )
                 ),
                 shape
@@ -171,23 +141,19 @@ internal fun HomeEmotionalFaceTile(current: EmotionalPresentationSnapshot?, onCl
             .padding(horizontal = 18.dp, vertical = 16.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("EMOTIONAL", color = palette.muted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Text("→", color = palette.soft, fontSize = 23.sp)
+            Text("EMOTIONAL", color = palette.textMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Text("→", color = palette.textMuted, fontSize = 23.sp)
         }
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AnimatedEmotionalFace(
-                target = faceState,
-                hasData = current != null,
-                modifier = Modifier.size(104.dp)
-            )
+            AnimatedEmotionalFace(faceState, current != null, Modifier.size(104.dp))
             Column(Modifier.weight(1f).padding(start = 17.dp)) {
-                Text(interpretation, color = palette.ink, fontSize = 19.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black)
+                Text(interpretation, color = palette.brandText, fontSize = 19.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(5.dp))
-                Text(supportingText, color = palette.muted, fontSize = 9.sp, lineHeight = 13.sp)
+                Text(supportingText, color = palette.textMuted, fontSize = 9.sp, lineHeight = 13.sp)
                 if (current != null && observed.size < EmotionalPresentationContract.axisIds.size) {
                     Spacer(Modifier.height(5.dp))
-                    Text("Based on ${observed.size} of 6 signals", color = palette.accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("Based on ${observed.size} of 6 signals", color = palette.blue, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -206,8 +172,8 @@ private fun AnimatedEmotionalFace(target: EmotionalFaceState, hasData: Boolean, 
     val pupilDrift by animateFloatAsState(target.pupilDrift, animation, label = "emotional-pupil")
     val cheekLift by animateFloatAsState(target.cheekLift, animation, label = "emotional-cheek")
     val warmth by animateFloatAsState(target.warmth, animation, label = "emotional-warmth")
-    val dark = superhumanDarkMode()
-    val palette = superhumanPalette()
+    val dark = SuperhumanAppearance.darkMode
+    val palette = superhumanPalette
 
     Canvas(modifier = modifier) {
         val centre = Offset(size.width / 2f, size.height / 2f)
@@ -216,22 +182,14 @@ private fun AnimatedEmotionalFace(target: EmotionalFaceState, hasData: Boolean, 
         val cool = if (dark) Color(0xFF29445F) else Color(0xFFDDE7F5)
         val neutral = if (dark) Color(0xFF183040) else Color(0xFFE7F2F3)
         val tint = when {
-            !hasData -> if (dark) palette.surfaceRaised else Color(0xFFF0F4F6)
+            !hasData -> if (dark) palette.surfaceElevated else Color(0xFFF0F4F6)
             warmth >= 0f -> lerpColor(neutral, warm, warmth * 0.55f)
             else -> lerpColor(neutral, cool, -warmth * 0.55f)
         }
-        drawCircle(
-            brush = Brush.radialGradient(
-                listOf(if (dark) palette.surfaceRaised.copy(alpha = .95f) else Color.White.copy(alpha = .92f), tint),
-                centre,
-                radius
-            ),
-            radius = radius,
-            center = centre
-        )
+        drawCircle(Brush.radialGradient(listOf(if (dark) palette.surfaceElevated.copy(alpha = .95f) else Color.White.copy(alpha = .92f), tint), centre, radius), radius, centre)
         drawCircle(palette.border, radius, centre, style = Stroke(width = 1.2.dp.toPx()))
 
-        val ink = if (hasData) palette.ink.copy(alpha = .90f) else palette.soft
+        val ink = if (hasData) palette.textPrimary.copy(alpha = .90f) else palette.textMuted
         val eyeY = size.height * (0.43f - browRaise * 0.012f)
         val eyeDx = size.width * 0.18f
         val eyeWidth = size.width * 0.15f
@@ -240,31 +198,20 @@ private fun AnimatedEmotionalFace(target: EmotionalFaceState, hasData: Boolean, 
 
         listOf(-1f, 1f).forEach { side ->
             val eyeCentre = Offset(centre.x + eyeDx * side, eyeY)
-            drawOval(
-                color = if (dark) palette.surface.copy(alpha = .95f) else Color.White.copy(alpha = .92f),
-                topLeft = eyeCentre - Offset(eyeWidth / 2f, eyeHeight / 2f),
-                size = Size(eyeWidth, eyeHeight)
-            )
+            drawOval(if (dark) palette.surface.copy(alpha = .95f) else Color.White.copy(alpha = .92f), eyeCentre - Offset(eyeWidth / 2f, eyeHeight / 2f), Size(eyeWidth, eyeHeight))
             val drift = pupilDrift * size.width * 0.12f * side
             drawCircle(ink, pupilRadius, eyeCentre + Offset(drift, 0f))
-
             val browY = eyeY - size.height * (0.115f + browRaise * 0.055f)
             val innerLift = browTension * size.height * 0.035f
             val innerX = centre.x + side * size.width * 0.10f
             val outerX = centre.x + side * size.width * 0.26f
-            drawLine(
-                color = ink,
-                start = Offset(innerX, browY - innerLift),
-                end = Offset(outerX, browY + innerLift * 0.45f),
-                strokeWidth = 3.dp.toPx(),
-                cap = StrokeCap.Round
-            )
+            drawLine(ink, Offset(innerX, browY - innerLift), Offset(outerX, browY + innerLift * 0.45f), 3.dp.toPx(), StrokeCap.Round)
         }
 
         if (cheekLift > 0.05f) {
             val cheek = Color(0xFFE99191).copy(alpha = 0.08f + cheekLift * 0.12f)
-            drawOval(cheek, topLeft = Offset(size.width * 0.18f, size.height * 0.59f), size = Size(size.width * 0.18f, size.height * 0.08f))
-            drawOval(cheek, topLeft = Offset(size.width * 0.64f, size.height * 0.59f), size = Size(size.width * 0.18f, size.height * 0.08f))
+            drawOval(cheek, Offset(size.width * 0.18f, size.height * 0.59f), Size(size.width * 0.18f, size.height * 0.08f))
+            drawOval(cheek, Offset(size.width * 0.64f, size.height * 0.59f), Size(size.width * 0.18f, size.height * 0.08f))
         }
 
         val mouthCentreY = size.height * 0.68f
@@ -272,41 +219,23 @@ private fun AnimatedEmotionalFace(target: EmotionalFaceState, hasData: Boolean, 
         val curvePx = mouthCurve * size.height * 0.105f
         val mouth = Path().apply {
             moveTo(centre.x - mouthHalfWidth, mouthCentreY)
-            cubicTo(
-                centre.x - mouthHalfWidth * 0.45f,
-                mouthCentreY + curvePx,
-                centre.x + mouthHalfWidth * 0.45f,
-                mouthCentreY + curvePx,
-                centre.x + mouthHalfWidth,
-                mouthCentreY
-            )
+            cubicTo(centre.x - mouthHalfWidth * 0.45f, mouthCentreY + curvePx, centre.x + mouthHalfWidth * 0.45f, mouthCentreY + curvePx, centre.x + mouthHalfWidth, mouthCentreY)
         }
         drawPath(mouth, ink, style = Stroke(width = 3.2.dp.toPx(), cap = StrokeCap.Round))
         if (mouthOpen > 0.02f) {
-            drawOval(
-                color = ink.copy(alpha = 0.72f),
-                topLeft = Offset(centre.x - mouthHalfWidth * 0.46f, mouthCentreY + curvePx * 0.55f),
-                size = Size(mouthHalfWidth * 0.92f, size.height * mouthOpen * 0.12f)
-            )
+            drawOval(ink.copy(alpha = 0.72f), Offset(centre.x - mouthHalfWidth * 0.46f, mouthCentreY + curvePx * 0.55f), Size(mouthHalfWidth * 0.92f, size.height * mouthOpen * 0.12f))
         }
     }
 }
 
 private fun lerpColor(start: Color, end: Color, fraction: Float): Color {
     val t = fraction.coerceIn(0f, 1f)
-    return Color(
-        red = start.red + (end.red - start.red) * t,
-        green = start.green + (end.green - start.green) * t,
-        blue = start.blue + (end.blue - start.blue) * t,
-        alpha = start.alpha + (end.alpha - start.alpha) * t
-    )
+    return Color(start.red + (end.red - start.red) * t, start.green + (end.green - start.green) * t, start.blue + (end.blue - start.blue) * t, start.alpha + (end.alpha - start.alpha) * t)
 }
 
 @Preview(name = "Home Emotional · Empty", showBackground = true, backgroundColor = 0xFFF8FBFD)
 @Composable
-private fun HomeEmotionalFaceEmptyPreview() {
-    MaterialTheme { HomeEmotionalFaceTile(current = null, onClick = {}) }
-}
+private fun HomeEmotionalFaceEmptyPreview() { MaterialTheme { HomeEmotionalFaceTile(current = null, onClick = {}) } }
 
 @Preview(name = "Home Emotional · Mixed state", showBackground = true, backgroundColor = 0xFFF8FBFD)
 @Composable
