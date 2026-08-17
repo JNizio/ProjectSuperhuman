@@ -47,12 +47,16 @@ import kotlin.math.round
 import org.json.JSONArray
 import org.json.JSONObject
 
-private val EnvTimelineBg = Color(0xFFF8FBFD)
-private val EnvTimelineNavy = Color(0xFF123D70)
-private val EnvTimelineMuted = Color(0xFF748294)
-private val EnvTimelineBlue = Color(0xFF0D6CB4)
-private val EnvTimelineTeal = Color(0xFF168A78)
-private val EnvTimelineBorder = Color(0xFFDCE8F0)
+private val EnvTimelineBg: Color get() = superhumanBackground
+private val EnvTimelineSurface: Color get() = superhumanSurface
+private val EnvTimelineElevated: Color get() = superhumanSurfaceElevated
+private val EnvTimelineSoft: Color get() = superhumanSurfaceSoft
+private val EnvTimelineNavy: Color get() = superhumanBrandText
+private val EnvTimelineInk: Color get() = superhumanTextPrimary
+private val EnvTimelineMuted: Color get() = superhumanTextMuted
+private val EnvTimelineBlue: Color get() = superhumanBlue
+private val EnvTimelineTeal: Color get() = superhumanGreen
+private val EnvTimelineBorder: Color get() = superhumanBorder
 
 internal data class EnvironmentalDailyMetricRange(
     val metricId: String,
@@ -140,7 +144,7 @@ internal fun NativeEnvironmentalTimelineRoute(
                     is EnvironmentalLoadResult.Error -> EnvironmentalStateCard(
                         "environment_state_error", "Environmental data unavailable",
                         result.message ?: "Project Superhuman couldn't load the current environmental context.",
-                        Color(0xFFCA3A3A)
+                        superhumanRed
                     )
                 }
             }
@@ -154,7 +158,7 @@ internal fun NativeEnvironmentalTimelineRoute(
                     loading = true
                 )
                 is EnvironmentalDailyState.Error -> EnvironmentalStateCard(
-                    "environment_day_error", "Environmental day unavailable", state.message, Color(0xFFCA3A3A)
+                    "environment_day_error", "Environmental day unavailable", state.message, superhumanRed
                 )
                 is EnvironmentalDailyState.Ready -> {
                     val view = state.view
@@ -188,7 +192,7 @@ private fun EnvironmentalTimelineHeader(onBack: () -> Unit) {
         }
         Spacer(Modifier.width(12.dp))
         Column {
-            Text("Environment", color = Color(0xFF0B1F35), fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text("Environment", color = EnvTimelineInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
             Text("Local context for sleep, activity & wellbeing", color = EnvTimelineMuted, fontSize = 10.sp)
         }
     }
@@ -205,7 +209,7 @@ private fun EnvironmentalDateNavigator(
 ) {
     val shape = RoundedCornerShape(18.dp)
     Row(
-        Modifier.fillMaxWidth().background(Color.White, shape).border(1.dp, EnvTimelineBorder, shape)
+        Modifier.fillMaxWidth().background(EnvTimelineSurface, shape).border(1.dp, EnvTimelineBorder, shape)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -215,8 +219,13 @@ private fun EnvironmentalDateNavigator(
             Text(dateTitle(date, today), color = EnvTimelineNavy, fontSize = 13.sp, fontWeight = FontWeight.Black)
             Text(date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())), color = EnvTimelineMuted, fontSize = 8.sp)
             if (date != today) {
-                Text("TODAY", color = EnvTimelineBlue, fontSize = 7.sp, fontWeight = FontWeight.Black,
-                    modifier = Modifier.clickable(onClick = onToday).padding(top = 3.dp))
+                Text(
+                    "TODAY",
+                    color = EnvTimelineBlue,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.clickable(onClick = onToday).padding(top = 3.dp)
+                )
             }
         }
         ArrowButton("›", "Next day", canGoForward, onNext)
@@ -227,12 +236,12 @@ private fun EnvironmentalDateNavigator(
 private fun ArrowButton(symbol: String, description: String, enabled: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.width(48.dp).height(42.dp)
-            .background(if (enabled) Color(0xFFEAF4FA) else Color(0xFFF1F3F5), RoundedCornerShape(14.dp))
+            .background(if (enabled) EnvTimelineSoft else EnvTimelineElevated.copy(alpha = .72f), RoundedCornerShape(14.dp))
             .then(if (enabled) Modifier.clickable(onClick = onClick) else Modifier)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center
     ) {
-        Text(symbol, color = if (enabled) EnvTimelineNavy else Color(0xFFB7C0C8), fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Text(symbol, color = if (enabled) EnvTimelineNavy else EnvTimelineMuted.copy(alpha = .55f), fontSize = 28.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -240,10 +249,7 @@ private fun ArrowButton(symbol: String, description: String, enabled: Boolean, o
 private fun EnvironmentalDailyRangeCard(view: EnvironmentalDailyView) {
     val shape = RoundedCornerShape(29.dp)
     Column(
-        Modifier.fillMaxWidth()
-            .background(Color.White, shape)
-            .border(1.dp, EnvTimelineBorder, shape)
-            .padding(18.dp)
+        Modifier.fillMaxWidth().background(EnvTimelineSurface, shape).border(1.dp, EnvTimelineBorder, shape).padding(18.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
@@ -278,7 +284,7 @@ private fun EnvironmentalDailyRangeCard(view: EnvironmentalDailyView) {
 @Composable
 private fun DailyRangeMetric(range: EnvironmentalDailyMetricRange) {
     Column(
-        Modifier.width(145.dp).background(EnvTimelineBg, RoundedCornerShape(16.dp)).padding(11.dp)
+        Modifier.width(145.dp).background(EnvTimelineElevated, RoundedCornerShape(16.dp)).padding(11.dp)
     ) {
         Text(range.label.uppercase(), color = EnvTimelineMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
