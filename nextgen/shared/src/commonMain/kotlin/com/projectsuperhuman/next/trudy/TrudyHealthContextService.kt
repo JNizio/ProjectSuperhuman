@@ -5,10 +5,10 @@ import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
 import com.projectsuperhuman.next.core.MetricRegistry
 import com.projectsuperhuman.next.core.ModuleDataQuality
-import com.projectsuperhuman.next.core.ModuleDerivedFeatures
 import com.projectsuperhuman.next.core.ModuleInsightKind
 import com.projectsuperhuman.next.core.ModuleParityInsight
 import com.projectsuperhuman.next.core.ModuleParityService
+import com.projectsuperhuman.next.core.SYNTHETIC_DATA_SOURCE
 import com.projectsuperhuman.next.core.ScientificEngine
 import com.projectsuperhuman.next.core.ScientificInsight
 
@@ -17,6 +17,10 @@ import com.projectsuperhuman.next.core.ScientificInsight
  *
  * This deliberately depends only on shared core contracts/services. It has no SQLDelight,
  * repository implementation, Health Connect, OCR, UI, or transient workout-state dependency.
+ *
+ * Developer-generated synthetic rows are never personal evidence. Every raw read is filtered here,
+ * at the single shared Trudy boundary, so local/hosted models, investigations and evidence UI all
+ * inherit the same rule rather than relying on prompt instructions to remember it.
  */
 class TrudyHealthContextService(
     private val parity: ModuleParityService,
@@ -25,7 +29,7 @@ class TrudyHealthContextService(
 ) {
     suspend fun currentState(domain: HealthDomain): List<TrudyMetricEvidence> {
         val quality = dataQuality(domain)
-        return parity.currentState(domain).latestByMetric.map { it.toMetricEvidence(quality) }
+        return currentState(domain, quality)
     }
 
     suspend fun domainHistory(
@@ -33,9 +37,10 @@ class TrudyHealthContextService(
         limit: Int = DEFAULT_HISTORY_LIMIT,
         offset: Int = 0
     ): List<TrudyMetricEvidence> {
-        val history = parity.history(domain, limit.coerceIn(1, MAX_DOMAIN_HISTORY), offset.coerceAtLeast(0))
+        val safeLimit = limit.coerceIn(1, MAX_DOMAIN_HISTORY)
+        val safeOffset = offset.coerceAtLeast(0)
         val quality = dataQuality(domain)
-        return history.values.map { it.toMetricEvidence(quality) }
+        return realDomainHistory(domain, safeLimit, safeOffset).map { it.toMetricEvidence(quality) }
     }
 
     suspend fun metricHistory(
@@ -47,9 +52,9 @@ class TrudyHealthContextService(
         val safeLimit = limit.coerceIn(1, MAX_METRIC_HISTORY)
         val safeOffset = offset.coerceAtLeast(0)
         val canonicalMetric = canonicalMetric(domain, metricId)
-        val history = parity.metricHistory(domain, canonicalMetric, safeLimit, safeOffset)
         val quality = dataQuality(domain)
-        return history.values.map { it.toMetricEvidence(quality) }
+        return realMetricHistory(domain, canonicalMetric, safeLimit, safeOffset)
+            .map { it.toMetricEvidence(quality) }
     }
 
     suspend fun metricWindow(
@@ -58,28 +63,47 @@ class TrudyHealthContextService(
         range: TrudyTimeRange,
         limit: Int = DEFAULT_METRIC_WINDOW_LIMIT
     ): List<TrudyMetricEvidence> {
+        val safeLimit = limit.coerceIn(1, MAX_METRIC_HISTORY)
         val canonicalMetric = canonicalMetric(domain, metricId)
-        val history = parity.metricWindow(
+        val quality = dataQuality(domain)
+        val first = parity.metricWindow(
             domain = domain,
             metric = canonicalMetric,
             fromEpochMs = range.fromEpochMs,
             toEpochMs = range.toEpochMs,
-            limit = limit.coerceIn(1, MAX_METRIC_HISTORY)
-        )
-        val quality = dataQuality(domain)
-        return history.values.map { it.toMetricEvidence(quality) }
+            limit = safeLimit
+        ).values
+        val filtered = first.filterNot(::isSyntheticForTrudy)
+        val rows = if (first.any(::isSyntheticForTrudy) && filtered.size < safeLimit && first.size >= safeLimit) {
+            parity.metricWindow(
+                domain = domain,
+                metric = canonicalMetric,
+                fromEpochMs = range.fromEpochMs,
+                toEpochMs = range.toEpochMs,
+                limit = MAX_METRIC_HISTORY
+            ).values.filterNot(::isSyntheticForTrudy).take(safeLimit)
+        } else filtered.take(safeLimit)
+        return rows.map { it.toMetricEvidence(quality) }
     }
 
     suspend fun derivedFeatures(domain: HealthDomain): List<TrudyDerivedMetricEvidence> {
         val quality = dataQuality(domain)
+        // Module-parity derived values have intentionally lost row-level source identity. If the
+        // underlying domain contains developer synthetic history, suppress these aggregates rather
+        // than risk presenting a mixed real/synthetic trend as personal evidence. Raw deterministic
+        // comparisons remain available through metric-window tools.
+        if (containsRecentSynthetic(domain)) return emptyList()
         return parity.derivedFeatures(domain).toTrudyEvidence(domain, quality)
     }
 
     suspend fun insights(domain: HealthDomain): List<TrudyInsightEvidence> {
         val quality = dataQuality(domain)
-        val parityInsights = parity.insights(domain).map { it.toTrudyEvidence(quality) }
+        val hasSynthetic = containsRecentSynthetic(domain)
+        val parityInsights = if (hasSynthetic) emptyList() else {
+            parity.insights(domain).map { it.toTrudyEvidence(quality) }
+        }
         val science = scientificEngine ?: return parityInsights
-        val boundedValues = parity.history(domain, INTERPRETATION_HISTORY_LIMIT, 0).values
+        val boundedValues = realDomainHistory(domain, INTERPRETATION_HISTORY_LIMIT, 0)
         if (boundedValues.isEmpty()) return parityInsights
         val interpreted = science.interpret(boundedValues)
             .filter { it.domain == domain }
@@ -87,8 +111,36 @@ class TrudyHealthContextService(
         return parityInsights + interpreted
     }
 
-    suspend fun dataQuality(domain: HealthDomain): TrudyDataQualityEvidence =
-        parity.dataQuality(domain).toTrudyEvidence()
+    suspend fun dataQuality(domain: HealthDomain): TrudyDataQualityEvidence {
+        val parityQuality = parity.dataQuality(domain)
+        val probe = parity.history(domain, QUALITY_PROBE_LIMIT, 0).values
+        if (probe.none(::isSyntheticForTrudy)) return parityQuality.toTrudyEvidence()
+
+        val real = probe.filterNot(::isSyntheticForTrudy)
+        val latest = real.maxOfOrNull { it.timestampEpochMs }
+        val ageHours = latest?.let {
+            ((System.currentTimeMillis() - it).coerceAtLeast(0L)).toDouble() / HOUR_MS
+        }
+        val conservativeCap = when {
+            real.isEmpty() -> 0
+            real.size < 3 -> 35
+            real.size < 7 -> 50
+            real.size < 14 -> 65
+            else -> 90
+        }
+        return TrudyDataQualityEvidence(
+            domain = domain,
+            score = minOf(parityQuality.score, conservativeCap),
+            recordCount = real.size.toLong(),
+            distinctMetricCount = real.map { it.metric }.distinct().size,
+            latestTimestampEpochMs = latest,
+            ageHours = ageHours,
+            isStale = latest == null || (ageHours ?: Double.POSITIVE_INFINITY) > REAL_DATA_STALE_HOURS,
+            notes = (parityQuality.notes + "Developer synthetic rows were excluded from Trudy personal evidence.")
+                .distinct()
+                .take(MAX_QUALITY_NOTES)
+        )
+    }
 
     suspend fun context(request: TrudyContextRequest): TrudyHealthContext {
         val domainContexts = request.domains.map { domain ->
@@ -99,24 +151,82 @@ class TrudyHealthContextService(
 
             TrudyDomainContext(
                 domain = domain,
-                currentState = if (request.includeCurrentState) {
-                    parity.currentState(domain).latestByMetric.map { it.toMetricEvidence(quality) }
-                } else emptyList(),
+                currentState = if (request.includeCurrentState) currentState(domain, quality) else emptyList(),
                 history = if (request.includeHistory) {
-                    parity.history(
+                    realDomainHistory(
                         domain,
                         request.historyLimitPerDomain.coerceIn(1, MAX_DOMAIN_HISTORY),
                         request.historyOffsetPerDomain.coerceAtLeast(0)
-                    ).values.map { it.toMetricEvidence(quality) }
+                    ).map { it.toMetricEvidence(quality) }
                 } else emptyList(),
                 derivedFeatures = if (request.includeDerivedFeatures) {
-                    parity.derivedFeatures(domain).toTrudyEvidence(domain, quality)
+                    if (containsRecentSynthetic(domain)) emptyList()
+                    else parity.derivedFeatures(domain).toTrudyEvidence(domain, quality)
                 } else emptyList(),
                 insights = if (request.includeInsights) insights(domain) else emptyList(),
                 dataQuality = if (request.includeDataQuality) quality else null
             )
         }
         return TrudyHealthContext(request.domains, domainContexts)
+    }
+
+    private suspend fun currentState(
+        domain: HealthDomain,
+        quality: TrudyDataQualityEvidence?
+    ): List<TrudyMetricEvidence> {
+        val latest = parity.currentState(domain).latestByMetric
+        val resolved = latest.mapNotNull { value ->
+            if (!isSyntheticForTrudy(value)) value
+            else realMetricHistory(domain, value.metric, limit = 1, offset = 0).firstOrNull()
+        }
+        return resolved.distinctBy { it.metric }.map { it.toMetricEvidence(quality) }
+    }
+
+    /** Offset is defined over REAL rows, not over hidden developer rows. */
+    private suspend fun realDomainHistory(domain: HealthDomain, limit: Int, offset: Int): List<HealthValue> {
+        val targetCount = (limit + offset).coerceAtMost(MAX_SOURCE_FILTER_SCAN)
+        val real = ArrayList<HealthValue>(targetCount)
+        var rawOffset = 0
+        while (real.size < targetCount && rawOffset < MAX_SOURCE_FILTER_SCAN) {
+            val pageSize = minOf(SOURCE_FILTER_PAGE, MAX_SOURCE_FILTER_SCAN - rawOffset)
+            val page = parity.history(domain, pageSize, rawOffset).values
+            if (page.isEmpty()) break
+            real += page.filterNot(::isSyntheticForTrudy)
+            rawOffset += page.size
+            if (page.size < pageSize) break
+        }
+        return real.drop(offset).take(limit)
+    }
+
+    /** Offset is defined over REAL rows, not over hidden developer rows. */
+    private suspend fun realMetricHistory(
+        domain: HealthDomain,
+        metric: String,
+        limit: Int,
+        offset: Int
+    ): List<HealthValue> {
+        val targetCount = (limit + offset).coerceAtMost(MAX_SOURCE_FILTER_SCAN)
+        val real = ArrayList<HealthValue>(targetCount)
+        var rawOffset = 0
+        while (real.size < targetCount && rawOffset < MAX_SOURCE_FILTER_SCAN) {
+            val pageSize = minOf(SOURCE_FILTER_PAGE, MAX_SOURCE_FILTER_SCAN - rawOffset)
+            val page = parity.metricHistory(domain, metric, pageSize, rawOffset).values
+            if (page.isEmpty()) break
+            real += page.filterNot(::isSyntheticForTrudy)
+            rawOffset += page.size
+            if (page.size < pageSize) break
+        }
+        return real.drop(offset).take(limit)
+    }
+
+    private suspend fun containsRecentSynthetic(domain: HealthDomain): Boolean =
+        parity.history(domain, SYNTHETIC_PROBE_LIMIT, 0).values.any(::isSyntheticForTrudy)
+
+    private fun isSyntheticForTrudy(value: HealthValue): Boolean {
+        val source = value.source.trim().lowercase()
+        return source == SYNTHETIC_DATA_SOURCE.lowercase() ||
+            source.startsWith("project-superhuman-synthetic-") ||
+            value.metadata["synthetic"]?.equals("true", ignoreCase = true) == true
     }
 
     private fun canonicalMetric(domain: HealthDomain, metricId: String): String =
@@ -133,7 +243,7 @@ class TrudyHealthContextService(
         metadata = metadata
     )
 
-    private fun ModuleDerivedFeatures.toTrudyEvidence(
+    private fun com.projectsuperhuman.next.core.ModuleDerivedFeatures.toTrudyEvidence(
         expectedDomain: HealthDomain,
         quality: TrudyDataQualityEvidence?
     ): List<TrudyDerivedMetricEvidence> {
@@ -201,8 +311,15 @@ class TrudyHealthContextService(
         const val MAX_DOMAIN_HISTORY = 1_000
         const val DEFAULT_METRIC_HISTORY_LIMIT = 250
         const val DEFAULT_METRIC_WINDOW_LIMIT = 250
-        const val MAX_METRIC_HISTORY = 1_000
+        const val MAX_METRIC_HISTORY = 5_000
         const val INTERPRETATION_HISTORY_LIMIT = 1_000
+        const val SOURCE_FILTER_PAGE = 500
+        const val MAX_SOURCE_FILTER_SCAN = 5_000
+        const val QUALITY_PROBE_LIMIT = 500
+        const val SYNTHETIC_PROBE_LIMIT = 500
+        const val MAX_QUALITY_NOTES = 12
+        const val HOUR_MS = 3_600_000.0
+        const val REAL_DATA_STALE_HOURS = 72.0
         const val MODULE_PARITY_SOURCE = "module-parity"
     }
 }
