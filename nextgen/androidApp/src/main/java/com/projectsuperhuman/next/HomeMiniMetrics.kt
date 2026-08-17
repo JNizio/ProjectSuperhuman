@@ -394,7 +394,7 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
         }
         MiniMetricHistoryCard(metric, detail.history, accent)
         if (metric == HomeMiniMetric.HEART_RATE) AdvancedHeartRateSection(syncing = syncing, refreshSignal = status)
-        H19cMiniMetricCard(metric)
+        ThemedH19cMiniMetricCard(metric)
         HealthConnectMiniCard(connected, syncing, status, backgroundAvailable, backgroundEnabled, ::connectOrSync, ::enableBackgroundSync)
         Spacer(Modifier.height(18.dp))
     }
