@@ -29,8 +29,6 @@ import androidx.compose.ui.unit.sp
 
 private val EnvTileBlue = Color(0xFF0D6CB4)
 private val EnvTileTeal = Color(0xFF168A78)
-private val EnvTileMuted = Color(0xFF748294)
-private val EnvTileBorder = Color(0xFFD9E6EE)
 
 @Composable
 internal fun HomeEnvironmentalTile(
@@ -39,6 +37,8 @@ internal fun HomeEnvironmentalTile(
 ) {
     val state = rememberEnvironmentalRenderState(source)
     val shape = RoundedCornerShape(28.dp)
+    val palette = superhumanPalette()
+    val dark = superhumanDarkMode()
 
     Box(
         Modifier.fillMaxWidth()
@@ -49,11 +49,15 @@ internal fun HomeEnvironmentalTile(
             }
             .background(
                 Brush.linearGradient(
-                    listOf(Color(0xFFE7F5FC), Color(0xFFF9FCFE), Color(0xFFEDF8F5))
+                    listOf(
+                        if (dark) palette.surfaceAccent else Color(0xFFE7F5FC),
+                        palette.surface,
+                        if (dark) palette.surfaceRaised else Color(0xFFEDF8F5)
+                    )
                 ),
                 shape
             )
-            .border(1.dp, EnvTileBorder, shape)
+            .border(1.dp, palette.border, shape)
             .superhumanHomeTileClickable(onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 15.dp)
     ) {
@@ -64,10 +68,10 @@ internal fun HomeEnvironmentalTile(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(7.dp).background(EnvTileTeal, CircleShape))
+                    Box(Modifier.size(7.dp).background(if (dark) palette.accentTeal else EnvTileTeal, CircleShape))
                     Text(
                         "  ENVIRONMENT",
-                        color = EnvTileMuted,
+                        color = palette.muted,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = 1.15.sp
@@ -75,11 +79,11 @@ internal fun HomeEnvironmentalTile(
                 }
                 Box(
                     Modifier.size(34.dp)
-                        .background(Color.White.copy(alpha = .8f), CircleShape)
-                        .border(1.dp, Color.White, CircleShape),
+                        .background(palette.surfaceRaised.copy(alpha = .88f), CircleShape)
+                        .border(1.dp, palette.border, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("→", color = EnvTileBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text("→", color = if (dark) palette.accent else EnvTileBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
