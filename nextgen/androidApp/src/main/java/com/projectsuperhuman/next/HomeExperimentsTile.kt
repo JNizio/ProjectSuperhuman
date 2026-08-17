@@ -36,25 +36,22 @@ private val ExperimentTileViolet = Color(0xFF7257B7)
 private val ExperimentTileTeal = Color(0xFF20A7A5)
 
 @Composable
-internal fun HomeExperimentsTile(
-    experiment: ExperimentPresentation = MockExperimentData.active,
-    onClick: () -> Unit
-) {
-    val palette = superhumanPalette()
-    val dark = superhumanDarkMode()
+internal fun HomeExperimentsTile(experiment: ExperimentPresentation = MockExperimentData.active, onClick: () -> Unit) {
+    val palette = superhumanPalette
+    val dark = SuperhumanAppearance.darkMode
+    val violet = if (dark) Color(0xFFA98BF5) else ExperimentTileViolet
     val primary = experiment.primaryOutcome?.title ?: "No outcome selected"
     val secondary = experiment.outcomes.filter { it.role == ExperimentOutcomeRole.SECONDARY }.joinToString(" · ") { it.title }
     val description = "Experiments. Active experiment ${experiment.title}. Day ${experiment.progress.currentDay} of ${experiment.progress.totalDays}. Primary outcome $primary. Next check-in ${experiment.nextCheckIn ?: "not scheduled"}."
 
     Box(
-        Modifier.fillMaxWidth()
-            .height(184.dp)
+        Modifier.fillMaxWidth().height(184.dp)
             .background(
                 Brush.linearGradient(
                     listOf(
-                        if (dark) palette.surfaceAccent.copy(alpha = .78f) else Color(0xFFF1EDFC),
+                        if (dark) palette.accentSoft.copy(alpha = .72f) else Color(0xFFF1EDFC),
                         palette.surface,
-                        if (dark) palette.surfaceRaised else Color(0xFFECF8F7)
+                        if (dark) palette.surfaceElevated else Color(0xFFECF8F7)
                     )
                 ),
                 RoundedCornerShape(28.dp)
@@ -65,23 +62,17 @@ internal fun HomeExperimentsTile(
             .padding(horizontal = 18.dp, vertical = 15.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    ExperimentOrbitGlyph()
+                    ExperimentOrbitGlyph(violet)
                     Spacer(Modifier.width(8.dp))
-                    Text("EXPERIMENTS", color = palette.muted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
+                    Text("EXPERIMENTS", color = palette.textMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
                 }
                 Box(
-                    Modifier.size(34.dp)
-                        .background(palette.surfaceRaised.copy(alpha = .92f), CircleShape)
-                        .border(1.dp, palette.border, CircleShape),
+                    Modifier.size(34.dp).background(palette.surfaceElevated.copy(alpha = .92f), CircleShape).border(1.dp, palette.border, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("→", color = if (dark) palette.accent else ExperimentTileBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text("→", color = if (dark) palette.blue else ExperimentTileBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -91,21 +82,22 @@ internal fun HomeExperimentsTile(
                     progress = experiment.progress.fraction,
                     center = "${experiment.progress.currentDay}/${experiment.progress.totalDays}",
                     modifier = Modifier.size(76.dp),
-                    textColor = palette.ink
+                    foreground = violet,
+                    textColor = palette.brandText
                 )
                 Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("ACTIVE EXPERIMENT", color = if (dark) palette.accentPurple else ExperimentTileViolet, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                    Text("ACTIVE EXPERIMENT", color = violet, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                     Spacer(Modifier.height(3.dp))
-                    Text(experiment.title, color = palette.ink, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                    Text(experiment.title, color = palette.brandText, fontSize = 18.sp, fontWeight = FontWeight.Black, maxLines = 1)
                     Spacer(Modifier.height(5.dp))
-                    Text("Primary · $primary", color = palette.ink, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    if (secondary.isNotBlank()) Text(secondary, color = palette.muted, fontSize = 8.sp, maxLines = 1)
+                    Text("Primary · $primary", color = palette.textPrimary, fontSize = 9.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    if (secondary.isNotBlank()) Text(secondary, color = palette.textMuted, fontSize = 8.sp, maxLines = 1)
                     Spacer(Modifier.height(7.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(6.dp).background(ExperimentTileTeal, CircleShape))
+                        Box(Modifier.size(6.dp).background(if (dark) palette.green else ExperimentTileTeal, CircleShape))
                         Spacer(Modifier.width(5.dp))
-                        Text(experiment.nextCheckIn ?: "No check-in scheduled", color = palette.muted, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
+                        Text(experiment.nextCheckIn ?: "No check-in scheduled", color = palette.textMuted, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -114,11 +106,12 @@ internal fun HomeExperimentsTile(
 }
 
 @Composable
-private fun ExperimentOrbitGlyph() {
+private fun ExperimentOrbitGlyph(violet: Color = ExperimentTileViolet) {
+    val teal = if (SuperhumanAppearance.darkMode) superhumanPalette.green else ExperimentTileTeal
     Canvas(Modifier.size(18.dp)) {
-        drawCircle(ExperimentTileViolet.copy(alpha = .18f), radius = size.minDimension * .46f, style = Stroke(width = 2f))
-        drawCircle(ExperimentTileViolet, radius = size.minDimension * .12f, center = center)
-        drawCircle(ExperimentTileTeal, radius = size.minDimension * .09f, center = Offset(size.width * .83f, size.height * .34f))
+        drawCircle(violet.copy(alpha = .18f), radius = size.minDimension * .46f, style = Stroke(width = 2f))
+        drawCircle(violet, radius = size.minDimension * .12f, center = center)
+        drawCircle(teal, radius = size.minDimension * .09f, center = Offset(size.width * .83f, size.height * .34f))
     }
 }
 
@@ -130,24 +123,12 @@ internal fun ExperimentProgressRing(
     foreground: Color = ExperimentTileViolet,
     textColor: Color? = null
 ) {
-    val resolvedText = textColor ?: superhumanPalette().ink
+    val resolvedText = textColor ?: superhumanPalette.brandText
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = size.minDimension * .09f
-            drawArc(
-                color = foreground.copy(alpha = .13f),
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = Stroke(stroke, cap = StrokeCap.Round)
-            )
-            drawArc(
-                color = foreground,
-                startAngle = -90f,
-                sweepAngle = 360f * progress.coerceIn(0f, 1f),
-                useCenter = false,
-                style = Stroke(stroke, cap = StrokeCap.Round)
-            )
+            drawArc(foreground.copy(alpha = .13f), -90f, 360f, false, style = Stroke(stroke, cap = StrokeCap.Round))
+            drawArc(foreground, -90f, 360f * progress.coerceIn(0f, 1f), false, style = Stroke(stroke, cap = StrokeCap.Round))
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(center, color = resolvedText, fontSize = 15.sp, fontWeight = FontWeight.Black)
