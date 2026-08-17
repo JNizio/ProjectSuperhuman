@@ -37,22 +37,20 @@ internal fun HomeEnvironmentalTile(
 ) {
     val state = rememberEnvironmentalRenderState(source)
     val shape = RoundedCornerShape(28.dp)
-    val palette = superhumanPalette()
-    val dark = superhumanDarkMode()
+    val palette = superhumanPalette
+    val dark = SuperhumanAppearance.darkMode
 
     Box(
         Modifier.fillMaxWidth()
             .height(174.dp)
             .testTag("environment_home_tile")
-            .semantics(mergeDescendants = true) {
-                contentDescription = environmentalTileDescription(state)
-            }
+            .semantics(mergeDescendants = true) { contentDescription = environmentalTileDescription(state) }
             .background(
                 Brush.linearGradient(
                     listOf(
-                        if (dark) palette.surfaceAccent else Color(0xFFE7F5FC),
+                        if (dark) palette.accentSoft else Color(0xFFE7F5FC),
                         palette.surface,
-                        if (dark) palette.surfaceRaised else Color(0xFFEDF8F5)
+                        if (dark) palette.surfaceElevated else Color(0xFFEDF8F5)
                     )
                 ),
                 shape
@@ -62,28 +60,16 @@ internal fun HomeEnvironmentalTile(
             .padding(horizontal = 18.dp, vertical = 15.dp)
     ) {
         Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(7.dp).background(if (dark) palette.accentTeal else EnvTileTeal, CircleShape))
-                    Text(
-                        "  ENVIRONMENT",
-                        color = palette.muted,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.15.sp
-                    )
+                    Box(Modifier.size(7.dp).background(if (dark) palette.green else EnvTileTeal, CircleShape))
+                    Text("  ENVIRONMENT", color = palette.textMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
                 }
                 Box(
-                    Modifier.size(34.dp)
-                        .background(palette.surfaceRaised.copy(alpha = .88f), CircleShape)
-                        .border(1.dp, palette.border, CircleShape),
+                    Modifier.size(34.dp).background(palette.surfaceElevated.copy(alpha = .88f), CircleShape).border(1.dp, palette.border, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("→", color = if (dark) palette.accent else EnvTileBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text("→", color = if (dark) palette.blue else EnvTileBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
