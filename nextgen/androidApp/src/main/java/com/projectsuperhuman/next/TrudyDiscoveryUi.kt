@@ -118,7 +118,7 @@ internal fun TrudyDiscoveryWelcome(
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.Stretch
+                    verticalAlignment = Alignment.Top
                 ) {
                     pair.forEach { starter ->
                         TrudyStarterCard(starter, onPrompt, Modifier.weight(1f))
