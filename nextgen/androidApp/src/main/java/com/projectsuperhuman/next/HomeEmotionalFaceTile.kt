@@ -14,8 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -138,6 +138,8 @@ internal fun emotionalFreshnessLabel(snapshot: EmotionalPresentationSnapshot, no
 @Composable
 internal fun HomeEmotionalFaceTile(current: EmotionalPresentationSnapshot?, onClick: () -> Unit) {
     val shape = RoundedCornerShape(25.dp)
+    val palette = superhumanPalette()
+    val dark = superhumanDarkMode()
     val observed = current?.axisValues.orEmpty()
     val faceState = EmotionalFaceMapper.from(observed)
     val interpretation = emotionalTileInterpretation(current?.axisValues)
@@ -153,18 +155,24 @@ internal fun HomeEmotionalFaceTile(current: EmotionalPresentationSnapshot?, onCl
         Modifier
             .fillMaxWidth()
             .background(
-                Brush.horizontalGradient(listOf(Color(0xFFFBFDFE), Color(0xFFF1F8F9), Color(0xFFF7F3FC))),
+                Brush.horizontalGradient(
+                    listOf(
+                        palette.surface,
+                        palette.surfaceRaised.copy(alpha = if (dark) .90f else .50f),
+                        palette.surfaceAccent.copy(alpha = if (dark) .60f else .30f)
+                    )
+                ),
                 shape
             )
-            .border(1.dp, Color(0xFFE3EAF0), shape)
+            .border(1.dp, palette.border, shape)
             .superhumanHomeTileClickable(onClick = onClick)
             .testTag("home_emotional_tile")
             .semantics(mergeDescendants = true) { contentDescription = description }
             .padding(horizontal = 18.dp, vertical = 16.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("EMOTIONAL", color = Color(0xFF748294), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Text("→", color = Color(0xFF8CA6B5), fontSize = 23.sp)
+            Text("EMOTIONAL", color = palette.muted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            Text("→", color = palette.soft, fontSize = 23.sp)
         }
         Spacer(Modifier.height(4.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -174,12 +182,12 @@ internal fun HomeEmotionalFaceTile(current: EmotionalPresentationSnapshot?, onCl
                 modifier = Modifier.size(104.dp)
             )
             Column(Modifier.weight(1f).padding(start = 17.dp)) {
-                Text(interpretation, color = Color(0xFF123D70), fontSize = 19.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black)
+                Text(interpretation, color = palette.ink, fontSize = 19.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(5.dp))
-                Text(supportingText, color = Color(0xFF748294), fontSize = 9.sp, lineHeight = 13.sp)
+                Text(supportingText, color = palette.muted, fontSize = 9.sp, lineHeight = 13.sp)
                 if (current != null && observed.size < EmotionalPresentationContract.axisIds.size) {
                     Spacer(Modifier.height(5.dp))
-                    Text("Based on ${observed.size} of 6 signals", color = Color(0xFF0D6CB4), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("Based on ${observed.size} of 6 signals", color = palette.accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -198,26 +206,32 @@ private fun AnimatedEmotionalFace(target: EmotionalFaceState, hasData: Boolean, 
     val pupilDrift by animateFloatAsState(target.pupilDrift, animation, label = "emotional-pupil")
     val cheekLift by animateFloatAsState(target.cheekLift, animation, label = "emotional-cheek")
     val warmth by animateFloatAsState(target.warmth, animation, label = "emotional-warmth")
+    val dark = superhumanDarkMode()
+    val palette = superhumanPalette()
 
     Canvas(modifier = modifier) {
         val centre = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * 0.46f
-        val warm = Color(0xFFF4CFC8)
-        val cool = Color(0xFFDDE7F5)
-        val neutral = Color(0xFFE7F2F3)
+        val warm = if (dark) Color(0xFF5A3F42) else Color(0xFFF4CFC8)
+        val cool = if (dark) Color(0xFF29445F) else Color(0xFFDDE7F5)
+        val neutral = if (dark) Color(0xFF183040) else Color(0xFFE7F2F3)
         val tint = when {
-            !hasData -> Color(0xFFF0F4F6)
+            !hasData -> if (dark) palette.surfaceRaised else Color(0xFFF0F4F6)
             warmth >= 0f -> lerpColor(neutral, warm, warmth * 0.55f)
             else -> lerpColor(neutral, cool, -warmth * 0.55f)
         }
         drawCircle(
-            brush = Brush.radialGradient(listOf(Color.White.copy(alpha = 0.92f), tint), centre, radius),
+            brush = Brush.radialGradient(
+                listOf(if (dark) palette.surfaceRaised.copy(alpha = .95f) else Color.White.copy(alpha = .92f), tint),
+                centre,
+                radius
+            ),
             radius = radius,
             center = centre
         )
-        drawCircle(Color(0xFFCADDE5), radius, centre, style = Stroke(width = 1.2.dp.toPx()))
+        drawCircle(palette.border, radius, centre, style = Stroke(width = 1.2.dp.toPx()))
 
-        val ink = if (hasData) Color(0xFF244D68) else Color(0xFF8AA0AD)
+        val ink = if (hasData) palette.ink.copy(alpha = .90f) else palette.soft
         val eyeY = size.height * (0.43f - browRaise * 0.012f)
         val eyeDx = size.width * 0.18f
         val eyeWidth = size.width * 0.15f
@@ -227,7 +241,7 @@ private fun AnimatedEmotionalFace(target: EmotionalFaceState, hasData: Boolean, 
         listOf(-1f, 1f).forEach { side ->
             val eyeCentre = Offset(centre.x + eyeDx * side, eyeY)
             drawOval(
-                color = Color.White.copy(alpha = 0.92f),
+                color = if (dark) palette.surface.copy(alpha = .95f) else Color.White.copy(alpha = .92f),
                 topLeft = eyeCentre - Offset(eyeWidth / 2f, eyeHeight / 2f),
                 size = Size(eyeWidth, eyeHeight)
             )
