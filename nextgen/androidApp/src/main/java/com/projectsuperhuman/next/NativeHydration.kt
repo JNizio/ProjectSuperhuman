@@ -26,7 +26,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,20 +38,13 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import kotlin.math.roundToInt
 
-/**
- * Native water hydration orchestration and persistence.
- *
- * Source of truth is the shared SQLDelight-backed NativeDataHub. Every water change is persisted as
- * a signed water_intake_ml event, so daily totals, corrections, 7-day analytics and the monthly
- * calendar all derive from the same durable history. Electrolytes intentionally belong to Nutrition.
- */
-private val HydNavy = Color(0xFF123D70)
-private val HydBlue = Color(0xFF0D6CB4)
-private val HydInk = Color(0xFF16334E)
-private val HydMuted = Color(0xFF748294)
-private val HydBg = Color(0xFFF8FBFD)
-private val HydBorder = Color(0xFFE3EAF0)
-private val HydGreen = Color(0xFF4AAE91)
+private val HydNavy get() = superhumanBrandText
+private val HydBlue get() = superhumanBlue
+private val HydInk get() = superhumanTextPrimary
+private val HydMuted get() = superhumanTextMuted
+private val HydBg get() = superhumanBackground
+private val HydBorder get() = superhumanBorder
+private val HydGreen get() = superhumanGreen
 private val HydrationData = NativeDomainData.forDomain(HealthDomain.HYDRATION)
 
 private data class HydrationDay(val date: LocalDate, val ml: Int)
@@ -91,12 +83,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
 
     fun applyHydrationDelta(requestedDeltaMl: Int) {
         if (requestedDeltaMl == 0) return
-
-        val delta = if (requestedDeltaMl > 0) {
-            minOf(requestedDeltaMl, snapshot.remainingMl)
-        } else {
-            -minOf(-requestedDeltaMl, snapshot.todayMl)
-        }
+        val delta = if (requestedDeltaMl > 0) minOf(requestedDeltaMl, snapshot.remainingMl) else -minOf(-requestedDeltaMl, snapshot.todayMl)
         if (delta == 0) {
             status = if (requestedDeltaMl > 0) "Daily goal already reached" else "Nothing to subtract"
             return
@@ -122,10 +109,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
                     value = delta.toDouble(),
                     unit = "ml",
                     source = "native-hydration",
-                    metadata = mapOf(
-                        "drinkSource" to "Water",
-                        "entryType" to if (delta > 0) "intake" else "correction"
-                    )
+                    metadata = mapOf("drinkSource" to "Water", "entryType" to if (delta > 0) "intake" else "correction")
                 )
                 val zone = ZoneId.systemDefault()
                 val start = LocalDate.now(zone).atStartOfDay(zone).toInstant().toEpochMilli()
@@ -138,12 +122,11 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
                     source = "native-hydration",
                     metadata = mapOf("compatibilitySnapshot" to "true")
                 )
-            }.onSuccess { refresh() }
-                .onFailure {
-                    snapshot = previous
-                    amountSlider = 0
-                    status = "Couldn’t save that change — nothing was changed"
-                }
+            }.onSuccess { refresh() }.onFailure {
+                snapshot = previous
+                amountSlider = 0
+                status = "Couldn’t save that change — nothing was changed"
+            }
         }
     }
 
@@ -177,12 +160,11 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
             onClearToday = ::clearToday,
             onLog = { logDrink(amountSlider) }
         )
-
         HydrationCalendarCard(snapshot.calendarTotals, snapshot.goalMl)
         HydrationPacingCard(snapshot)
         HydrationHistoryCard(snapshot)
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, HydBorder, RoundedCornerShape(24.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(24.dp)).border(1.dp, HydBorder, RoundedCornerShape(24.dp)).padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text("Daily water goal", color = HydInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -192,12 +174,9 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
             }
             Slider(value = goalDraft, onValueChange = { goalDraft = it }, valueRange = 1500f..6000f, steps = 44)
             Box(
-                Modifier.fillMaxWidth().background(Color(0xFFE5F3FA), RoundedCornerShape(16.dp))
-                    .superhumanClickable { saveGoal() }.padding(vertical = 12.dp),
+                Modifier.fillMaxWidth().background(superhumanAccentSoft, RoundedCornerShape(16.dp)).superhumanClickable { saveGoal() }.padding(vertical = 12.dp),
                 contentAlignment = Alignment.Center
-            ) {
-                Text("SAVE GOAL", color = HydBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
-            }
+            ) { Text("SAVE GOAL", color = HydBlue, fontSize = 10.sp, fontWeight = FontWeight.Black) }
         }
         Spacer(Modifier.height(22.dp))
     }
@@ -206,11 +185,9 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
 @Composable
 private fun HydrationHeader(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp))
-                .border(1.dp, HydBorder, RoundedCornerShape(14.dp)).superhumanClickable(onClick = onBack),
-            contentAlignment = Alignment.Center
-        ) { Text("←", color = HydNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+        Box(Modifier.width(42.dp).height(42.dp).background(superhumanSurface, RoundedCornerShape(14.dp)).border(1.dp, HydBorder, RoundedCornerShape(14.dp)).superhumanClickable(onClick = onBack), contentAlignment = Alignment.Center) {
+            Text("←", color = HydNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        }
         Spacer(Modifier.width(12.dp))
         Column {
             Text("Hydration", color = HydInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
@@ -232,11 +209,9 @@ private fun HydrationPacingCard(snapshot: HydrationSnapshot) {
         delta >= -300 -> "You’re roughly on pace for today’s water goal."
         else -> "You’re ${formatMlHydration(-delta)} behind an even pace. A small glass would close the gap."
     }
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, HydBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(22.dp)).border(1.dp, HydBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
         Text("Water pace", color = HydInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.height(5.dp))
-        Text(message, color = HydMuted, fontSize = 10.sp, lineHeight = 15.sp)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(5.dp)); Text(message, color = HydMuted, fontSize = 10.sp, lineHeight = 15.sp); Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             HydMiniStat(formatMlHydration(snapshot.remainingMl), "remaining")
             HydMiniStat(formatMlHydration(expectedMl.coerceAtMost(snapshot.goalMl)), "pace by now")
@@ -256,7 +231,7 @@ private fun HydMiniStat(value: String, label: String) {
 @Composable
 private fun HydrationHistoryCard(snapshot: HydrationSnapshot) {
     val max = (snapshot.history.maxOfOrNull { it.ml } ?: snapshot.goalMl).coerceAtLeast(snapshot.goalMl).coerceAtLeast(1)
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, HydBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(22.dp)).border(1.dp, HydBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("7-day water consistency", color = HydInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
@@ -269,12 +244,8 @@ private fun HydrationHistoryCard(snapshot: HydrationSnapshot) {
             snapshot.history.forEach { day ->
                 val fraction = (day.ml.toFloat() / max).coerceIn(0.03f, 1f)
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(
-                        Modifier.fillMaxWidth().height((64 * fraction).dp)
-                            .background(if (day.ml >= snapshot.goalMl) HydGreen.copy(alpha = .75f) else HydBlue.copy(alpha = .25f), RoundedCornerShape(7.dp))
-                    )
-                    Spacer(Modifier.height(5.dp))
-                    Text(day.date.dayOfWeek.name.take(1), color = HydMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Box(Modifier.fillMaxWidth().height((64 * fraction).dp).background(if (day.ml >= snapshot.goalMl) HydGreen.copy(alpha = .75f) else HydBlue.copy(alpha = .25f), RoundedCornerShape(7.dp)))
+                    Spacer(Modifier.height(5.dp)); Text(day.date.dayOfWeek.name.take(1), color = HydMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -286,14 +257,10 @@ private suspend fun loadHydrationSnapshot(): HydrationSnapshot {
     val today = LocalDate.now(zone)
     val now = System.currentTimeMillis()
     val goal = HydrationData.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
-
     val month = YearMonth.from(today)
     val historyStart = today.minusDays(6)
     val rangeStartDate = minOf(month.atDay(1), historyStart)
     val rangeStart = rangeStartDate.atStartOfDay(zone).toInstant().toEpochMilli()
-
-    // One indexed read per metric for the complete visible range. This keeps Hydration
-    // work bounded even when the user has years of stored data.
     val intakeRows = HydrationData.between("water_intake_ml", rangeStart, now)
     val compatibilityRows = HydrationData.between("water_total_l", rangeStart, now)
     fun dateOf(epochMs: Long): LocalDate = Instant.ofEpochMilli(epochMs).atZone(zone).toLocalDate()
@@ -302,36 +269,16 @@ private suspend fun loadHydrationSnapshot(): HydrationSnapshot {
 
     fun totalFor(date: LocalDate): Int {
         val events = intakeByDay[date].orEmpty()
-        return if (events.isNotEmpty()) {
-            events.sumOf { it.value }.roundToInt().coerceAtLeast(0)
-        } else {
-            compatibilityByDay[date].orEmpty().maxByOrNull { it.timestampEpochMs }
-                ?.value?.times(1000.0)?.roundToInt()?.coerceAtLeast(0) ?: 0
-        }
+        return if (events.isNotEmpty()) events.sumOf { it.value }.roundToInt().coerceAtLeast(0)
+        else compatibilityByDay[date].orEmpty().maxByOrNull { it.timestampEpochMs }?.value?.times(1000.0)?.roundToInt()?.coerceAtLeast(0) ?: 0
     }
 
     val todayEvents = intakeByDay[today].orEmpty().sortedBy { it.timestampEpochMs }
     val todayMl = totalFor(today).coerceIn(0, goal)
-
-    val history = (6 downTo 0).map { offset ->
-        val date = today.minusDays(offset.toLong())
-        HydrationDay(date, totalFor(date))
-    }
-
-    val calendarTotals = (1..month.lengthOfMonth()).associate { day ->
-        val date = month.atDay(day)
-        date to totalFor(date)
-    }
-
+    val history = (6 downTo 0).map { offset -> val date = today.minusDays(offset.toLong()); HydrationDay(date, totalFor(date)) }
+    val calendarTotals = (1..month.lengthOfMonth()).associate { day -> val date = month.atDay(day); date to totalFor(date) }
     val lastPositive = todayEvents.lastOrNull { it.value > 0 }
-    return HydrationSnapshot(
-        todayMl = todayMl,
-        goalMl = goal,
-        lastDrinkMl = lastPositive?.value?.roundToInt(),
-        lastDrinkEpochMs = lastPositive?.timestampEpochMs,
-        history = history,
-        calendarTotals = calendarTotals
-    )
+    return HydrationSnapshot(todayMl, goal, lastPositive?.value?.roundToInt(), lastPositive?.timestampEpochMs, history, calendarTotals)
 }
 
 private fun formatClock(epochMs: Long): String {
