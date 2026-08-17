@@ -240,8 +240,22 @@ class TrudyHealthContextService(
         timestampEpochMs = timestampEpochMs,
         source = source,
         dataQuality = quality,
-        metadata = metadata
+        metadata = metadata + trudyCaptureMetadata()
     )
+
+    /** Normalize provenance classes without replacing the original source string. */
+    private fun HealthValue.trudyCaptureMetadata(): Map<String, String> {
+        val searchable = (source + " " + metadata.values.joinToString(" ")).lowercase()
+        val kind = when {
+            source.equals("h19c-direct-ble", ignoreCase = true) ||
+                listOf("health connect", "healthconnect", "samsung", "fitbit", "garmin", "oura", "wearable").any { it in searchable } -> "wearable"
+            listOf("manual", "user entry", "self report", "self-report").any { it in searchable } -> "manual"
+            listOf("scale", "monitor", "sensor", "device").any { it in searchable } -> "device"
+            "derived" in searchable -> "derived"
+            else -> return emptyMap()
+        }
+        return mapOf("trudyCaptureKind" to kind)
+    }
 
     private fun com.projectsuperhuman.next.core.ModuleDerivedFeatures.toTrudyEvidence(
         expectedDomain: HealthDomain,
@@ -319,7 +333,7 @@ class TrudyHealthContextService(
         const val SYNTHETIC_PROBE_LIMIT = 500
         const val MAX_QUALITY_NOTES = 12
         const val HOUR_MS = 3_600_000.0
-        const val REAL_DATA_STALE_HOURS = 72.0
+        const val REAL_DATA_STALE_HOURS = 24.0 * 14.0
         const val MODULE_PARITY_SOURCE = "module-parity"
     }
 }
