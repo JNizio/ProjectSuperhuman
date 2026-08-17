@@ -22,6 +22,9 @@ import com.projectsuperhuman.next.trudy.TrudyIntelligenceToolService
 import com.projectsuperhuman.next.trudy.TrudyKnowledgeCoordinator
 import com.projectsuperhuman.next.trudy.TrudyKnowledgeSource
 import com.projectsuperhuman.next.trudy.TrudyLanguageAwarePreflightPlanner
+import com.projectsuperhuman.next.trudy.TrudyLongitudinalModelClient
+import com.projectsuperhuman.next.trudy.TrudyLongitudinalPreflightPlanner
+import com.projectsuperhuman.next.trudy.TrudyLongitudinalResponseGuard
 import com.projectsuperhuman.next.trudy.TrudyModelClient
 import com.projectsuperhuman.next.trudy.TrudyModelRuntimeMode
 import com.projectsuperhuman.next.trudy.TrudyOrchestrator
@@ -124,10 +127,11 @@ internal object TrudyRuntimeFactory {
             val answerTurnRegistry = TrudyAnswerTurnRegistry()
             val planningContextHolder = TrudyConversationPlanningContextHolder()
 
-            // Ordering is intentional: the Answer Engine is innermost, so Emotional, Environmental
-            // and Medical decorators enrich the request before final synthesis/safety filtering.
+            // The longitudinal model decorator sits inside the Answer Engine: it may route a
+            // stored event to existing deterministic tools, but final synthesis and evidence
+            // selection remain owned by the Answer Engine.
             val answerClient = TrudyAnswerEngineModelClient(
-                delegate = selection.client,
+                delegate = TrudyLongitudinalModelClient(selection.client),
                 registry = answerTurnRegistry
             )
             val domainReasoningClient = answerClient.withEmotionalReasoning().withEnvironmentalReasoning()
@@ -137,22 +141,27 @@ internal object TrudyRuntimeFactory {
                 knowledge = CuratedMedicalManagementRepository(),
                 conditionCandidates = candidateProvider
             )
-            val reasoningClient = MedicalContextAwareTrudyModelClient(
+            val medicalReasoningClient = MedicalContextAwareTrudyModelClient(
                 delegate = domainReasoningClient,
                 planner = medicalPlanner
             )
+            // Final guard only naturalizes wording and preserves conflicts/provenance/missing-data
+            // semantics. It never performs model arithmetic or replaces the Answer Engine.
+            val reasoningClient = TrudyLongitudinalResponseGuard(medicalReasoningClient)
 
             val investigationPlanner = TrudySystemInvestigationPlanner(TrudyTemporalResolver(temporalBoundaries))
             val languagePlanner = TrudyLanguageAwarePreflightPlanner(investigationPlanner)
             val conversationPlanner = TrudyConversationAwarePreflightPlanner(languagePlanner, planningContextHolder)
-            // Temporal retargeting is outermost so only time language the user actually typed is
-            // considered explicit. Conversation planning may add helpful labels internally, but
-            // those labels must not be mistaken for a user-specified window.
+            // Temporal retargeting is outermost among the existing planners so only time language
+            // the user actually typed is considered explicit.
             val temporalPlanner = TrudyTemporalPlanningDecorator(conversationPlanner, temporalBoundaries)
+            // The longitudinal guard is the final preflight boundary. Undated life events first
+            // check canonical experiments rather than being silently rewritten to "recently".
+            val longitudinalPlanner = TrudyLongitudinalPreflightPlanner(temporalPlanner)
             val orchestrator = TrudyOrchestrator(
                 modelClient = reasoningClient,
                 tools = tools,
-                preflightPlanner = temporalPlanner,
+                preflightPlanner = longitudinalPlanner,
                 knowledgeCoordinator = TrudyKnowledgeCoordinator(knowledgeSources)
             )
             val service = TrudyConversationService(
