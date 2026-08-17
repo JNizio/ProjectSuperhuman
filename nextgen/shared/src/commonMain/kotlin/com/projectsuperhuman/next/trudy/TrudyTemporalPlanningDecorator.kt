@@ -34,12 +34,20 @@ class TrudyTemporalPlanningDecorator(
         )
         is GetAssociation -> copy(window = timeframe.observation)
         is GetLaggedAssociation -> copy(window = timeframe.observation)
-        is InvestigateChange -> copy(
-            observationWindow = timeframe.observation,
-            baselineWindow = timeframe.baseline,
-            timeframeLabel = timeframe.label,
-            timeframeExplicit = true
-        )
+        is InvestigateChange -> {
+            val requiredLookbackDays = (((timeframe.observation.toEpochMs - timeframe.baseline.fromEpochMs)
+                .coerceAtLeast(0L) / DAY_MS) + 1L).toInt().coerceIn(7, MAX_INVESTIGATION_LOOKBACK_DAYS)
+            copy(
+                observationWindow = timeframe.observation,
+                baselineWindow = timeframe.baseline,
+                timeframeLabel = timeframe.label,
+                timeframeExplicit = true,
+                // A 30-day question plus its immediately preceding 30-day baseline spans roughly
+                // 60 days. Raise only this request's existing bounded budget so the investigator
+                // does not reject an otherwise valid explicit comparison at its old 56-day default.
+                budget = budget.copy(maxLookbackDays = maxOf(budget.maxLookbackDays, requiredLookbackDays))
+            )
+        }
         else -> this
     }
 
@@ -198,6 +206,7 @@ class TrudyTemporalPlanningDecorator(
     private companion object {
         const val HOUR_MS = 3_600_000L
         const val DAY_MS = 86_400_000L
+        const val MAX_INVESTIGATION_LOOKBACK_DAYS = 90
         val BEFORE_REFERENTS = listOf(
             "before that",
             "before then",
