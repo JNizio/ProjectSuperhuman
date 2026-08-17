@@ -12,17 +12,17 @@ import androidx.compose.ui.unit.sp
 
 @Composable
 internal fun EnvironmentalMetricCard(metric: EnvironmentalMetricUi, modifier: Modifier) {
-    val palette = superhumanPalette()
+    val palette = superhumanPalette
     Column(
-        modifier.background(palette.surfaceRaised, RoundedCornerShape(16.dp))
+        modifier.background(palette.surfaceElevated, RoundedCornerShape(16.dp))
             .padding(horizontal = 12.dp, vertical = 11.dp)
     ) {
-        Text(metric.label.uppercase(), color = palette.muted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(metric.label.uppercase(), color = palette.textMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
-        Text(metric.displayValue(), color = palette.ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
+        Text(metric.displayValue(), color = palette.brandText, fontSize = 17.sp, fontWeight = FontWeight.Black)
         metric.supportingText?.takeIf { it.isNotBlank() }?.let {
             Spacer(Modifier.height(3.dp))
-            Text(it, color = palette.muted, fontSize = 8.sp, maxLines = 2)
+            Text(it, color = palette.textMuted, fontSize = 8.sp, maxLines = 2)
         }
     }
 }
