@@ -24,12 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val EnvCurrentNavy = Color(0xFF123D70)
-private val EnvCurrentInk = Color(0xFF0B1F35)
 private val EnvCurrentBlue = Color(0xFF0D6CB4)
 private val EnvCurrentTeal = Color(0xFF168A78)
-private val EnvCurrentMuted = Color(0xFF748294)
-private val EnvCurrentBorder = Color(0xFFDCE8F0)
 
 @Composable
 internal fun EnvironmentalContent(conditions: EnvironmentalConditionsUi) {
@@ -43,6 +39,10 @@ internal fun EnvironmentalContent(conditions: EnvironmentalConditionsUi) {
 private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
     val headline = conditions.headlineMetric()
     val shape = RoundedCornerShape(29.dp)
+    val palette = superhumanPalette()
+    val dark = superhumanDarkMode()
+    val blue = if (dark) palette.accent else EnvCurrentBlue
+    val teal = if (dark) palette.accentTeal else EnvCurrentTeal
     val quickMetrics = listOfNotNull(
         conditions.metric(EnvironmentalMetricKind.FEELS_LIKE),
         conditions.metric(EnvironmentalMetricKind.HUMIDITY),
@@ -55,11 +55,15 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
             .testTag("environment_current_conditions")
             .background(
                 Brush.linearGradient(
-                    listOf(Color(0xFFE5F4FF), Color(0xFFF8FCFF), Color(0xFFEAF8F4))
+                    listOf(
+                        if (dark) palette.surfaceAccent else Color(0xFFE5F4FF),
+                        palette.surface,
+                        if (dark) palette.surfaceRaised else Color(0xFFEAF8F4)
+                    )
                 ),
                 shape
             )
-            .border(1.dp, EnvCurrentBorder, shape)
+            .border(1.dp, palette.border, shape)
             .padding(19.dp)
     ) {
         Row(
@@ -69,7 +73,7 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
         ) {
             Text(
                 "LOCAL WEATHER",
-                color = EnvCurrentBlue,
+                color = blue,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.15.sp
@@ -77,10 +81,10 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
             conditions.freshnessLabel?.takeIf { it.isNotBlank() }?.let {
                 Text(
                     it,
-                    color = EnvCurrentTeal,
+                    color = teal,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.background(Color.White.copy(alpha = .8f), RoundedCornerShape(12.dp))
+                    modifier = Modifier.background(palette.surfaceRaised.copy(alpha = .90f), RoundedCornerShape(12.dp))
                         .padding(horizontal = 9.dp, vertical = 5.dp)
                 )
             }
@@ -97,7 +101,7 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
                 headline?.let {
                     Text(
                         it.displayValue(),
-                        color = EnvCurrentNavy,
+                        color = palette.ink,
                         fontSize = 44.sp,
                         lineHeight = 46.sp,
                         fontWeight = FontWeight.Black
@@ -105,7 +109,7 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
                 }
                 Text(
                     conditions.weatherLabel?.takeIf { it.isNotBlank() } ?: "Current conditions",
-                    color = EnvCurrentInk,
+                    color = palette.ink,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.ExtraBold,
                     maxLines = 2
@@ -113,14 +117,14 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
                 val location = conditions.locationLabel?.takeIf { it.isNotBlank() }
                 if (location != null) {
                     Spacer(Modifier.height(3.dp))
-                    Text(location, color = EnvCurrentMuted, fontSize = 9.sp, fontWeight = FontWeight.Medium)
+                    Text(location, color = palette.muted, fontSize = 9.sp, fontWeight = FontWeight.Medium)
                 }
             }
 
             Box(
                 Modifier.size(78.dp)
-                    .background(Color.White.copy(alpha = .78f), RoundedCornerShape(24.dp))
-                    .border(1.dp, Color.White, RoundedCornerShape(24.dp)),
+                    .background(palette.surfaceRaised.copy(alpha = .90f), RoundedCornerShape(24.dp))
+                    .border(1.dp, palette.border, RoundedCornerShape(24.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(weatherGlyph(conditions.weatherLabel), fontSize = 38.sp)
@@ -146,7 +150,7 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
             Spacer(Modifier.height(13.dp))
             Text(
                 timing.joinToString("  •  "),
-                color = EnvCurrentMuted,
+                color = palette.muted,
                 fontSize = 8.sp,
                 lineHeight = 12.sp
             )
@@ -156,16 +160,17 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
 
 @Composable
 private fun WeatherQuickMetric(metric: EnvironmentalMetricUi) {
+    val palette = superhumanPalette()
     Column(
         Modifier.width(145.dp)
-            .background(Color.White.copy(alpha = .78f), RoundedCornerShape(16.dp))
+            .background(palette.surfaceRaised.copy(alpha = .90f), RoundedCornerShape(16.dp))
             .padding(horizontal = 11.dp, vertical = 10.dp)
     ) {
-        Text(metric.label.uppercase(), color = EnvCurrentMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(metric.label.uppercase(), color = palette.muted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
-        Text(metric.displayValue(), color = EnvCurrentNavy, fontSize = 15.sp, fontWeight = FontWeight.Black)
+        Text(metric.displayValue(), color = palette.ink, fontSize = 15.sp, fontWeight = FontWeight.Black)
         metric.supportingText?.takeIf { it.isNotBlank() }?.let {
-            Text(it, color = EnvCurrentMuted, fontSize = 7.5.sp, maxLines = 1)
+            Text(it, color = palette.muted, fontSize = 7.5.sp, maxLines = 1)
         }
     }
 }
