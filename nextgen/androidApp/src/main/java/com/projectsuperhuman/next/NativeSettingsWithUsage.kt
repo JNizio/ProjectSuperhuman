@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -36,16 +37,43 @@ private val SettingsUsageBlue get() = superhumanBlue
 
 @Composable
 internal fun NativeSettingsWithUsage(openLegacy: () -> Unit) {
+    val context = LocalContext.current
     var showUsage by remember { mutableStateOf(false) }
+    val themeMode = SuperhumanAppearance.themeMode
 
     Column(Modifier.fillMaxSize().background(SettingsUsageBg)) {
-        Row(
+        Column(
             Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            SettingsModeButton("ALL SETTINGS", selected = !showUsage, width = 150.dp) { showUsage = false }
-            SettingsModeButton("DATA USAGE", selected = showUsage, width = 150.dp) { showUsage = true }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SettingsModeButton("ALL SETTINGS", selected = !showUsage, width = 150.dp) { showUsage = false }
+                SettingsModeButton("DATA USAGE", selected = showUsage, width = 150.dp) { showUsage = true }
+            }
+
+            Row(
+                Modifier.fillMaxWidth().background(superhumanSurfaceSoft, RoundedCornerShape(14.dp)).padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                AppearanceModeButton("SYSTEM", themeMode == SuperhumanThemeMode.SYSTEM, Modifier.weight(1f)) {
+                    SuperhumanAppearance.setThemeMode(context, SuperhumanThemeMode.SYSTEM)
+                }
+                AppearanceModeButton("LIGHT", themeMode == SuperhumanThemeMode.LIGHT, Modifier.weight(1f)) {
+                    SuperhumanAppearance.setThemeMode(context, SuperhumanThemeMode.LIGHT)
+                }
+                AppearanceModeButton("DARK", themeMode == SuperhumanThemeMode.DARK, Modifier.weight(1f)) {
+                    SuperhumanAppearance.setThemeMode(context, SuperhumanThemeMode.DARK)
+                }
+            }
+            Text(
+                if (themeMode == SuperhumanThemeMode.SYSTEM) "Appearance follows your Android device automatically." else "Appearance override is active. Choose SYSTEM to follow Android again.",
+                color = SettingsUsageMuted,
+                fontSize = 8.sp
+            )
         }
 
         if (showUsage) {
@@ -83,6 +111,26 @@ private fun SettingsModeButton(label: String, selected: Boolean, width: androidx
             fontSize = 8.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = .7.sp
+        )
+    }
+}
+
+@Composable
+private fun AppearanceModeButton(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(10.dp)
+    Box(
+        modifier.height(34.dp)
+            .background(if (selected) superhumanSurface else Color.Transparent, shape)
+            .border(1.dp, if (selected) superhumanBorder else Color.Transparent, shape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = if (selected) SettingsUsageNavy else SettingsUsageMuted,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = .5.sp
         )
     }
 }
