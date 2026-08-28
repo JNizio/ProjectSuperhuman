@@ -37,13 +37,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private val MindPurple = Color(0xFF6547C9)
-private val MindBlue = Color(0xFF0D6CB4)
-private val MindGreen = Color(0xFF168A78)
-private val MindOrange = Color(0xFFD97706)
-private val MindInk = Color(0xFF0B1F35)
-private val MindMuted = Color(0xFF64748B)
-private val MindBg = Color(0xFFF6F9FC)
+private val MindPurple get() = if (SuperhumanAppearance.darkMode) Color(0xFFA99BFF) else Color(0xFF6547C9)
+private val MindBlue get() = superhumanBlue
+private val MindGreen get() = superhumanGreen
+private val MindOrange get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFB766) else Color(0xFFD97706)
+private val MindInk get() = if (SuperhumanAppearance.darkMode) superhumanTextPrimary else Color(0xFF0B1F35)
+private val MindMuted get() = if (SuperhumanAppearance.darkMode) superhumanTextMuted else Color(0xFF64748B)
+private val MindBg get() = if (SuperhumanAppearance.darkMode) superhumanBackground else Color(0xFFF6F9FC)
+private val MindSurface get() = if (SuperhumanAppearance.darkMode) superhumanSurface else Color.White
 
 private enum class MindMode(val label: String) {
     BREATHING("Breathing"), MEDITATION("Meditation"), BODY_SCAN("Body scan")
@@ -157,14 +158,14 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
             }
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().background(MindSurface, RoundedCornerShape(22.dp)).padding(16.dp)) {
             Text("Choose practice", color = MindInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                 MindMode.values().forEach { item ->
                     val active = mode == item
                     Box(
-                        Modifier.weight(1f).background(if (active) MindPurple else MindPurple.copy(alpha = .08f), RoundedCornerShape(14.dp)).clickable { mode = item }.padding(vertical = 12.dp),
+                        Modifier.weight(1f).background(if (active) MindPurple else MindPurple.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .08f), RoundedCornerShape(14.dp)).clickable { mode = item }.padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(item.label, color = if (active) Color.White else MindPurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -193,7 +194,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
             }
         }
 
-        Column(Modifier.fillMaxWidth().background(MindPurple.copy(alpha = .08f), RoundedCornerShape(22.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().background(MindPurple.copy(alpha = if (SuperhumanAppearance.darkMode) .14f else .08f), RoundedCornerShape(22.dp)).padding(16.dp)) {
             Text("Stress check-in", color = MindPurple, fontSize = 17.sp, fontWeight = FontWeight.Black)
             Text("Optional 0–10 ratings help show whether a session changes perceived stress.", color = MindMuted, fontSize = 9.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(10.dp))
@@ -209,12 +210,12 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
             Text(status, color = MindMuted, fontSize = 9.sp)
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().background(MindSurface, RoundedCornerShape(20.dp)).padding(16.dp)) {
             Text("Practice approach", color = MindInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
             Text("Use relaxed breathing and non-reactive attention. The aim is practice and nervous-system regulation, not forcing symptoms or sensations to disappear.", color = MindMuted, fontSize = 9.sp, lineHeight = 14.sp)
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().background(MindSurface, RoundedCornerShape(20.dp)).padding(16.dp)) {
             Text("Existing guided tools", color = MindBlue, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
             Text("The previous mindfulness tools remain available as a compatibility fallback during parity testing.", color = MindMuted, fontSize = 9.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(9.dp))
@@ -228,7 +229,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
 
 @Composable
 private fun MindStat(label: String, value: String, accent: Color, modifier: Modifier) {
-    Column(modifier.background(Color.White, RoundedCornerShape(16.dp)).padding(11.dp)) {
+    Column(modifier.background(MindSurface, RoundedCornerShape(16.dp)).padding(11.dp)) {
         Text(label, color = MindMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
         Text(value, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Black)
