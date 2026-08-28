@@ -47,14 +47,17 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val UnifiedNavy = Color(0xFF123D70)
-private val UnifiedMuted = Color(0xFF748294)
-private val UnifiedBorder = Color(0xFFE3EAF0)
-private val UnifiedHeart = Color(0xFFD46072)
-private val UnifiedSteps = Color(0xFF0D6CB4)
-private val UnifiedOxygen = Color(0xFF20A7C4)
-private val UnifiedCalories = Color(0xFFE08A2E)
-private val UnifiedGreen = Color(0xFF379B7E)
+private val UnifiedNavy get() = superhumanBrandText
+private val UnifiedMuted get() = superhumanTextMuted
+private val UnifiedBorder get() = superhumanBorder
+private val UnifiedHeart get() = if (SuperhumanAppearance.darkMode) Color(0xFFFF91A3) else Color(0xFFD46072)
+private val UnifiedSteps get() = superhumanBlue
+private val UnifiedOxygen get() = if (SuperhumanAppearance.darkMode) superhumanAccent else Color(0xFF20A7C4)
+private val UnifiedCalories get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFB466) else Color(0xFFE08A2E)
+private val UnifiedGreen get() = superhumanGreen
+private val UnifiedSurface get() = superhumanSurface
+private val UnifiedSoft get() = superhumanSurfaceSoft
+private val UnifiedBackground get() = superhumanBackground
 
 private data class UnifiedMetricData(
     val latest: Double? = null,
@@ -148,7 +151,7 @@ internal fun UnifiedMiniMetricPage(metric: HomeMiniMetric, onBack: () -> Unit) {
     }
 
     Column(
-        Modifier.fillMaxSize().background(Color(0xFFF8FBFD)).verticalScroll(rememberScrollState())
+        Modifier.fillMaxSize().background(UnifiedBackground).verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -210,7 +213,7 @@ internal fun UnifiedSleepPage(onBack: () -> Unit, openLegacy: () -> Unit) {
     }
 
     Column(
-        Modifier.fillMaxSize().background(Color(0xFFF8FBFD)).verticalScroll(rememberScrollState())
+        Modifier.fillMaxSize().background(UnifiedBackground).verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -274,7 +277,7 @@ private fun CaloriesUnifiedContent(data: UnifiedMetricData) {
 
     Column(
         Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(UnifiedCalories.copy(alpha = .10f), Color.White)), RoundedCornerShape(22.dp)
+            Brush.linearGradient(listOf(UnifiedCalories.copy(alpha = .10f), UnifiedSurface)), RoundedCornerShape(22.dp)
         ).border(1.dp, UnifiedCalories.copy(alpha = .16f), RoundedCornerShape(22.dp)).padding(16.dp)
     ) {
         Text("ENERGY BALANCE", color = UnifiedCalories, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
@@ -306,7 +309,7 @@ private fun CaloriesUnifiedContent(data: UnifiedMetricData) {
 
 @Composable
 private fun CaloriesHistoryCard(burn: List<Double?>, eaten: List<Double?>) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, UnifiedBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(UnifiedSurface, RoundedCornerShape(22.dp)).border(1.dp, UnifiedBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
         Text("LAST 7 DAYS", color = UnifiedMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
         Spacer(Modifier.height(3.dp))
         Text("Burn vs intake", color = UnifiedNavy, fontSize = 15.sp, fontWeight = FontWeight.Black)
@@ -367,7 +370,7 @@ private fun GenericUnifiedContent(metric: HomeMiniMetric, data: UnifiedMetricDat
 
 @Composable
 private fun GenericHistory(metric: HomeMiniMetric, values: List<Double?>, accent: Color) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, UnifiedBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(UnifiedSurface, RoundedCornerShape(22.dp)).border(1.dp, UnifiedBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
         Text("LAST 7 DAYS", color = UnifiedMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(3.dp))
         Text(if (metric == HomeMiniMetric.STEPS) "Daily steps" else "Daily average SpO₂", color = UnifiedNavy, fontSize = 15.sp, fontWeight = FontWeight.Black)
@@ -402,7 +405,7 @@ private fun GenericHistory(metric: HomeMiniMetric, values: List<Double?>, accent
 @Composable
 private fun UnifiedHero(label: String, value: String, unit: String, caption: String, accent: Color) {
     Column(
-        Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(accent.copy(alpha = .14f), Color.White)), RoundedCornerShape(26.dp))
+        Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(accent.copy(alpha = .14f), UnifiedSurface)), RoundedCornerShape(26.dp))
             .border(1.dp, accent.copy(alpha = .16f), RoundedCornerShape(26.dp)).padding(20.dp)
     ) {
         Text(label, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
@@ -417,7 +420,7 @@ private fun UnifiedHero(label: String, value: String, unit: String, caption: Str
 
 @Composable
 private fun UnifiedStat(label: String, value: String, modifier: Modifier) {
-    Column(modifier.background(Color.White, RoundedCornerShape(18.dp)).border(1.dp, UnifiedBorder, RoundedCornerShape(18.dp)).padding(12.dp)) {
+    Column(modifier.background(UnifiedSurface, RoundedCornerShape(18.dp)).border(1.dp, UnifiedBorder, RoundedCornerShape(18.dp)).padding(12.dp)) {
         Text(label, color = UnifiedMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, maxLines = 1)
         Spacer(Modifier.height(6.dp)); Text(value, color = UnifiedNavy, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1)
     }
@@ -442,15 +445,15 @@ private fun UnifiedHealthConnectCard(
     backgroundEnabled: Boolean,
     onClick: () -> Unit
 ) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, UnifiedBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(UnifiedSurface, RoundedCornerShape(22.dp)).border(1.dp, UnifiedBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
         Text("HEALTH CONNECT · ALL MODULES", color = UnifiedMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
         Spacer(Modifier.height(6.dp))
         Text(if (fullyConnected) "Superhuman health data connected" else "Connect once across the app", color = UnifiedNavy, fontSize = 16.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(4.dp)); Text(status, color = UnifiedMuted, fontSize = 9.sp, lineHeight = 13.sp)
         Spacer(Modifier.height(11.dp))
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.background(Color(0xFFE8F3FA), RoundedCornerShape(14.dp)).clickable(enabled = !syncing, onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(if (syncing) "SYNCING ALL…" else if (fullyConnected) "SYNC ALL" else "CONNECT ALL", color = Color(0xFF0D6CB4), fontSize = 9.sp, fontWeight = FontWeight.Black)
+            Box(Modifier.background(UnifiedSoft, RoundedCornerShape(14.dp)).clickable(enabled = !syncing, onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Text(if (syncing) "SYNCING ALL…" else if (fullyConnected) "SYNC ALL" else "CONNECT ALL", color = UnifiedSteps, fontSize = 9.sp, fontWeight = FontWeight.Black)
             }
             if (fullyConnected) Text(if (backgroundEnabled) "15 min background sync" else "All supported parameters", color = UnifiedMuted, fontSize = 8.sp)
         }
