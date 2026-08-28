@@ -51,14 +51,17 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 
-private val ClinicalBlue = Color(0xFF0D6CB4)
-private val ClinicalNavy = Color(0xFF082D66)
-private val ClinicalInk = Color(0xFF0B1F35)
-private val ClinicalMuted = Color(0xFF64748B)
-private val ClinicalGood = Color(0xFF168A78)
-private val ClinicalBad = Color(0xFFCA3A3A)
-private val ClinicalWarn = Color(0xFFD97706)
-private val ClinicalBg = Color(0xFFF6F9FC)
+private val ClinicalBlue get() = superhumanBlue
+private val ClinicalNavy get() = if (SuperhumanAppearance.darkMode) superhumanBrandText else Color(0xFF082D66)
+private val ClinicalInk get() = if (SuperhumanAppearance.darkMode) superhumanTextPrimary else Color(0xFF0B1F35)
+private val ClinicalMuted get() = if (SuperhumanAppearance.darkMode) superhumanTextMuted else Color(0xFF64748B)
+private val ClinicalGood get() = superhumanGreen
+private val ClinicalBad get() = superhumanRed
+private val ClinicalWarn get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFB766) else Color(0xFFD97706)
+private val ClinicalBg get() = if (SuperhumanAppearance.darkMode) superhumanBackground else Color(0xFFF6F9FC)
+private val ClinicalSurface get() = if (SuperhumanAppearance.darkMode) superhumanSurface else Color.White
+private val ClinicalSoft get() = if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else Color(0xFFEAF2FA)
+private val ClinicalDivider get() = if (SuperhumanAppearance.darkMode) superhumanDivider else Color(0xFFE6EDF4)
 
 data class ClinicalDraft(
     val name: String,
@@ -124,9 +127,7 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         }
                     }
                 val existingClinical = clinicalData.allHistory()
-                val checked = enriched.map { draft ->
-                    draft.copy(duplicate = clinicalDuplicate(draft, existingClinical))
-                }
+                val checked = enriched.map { draft -> draft.copy(duplicate = clinicalDuplicate(draft, existingClinical)) }
                 drafts = checked.sortedBy { it.name.lowercase(Locale.ROOT) }
                 detectedText = raw.joinToString("\n\n").take(5000)
                 val withRanges = checked.count { it.low.isNotBlank() || it.high.isNotBlank() }
@@ -139,11 +140,7 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             try {
                 val image = InputImage.fromFilePath(context, uri)
                 recognizer.process(image)
-                    .addOnSuccessListener { text ->
-                        raw += text.text
-                        collected += parseClinicalText(text)
-                        finishOne()
-                    }
+                    .addOnSuccessListener { text -> raw += text.text; collected += parseClinicalText(text); finishOne() }
                     .addOnFailureListener { finishOne() }
             } catch (_: Exception) { finishOne() }
         }
@@ -162,21 +159,17 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             color = ClinicalMuted, fontSize = 14.sp, lineHeight = 21.sp
         )
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxWidth().background(ClinicalSurface, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ClinicalButton("Choose screenshots", ClinicalBlue) { launcher.launch("image/*") }
             Text(importState, color = ClinicalMuted, fontSize = 9.sp, lineHeight = 13.sp)
-
             if (selectedUris.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                    selectedUris.take(3).forEach { uri ->
-                        ClinicalScreenshotPreview(uri, Modifier.weight(1f))
-                    }
+                    selectedUris.take(3).forEach { uri -> ClinicalScreenshotPreview(uri, Modifier.weight(1f)) }
                 }
             }
-
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxWidth().background(ClinicalSurface, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Review before saving", color = ClinicalInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
             Text("Recognised fields are editable before they become part of your health history.", color = ClinicalMuted, fontSize = 9.sp, lineHeight = 13.sp)
 
@@ -195,13 +188,11 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             }
 
             Box(
-                Modifier.fillMaxWidth().background(Color(0xFFEAF2FA), RoundedCornerShape(16.dp)).clickable {
+                Modifier.fillMaxWidth().background(ClinicalSoft, RoundedCornerShape(16.dp)).clickable {
                     drafts = drafts + ClinicalDraft(name = "", value = "", unit = "", confidence = 1.0)
                 }.padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center
-            ) {
-                Text("+ Add result manually", color = ClinicalNavy, fontSize = 13.sp, fontWeight = FontWeight.Black)
-            }
+            ) { Text("+ Add result manually", color = ClinicalNavy, fontSize = 13.sp, fontWeight = FontWeight.Black) }
 
             ClinicalButton("Confirm & save", ClinicalBlue) {
                 scope.launch {
@@ -241,10 +232,7 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             Text("LATEST RESULTS", color = ClinicalMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
             saved.take(8).forEach { value ->
                 ClinicalResultRow(value) {
-                    scope.launch {
-                        NativeDataHub.deleteValue(value)
-                        refresh()
-                    }
+                    scope.launch { NativeDataHub.deleteValue(value); refresh() }
                 }
             }
         }
@@ -258,12 +246,10 @@ private fun ClinicalScreenshotPreview(uri: Uri, modifier: Modifier = Modifier) {
     val bitmap = remember(uri) {
         runCatching { context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) } }.getOrNull()
     }
-    Box(modifier.aspectRatio(0.78f).clip(RoundedCornerShape(14.dp)).background(ClinicalBg), contentAlignment = Alignment.Center) {
+    Box(modifier.aspectRatio(0.78f).clip(RoundedCornerShape(14.dp)).background(ClinicalSoft), contentAlignment = Alignment.Center) {
         if (bitmap != null) {
             Image(bitmap = bitmap.asImageBitmap(), contentDescription = "Clinical screenshot preview", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        } else {
-            Text("Preview unavailable", color = ClinicalMuted, fontSize = 8.sp)
-        }
+        } else Text("Preview unavailable", color = ClinicalMuted, fontSize = 8.sp)
     }
 }
 
@@ -280,7 +266,7 @@ private fun ClinicalLegacyReviewRow(draft: ClinicalDraft, onChange: (ClinicalDra
         Row(verticalAlignment = Alignment.CenterVertically) {
             ClinicalChip(statusLabel, statusColor, Modifier.weight(1f, fill = false))
             Spacer(Modifier.weight(1f))
-            Text("Remove", color = Color(0xFFA95C5C), fontSize = 12.sp, modifier = Modifier.clickable(onClick = onRemove).padding(6.dp))
+            Text("Remove", color = ClinicalBad, fontSize = 12.sp, modifier = Modifier.clickable(onClick = onRemove).padding(6.dp))
         }
         OutlinedTextField(draft.name, { onChange(draft.copy(name = it)) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("TEST") })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -298,7 +284,7 @@ private fun ClinicalLegacyReviewRow(draft: ClinicalDraft, onChange: (ClinicalDra
             if (draft.duplicate) ClinicalChip("DUPLICATE", ClinicalBad)
             if (draft.confidence in 0.0..0.72) ClinicalChip("Check OCR", ClinicalWarn)
         }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFE6EDF4)))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(ClinicalDivider))
     }
 }
 
@@ -325,7 +311,7 @@ private fun ClinicalHeader(onBack: () -> Unit) {
 
 @Composable
 private fun ClinicalStat(label: String, value: String, accent: Color, modifier: Modifier) {
-    Column(modifier.background(Color.White, RoundedCornerShape(16.dp)).padding(12.dp)) {
+    Column(modifier.background(ClinicalSurface, RoundedCornerShape(16.dp)).padding(12.dp)) {
         Text(label, color = ClinicalMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
         Text(value, color = accent, fontSize = 16.sp, fontWeight = FontWeight.Black)
@@ -340,7 +326,7 @@ private fun ClinicalReviewCard(draft: ClinicalDraft, onChange: (ClinicalDraft) -
     val status = if (value == null) "CHECK" else statusOf(value, low, high)
     val accent = when (status) { "LOW", "HIGH" -> ClinicalBad; "NORMAL" -> ClinicalGood; else -> ClinicalWarn }
 
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(20.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(Modifier.fillMaxWidth().background(ClinicalSurface, RoundedCornerShape(20.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(status, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black)
@@ -372,7 +358,7 @@ private fun ClinicalResultRow(value: HealthValue, onDelete: () -> Unit) {
     val status = statusOf(value.value, low, high)
     val accent = when (status) { "LOW", "HIGH" -> ClinicalBad; "NORMAL" -> ClinicalGood; else -> ClinicalWarn }
     val name = value.metadata["displayName"] ?: value.metric.removePrefix("clinical.").replace('_', ' ')
-    Row(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().background(ClinicalSurface, RoundedCornerShape(18.dp)).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(5.dp).height(38.dp).background(accent, RoundedCornerShape(99.dp)))
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
@@ -430,14 +416,8 @@ private fun parseClinicalText(ocr: MlText): List<ClinicalDraft> {
         for (j in i + 1 until end) {
             val lineText = lines[j].text
             val nextDef = markerDef(lineText)
-            if (nextDef != null && headingLooksReal(lineText, nextDef)) {
-                end = j
-                break
-            }
-            if (isNhsSectionBoundary(lineText)) {
-                end = j
-                break
-            }
+            if (nextDef != null && headingLooksReal(lineText, nextDef)) { end = j; break }
+            if (isNhsSectionBoundary(lineText)) { end = j; break }
         }
         val window = lines.subList(i, end)
         val valueHit = findResult(window, def) ?: continue
@@ -533,6 +513,7 @@ private fun findResult(window: List<OcrLine>, def: ClinicalMarkerDef): ValueHit?
     }
     return best?.takeIf { bestScore >= .62 }
 }
+
 private fun normalizeClinicalUnitForCompare(unit: String): String = unit
     .trim().lowercase(Locale.ROOT)
     .replace("μ", "µ")
@@ -570,9 +551,7 @@ private fun findRange(text: String): RangeHit {
         Regex("(?:reference|normal|healthy|expected)\\s*(?:range|interval)?[^\\d<>-]{0,45}(?:is\\s*)?(?:between\\s*)?(-?\\d+(?:\\.\\d+)?)\\s*(?:and|to|-)\\s*(-?\\d+(?:\\.\\d+)?)", RegexOption.IGNORE_CASE),
         Regex("\\bbetween\\s+(-?\\d+(?:\\.\\d+)?)\\s+(?:and|to)\\s+(-?\\d+(?:\\.\\d+)?)", RegexOption.IGNORE_CASE)
     )
-    explicit.forEach { rx ->
-        rx.find(s)?.let { return RangeHit(it.groupValues[1], it.groupValues[2]) }
-    }
+    explicit.forEach { rx -> rx.find(s)?.let { return RangeHit(it.groupValues[1], it.groupValues[2]) } }
 
     val labelledLines = s.lines().filter { Regex("range|reference|normal|interval", RegexOption.IGNORE_CASE).containsMatchIn(it) }
     val pairRx = Regex("(-?\\d+(?:\\.\\d+)?)\\s*(?:-|to|–)\\s*(-?\\d+(?:\\.\\d+)?)", RegexOption.IGNORE_CASE)
@@ -733,9 +712,7 @@ private fun looksGenericHeading(text: String): Boolean {
 
 private fun stripAliases(text: String, aliases: List<String>): String {
     var out = text
-    aliases.sortedByDescending { it.length }.forEach { alias ->
-        out = out.replace(Regex(Regex.escape(alias), RegexOption.IGNORE_CASE), " ")
-    }
+    aliases.sortedByDescending { it.length }.forEach { alias -> out = out.replace(Regex(Regex.escape(alias), RegexOption.IGNORE_CASE), " ") }
     return out
 }
 
@@ -743,15 +720,9 @@ private fun isNhsSectionBoundary(text: String): Boolean {
     val s = labNorm(text)
     if (s.isBlank()) return false
     return listOf(
-        "learn more about",
-        "view test result history",
-        "healthcare professional s comment",
-        "healthcare professional's comment",
-        "help with abbreviations",
-        "give feedback about the nhs app",
-        "you may see medical abbreviations",
-        "app help",
-        "home messages profile"
+        "learn more about", "view test result history", "healthcare professional s comment",
+        "healthcare professional's comment", "help with abbreviations", "give feedback about the nhs app",
+        "you may see medical abbreviations", "app help", "home messages profile"
     ).any { s.contains(labNorm(it)) }
 }
 
