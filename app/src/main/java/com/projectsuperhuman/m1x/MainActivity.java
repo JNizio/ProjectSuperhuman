@@ -12,14 +12,15 @@ import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Insets;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.View;
 import android.view.WindowInsets;
-import android.view.WindowManager;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -32,18 +33,37 @@ public class MainActivity extends Activity {
     protected WebView webView;
     protected ScaleBridge scaleBridge;
 
+    private boolean isSystemDarkMode() {
+        int nightModeFlags = getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        return nightModeFlags == Configuration.UI_MODE_NIGHT_YES;
+    }
+
+    private void applyNativeAppearance(FrameLayout root, WebView view) {
+        boolean dark = isSystemDarkMode();
+        int bg = dark ? Color.rgb(9, 19, 31) : Color.rgb(248, 250, 252);
+
+        getWindow().setStatusBarColor(bg);
+        getWindow().setNavigationBarColor(bg);
+        root.setBackgroundColor(bg);
+        view.setBackgroundColor(bg);
+
+        if (Build.VERSION.SDK_INT >= 23) {
+            int flags = 0;
+            if (!dark) flags |= View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+            if (Build.VERSION.SDK_INT >= 26 && !dark) flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+            getWindow().getDecorView().setSystemUiVisibility(flags);
+        }
+    }
+
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        getWindow().setStatusBarColor(Color.rgb(248,250,252));
-        getWindow().setNavigationBarColor(Color.rgb(248,250,252));
-        if (Build.VERSION.SDK_INT >= 23) getWindow().getDecorView().setSystemUiVisibility(0x2000);
 
         // Android 15 / targetSdk 35 enforces edge-to-edge. Keep the page below the
         // real status-bar inset while deliberately leaving the bottom untouched.
         FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(Color.rgb(248,250,252));
         webView = new WebView(this);
-        webView.setBackgroundColor(Color.rgb(248,250,252));
+        applyNativeAppearance(root, webView);
+
         root.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.MATCH_PARENT));
@@ -69,6 +89,15 @@ public class MainActivity extends Activity {
         s.setBuiltInZoomControls(false);
         s.setDisplayZoomControls(false);
         s.setCacheMode(WebSettings.LOAD_DEFAULT);
+
+        // Make CSS prefers-color-scheme agree with Android on WebView versions that
+        // support force-dark. The JS bridge below is still the authoritative signal.
+        if (Build.VERSION.SDK_INT >= 29) {
+            try {
+                s.setForceDark(isSystemDarkMode() ? WebSettings.FORCE_DARK_ON : WebSettings.FORCE_DARK_OFF);
+            } catch (Throwable ignored) {}
+        }
+
         webView.setWebViewClient(new WebViewClient(){
             @Override public void onPageFinished(WebView view, String url){
                 super.onPageFinished(view,url);
@@ -99,6 +128,10 @@ public class MainActivity extends Activity {
     public final class AppBridge {
         @JavascriptInterface public String getVersionName(){
             try{return getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(Exception e){return "";}
+        }
+
+        @JavascriptInterface public boolean isDarkMode(){
+            return isSystemDarkMode();
         }
     }
 
