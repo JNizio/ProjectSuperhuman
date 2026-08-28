@@ -43,15 +43,32 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val ClinicalHubNavy = Color(0xFF082D66)
-private val ClinicalHubBlue = Color(0xFF0D6CB4)
-private val ClinicalHubInk = Color(0xFF0B1F35)
-private val ClinicalHubMuted = Color(0xFF64748B)
-private val ClinicalHubBg = Color(0xFFF6F9FC)
-private val ClinicalHubGood = Color(0xFF168A78)
-private val ClinicalHubAlert = Color(0xFFB45C5C)
-private val ClinicalHubLab = Color(0xFF7158D9)
-private val ClinicalHubBorder = Color(0xFFE0E9F0)
+private val ClinicalHubNavy get() = superhumanBrandText
+private val ClinicalHubBlue get() = superhumanBlue
+private val ClinicalHubInk get() = superhumanTextPrimary
+private val ClinicalHubMuted get() = superhumanTextMuted
+private val ClinicalHubBg get() = superhumanBackground
+private val ClinicalHubGood get() = superhumanGreen
+private val ClinicalHubAlert get() = if (SuperhumanAppearance.darkMode) Color(0xFFFF9A9A) else Color(0xFFB45C5C)
+private val ClinicalHubLab get() = if (SuperhumanAppearance.darkMode) Color(0xFFA99BFF) else Color(0xFF7158D9)
+private val ClinicalHubBorder get() = superhumanBorder
+private val ClinicalHubSurface get() = superhumanSurface
+private val ClinicalHubSurfaceElevated get() = superhumanSurfaceElevated
+private val ClinicalHubSoft get() = superhumanSurfaceSoft
+
+private val ClinicalOverviewColors: List<Color>
+    get() = if (SuperhumanAppearance.darkMode) {
+        listOf(Color(0xFF10283A), ClinicalHubSurfaceElevated, ClinicalHubSurface)
+    } else {
+        listOf(Color(0xFFEAF4FB), Color(0xFFF7FAFD), Color.White)
+    }
+
+private val ClinicalLabColors: List<Color>
+    get() = if (SuperhumanAppearance.darkMode) {
+        listOf(Color(0xFF211E39), ClinicalHubSurface)
+    } else {
+        listOf(Color(0xFFF3F1FF), Color.White)
+    }
 
 /**
  * Clinical landing screen.
@@ -240,9 +257,7 @@ private fun ClinicalOverviewCard(
     Column(
         Modifier.fillMaxWidth()
             .background(
-                Brush.linearGradient(
-                    listOf(Color(0xFFEAF4FB), Color(0xFFF7FAFD), Color.White)
-                ),
+                Brush.linearGradient(ClinicalOverviewColors),
                 RoundedCornerShape(24.dp)
             )
             .border(1.dp, ClinicalHubBlue.copy(alpha = .12f), RoundedCornerShape(24.dp))
@@ -303,7 +318,10 @@ private fun ClinicalOverviewCard(
 
         Row(
             Modifier.fillMaxWidth()
-                .background(Color.White.copy(alpha = .82f), RoundedCornerShape(14.dp))
+                .background(
+                    if (SuperhumanAppearance.darkMode) ClinicalHubSurfaceElevated else Color.White.copy(alpha = .82f),
+                    RoundedCornerShape(14.dp)
+                )
                 .then(
                     if (onRecentClick != null) Modifier.superhumanClickable(onClick = onRecentClick)
                     else Modifier
@@ -344,8 +362,10 @@ private fun ClinicalMetricBlock(
     accent: Color = ClinicalHubNavy
 ) {
     Column(
-        modifier.background(Color.White.copy(alpha = .76f), RoundedCornerShape(15.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+        modifier.background(
+            if (SuperhumanAppearance.darkMode) ClinicalHubSurfaceElevated else Color.White.copy(alpha = .76f),
+            RoundedCornerShape(15.dp)
+        ).padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Text(value, color = accent, fontSize = 19.sp, fontWeight = FontWeight.Black)
         Text(label, color = ClinicalHubMuted, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
@@ -392,7 +412,7 @@ private fun ClinicalQuickAction(
     onClick: () -> Unit
 ) {
     Box(
-        modifier.background(Color.White, RoundedCornerShape(15.dp))
+        modifier.background(ClinicalHubSurface, RoundedCornerShape(15.dp))
             .border(1.dp, accent.copy(alpha = .15f), RoundedCornerShape(15.dp))
             .superhumanClickable(onClick = onClick)
             .padding(vertical = 12.dp),
@@ -410,7 +430,7 @@ private fun ConditionsSummaryCard(
 ) {
     Column(
         Modifier.fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(22.dp))
+            .background(ClinicalHubSurface, RoundedCornerShape(22.dp))
             .border(1.dp, ClinicalHubBorder, RoundedCornerShape(22.dp))
             .padding(15.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
@@ -479,7 +499,7 @@ private fun RecordedConditionRow(
 
     Row(
         Modifier.fillMaxWidth()
-            .background(ClinicalHubBg, RoundedCornerShape(14.dp))
+            .background(ClinicalHubSoft, RoundedCornerShape(14.dp))
             .padding(horizontal = 11.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -532,9 +552,7 @@ private fun LabSummaryCard(
     Row(
         Modifier.fillMaxWidth()
             .background(
-                Brush.linearGradient(
-                    listOf(Color(0xFFF3F1FF), Color.White)
-                ),
+                Brush.linearGradient(ClinicalLabColors),
                 RoundedCornerShape(22.dp)
             )
             .border(1.dp, ClinicalHubLab.copy(alpha = .14f), RoundedCornerShape(22.dp))
@@ -604,7 +622,7 @@ private fun LabSummaryCard(
 private fun ClinicalContextNote(activeCount: Int) {
     Column(
         Modifier.fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(18.dp))
+            .background(ClinicalHubSurface, RoundedCornerShape(18.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
@@ -676,7 +694,7 @@ private fun ClinicalConditionAddFlow(
 
         Column(
             Modifier.fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(22.dp))
+                .background(ClinicalHubSurface, RoundedCornerShape(22.dp))
                 .border(1.dp, ClinicalHubBorder, RoundedCornerShape(22.dp))
                 .padding(15.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)
@@ -699,8 +717,15 @@ private fun ClinicalConditionAddFlow(
                 },
                 placeholder = { Text("Search conditions…") },
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = ClinicalHubInk,
+                    unfocusedTextColor = ClinicalHubInk,
+                    focusedContainerColor = ClinicalHubSurface,
+                    unfocusedContainerColor = ClinicalHubSurface,
                     focusedBorderColor = ClinicalHubBlue,
-                    unfocusedBorderColor = ClinicalHubBorder
+                    unfocusedBorderColor = ClinicalHubBorder,
+                    cursorColor = ClinicalHubBlue,
+                    focusedPlaceholderColor = ClinicalHubMuted,
+                    unfocusedPlaceholderColor = ClinicalHubMuted
                 )
             )
             Text(
@@ -734,7 +759,7 @@ private fun ClinicalConditionAddFlow(
         } else {
             Column(
                 Modifier.fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(22.dp))
+                    .background(ClinicalHubSurface, RoundedCornerShape(22.dp))
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
@@ -820,7 +845,7 @@ private fun ConditionSearchResultRow(
     Row(
         Modifier.fillMaxWidth()
             .background(
-                if (general) ClinicalHubBlue.copy(alpha = .055f) else ClinicalHubBg,
+                if (general) ClinicalHubBlue.copy(alpha = .055f) else ClinicalHubSoft,
                 RoundedCornerShape(14.dp)
             )
             .then(
