@@ -51,15 +51,19 @@ class NextShellActivity : ComponentActivity() {
         trudyVoiceController = AndroidTrudyVoiceControllerFactory.create(this)
         enableEdgeToEdge()
         setContent {
-            val darkMode = SuperhumanAppearance.darkMode
-            SideEffect {
-                val transparent = AndroidColor.TRANSPARENT
-                enableEdgeToEdge(
-                    statusBarStyle = SystemBarStyle.auto(transparent, transparent) { darkMode },
-                    navigationBarStyle = SystemBarStyle.auto(transparent, transparent) { darkMode }
-                )
-            }
+            /*
+             * Resolve ProjectSuperhumanTheme first. This makes isSystemInDarkTheme() the source of
+             * truth before the shell, custom semantic colors and Android system bars are composed.
+             */
             ProjectSuperhumanTheme {
+                val darkMode = SuperhumanAppearance.darkMode
+                SideEffect {
+                    val transparent = AndroidColor.TRANSPARENT
+                    enableEdgeToEdge(
+                        statusBarStyle = SystemBarStyle.auto(transparent, transparent) { darkMode },
+                        navigationBarStyle = SystemBarStyle.auto(transparent, transparent) { darkMode }
+                    )
+                }
                 SuperhumanShell(
                     openCompatibility = { startActivity(Intent(this, HealthBridge::class.java)) },
                     trudyController = trudyRuntime.controller,
