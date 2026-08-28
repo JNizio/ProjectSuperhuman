@@ -53,18 +53,20 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import kotlin.math.roundToInt
 
-private val N2Navy = Color(0xFF123D70)
-private val N2Blue = Color(0xFF0D6CB4)
-private val N2Cyan = Color(0xFF20A7C4)
-private val N2Ink = Color(0xFF16334E)
-private val N2Muted = Color(0xFF748294)
-private val N2Bg = Color(0xFFF8FBFD)
-private val N2Border = Color(0xFFE3EAF0)
-private val N2Green = Color(0xFF4AAE91)
-private val N2Amber = Color(0xFFD98B2B)
-private val N2Purple = Color(0xFF7260BF)
-private val N2SoftBlue = Color(0xFFEAF4FA)
-private val N2SoftGreen = Color(0xFFEEF8F4)
+private val N2Navy get() = superhumanBrandText
+private val N2Blue get() = superhumanBlue
+private val N2Cyan get() = if (SuperhumanAppearance.darkMode) superhumanAccent else Color(0xFF20A7C4)
+private val N2Ink get() = superhumanTextPrimary
+private val N2Muted get() = superhumanTextMuted
+private val N2Bg get() = superhumanBackground
+private val N2Border get() = if (SuperhumanAppearance.darkMode) superhumanBorder else Color(0xFFE3EAF0)
+private val N2Green get() = if (SuperhumanAppearance.darkMode) superhumanGreen else Color(0xFF4AAE91)
+private val N2Amber get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFB766) else Color(0xFFD98B2B)
+private val N2Purple get() = if (SuperhumanAppearance.darkMode) Color(0xFFA99BFF) else Color(0xFF7260BF)
+private val N2SoftBlue get() = if (SuperhumanAppearance.darkMode) Color(0xFF102838) else Color(0xFFEAF4FA)
+private val N2SoftGreen get() = if (SuperhumanAppearance.darkMode) Color(0xFF102A26) else Color(0xFFEEF8F4)
+private val N2Surface get() = superhumanSurface
+private val N2RowBg get() = if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else N2Bg
 
 private enum class N2View { DIARY, NUTRIENTS, INSIGHTS }
 
@@ -330,7 +332,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 private fun N2Header(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp))
+            Modifier.width(42.dp).height(42.dp).background(N2Surface, RoundedCornerShape(14.dp))
                 .border(1.dp, N2Border, RoundedCornerShape(14.dp)).superhumanClickable(onClick = onBack),
             contentAlignment = Alignment.Center
         ) { Text("←", color = N2Navy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
@@ -349,7 +351,7 @@ private fun N2Header(onBack: () -> Unit) {
 @Composable
 private fun N2Tabs(view: N2View, onChange: (N2View) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp)).border(1.dp, N2Border, RoundedCornerShape(18.dp)).padding(4.dp),
+        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(18.dp)).border(1.dp, N2Border, RoundedCornerShape(18.dp)).padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         N2Tab("Diary", view == N2View.DIARY, Modifier.weight(1f)) { onChange(N2View.DIARY) }
@@ -436,7 +438,7 @@ private fun N2LogCard(
     onBarcodeLookup: () -> Unit
 ) {
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text("Log food", color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
@@ -475,13 +477,13 @@ private fun N2Button(label: String, accent: Color, modifier: Modifier, enabled: 
 @Composable
 private fun N2Results(foods: List<NativeFood>, selectedId: String?, onSelect: (NativeFood) -> Unit) {
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(14.dp),
+        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Text("Results", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
         foods.take(10).forEach { food ->
             Row(
-                Modifier.fillMaxWidth().background(if (food.id == selectedId) N2SoftGreen else N2Bg, RoundedCornerShape(14.dp))
+                Modifier.fillMaxWidth().background(if (food.id == selectedId) N2SoftGreen else N2RowBg, RoundedCornerShape(14.dp))
                     .clickable { onSelect(food) }.padding(11.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -534,7 +536,7 @@ private fun N2AddFoodCard(
             n2Meals.forEach { item ->
                 val active = meal == item
                 Box(
-                    Modifier.background(if (active) N2Blue else Color.White, RoundedCornerShape(13.dp))
+                    Modifier.background(if (active) N2Blue else N2Surface, RoundedCornerShape(13.dp))
                         .border(1.dp, if (active) N2Blue else N2Border, RoundedCornerShape(13.dp))
                         .clickable { onMealChange(item) }.padding(horizontal = 14.dp, vertical = 9.dp)
                 ) { Text(item, color = if (active) Color.White else N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
@@ -546,7 +548,7 @@ private fun N2AddFoodCard(
 
 @Composable
 private fun N2FoodStat(value: String, label: String, modifier: Modifier) {
-    Column(modifier.background(Color.White, RoundedCornerShape(13.dp)).padding(9.dp)) {
+    Column(modifier.background(N2Surface, RoundedCornerShape(13.dp)).padding(9.dp)) {
         Text(value, color = N2Navy, fontSize = 13.sp, fontWeight = FontWeight.Black)
         Text(label, color = N2Muted, fontSize = 8.sp)
     }
@@ -556,7 +558,7 @@ private fun N2FoodStat(value: String, label: String, modifier: Modifier) {
 private fun N2Diary(day: N2Day, onRemove: (N2Entry) -> Unit) {
     if (day.entries.isEmpty()) {
         Column(
-            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(22.dp),
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(22.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text("Your diary is empty", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -579,7 +581,7 @@ private fun N2Diary(day: N2Day, onRemove: (N2Entry) -> Unit) {
 @Composable
 private fun N2MealCard(meal: String, entries: List<N2Entry>, onRemove: (N2Entry) -> Unit) {
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
+        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -588,7 +590,7 @@ private fun N2MealCard(meal: String, entries: List<N2Entry>, onRemove: (N2Entry)
         }
         entries.sortedBy { it.timestamp }.forEach { entry ->
             Row(
-                Modifier.fillMaxWidth().background(N2Bg, RoundedCornerShape(14.dp)).padding(11.dp),
+                Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(11.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
@@ -599,7 +601,7 @@ private fun N2MealCard(meal: String, entries: List<N2Entry>, onRemove: (N2Entry)
                     )
                 }
                 Box(
-                    Modifier.width(30.dp).height(30.dp).background(Color.White, RoundedCornerShape(10.dp)).clickable { onRemove(entry) },
+                    Modifier.width(30.dp).height(30.dp).background(N2Surface, RoundedCornerShape(10.dp)).clickable { onRemove(entry) },
                     contentAlignment = Alignment.Center
                 ) { Text("×", color = N2Muted, fontSize = 17.sp, fontWeight = FontWeight.Bold) }
             }
@@ -616,7 +618,7 @@ private fun N2Nutrients(day: N2Day, showAll: Boolean, onToggleAll: () -> Unit) {
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(
-            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(17.dp),
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(17.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             Text("Nutrient coverage", color = N2Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
@@ -629,7 +631,7 @@ private fun N2Nutrients(day: N2Day, showAll: Boolean, onToggleAll: () -> Unit) {
         }
 
         Column(
-            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text("Focus today", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -648,7 +650,7 @@ private fun N2Nutrients(day: N2Day, showAll: Boolean, onToggleAll: () -> Unit) {
 
         if (showAll) {
             Column(
-                Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
+                Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text("All tracked nutrients", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -669,7 +671,7 @@ private fun N2Nutrients(day: N2Day, showAll: Boolean, onToggleAll: () -> Unit) {
 
 @Composable
 private fun N2UnknownNutrient(ref: N2Reference) {
-    Row(Modifier.fillMaxWidth().background(N2Bg, RoundedCornerShape(14.dp)).padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(ref.label, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
             Text("No reliable value in today's logged foods", color = N2Muted, fontSize = 9.sp)
@@ -689,7 +691,7 @@ private fun N2NutrientRow(micro: N2Micro, entryCount: Int) {
         pct < 85 -> N2Blue
         else -> N2Green
     }
-    Column(Modifier.fillMaxWidth().background(N2Bg, RoundedCornerShape(14.dp)).padding(11.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(11.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text(micro.label, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
@@ -722,7 +724,7 @@ private fun N2Insights(
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(
-            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             Text("Today", color = N2Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
@@ -740,7 +742,7 @@ private fun N2Insights(
         }
 
         Column(
-            Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -775,7 +777,7 @@ private fun N2Insights(
 
 @Composable
 private fun N2Insight(title: String, detail: String, accent: Color) {
-    Row(Modifier.fillMaxWidth().background(N2Bg, RoundedCornerShape(14.dp)).padding(11.dp), verticalAlignment = Alignment.Top) {
+    Row(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(11.dp), verticalAlignment = Alignment.Top) {
         Box(Modifier.width(6.dp).height(34.dp).background(accent, RoundedCornerShape(99.dp)))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
@@ -787,7 +789,7 @@ private fun N2Insight(title: String, detail: String, accent: Color) {
 
 @Composable
 private fun N2TargetSummary(label: String, value: String, unit: String, modifier: Modifier) {
-    Column(modifier.background(N2Bg, RoundedCornerShape(14.dp)).padding(10.dp)) {
+    Column(modifier.background(N2RowBg, RoundedCornerShape(14.dp)).padding(10.dp)) {
         Text(label.uppercase(), color = N2Muted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
         Row(verticalAlignment = Alignment.Bottom) {
             Text(value, color = N2Navy, fontSize = 15.sp, fontWeight = FontWeight.Black)
