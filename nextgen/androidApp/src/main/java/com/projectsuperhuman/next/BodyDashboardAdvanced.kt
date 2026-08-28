@@ -44,11 +44,13 @@ import java.time.Instant
 import java.time.ZoneId
 import kotlin.math.abs
 
-private val DashInk = Color(0xFF0B1F35)
-private val DashMuted = Color(0xFF64748B)
-private val DashBlue = Color(0xFF0D6CB4)
-private val DashGreen = Color(0xFF168A78)
-private val DashBorder = Color(0xFFE7ECF2)
+private val DashInk get() = superhumanTextPrimary
+private val DashMuted get() = superhumanTextMuted
+private val DashBlue get() = superhumanBlue
+private val DashGreen get() = superhumanGreen
+private val DashBorder get() = superhumanBorder
+private val DashSurface get() = superhumanSurface
+private val DashSoft get() = superhumanSurfaceSoft
 private val BodyDashboardData = NativeDomainData.forDomain(HealthDomain.BODY)
 
 private data class BodyProfileUi(
@@ -110,7 +112,7 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
     }
 
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().background(DashSurface, RoundedCornerShape(22.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -134,7 +136,7 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             if (editing) {
-                Box(Modifier.weight(1f).height(80.dp).background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).padding(6.dp)) {
+                Box(Modifier.weight(1f).height(80.dp).background(DashSoft, RoundedCornerShape(13.dp)).padding(6.dp)) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("SEX", color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -145,7 +147,7 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
                 }
                 Box(Modifier.weight(2f)) {
                     Column(
-                        Modifier.fillMaxWidth().height(80.dp).background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).superhumanClickable { activityOpen = true }.padding(horizontal = 12.dp, vertical = 10.dp),
+                        Modifier.fillMaxWidth().height(80.dp).background(DashSoft, RoundedCornerShape(13.dp)).superhumanClickable { activityOpen = true }.padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalArrangement = Arrangement.SpaceBetween,
                         horizontalAlignment = Alignment.Start
                     ) {
@@ -211,7 +213,7 @@ internal fun BodyOverTimeSection() {
             .sortedBy { it.timestampEpochMs }
     }
 
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxWidth().background(DashSurface, RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column {
             Text("Change over time", color = DashInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
             Text("Switch metrics and tap any date to inspect that reading", color = DashMuted, fontSize = 9.sp)
@@ -222,7 +224,7 @@ internal fun BodyOverTimeSection() {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     rowMetrics.forEach { metric ->
                         val active = metric.metric == selected.metric
-                        Box(Modifier.weight(1f).background(if (active) DashBlue else Color(0xFFF2F6FA), RoundedCornerShape(12.dp)).clickable { selected = metric }.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.weight(1f).background(if (active) DashBlue else DashSoft, RoundedCornerShape(12.dp)).clickable { selected = metric }.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
                             Text(metric.title, color = if (active) Color.White else DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -236,7 +238,7 @@ internal fun BodyOverTimeSection() {
                 val active = item.days == range.days
                 Box(
                     Modifier.weight(1f)
-                        .background(if (active) DashBlue.copy(alpha = .11f) else Color(0xFFF7F9FC), RoundedCornerShape(11.dp))
+                        .background(if (active) DashBlue.copy(alpha = .11f) else DashSoft, RoundedCornerShape(11.dp))
                         .clickable { range = item }
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
@@ -247,7 +249,7 @@ internal fun BodyOverTimeSection() {
         }
 
         if (history.size < 2) {
-            Box(Modifier.fillMaxWidth().background(Color(0xFFF7F9FC), RoundedCornerShape(16.dp)).padding(18.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().background(DashSoft, RoundedCornerShape(16.dp)).padding(18.dp), contentAlignment = Alignment.Center) {
                 Text("More readings will build your ${selected.title.lowercase()} trend.", color = DashMuted, fontSize = 10.sp)
             }
         } else {
@@ -283,7 +285,7 @@ internal fun BodyOverTimeSection() {
             val selectedPoint = history.getOrNull(selectedIndex) ?: history.last()
 
             Row(
-                Modifier.fillMaxWidth().background(Color(0xFFF7F9FC), RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
+                Modifier.fillMaxWidth().background(DashSoft, RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -343,7 +345,7 @@ internal fun BodyOverTimeSection() {
                                 radius = if (index == selectedIndex) 8f else 3.5f,
                                 center = Offset(x, y)
                             )
-                            if (index == selectedIndex) drawCircle(Color.White, radius = 3f, center = Offset(x, y))
+                            if (index == selectedIndex) drawCircle(DashSurface, radius = 3f, center = Offset(x, y))
                         }
                     }
 
@@ -377,7 +379,7 @@ internal fun BodyOverTimeSection() {
 
 @Composable
 private fun ProfileEditMini(label: String, value: String, unit: String, modifier: Modifier, onValue: (String) -> Unit) {
-    Column(modifier.background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).padding(10.dp)) {
+    Column(modifier.background(DashSoft, RoundedCornerShape(13.dp)).padding(10.dp)) {
         Text(label, color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -396,7 +398,7 @@ private fun ProfileEditMini(label: String, value: String, unit: String, modifier
 
 @Composable
 private fun ProfileMini(label: String, value: String, modifier: Modifier) {
-    Column(modifier.background(Color(0xFFF6F8FB), RoundedCornerShape(13.dp)).padding(10.dp)) {
+    Column(modifier.background(DashSoft, RoundedCornerShape(13.dp)).padding(10.dp)) {
         Text(label, color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
         Text(value, color = DashInk, fontSize = 10.sp, fontWeight = FontWeight.Black)
