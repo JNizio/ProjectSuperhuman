@@ -36,14 +36,18 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
-private val FoodEditNavy = Color(0xFF123D70)
-private val FoodEditBlue = Color(0xFF0D6CB4)
-private val FoodEditInk = Color(0xFF16334E)
-private val FoodEditMuted = Color(0xFF748294)
-private val FoodEditBg = Color(0xFFF8FBFD)
-private val FoodEditBorder = Color(0xFFE3EAF0)
-private val FoodEditGreen = Color(0xFF4AAE91)
-private val FoodEditAmber = Color(0xFFD98B2B)
+private val FoodEditNavy get() = if (SuperhumanAppearance.darkMode) superhumanBrandText else Color(0xFF123D70)
+private val FoodEditBlue get() = superhumanBlue
+private val FoodEditInk get() = if (SuperhumanAppearance.darkMode) superhumanTextPrimary else Color(0xFF16334E)
+private val FoodEditMuted get() = if (SuperhumanAppearance.darkMode) superhumanTextMuted else Color(0xFF748294)
+private val FoodEditBg get() = if (SuperhumanAppearance.darkMode) superhumanBackground else Color(0xFFF8FBFD)
+private val FoodEditBorder get() = if (SuperhumanAppearance.darkMode) superhumanBorder else Color(0xFFE3EAF0)
+private val FoodEditGreen get() = if (SuperhumanAppearance.darkMode) superhumanGreen else Color(0xFF4AAE91)
+private val FoodEditAmber get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFB766) else Color(0xFFD98B2B)
+private val FoodEditSurface get() = if (SuperhumanAppearance.darkMode) superhumanSurface else Color.White
+private val FoodEditRow get() = if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else FoodEditBg
+private val FoodEditSearchGradient: List<Color>
+    get() = if (SuperhumanAppearance.darkMode) listOf(Color(0xFF102838), FoodEditSurface) else listOf(Color(0xFFEAF4FA), Color.White)
 
 /**
  * Keeps the current Nutrition experience intact and adds a persistent food-data editor as a
@@ -62,7 +66,7 @@ internal fun NativeNutritionWithFoodEditorPage(onBack: () -> Unit) {
             Box(
                 Modifier.align(Alignment.BottomEnd)
                     .padding(18.dp)
-                    .background(FoodEditNavy, RoundedCornerShape(18.dp))
+                    .background(if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else FoodEditNavy, RoundedCornerShape(18.dp))
                     .clickable { editingFoodData = true }
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 contentAlignment = Alignment.Center
@@ -117,9 +121,7 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
         if (fresh != null) load(fresh)
     }
 
-    LaunchedEffect(Unit) {
-        NativeFoodCatalog.all(context)
-    }
+    LaunchedEffect(Unit) { NativeFoodCatalog.all(context) }
 
     Column(
         Modifier.fillMaxSize().background(FoodEditBg).verticalScroll(rememberScrollState())
@@ -128,12 +130,10 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.width(42.dp).height(42.dp).background(Color.White, RoundedCornerShape(14.dp))
+                Modifier.width(42.dp).height(42.dp).background(FoodEditSurface, RoundedCornerShape(14.dp))
                     .border(1.dp, FoodEditBorder, RoundedCornerShape(14.dp)).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center
-            ) {
-                Text("←", color = FoodEditNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            }
+            ) { Text("←", color = FoodEditNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("Food data editor", color = FoodEditInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
@@ -142,10 +142,8 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
         }
 
         Column(
-            Modifier.fillMaxWidth().background(
-                Brush.linearGradient(listOf(Color(0xFFEAF4FA), Color.White)),
-                RoundedCornerShape(24.dp)
-            ).border(1.dp, FoodEditBlue.copy(alpha = .14f), RoundedCornerShape(24.dp)).padding(16.dp),
+            Modifier.fillMaxWidth().background(Brush.linearGradient(FoodEditSearchGradient), RoundedCornerShape(24.dp))
+                .border(1.dp, FoodEditBlue.copy(alpha = .14f), RoundedCornerShape(24.dp)).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text("FIND A FOOD", color = FoodEditBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
@@ -170,13 +168,7 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
             }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    barcode,
-                    { barcode = it.filter(Char::isDigit).take(14) },
-                    Modifier.weight(1f),
-                    singleLine = true,
-                    label = { Text("Barcode") }
-                )
+                OutlinedTextField(barcode, { barcode = it.filter(Char::isDigit).take(14) }, Modifier.weight(1f), singleLine = true, label = { Text("Barcode") })
                 Box(
                     Modifier.background(FoodEditBlue.copy(alpha = if (lookingUp) .45f else 1f), RoundedCornerShape(14.dp))
                         .clickable(enabled = !lookingUp) {
@@ -190,43 +182,30 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                                 val food = NativeFoodCatalog.lookupBarcode(digits)
                                 lookingUp = false
                                 if (food == null) status = "Product not found"
-                                else {
-                                    results = listOf(food)
-                                    load(food)
-                                    status = ""
-                                }
+                                else { results = listOf(food); load(food); status = "" }
                             }
                         }.padding(horizontal = 14.dp, vertical = 15.dp),
                     contentAlignment = Alignment.Center
-                ) {
-                    Text(if (lookingUp) "…" else "LOOKUP", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                }
+                ) { Text(if (lookingUp) "…" else "LOOKUP", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black) }
             }
         }
 
         if (results.isNotEmpty()) {
             Column(
-                Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+                Modifier.fillMaxWidth().background(FoodEditSurface, RoundedCornerShape(22.dp))
                     .border(1.dp, FoodEditBorder, RoundedCornerShape(22.dp)).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(7.dp)
             ) {
                 Text("RESULTS", color = FoodEditMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
                 results.take(10).forEach { food ->
                     Row(
-                        Modifier.fillMaxWidth().background(FoodEditBg, RoundedCornerShape(14.dp))
-                            .clickable { load(food) }.padding(11.dp),
+                        Modifier.fillMaxWidth().background(FoodEditRow, RoundedCornerShape(14.dp)).clickable { load(food) }.padding(11.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(Modifier.weight(1f)) {
                             Text(food.name, color = FoodEditInk, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-                            Text(
-                                listOf(food.brand, food.source).filter { it.isNotBlank() }.joinToString(" · "),
-                                color = FoodEditMuted, fontSize = 8.sp
-                            )
-                            Text(
-                                "${food.kcal.roundToInt()} kcal · ${editNumber(food.protein)}P · ${editNumber(food.carbs)}C · ${editNumber(food.fat)}F / ${food.unit}",
-                                color = FoodEditMuted, fontSize = 8.sp
-                            )
+                            Text(listOf(food.brand, food.source).filter { it.isNotBlank() }.joinToString(" · "), color = FoodEditMuted, fontSize = 8.sp)
+                            Text("${food.kcal.roundToInt()} kcal · ${editNumber(food.protein)}P · ${editNumber(food.carbs)}C · ${editNumber(food.fat)}F / ${food.unit}", color = FoodEditMuted, fontSize = 8.sp)
                         }
                         Text("EDIT", color = FoodEditBlue, fontSize = 8.sp, fontWeight = FontWeight.Black)
                     }
@@ -237,17 +216,14 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
         selected?.let { food ->
             val editedAlready = FoodNutritionOverrideStore.hasOverride(context, food)
             Column(
-                Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(24.dp))
+                Modifier.fillMaxWidth().background(FoodEditSurface, RoundedCornerShape(24.dp))
                     .border(1.dp, FoodEditBorder, RoundedCornerShape(24.dp)).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(11.dp)
             ) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(food.name, color = FoodEditInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                        Text(
-                            "Values below are per ${food.unit.removePrefix("100 ").let { "100 $it" }}",
-                            color = FoodEditMuted, fontSize = 9.sp
-                        )
+                        Text("Values below are per ${food.unit.removePrefix("100 ").let { "100 $it" }}", color = FoodEditMuted, fontSize = 9.sp)
                     }
                     if (editedAlready) {
                         Box(FoodEditGreen.copy(alpha = .10f).let { Modifier.background(it, RoundedCornerShape(99.dp)).padding(horizontal = 9.dp, vertical = 6.dp) }) {
@@ -274,30 +250,14 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                     val def = editableFoodNutrients.firstOrNull { it.id == id }
                         ?: EditableNutrientDef(id, food.micronutrients[id]?.label ?: id, food.micronutrients[id]?.unit ?: "mg")
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        OutlinedTextField(
-                            value,
-                            { changed -> microValues = microValues + (id to numericEdit(changed)) },
-                            Modifier.weight(1f),
-                            singleLine = true,
-                            label = { Text("${def.label} (${def.unit})") }
-                        )
-                        Text(
-                            "Remove",
-                            color = FoodEditAmber,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable { microValues = microValues - id }.padding(8.dp)
-                        )
+                        OutlinedTextField(value, { changed -> microValues = microValues + (id to numericEdit(changed)) }, Modifier.weight(1f), singleLine = true, label = { Text("${def.label} (${def.unit})") })
+                        Text("Remove", color = FoodEditAmber, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { microValues = microValues - id }.padding(8.dp))
                     }
                 }
 
                 OutlinedTextField(
-                    microQuery,
-                    { microQuery = it },
-                    Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    label = { Text("Add a micronutrient") },
-                    placeholder = { Text("e.g. magnesium, vitamin D, iron") }
+                    microQuery, { microQuery = it }, Modifier.fillMaxWidth(), singleLine = true,
+                    label = { Text("Add a micronutrient") }, placeholder = { Text("e.g. magnesium, vitamin D, iron") }
                 )
                 if (microQuery.trim().isNotEmpty()) {
                     val matches = editableFoodNutrients.filter { def ->
@@ -305,11 +265,8 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                     }.take(6)
                     matches.forEach { def ->
                         Row(
-                            Modifier.fillMaxWidth().background(FoodEditBg, RoundedCornerShape(12.dp))
-                                .clickable {
-                                    microValues = microValues + (def.id to "")
-                                    microQuery = ""
-                                }.padding(horizontal = 11.dp, vertical = 9.dp),
+                            Modifier.fillMaxWidth().background(FoodEditRow, RoundedCornerShape(12.dp))
+                                .clickable { microValues = microValues + (def.id to ""); microQuery = "" }.padding(horizontal = 11.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(def.label, color = FoodEditInk, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -327,25 +284,12 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                             if (value == null || !value.isFinite() || value < 0.0) return@forEach
                             val def = editableFoodNutrients.firstOrNull { it.id == id }
                             val existing = food.micronutrients[id]
-                            put(
-                                id,
-                                NativeNutrient(
-                                    id = id,
-                                    label = def?.label ?: existing?.label ?: id,
-                                    valuePer100 = value,
-                                    unit = def?.unit ?: existing?.unit ?: "mg"
-                                )
-                            )
+                            put(id, NativeNutrient(id = id, label = def?.label ?: existing?.label ?: id, valuePer100 = value, unit = def?.unit ?: existing?.unit ?: "mg"))
                         }
                     }
                     val edited = food.copy(
-                        kcal = safeNutritionNumber(kcal),
-                        protein = safeNutritionNumber(protein),
-                        carbs = safeNutritionNumber(carbs),
-                        fat = safeNutritionNumber(fat),
-                        fibre = safeNutritionNumber(fibre),
-                        sugar = safeNutritionNumber(sugar),
-                        micronutrients = microMap
+                        kcal = safeNutritionNumber(kcal), protein = safeNutritionNumber(protein), carbs = safeNutritionNumber(carbs),
+                        fat = safeNutritionNumber(fat), fibre = safeNutritionNumber(fibre), sugar = safeNutritionNumber(sugar), micronutrients = microMap
                     )
                     FoodNutritionOverrideStore.save(context, edited)
                     val applied = FoodNutritionOverrideStore.applyAll(context, listOf(edited)).first()
@@ -356,7 +300,7 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
 
                 if (editedAlready) {
                     Box(
-                        Modifier.fillMaxWidth().background(FoodEditAmber.copy(alpha = .08f), RoundedCornerShape(15.dp))
+                        Modifier.fillMaxWidth().background(FoodEditAmber.copy(alpha = if (SuperhumanAppearance.darkMode) .14f else .08f), RoundedCornerShape(15.dp))
                             .clickable {
                                 scope.launch {
                                     FoodNutritionOverrideStore.remove(context, food)
@@ -367,9 +311,7 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                                 }
                             }.padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
-                    ) {
-                        Text("RESET TO SOURCE DATA", color = FoodEditAmber, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                    }
+                    ) { Text("RESET TO SOURCE DATA", color = FoodEditAmber, fontSize = 8.sp, fontWeight = FontWeight.Black) }
                 }
             }
         }
@@ -381,30 +323,12 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
 
 @Composable
 private fun FoodEditFieldRow(
-    leftLabel: String,
-    leftValue: String,
-    onLeftChange: (String) -> Unit,
-    leftUnit: String,
-    rightLabel: String,
-    rightValue: String,
-    onRightChange: (String) -> Unit,
-    rightUnit: String
+    leftLabel: String, leftValue: String, onLeftChange: (String) -> Unit, leftUnit: String,
+    rightLabel: String, rightValue: String, onRightChange: (String) -> Unit, rightUnit: String
 ) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        OutlinedTextField(
-            leftValue,
-            onLeftChange,
-            Modifier.weight(1f),
-            singleLine = true,
-            label = { Text("$leftLabel ($leftUnit)") }
-        )
-        OutlinedTextField(
-            rightValue,
-            onRightChange,
-            Modifier.weight(1f),
-            singleLine = true,
-            label = { Text("$rightLabel ($rightUnit)") }
-        )
+        OutlinedTextField(leftValue, onLeftChange, Modifier.weight(1f), singleLine = true, label = { Text("$leftLabel ($leftUnit)") })
+        OutlinedTextField(rightValue, onRightChange, Modifier.weight(1f), singleLine = true, label = { Text("$rightLabel ($rightUnit)") })
     }
 }
 
@@ -414,9 +338,7 @@ private fun FoodEditButton(label: String, accent: Color, enabled: Boolean, onCli
         Modifier.fillMaxWidth().background(accent.copy(alpha = if (enabled) 1f else .45f), RoundedCornerShape(15.dp))
             .clickable(enabled = enabled, onClick = onClick).padding(vertical = 13.dp),
         contentAlignment = Alignment.Center
-    ) {
-        Text(label, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
-    }
+    ) { Text(label, color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black) }
 }
 
 private fun sameFood(a: NativeFood, b: NativeFood): Boolean =
