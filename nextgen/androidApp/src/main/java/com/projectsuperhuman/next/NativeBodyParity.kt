@@ -39,14 +39,15 @@ import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private val BodyGreen = Color(0xFF168A78)
-private val BodyTeal = Color(0xFF1D9B86)
-private val BodyBlue = Color(0xFF0D6CB4)
-private val BodyPurple = Color(0xFF6753D8)
-private val BodyInk = Color(0xFF0B1F35)
-private val BodyMuted = Color(0xFF64748B)
-private val BodyBg = Color(0xFFF5F8FC)
-private val BodyBorder = Color(0xFFE7ECF2)
+private val BodyGreen get() = superhumanGreen
+private val BodyTeal get() = if (SuperhumanAppearance.darkMode) superhumanAccent else Color(0xFF1D9B86)
+private val BodyBlue get() = superhumanBlue
+private val BodyPurple get() = if (SuperhumanAppearance.darkMode) Color(0xFFA99BFF) else Color(0xFF6753D8)
+private val BodyInk get() = superhumanTextPrimary
+private val BodyMuted get() = superhumanTextMuted
+private val BodyBg get() = superhumanBackground
+private val BodyBorder get() = superhumanBorder
+private val BodySurface get() = superhumanSurface
 private val BodyData = NativeDomainData.forDomain(HealthDomain.BODY)
 
 private data class BodySnapshot(
@@ -144,12 +145,12 @@ private fun BodyHeader(onBack: () -> Unit, onProfile: () -> Unit) {
         }
         Box(
             Modifier.width(44.dp).height(44.dp)
-                .background(Color.White, RoundedCornerShape(15.dp))
+                .background(BodySurface, RoundedCornerShape(15.dp))
                 .superhumanClickable(onClick = onProfile),
             contentAlignment = Alignment.Center
         ) {
             Canvas(Modifier.width(24.dp).height(24.dp)) {
-                val c = Color(0xFF0D6CB4)
+                val c = BodyBlue
                 drawCircle(c, radius = size.minDimension * 0.18f, center = androidx.compose.ui.geometry.Offset(size.width * .5f, size.height * .31f))
                 drawArc(c, startAngle = 200f, sweepAngle = 140f, useCenter = false, topLeft = androidx.compose.ui.geometry.Offset(size.width * .22f, size.height * .48f), size = androidx.compose.ui.geometry.Size(size.width * .56f, size.height * .42f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = size.minDimension * .11f))
             }
@@ -249,7 +250,7 @@ private fun HeroMiniStat(label: String, value: String, modifier: Modifier) {
 @Composable
 private fun BodyViewToggle(view: BodyView, onChange: (BodyView) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(18.dp)).padding(4.dp),
+        Modifier.fillMaxWidth().background(BodySurface, RoundedCornerShape(18.dp)).padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         ToggleButton("PROGRESS", view == BodyView.PROGRESS, Modifier.weight(1f)) { onChange(BodyView.PROGRESS) }
@@ -276,7 +277,7 @@ private fun ProgressTrendCard(history: List<HealthValue>, goalKg: Double?) {
     val span = (max - min).coerceAtLeast(0.5)
     val change = values.last() - values.first()
 
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(BodySurface, RoundedCornerShape(22.dp)).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Weight trend", color = BodyInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
@@ -318,7 +319,7 @@ private fun ProgressTrendCard(history: List<HealthValue>, goalKg: Double?) {
 
 @Composable
 private fun EmptyProgressCard(onLog: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(18.dp)) {
+    Column(Modifier.fillMaxWidth().background(BodySurface, RoundedCornerShape(22.dp)).padding(18.dp)) {
         Text("Your trend is building", color = BodyInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
         Text("Log at least two weight entries to see a useful progress trend.", color = BodyMuted, fontSize = 9.sp)
         Spacer(Modifier.height(12.dp))
@@ -333,7 +334,7 @@ private fun RecentChangesCard(
     waistHistory: List<HealthValue>,
     snapshot: BodySnapshot
 ) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(BodySurface, RoundedCornerShape(22.dp)).padding(16.dp)) {
         Text("Recent changes", color = BodyInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
         Text("Latest change compared with the previous recorded value", color = BodyMuted, fontSize = 8.sp)
         Spacer(Modifier.height(12.dp))
@@ -373,7 +374,7 @@ private fun ChangeRow(label: String, latest: Double?, previous: Double?, unit: S
 
 @Composable
 private fun MeasurementsCard(snapshot: BodySnapshot) {
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(BodySurface, RoundedCornerShape(22.dp)).padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text("Measurements", color = BodyInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
