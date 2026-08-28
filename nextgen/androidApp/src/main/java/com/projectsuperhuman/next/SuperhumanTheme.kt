@@ -1,6 +1,8 @@
 package com.projectsuperhuman.next
 
 import android.content.Context
+import android.content.res.Configuration
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -10,32 +12,98 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 
+/**
+ * Native appearance modes. SYSTEM is the default so Project Superhuman follows Android without
+ * requiring a separate app toggle. LIGHT and DARK remain available as explicit user overrides.
+ */
+internal enum class SuperhumanThemeMode { SYSTEM, LIGHT, DARK }
+
 /** Persistent appearance state shared by every native Project Superhuman screen. */
 internal object SuperhumanAppearance {
     private const val PREFS = "project_superhuman_appearance"
-    private const val DARK_MODE_KEY = "dark_mode"
+    private const val THEME_MODE_KEY = "theme_mode"
+    private const val LEGACY_DARK_MODE_KEY = "dark_mode"
 
-    var darkMode by mutableStateOf(false)
+    var themeMode by mutableStateOf(SuperhumanThemeMode.SYSTEM)
         private set
+
+    /*
+     * This is intentionally a plain value rather than independent Compose state. ProjectSuperhumanTheme
+     * resolves it from isSystemInDarkTheme() before composing the screen tree, so all of the existing
+     * semantic palette getters see the same effective appearance during that composition.
+     */
+    private var effectiveDarkMode = false
+    val darkMode: Boolean get() = effectiveDarkMode
+    val followsSystem: Boolean get() = themeMode == SuperhumanThemeMode.SYSTEM
 
     private var initialized = false
 
     fun initialize(context: Context) {
         if (initialized) return
-        darkMode = context.applicationContext
-            .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getBoolean(DARK_MODE_KEY, false)
+        val appContext = context.applicationContext
+        val prefs = appContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val stored = prefs.getString(THEME_MODE_KEY, null)
+
+        themeMode = when {
+            stored != null -> runCatching { SuperhumanThemeMode.valueOf(stored) }
+                .getOrDefault(SuperhumanThemeMode.SYSTEM)
+            // Previous builds stored false by default, which unintentionally forced light mode.
+            // Preserve an intentional old dark=true choice, but migrate false/missing to SYSTEM.
+            prefs.getBoolean(LEGACY_DARK_MODE_KEY, false) -> SuperhumanThemeMode.DARK
+            else -> SuperhumanThemeMode.SYSTEM
+        }
+
+        effectiveDarkMode = resolved(systemDarkFromConfiguration(appContext), themeMode)
+        prefs.edit()
+            .putString(THEME_MODE_KEY, themeMode.name)
+            .remove(LEGACY_DARK_MODE_KEY)
+            .apply()
         initialized = true
     }
 
-    fun setDarkMode(context: Context, enabled: Boolean) {
-        darkMode = enabled
+    fun setThemeMode(context: Context, mode: SuperhumanThemeMode) {
+        themeMode = mode
+        effectiveDarkMode = resolved(systemDarkFromConfiguration(context.applicationContext), mode)
         initialized = true
         context.applicationContext
             .getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit()
-            .putBoolean(DARK_MODE_KEY, enabled)
+            .putString(THEME_MODE_KEY, mode.name)
+            .remove(LEGACY_DARK_MODE_KEY)
             .apply()
+    }
+
+    /**
+     * Compatibility entry point for the existing Settings switch. If the requested state matches the
+     * device, we return to SYSTEM rather than creating an unnecessary permanent override.
+     */
+    fun setDarkMode(context: Context, enabled: Boolean) {
+        val systemDark = systemDarkFromConfiguration(context.applicationContext)
+        val mode = when {
+            enabled == systemDark -> SuperhumanThemeMode.SYSTEM
+            enabled -> SuperhumanThemeMode.DARK
+            else -> SuperhumanThemeMode.LIGHT
+        }
+        setThemeMode(context, mode)
+    }
+
+    fun followSystem(context: Context) = setThemeMode(context, SuperhumanThemeMode.SYSTEM)
+
+    /** Resolve the effective theme for this composition and make it visible to semantic getters. */
+    fun resolve(systemDark: Boolean): Boolean {
+        effectiveDarkMode = resolved(systemDark, themeMode)
+        return effectiveDarkMode
+    }
+
+    private fun resolved(systemDark: Boolean, mode: SuperhumanThemeMode): Boolean = when (mode) {
+        SuperhumanThemeMode.SYSTEM -> systemDark
+        SuperhumanThemeMode.LIGHT -> false
+        SuperhumanThemeMode.DARK -> true
+    }
+
+    private fun systemDarkFromConfiguration(context: Context): Boolean {
+        val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
+        return night == Configuration.UI_MODE_NIGHT_YES
     }
 }
 
@@ -58,6 +126,7 @@ internal data class SuperhumanPalette(
     val errorSurface: Color
 )
 
+/* Keep the existing light appearance pixel-compatible with the current app. */
 private val LightSuperhumanPalette = SuperhumanPalette(
     background = Color(0xFFF8FBFD),
     surface = Color(0xFFFFFFFF),
@@ -96,10 +165,7 @@ private val DarkSuperhumanPalette = SuperhumanPalette(
     errorSurface = Color(0xFF351D23)
 )
 
-/**
- * Semantic palette for the app's custom Compose UI. Reading this inside composition tracks the
- * appearance state, so existing screens can migrate without each owning another theme state.
- */
+/** Semantic palette for the app's custom Compose UI. */
 internal val superhumanPalette: SuperhumanPalette
     get() = if (SuperhumanAppearance.darkMode) DarkSuperhumanPalette else LightSuperhumanPalette
 
@@ -122,8 +188,10 @@ internal val superhumanErrorSurface: Color get() = superhumanPalette.errorSurfac
 
 @Composable
 internal fun ProjectSuperhumanTheme(content: @Composable () -> Unit) {
-    val palette = superhumanPalette
-    val scheme = if (SuperhumanAppearance.darkMode) {
+    val darkTheme = SuperhumanAppearance.resolve(isSystemInDarkTheme())
+    val palette = if (darkTheme) DarkSuperhumanPalette else LightSuperhumanPalette
+
+    val scheme = if (darkTheme) {
         darkColorScheme(
             primary = palette.accent,
             onPrimary = Color(0xFF002020),
@@ -136,6 +204,7 @@ internal fun ProjectSuperhumanTheme(content: @Composable () -> Unit) {
             surfaceVariant = palette.surfaceSoft,
             onSurfaceVariant = palette.textMuted,
             outline = palette.border,
+            outlineVariant = palette.divider,
             error = palette.red,
             onError = Color(0xFF270007)
         )
@@ -152,6 +221,7 @@ internal fun ProjectSuperhumanTheme(content: @Composable () -> Unit) {
             surfaceVariant = palette.surfaceSoft,
             onSurfaceVariant = palette.textMuted,
             outline = palette.border,
+            outlineVariant = palette.divider,
             error = palette.red,
             onError = Color.White
         )
