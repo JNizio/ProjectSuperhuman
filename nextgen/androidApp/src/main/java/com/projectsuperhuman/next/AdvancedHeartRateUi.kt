@@ -42,14 +42,16 @@ import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-private val AdvancedHeart = Color(0xFFD46072)
-private val AdvancedNavy = Color(0xFF123D70)
-private val AdvancedMuted = Color(0xFF748294)
-private val AdvancedBorder = Color(0xFFE3EAF0)
-private val AdvancedBlue = Color(0xFF0D6CB4)
-private val AdvancedCyan = Color(0xFF20A7C4)
-private val AdvancedAmber = Color(0xFFD99A45)
-private val AdvancedPurple = Color(0xFF7260BF)
+private val AdvancedHeart get() = if (SuperhumanAppearance.darkMode) Color(0xFFFF91A3) else Color(0xFFD46072)
+private val AdvancedNavy get() = superhumanBrandText
+private val AdvancedMuted get() = superhumanTextMuted
+private val AdvancedBorder get() = superhumanBorder
+private val AdvancedBlue get() = superhumanBlue
+private val AdvancedCyan get() = if (SuperhumanAppearance.darkMode) superhumanAccent else Color(0xFF20A7C4)
+private val AdvancedAmber get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFBD70) else Color(0xFFD99A45)
+private val AdvancedPurple get() = if (SuperhumanAppearance.darkMode) Color(0xFFA99BFF) else Color(0xFF7260BF)
+private val AdvancedSurface get() = superhumanSurface
+private val AdvancedSoft get() = superhumanSurfaceSoft
 
 private data class HeartAverageSummary(val today: Double?, val sevenDay: Double?)
 
@@ -104,7 +106,7 @@ private suspend fun loadHeartAverages(): HeartAverageSummary {
 @Composable
 private fun AdvancedHeartRateWaitingCard() {
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+        Modifier.fillMaxWidth().background(AdvancedSurface, RoundedCornerShape(22.dp))
             .border(1.dp, AdvancedBorder, RoundedCornerShape(22.dp)).padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -124,7 +126,7 @@ private fun NativeAnalysisHeader(data: StoredHeartRateAdvancedAnalysis) {
         Instant.ofEpochMilli(data.analysedAtEpochMs).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("HH:mm"))
     }
     Row(
-        Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(Color.White, AdvancedHeart.copy(alpha = .07f))), RoundedCornerShape(22.dp))
+        Modifier.fillMaxWidth().background(Brush.horizontalGradient(listOf(AdvancedSurface, AdvancedHeart.copy(alpha = .07f))), RoundedCornerShape(22.dp))
             .border(1.dp, AdvancedHeart.copy(alpha = .15f), RoundedCornerShape(22.dp)).padding(15.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -151,7 +153,7 @@ private fun NativeBadge() {
 
 @Composable
 private fun AdvancedMetricCard(label: String, value: String, caption: String, modifier: Modifier) {
-    Column(modifier.background(Color.White, RoundedCornerShape(18.dp)).border(1.dp, AdvancedBorder, RoundedCornerShape(18.dp)).padding(11.dp)) {
+    Column(modifier.background(AdvancedSurface, RoundedCornerShape(18.dp)).border(1.dp, AdvancedBorder, RoundedCornerShape(18.dp)).padding(11.dp)) {
         Text(label, color = AdvancedMuted, fontSize = 6.sp, fontWeight = FontWeight.Black, maxLines = 1)
         Spacer(Modifier.height(5.dp))
         Text(value, color = AdvancedNavy, fontSize = 15.sp, fontWeight = FontWeight.Black, maxLines = 1)
@@ -166,7 +168,7 @@ private fun HeartRateSmoothedTraceCard(data: StoredHeartRateAdvancedAnalysis, av
     val selected = selectedIndex?.let { data.smoothed.getOrNull(it) }
 
     Column(
-        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
+        Modifier.fillMaxWidth().background(AdvancedSurface, RoundedCornerShape(22.dp))
             .border(1.dp, AdvancedBorder, RoundedCornerShape(22.dp)).padding(16.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -207,7 +209,7 @@ private fun HeartRateSmoothedTraceCard(data: StoredHeartRateAdvancedAnalysis, av
 @Composable
 private fun CompactAverage(label: String, value: Double?, modifier: Modifier) {
     Row(
-        modifier.background(Color(0xFFF7FAFC), RoundedCornerShape(14.dp)).border(1.dp, AdvancedBorder, RoundedCornerShape(14.dp)).padding(horizontal = 11.dp, vertical = 9.dp),
+        modifier.background(AdvancedSoft, RoundedCornerShape(14.dp)).border(1.dp, AdvancedBorder, RoundedCornerShape(14.dp)).padding(horizontal = 11.dp, vertical = 9.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -292,7 +294,7 @@ private fun HeartRateSmoothedTrace(
                 val x = xFor(point.timestampEpochMs)
                 val y = yFor(point.bpm)
                 drawLine(AdvancedHeart.copy(alpha = .22f), Offset(x, 0f), Offset(x, size.height), strokeWidth = 2f)
-                drawCircle(Color.White, radius = 9f, center = Offset(x, y))
+                drawCircle(AdvancedSurface, radius = 9f, center = Offset(x, y))
                 drawCircle(AdvancedHeart, radius = 7f, center = Offset(x, y), style = Stroke(width = 4f))
             }
         }
@@ -307,7 +309,7 @@ private fun RelativeIntensityCard(data: StoredHeartRateAdvancedAnalysis) {
         Triple("Low", data.lowBandPct, AdvancedBlue), Triple("Moderate", data.moderateBandPct, AdvancedCyan),
         Triple("Elevated", data.elevatedBandPct, AdvancedAmber), Triple("High", data.highBandPct, AdvancedHeart)
     )
-    Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).border(1.dp, AdvancedBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().background(AdvancedSurface, RoundedCornerShape(22.dp)).border(1.dp, AdvancedBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
         Text("RELATIVE INTENSITY", color = AdvancedMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
         Spacer(Modifier.height(3.dp)); Text("Where your samples sat today", color = AdvancedNavy, fontSize = 15.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(11.dp))
@@ -336,7 +338,7 @@ private fun HeartRateSignalNotesCard(data: StoredHeartRateAdvancedAnalysis) {
     }
     val recovery = data.observedRecoveryDropBpm
     Column(
-        Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(AdvancedPurple.copy(alpha = .07f), Color.White)), RoundedCornerShape(22.dp))
+        Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(AdvancedPurple.copy(alpha = .07f), AdvancedSurface)), RoundedCornerShape(22.dp))
             .border(1.dp, AdvancedPurple.copy(alpha = .13f), RoundedCornerShape(22.dp)).padding(16.dp)
     ) {
         Text("SIGNAL NOTES", color = AdvancedPurple, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
