@@ -46,12 +46,18 @@ import com.projectsuperhuman.next.core.HealthValue
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val BreathNavy = Color(0xFF082D66)
-private val BreathBlue = Color(0xFF0D6CB4)
-private val BreathMint = Color(0xFF55CDB8)
-private val BreathInk = Color(0xFF0B1F35)
-private val BreathMuted = Color(0xFF64748B)
-private val BreathBg = Color(0xFFF4F9FC)
+private val BreathNavy get() = if (SuperhumanAppearance.darkMode) Color(0xFF8FC5FF) else Color(0xFF082D66)
+private val BreathBlue get() = superhumanBlue
+private val BreathMint get() = if (SuperhumanAppearance.darkMode) superhumanAccent else Color(0xFF55CDB8)
+private val BreathInk get() = if (SuperhumanAppearance.darkMode) superhumanTextPrimary else Color(0xFF0B1F35)
+private val BreathMuted get() = if (SuperhumanAppearance.darkMode) superhumanTextMuted else Color(0xFF64748B)
+private val BreathBg get() = if (SuperhumanAppearance.darkMode) superhumanBackground else Color(0xFFF4F9FC)
+private val BreathSurface get() = if (SuperhumanAppearance.darkMode) superhumanSurface else Color.White
+private val BreathSafeSurface get() = if (SuperhumanAppearance.darkMode) Color(0xFF102F2B) else Color(0xFFE5F7F2)
+private val BreathWarningSurface get() = if (SuperhumanAppearance.darkMode) superhumanWarningSurface else Color(0xFFFFF4E8)
+private val BreathWarningText get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFBD70) else Color(0xFFB66719)
+private val BreathDisabled get() = if (SuperhumanAppearance.darkMode) Color(0xFF2A3A49) else Color(0xFFCBD5E1)
+private val BreathHeroButtonText = Color(0xFF082D66)
 
 private enum class GuidedBreathPhase {
     READY, BREATHING, RETENTION, RECOVERY_INHALE, RECOVERY_HOLD, COMPLETE
@@ -321,7 +327,7 @@ private fun BreathworkSetupScreen(
             }
         }
 
-        Column(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().background(BreathSurface, RoundedCornerShape(22.dp)).padding(16.dp)) {
             Text("Your routine", color = BreathInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(8.dp))
             RoutineLine("ROUND 1", "30 deep breaths → 1:30 retention → 1 deep breath → 0:20 hold")
@@ -329,12 +335,12 @@ private fun BreathworkSetupScreen(
             RoutineLine("ROUND 3", "30 deep breaths → 2:00 retention → 1 deep breath → 0:20 hold")
             Spacer(Modifier.height(12.dp))
             Box(
-                Modifier.fillMaxWidth().background(if (safePositionConfirmed) Color(0xFFE5F7F2) else Color(0xFFFFF4E8), RoundedCornerShape(15.dp))
+                Modifier.fillMaxWidth().background(if (safePositionConfirmed) BreathSafeSurface else BreathWarningSurface, RoundedCornerShape(15.dp))
                     .clickable { onSafePositionToggle() }.padding(13.dp)
             ) {
                 Text(
                     if (safePositionConfirmed) "✓ I am seated or lying down in a safe place" else "Tap to confirm: I am seated or lying down in a safe place",
-                    color = if (safePositionConfirmed) BreathMint else Color(0xFFB66719), fontSize = 9.sp, fontWeight = FontWeight.Black
+                    color = if (safePositionConfirmed) BreathMint else BreathWarningText, fontSize = 9.sp, fontWeight = FontWeight.Black
                 )
             }
             Spacer(Modifier.height(9.dp))
@@ -516,7 +522,7 @@ private fun RoutineLine(label: String, detail: String) {
 @Composable
 private fun BreathAction(label: String, enabled: Boolean, onClick: () -> Unit) {
     Box(
-        Modifier.fillMaxWidth().background(if (enabled) BreathNavy else Color(0xFFCBD5E1), RoundedCornerShape(17.dp))
+        Modifier.fillMaxWidth().background(if (enabled) BreathNavy else BreathDisabled, RoundedCornerShape(17.dp))
             .clickable(enabled = enabled) { onClick() }.padding(15.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -535,7 +541,7 @@ private fun SessionAction(label: String, modifier: Modifier, primary: Boolean, o
     ) {
         Text(
             label,
-            color = if (primary) BreathNavy else Color.White,
+            color = if (primary) BreathHeroButtonText else Color.White,
             fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             textAlign = TextAlign.Center
