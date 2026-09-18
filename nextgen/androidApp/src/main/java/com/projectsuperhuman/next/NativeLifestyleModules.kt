@@ -31,7 +31,7 @@ private val LifestyleMuted get() = superhumanTextMuted
 
 @Composable
 fun NativeExercisePage(onBack: () -> Unit, openLegacy: () -> Unit) {
-    NativeExerciseParityScreen(onBack, openLegacy)
+    NativeExerciseHub(onBackToHome = onBack, openLegacy = openLegacy)
 }
 
 @Composable
