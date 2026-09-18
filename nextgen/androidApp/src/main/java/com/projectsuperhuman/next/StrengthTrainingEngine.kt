@@ -69,7 +69,7 @@ internal fun buildStrengthSessions(
     val sortedSessions = sessionRows.sortedByDescending { it.timestampEpochMs }
     val claimedLegacyTimestamps = mutableSetOf<Long>()
 
-    return sortedSessions.mapIndexed { index, row ->
+    val completed = sortedSessions.mapIndexed { index, row ->
         val meta = row.metadata
         val end = meta["endTime"]?.toLongOrNull() ?: row.timestampEpochMs
         val durationMin = meta["durationMin"]?.toIntOrNull()?.coerceAtLeast(0) ?: 0
@@ -86,7 +86,7 @@ internal fun buildStrengthSessions(
             }
         }.sortedBy { it.timestampEpochMs }
 
-        if (meta["sessionId"].isNullOrBlank()) claimedLegacyTimestamps += matching.map { it.timestampEpochMs }
+        claimedLegacyTimestamps += matching.map { it.timestampEpochMs }
 
         val working = matching.filter(::isStrengthWorkingSet)
         val volume = meta["volumeKg"]?.toDoubleOrNull() ?: working.sumOf { it.value.coerceAtLeast(0.0) }
@@ -109,6 +109,41 @@ internal fun buildStrengthSessions(
             notes = meta["notes"].orEmpty()
         )
     }
+
+    // Older installs could contain exercise_set rows without a workout_session row.
+    // Preserve them by clustering unclaimed legacy sets using a three-hour inactivity gap.
+    val orphanRows = setRows
+        .filter { it.timestampEpochMs !in claimedLegacyTimestamps && it.metadata["sessionId"].isNullOrBlank() }
+        .sortedBy { it.timestampEpochMs }
+    val orphanClusters = mutableListOf<MutableList<HealthValue>>()
+    orphanRows.forEach { row ->
+        val current = orphanClusters.lastOrNull()
+        if (current == null || row.timestampEpochMs - current.last().timestampEpochMs > 3L * 60L * 60L * 1000L) {
+            orphanClusters += mutableListOf(row)
+        } else current += row
+    }
+
+    val synthesized = orphanClusters.mapIndexed { index, rows ->
+        val start = rows.first().timestampEpochMs
+        val end = rows.last().timestampEpochMs
+        val working = rows.filter(::isStrengthWorkingSet)
+        StrengthWorkoutSession(
+            sessionId = "legacy-sets-$start-$index",
+            startTime = start,
+            endTime = end,
+            durationMin = max(1, ((end - start) / 60_000L).toInt()),
+            name = inferStrengthWorkoutName(rows),
+            sets = rows,
+            totalSets = rows.size,
+            workingSets = working.size,
+            totalVolumeKg = working.sumOf { it.value.coerceAtLeast(0.0) },
+            exerciseCount = rows.mapNotNull { it.metadata["exerciseId"] ?: it.metadata["exerciseName"] }.distinct().size,
+            sessionRpe = null,
+            notes = ""
+        )
+    }
+
+    return (completed + synthesized).sortedByDescending { it.endTime }
 }
 
 internal fun inferStrengthWorkoutName(sets: List<HealthValue>): String {
