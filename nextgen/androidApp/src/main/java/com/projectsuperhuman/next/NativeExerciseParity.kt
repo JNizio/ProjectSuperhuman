@@ -1,6 +1,7 @@
 package com.projectsuperhuman.next
 
 import android.graphics.BitmapFactory
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -386,6 +387,10 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     val strengthProgress = calculateStrengthProgress(recent, completedSessions)
     val muscleVolume = calculateMuscleVolume(recent, catalog)
     val weekRecent = recent.filter { it.timestampEpochMs > System.currentTimeMillis() - 7L * 86400000L && isStrengthWorkingSet(it) }
+
+    BackHandler {
+        if (mode == "home") onBack() else mode = "home"
+    }
 
     Column(Modifier.fillMaxSize().background(ExerciseBg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TrainingHeader(mode) { if (mode == "home") onBack() else mode = "home" }
