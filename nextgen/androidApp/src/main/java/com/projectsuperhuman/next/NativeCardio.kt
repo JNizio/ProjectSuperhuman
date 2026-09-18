@@ -1140,6 +1140,739 @@ private fun CardioMetric(label: String, value: String, detail: String, accent: C
     }
 }
 
+
+private enum class CardioUiIcon {
+    ADD, HISTORY, PROGRESS, TROPHY, PLAY, PAUSE, STOP
+}
+
+@Composable
+private fun CardioVectorIcon(
+    icon: CardioUiIcon,
+    tint: Color,
+    modifier: Modifier = Modifier.size(22.dp)
+) {
+    Canvas(modifier) {
+        val w = size.width
+        val h = size.height
+        val stroke = size.minDimension * .105f
+        when (icon) {
+            CardioUiIcon.ADD -> {
+                drawLine(tint, start = androidx.compose.ui.geometry.Offset(w * .2f, h * .5f), end = androidx.compose.ui.geometry.Offset(w * .8f, h * .5f), strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(tint, start = androidx.compose.ui.geometry.Offset(w * .5f, h * .2f), end = androidx.compose.ui.geometry.Offset(w * .5f, h * .8f), strokeWidth = stroke, cap = StrokeCap.Round)
+            }
+            CardioUiIcon.HISTORY -> {
+                drawCircle(tint, radius = size.minDimension * .36f, center = center, style = Stroke(stroke))
+                drawLine(tint, center, androidx.compose.ui.geometry.Offset(w * .5f, h * .30f), strokeWidth = stroke * .75f, cap = StrokeCap.Round)
+                drawLine(tint, center, androidx.compose.ui.geometry.Offset(w * .68f, h * .56f), strokeWidth = stroke * .75f, cap = StrokeCap.Round)
+                drawLine(tint, androidx.compose.ui.geometry.Offset(w * .17f, h * .20f), androidx.compose.ui.geometry.Offset(w * .17f, h * .42f), strokeWidth = stroke * .75f, cap = StrokeCap.Round)
+                drawLine(tint, androidx.compose.ui.geometry.Offset(w * .17f, h * .20f), androidx.compose.ui.geometry.Offset(w * .36f, h * .20f), strokeWidth = stroke * .75f, cap = StrokeCap.Round)
+            }
+            CardioUiIcon.PROGRESS -> {
+                val path = Path().apply {
+                    moveTo(w * .12f, h * .72f)
+                    lineTo(w * .34f, h * .52f)
+                    lineTo(w * .52f, h * .60f)
+                    lineTo(w * .77f, h * .28f)
+                    lineTo(w * .88f, h * .36f)
+                }
+                drawPath(path, tint, style = Stroke(stroke, cap = StrokeCap.Round))
+                drawLine(tint, androidx.compose.ui.geometry.Offset(w * .12f, h * .82f), androidx.compose.ui.geometry.Offset(w * .88f, h * .82f), strokeWidth = stroke * .7f, cap = StrokeCap.Round)
+            }
+            CardioUiIcon.TROPHY -> {
+                drawArc(tint, startAngle = 0f, sweepAngle = 180f, useCenter = false,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * .25f, h * .18f),
+                    size = androidx.compose.ui.geometry.Size(w * .50f, h * .50f),
+                    style = Stroke(stroke))
+                drawLine(tint, androidx.compose.ui.geometry.Offset(w * .5f, h * .43f), androidx.compose.ui.geometry.Offset(w * .5f, h * .74f), strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(tint, androidx.compose.ui.geometry.Offset(w * .32f, h * .80f), androidx.compose.ui.geometry.Offset(w * .68f, h * .80f), strokeWidth = stroke, cap = StrokeCap.Round)
+                drawArc(tint, 90f, 180f, false,
+                    androidx.compose.ui.geometry.Offset(w * .10f, h * .24f),
+                    androidx.compose.ui.geometry.Size(w * .30f, h * .32f),
+                    style = Stroke(stroke * .8f))
+                drawArc(tint, -90f, 180f, false,
+                    androidx.compose.ui.geometry.Offset(w * .60f, h * .24f),
+                    androidx.compose.ui.geometry.Size(w * .30f, h * .32f),
+                    style = Stroke(stroke * .8f))
+            }
+            CardioUiIcon.PLAY -> {
+                val path = Path().apply {
+                    moveTo(w * .34f, h * .22f)
+                    lineTo(w * .78f, h * .50f)
+                    lineTo(w * .34f, h * .78f)
+                    close()
+                }
+                drawPath(path, tint)
+            }
+            CardioUiIcon.PAUSE -> {
+                drawRoundRect(tint, topLeft = androidx.compose.ui.geometry.Offset(w * .27f, h * .20f), size = androidx.compose.ui.geometry.Size(w * .16f, h * .60f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(stroke, stroke))
+                drawRoundRect(tint, topLeft = androidx.compose.ui.geometry.Offset(w * .57f, h * .20f), size = androidx.compose.ui.geometry.Size(w * .16f, h * .60f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(stroke, stroke))
+            }
+            CardioUiIcon.STOP -> {
+                drawRoundRect(tint, topLeft = androidx.compose.ui.geometry.Offset(w * .25f, h * .25f), size = androidx.compose.ui.geometry.Size(w * .50f, h * .50f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(stroke, stroke))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CardioHeroStat(label: String, value: String, modifier: Modifier) {
+    Column(modifier.padding(horizontal = 10.dp)) {
+        Text(label, color = Color.White.copy(alpha = .62f), fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = .6.sp)
+        Text(value, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun CardioQuickAccessPanel(
+    onLog: () -> Unit,
+    onHistory: () -> Unit,
+    onProgress: () -> Unit,
+    onRecords: () -> Unit
+) {
+    Column(
+        Modifier.fillMaxWidth()
+            .background(CardioSurface, RoundedCornerShape(21.dp))
+            .border(1.dp, CardioBorder.copy(alpha = .72f), RoundedCornerShape(21.dp))
+            .padding(horizontal = 13.dp, vertical = 13.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("QUICK ACCESS", color = CardioInk, fontSize = 13.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+            Text("ONE TAP", color = CardioMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = .7.sp)
+        }
+        Spacer(Modifier.height(7.dp))
+        Row(Modifier.fillMaxWidth()) {
+            CardioQuickAccessItem(CardioUiIcon.ADD, "Log activity", "Previous session", CardioBlue, Modifier.weight(1f), onLog)
+            Box(Modifier.width(1.dp).height(60.dp).background(CardioBorder.copy(alpha = .55f)))
+            CardioQuickAccessItem(CardioUiIcon.HISTORY, "History", "All sessions", Color(0xFF7663C6), Modifier.weight(1f), onHistory)
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(CardioBorder.copy(alpha = .55f)))
+        Row(Modifier.fillMaxWidth()) {
+            CardioQuickAccessItem(CardioUiIcon.PROGRESS, "Progress", "Load & trends", CardioAccent, Modifier.weight(1f), onProgress)
+            Box(Modifier.width(1.dp).height(60.dp).background(CardioBorder.copy(alpha = .55f)))
+            CardioQuickAccessItem(CardioUiIcon.TROPHY, "Records", "Personal bests", CardioGold, Modifier.weight(1f), onRecords)
+        }
+    }
+}
+
+@Composable
+private fun CardioQuickAccessItem(
+    icon: CardioUiIcon,
+    title: String,
+    subtitle: String,
+    accent: Color,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier.heightIn(min = 64.dp).clickable { onClick() }.padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(36.dp).background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .10f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            CardioVectorIcon(icon, accent, Modifier.size(19.dp))
+        }
+        Spacer(Modifier.width(9.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = CardioInk, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            Text(subtitle, color = CardioMuted, fontSize = 8.sp)
+        }
+        Text("›", color = CardioMuted, fontSize = 20.sp)
+    }
+}
+
+@Composable
+private fun CardioWeeklyOverview(
+    minutes: Int,
+    sessions: Int,
+    distanceKm: Double,
+    zone2Minutes: Int,
+    loadSnapshot: CardioLoadSnapshot
+) {
+    Column(
+        Modifier.fillMaxWidth()
+            .background(CardioSurface, RoundedCornerShape(21.dp))
+            .border(1.dp, CardioBorder.copy(alpha = .72f), RoundedCornerShape(21.dp))
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.weight(1f)) {
+                Text("THIS WEEK", color = CardioInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                Text("Your last 7 days", color = CardioMuted, fontSize = 9.sp)
+            }
+            Box(
+                Modifier.background(CardioAccent.copy(alpha = if (SuperhumanAppearance.darkMode) .17f else .09f), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 9.dp, vertical = 5.dp)
+            ) {
+                Text("$sessions SESSION${if (sessions == 1) "" else "S"}", color = CardioAccent, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            CardioInlineStat("MINUTES", minutes.toString(), null, CardioBlue, Modifier.weight(1f))
+            CardioStatDivider()
+            CardioInlineStat("DISTANCE", cardioFormatNumber(distanceKm), "km", CardioAccent, Modifier.weight(1f))
+            CardioStatDivider()
+            CardioInlineStat("ZONE 2", zone2Minutes.toString(), "min", Color(0xFF7663C6), Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(14.dp))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(CardioBorder.copy(alpha = .55f)))
+        Spacer(Modifier.height(11.dp))
+        if (loadSnapshot.sourceCoverage > 0) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                CardioCompactInsight("CARDIO LOAD", formatCardioLoad(loadSnapshot.recent7DayLoad), CardioBlue, Modifier.weight(1f))
+                Spacer(Modifier.width(8.dp))
+                CardioCompactInsight(
+                    "LOAD RATIO",
+                    loadSnapshot.loadRatio?.let { String.format(Locale.US, "%.2f", it) } ?: "Baseline",
+                    Color(0xFF7663C6),
+                    Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(7.dp))
+            Text(cardioLoadLabel(loadSnapshot), color = CardioMuted, fontSize = 9.sp)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(7.dp).background(CardioBlue, CircleShape))
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text("Cardio load unlocks with RPE or measured HR zones", color = CardioInk, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                    Text("No estimate is shown until there is enough real input.", color = CardioMuted, fontSize = 8.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CardioInlineStat(
+    label: String,
+    value: String,
+    unit: String?,
+    accent: Color,
+    modifier: Modifier
+) {
+    Column(modifier.padding(horizontal = 7.dp)) {
+        Box(Modifier.width(18.dp).height(3.dp).background(accent, RoundedCornerShape(3.dp)))
+        Spacer(Modifier.height(7.dp))
+        Text(label, color = CardioMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, color = CardioInk, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            if (unit != null) {
+                Spacer(Modifier.width(3.dp))
+                Text(unit, color = CardioMuted, fontSize = 9.sp, modifier = Modifier.padding(bottom = 3.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CardioStatDivider() {
+    Box(Modifier.width(1.dp).height(42.dp).background(CardioBorder.copy(alpha = .55f)))
+}
+
+@Composable
+private fun CardioCompactInsight(label: String, value: String, accent: Color, modifier: Modifier) {
+    Row(
+        modifier.background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .14f else .07f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(7.dp).background(accent, CircleShape))
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text(label, color = CardioMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+            Text(value, color = CardioInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
+
+@Composable
+private fun CardioLatestActivityPanel(session: CardioSession, onOpen: () -> Unit) {
+    val whenText = remember(session.endedAt) {
+        Instant.ofEpochMilli(session.endedAt).atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("d MMM · HH:mm"))
+    }
+    Column(
+        Modifier.fillMaxWidth()
+            .background(CardioSurface, RoundedCornerShape(21.dp))
+            .border(1.dp, CardioBorder.copy(alpha = .72f), RoundedCornerShape(21.dp))
+            .clickable { onOpen() }
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            Text("LATEST ACTIVITY", color = CardioInk, fontSize = 13.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+            Text("VIEW  ›", color = CardioAccent, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(46.dp).background(CardioAccent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .10f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                CardioVectorIcon(CardioUiIcon.PROGRESS, CardioAccent, Modifier.size(23.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(session.activity.displayName, color = CardioInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                    if (session.workoutType != CardioWorkoutType.FREE) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(session.workoutType.label.uppercase(), color = CardioBlue, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+                Text(whenText, color = CardioMuted, fontSize = 9.sp)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth()) {
+            CardioMiniFact("TIME", cardioFormatDuration(session.durationSeconds), Modifier.weight(1f))
+            session.distanceKm?.let { CardioMiniFact("DISTANCE", "${cardioFormatNumber(it)} km", Modifier.weight(1f)) }
+            session.avgHeartRate?.let { CardioMiniFact("AVG HR", "$it bpm", Modifier.weight(1f)) }
+        }
+        cardioPerformanceSummary(session)?.let {
+            Spacer(Modifier.height(10.dp))
+            Text(it, color = CardioAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun CardioMiniFact(label: String, value: String, modifier: Modifier) {
+    Column(modifier) {
+        Text(label, color = CardioMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = CardioInk, fontSize = 11.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun CardioLiveControls(
+    running: Boolean,
+    onToggle: () -> Unit,
+    onFinish: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(CardioDeep, RoundedCornerShape(21.dp))
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        CardioControlButton(
+            icon = if (running) CardioUiIcon.PAUSE else CardioUiIcon.PLAY,
+            label = if (running) "Pause" else "Resume",
+            accent = if (running) Color(0xFF63CDB0) else Color(0xFF79D9B5),
+            modifier = Modifier.weight(1f),
+            onClick = onToggle
+        )
+        CardioControlButton(
+            icon = CardioUiIcon.STOP,
+            label = "Finish",
+            accent = Color(0xFFF08B8F),
+            modifier = Modifier.weight(1f),
+            onClick = onFinish
+        )
+    }
+}
+
+@Composable
+private fun CardioControlButton(
+    icon: CardioUiIcon,
+    label: String,
+    accent: Color,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier.heightIn(min = 58.dp)
+            .background(Color.White.copy(alpha = .075f), RoundedCornerShape(16.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Box(
+            Modifier.size(38.dp).background(accent.copy(alpha = .16f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            CardioVectorIcon(icon, accent, Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(9.dp))
+        Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun CardioLiveMetricsPanel(activity: CardioActivityType) {
+    val performanceLabel = when (activity.paceMode) {
+        CardioPaceMode.SPEED -> "SPEED"
+        CardioPaceMode.PER_500M -> "500M"
+        CardioPaceMode.PER_100M -> "100M"
+        else -> "PACE"
+    }
+    Column(
+        Modifier.fillMaxWidth()
+            .background(CardioSurface, RoundedCornerShape(21.dp))
+            .border(1.dp, CardioBorder.copy(alpha = .72f), RoundedCornerShape(21.dp))
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("LIVE METRICS", color = CardioInk, fontSize = 13.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+            Box(Modifier.size(7.dp).background(CardioMuted.copy(alpha = .55f), CircleShape))
+            Spacer(Modifier.width(5.dp))
+            Text("NO SENSOR", color = CardioMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(13.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            CardioLiveMetricCell("HEART RATE", "—", "bpm", Color(0xFFC85772), Modifier.weight(1f))
+            CardioStatDivider()
+            CardioLiveMetricCell(performanceLabel, "—", null, CardioBlue, Modifier.weight(1f))
+            CardioStatDivider()
+            CardioLiveMetricCell(if (activity.supportsDistance) "DISTANCE" else "CADENCE", "—", if (activity.supportsDistance) "km" else null, CardioAccent, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("Connect a supported sensor for live HR, pace and distance.", color = CardioMuted, fontSize = 9.sp)
+    }
+}
+
+@Composable
+private fun CardioLiveMetricCell(
+    label: String,
+    value: String,
+    unit: String?,
+    accent: Color,
+    modifier: Modifier
+) {
+    Column(modifier.padding(horizontal = 8.dp)) {
+        Box(Modifier.width(16.dp).height(3.dp).background(accent, RoundedCornerShape(3.dp)))
+        Spacer(Modifier.height(7.dp))
+        Text(label, color = CardioMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(value, color = CardioInk, fontSize = 22.sp, fontWeight = FontWeight.Black)
+            if (unit != null) {
+                Spacer(Modifier.width(3.dp))
+                Text(unit, color = CardioMuted, fontSize = 8.sp, modifier = Modifier.padding(bottom = 4.dp))
+            }
+        }
+    }
+}
+
+private fun cardioPerformanceSummary(session: CardioSession): String? = when (session.activity.paceMode) {
+    CardioPaceMode.PER_KM -> session.avgPaceSecPerKm?.let { "${cardioFormatPace(it)}/km average pace" }
+    CardioPaceMode.SPEED -> session.avgSpeedKmh?.let { "${cardioFormatNumber(it)} km/h average speed" }
+    CardioPaceMode.PER_500M -> session.avgSplit500mSeconds?.let { "${cardioFormatPace(it)}/500m average split" }
+    CardioPaceMode.PER_100M -> session.avgPace100mSeconds?.let { "${cardioFormatPace(it)}/100m average pace" }
+    CardioPaceMode.NONE -> null
+}
+
+@Composable
+private fun CardioSessionHero(session: CardioSession) {
+    val whenText = remember(session.startedAt) {
+        Instant.ofEpochMilli(session.startedAt).atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("d MMM yyyy · HH:mm"))
+    }
+    Box(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(25.dp))
+            .background(Brush.linearGradient(listOf(CardioDeep, Color(0xFF0B7A69))))
+            .padding(18.dp)
+    ) {
+        Box(
+            Modifier.size(88.dp).align(Alignment.TopEnd)
+                .offset(x = 31.dp, y = (-30).dp)
+                .background(Color.White.copy(alpha = .055f), CircleShape)
+        )
+        Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(session.activity.displayName.uppercase(), color = Color.White.copy(alpha = .72f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    Modifier.background(Color.White.copy(alpha = .12f), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 8.dp, vertical = 3.dp)
+                ) {
+                    Text(session.workoutType.label.uppercase(), color = Color.White.copy(alpha = .88f), fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(5.dp))
+            Text(cardioFormatDuration(session.durationSeconds), color = Color.White, fontSize = 32.sp, fontWeight = FontWeight.Black)
+            cardioPerformanceSummary(session)?.let {
+                Text(it, color = Color.White.copy(alpha = .84f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(7.dp))
+            Text(whenText, color = Color.White.copy(alpha = .60f), fontSize = 9.sp)
+        }
+    }
+}
+
+@Composable
+private fun CardioSessionOverview(session: CardioSession) {
+    val facts = buildList<Pair<String, String>> {
+        add("DURATION" to cardioFormatDuration(session.durationSeconds))
+        session.distanceKm?.let { add("DISTANCE" to "${cardioFormatNumber(it)} km") }
+        session.avgHeartRate?.let { add("AVG HR" to "$it bpm") }
+        session.maxHeartRate?.let { add("MAX HR" to "$it bpm") }
+        session.caloriesKcal?.let { add("CALORIES" to "${cardioFormatNumber(it)} kcal") }
+        session.rpe?.let { add("RPE" to "${cardioFormatNumber(it)}/10") }
+        session.elevationGainM?.let { add("ELEVATION" to "${cardioFormatNumber(it)} m") }
+        session.cadence?.let { add("CADENCE" to it.toString()) }
+        cardioPerformanceSummary(session)?.let { add("PERFORMANCE" to it) }
+    }
+    CardioSection("SESSION OVERVIEW", "Only values actually saved for this workout") {
+        val rows = facts.chunked(2)
+        rows.forEachIndexed { rowIndex, row ->
+            Row(Modifier.fillMaxWidth()) {
+                row.forEach { (label, value) ->
+                    CardioFactCell(label, value, Modifier.weight(1f))
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+            if (rowIndex < rows.size - 1) {
+                Spacer(Modifier.height(9.dp))
+                Box(Modifier.fillMaxWidth().height(1.dp).background(CardioBorder.copy(alpha = .45f)))
+                Spacer(Modifier.height(9.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun CardioFactCell(label: String, value: String, modifier: Modifier) {
+    Column(modifier.padding(horizontal = 4.dp)) {
+        Text(label, color = CardioMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
+        Text(value, color = CardioInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun CardioInsightPanel(load: Double?, comparison: String?) {
+    CardioSection("INSIGHTS", "Useful signals from the data you actually recorded") {
+        load?.let {
+            CardioInsightRow("CARDIO LOAD", formatCardioLoad(it), "Session training load", CardioBlue)
+        }
+        if (load != null && comparison != null) Spacer(Modifier.height(8.dp))
+        comparison?.let {
+            CardioInsightRow("EFFICIENCY", "Improvement signal", it, CardioAccent)
+        }
+    }
+}
+
+@Composable
+private fun CardioInsightRow(kicker: String, value: String, detail: String, accent: Color) {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .14f else .07f), RoundedCornerShape(14.dp))
+            .padding(11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.width(4.dp).height(38.dp).background(accent, RoundedCornerShape(4.dp)))
+        Spacer(Modifier.width(10.dp))
+        Column {
+            Text(kicker, color = accent, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+            Text(value, color = CardioInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+            Text(detail, color = CardioMuted, fontSize = 9.sp)
+        }
+    }
+}
+
+@Composable
+private fun CardioZonePanel(title: String, zones: Map<Int, Int>) {
+    val total = zones.values.sum().coerceAtLeast(1)
+    CardioSection(title, "Measured zone time only") {
+        (1..5).forEach { zone ->
+            val seconds = zones[zone] ?: 0
+            val fraction = seconds.toFloat() / total.toFloat()
+            val accent = cardioZoneColor(zone)
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                Text("Z$zone", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.width(26.dp))
+                Box(
+                    Modifier.weight(1f).height(7.dp)
+                        .background(CardioBorder.copy(alpha = .45f), RoundedCornerShape(7.dp))
+                ) {
+                    if (seconds > 0) {
+                        Box(
+                            Modifier.fillMaxWidth(fraction.coerceIn(.02f, 1f)).fillMaxHeight()
+                                .background(accent, RoundedCornerShape(7.dp))
+                        )
+                    }
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(cardioFormatDuration(seconds), color = CardioMuted, fontSize = 8.sp, modifier = Modifier.width(42.dp))
+            }
+            if (zone < 5) Spacer(Modifier.height(7.dp))
+        }
+    }
+}
+
+private fun cardioZoneColor(zone: Int): Color = when (zone) {
+    1 -> Color(0xFF5BA8C9)
+    2 -> Color(0xFF2EAA88)
+    3 -> Color(0xFFC8A33A)
+    4 -> Color(0xFFE07A4F)
+    else -> Color(0xFFC8575E)
+}
+
+@Composable
+private fun CardioActionCompact(title: String, subtitle: String, accent: Color, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 50.dp)
+            .clickable { onClick() }
+            .padding(horizontal = 2.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(34.dp).background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(Modifier.size(7.dp).background(accent, CircleShape))
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = CardioInk, fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Text(subtitle, color = CardioMuted, fontSize = 8.sp)
+        }
+        Text("›", color = accent, fontSize = 22.sp)
+    }
+}
+
+@Composable
+private fun CardioLoadPanel(snapshot: CardioLoadSnapshot) {
+    CardioSection("TRAINING LOAD", "7-day strain compared with your recent baseline") {
+        if (snapshot.sourceCoverage == 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(38.dp).background(CardioBlue.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CardioVectorIcon(CardioUiIcon.PROGRESS, CardioBlue, Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(11.dp))
+                Column {
+                    Text("Build your load baseline", color = CardioInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                    Text("Add RPE or measured HR-zone time to score sessions.", color = CardioMuted, fontSize = 9.sp)
+                }
+            }
+        } else {
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.weight(1f)) {
+                    Text("7-DAY LOAD", color = CardioMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text(formatCardioLoad(snapshot.recent7DayLoad), color = CardioInk, fontSize = 30.sp, fontWeight = FontWeight.Black)
+                    Text(cardioLoadLabel(snapshot), color = CardioAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text("BASELINE", color = CardioMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                    Text(snapshot.previous21DayWeeklyAverage?.let(::formatCardioLoad) ?: "Building", color = CardioInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        snapshot.loadRatio?.let { "Ratio ${String.format(Locale.US, "%.2f", it)}" } ?: "${snapshot.sourceCoverage} scored session${if (snapshot.sourceCoverage == 1) "" else "s"}",
+                        color = CardioMuted,
+                        fontSize = 8.sp
+                    )
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            val ratioFraction = ((snapshot.loadRatio ?: 1.0) / 1.5).toFloat().coerceIn(.05f, 1f)
+            Box(Modifier.fillMaxWidth().height(8.dp).background(CardioBorder.copy(alpha = .45f), RoundedCornerShape(8.dp))) {
+                Box(
+                    Modifier.fillMaxWidth(ratioFraction).fillMaxHeight()
+                        .background(Brush.horizontalGradient(listOf(CardioBlue, CardioAccent)), RoundedCornerShape(8.dp))
+                )
+            }
+            Spacer(Modifier.height(7.dp))
+            Text("Load uses measured zone time when available, otherwise RPE × minutes.", color = CardioMuted, fontSize = 8.sp)
+        }
+    }
+}
+
+@Composable
+private fun CardioWeeklyProgressPanel(minutes: Int, sessions: Int, distanceKm: Double, zone2Minutes: Int) {
+    CardioSection("LAST 7 DAYS", "Consistency and volume") {
+        Row(Modifier.fillMaxWidth()) {
+            CardioInlineStat("MINUTES", minutes.toString(), null, CardioBlue, Modifier.weight(1f))
+            CardioStatDivider()
+            CardioInlineStat("SESSIONS", sessions.toString(), null, CardioAccent, Modifier.weight(1f))
+            CardioStatDivider()
+            CardioInlineStat("ZONE 2", zone2Minutes.toString(), "min", Color(0xFF7663C6), Modifier.weight(1f))
+        }
+        if (distanceKm > 0.0) {
+            Spacer(Modifier.height(11.dp))
+            Text("${cardioFormatNumber(distanceKm)} km recorded this week", color = CardioMuted, fontSize = 9.sp)
+        }
+    }
+}
+
+@Composable
+private fun CardioActivityProgressRow(
+    activity: CardioActivityType,
+    sessionCount: Int,
+    minutes: Int,
+    distanceKm: Double
+) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.width(4.dp).height(28.dp).background(CardioAccent, RoundedCornerShape(4.dp)))
+        Spacer(Modifier.width(9.dp))
+        Column(Modifier.weight(1f)) {
+            Text(activity.displayName, color = CardioInk, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            Text("$sessionCount session${if (sessionCount == 1) "" else "s"}", color = CardioMuted, fontSize = 8.sp)
+        }
+        Text(
+            "${minutes}m${if (distanceKm > 0.0) " · ${cardioFormatNumber(distanceKm)} km" else ""}",
+            color = CardioInk,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun CardioFeaturedRecords(sessions: List<CardioSession>) {
+    val longest = sessions.maxByOrNull { it.durationSeconds }
+    val farthest = sessions.filter { it.distanceKm != null }.maxByOrNull { it.distanceKm ?: 0.0 }
+    val fastestPerKm = sessions.mapNotNull { it.avgPaceSecPerKm }.minOrNull()
+    Column(
+        Modifier.fillMaxWidth()
+            .background(
+                Brush.linearGradient(
+                    listOf(CardioGold.copy(alpha = if (SuperhumanAppearance.darkMode) .26f else .13f), CardioSurface)
+                ),
+                RoundedCornerShape(21.dp)
+            )
+            .border(1.dp, CardioGold.copy(alpha = .28f), RoundedCornerShape(21.dp))
+            .padding(16.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(38.dp).background(CardioGold.copy(alpha = .14f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                CardioVectorIcon(CardioUiIcon.TROPHY, CardioGold, Modifier.size(21.dp))
+            }
+            Spacer(Modifier.width(10.dp))
+            Column {
+                Text("FEATURED BESTS", color = CardioGold, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp)
+                Text("Your strongest verified marks", color = CardioInk, fontSize = 14.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.fillMaxWidth()) {
+            CardioRecordStat("LONGEST", longest?.let { cardioFormatDuration(it.durationSeconds) } ?: "—", Modifier.weight(1f))
+            CardioStatDivider()
+            CardioRecordStat("FARTHEST", farthest?.distanceKm?.let { "${cardioFormatNumber(it)} km" } ?: "—", Modifier.weight(1f))
+            CardioStatDivider()
+            CardioRecordStat("PACE", fastestPerKm?.let { "${cardioFormatPace(it)}/km" } ?: "—", Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun CardioRecordStat(label: String, value: String, modifier: Modifier) {
+    Column(modifier.padding(horizontal = 7.dp)) {
+        Text(label, color = CardioGold, fontSize = 7.sp, fontWeight = FontWeight.Black)
+        Text(value, color = CardioInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+    }
+}
+
 @Composable
 private fun CardioQuickAction(
     mark: String,
