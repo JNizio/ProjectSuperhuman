@@ -243,6 +243,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var rows by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var sessions by remember { mutableStateOf<List<CardioSession>>(emptyList()) }
     var selectedSessionId by remember { mutableStateOf<String?>(null) }
+    var pendingDeleteSessionId by remember { mutableStateOf<String?>(null) }
     var feedback by remember { mutableStateOf<String?>(null) }
 
     var liveActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
@@ -383,7 +384,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             persistLiveState()
         }
         resetForm(liveActivity)
-        formDateTime = Instant.ofEpochMilli(liveStartedAt)
+        formDateTime = Instant.ofEpochMilli(now)
             .atZone(ZoneId.systemDefault()).toLocalDateTime().format(cardioDateTimeFormatter)
         formDurationMin = String.format(Locale.US, "%.1f", elapsed / 60.0)
         formSource = "live"
@@ -403,6 +404,10 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             return
         }
         val enteredEpoch = localDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        if (formLiveStartedAt <= 0L && enteredEpoch > System.currentTimeMillis() + 60_000L) {
+            feedback = "Finish time cannot be in the future"
+            return
+        }
         val endedAt = if (formLiveStartedAt > 0L) {
             formLiveStartedAt + durationSeconds * 1000L
         } else {
@@ -765,6 +770,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     sessions.take(100).forEach { session ->
                         CardioSessionRow(session) {
                             selectedSessionId = session.id
+                            pendingDeleteSessionId = null
                             screen = CardioScreen.DETAIL
                         }
                     }
@@ -808,14 +814,24 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                         loadSessionIntoForm(session)
                         screen = CardioScreen.MANUAL
                     }
-                    CardioAction("DELETE SESSION", "Remove this cardio record", if (SuperhumanAppearance.darkMode) superhumanRed else Color(0xFFAA4444)) {
-                        rows.firstOrNull { it.metadata["sessionId"] == session.id }?.let { row ->
-                            scope.launch {
-                                NativeDataHub.deleteValue(row)
-                                refresh()
-                                selectedSessionId = null
-                                feedback = "Cardio session deleted"
-                                screen = CardioScreen.HISTORY
+                    val confirmDelete = pendingDeleteSessionId == session.id
+                    CardioAction(
+                        if (confirmDelete) "CONFIRM DELETE" else "DELETE SESSION",
+                        if (confirmDelete) "Tap again to permanently remove this local record" else "Remove this cardio record",
+                        if (SuperhumanAppearance.darkMode) superhumanRed else Color(0xFFAA4444)
+                    ) {
+                        if (!confirmDelete) {
+                            pendingDeleteSessionId = session.id
+                        } else {
+                            rows.firstOrNull { it.metadata["sessionId"] == session.id }?.let { row ->
+                                scope.launch {
+                                    NativeDataHub.deleteValue(row)
+                                    refresh()
+                                    selectedSessionId = null
+                                    pendingDeleteSessionId = null
+                                    feedback = "Cardio session deleted"
+                                    screen = CardioScreen.HISTORY
+                                }
                             }
                         }
                     }
