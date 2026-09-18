@@ -413,6 +413,42 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         screen = CardioScreen.MANUAL
     }
 
+    fun quickSaveLiveSession() {
+        if (liveStartedAt <= 0L) return
+        val now = System.currentTimeMillis()
+        liveTick = now
+        val elapsed = currentLiveElapsedSeconds().coerceAtLeast(1)
+
+        if (liveRunning && liveRunningSince > 0L) {
+            liveAccumulatedSeconds = elapsed
+            liveRunningSince = 0L
+            liveRunning = false
+        }
+
+        val startedAt = liveStartedAt
+        val session = CardioSession(
+            id = "cardio-$startedAt-$now",
+            activity = liveActivity,
+            startedAt = startedAt,
+            endedAt = now,
+            durationSeconds = elapsed,
+            source = "live",
+            workoutType = liveWorkoutType
+        )
+
+        scope.launch {
+            NativeDataHub.saveValues(listOf(session.toHealthValue()))
+            clearCardioDraft(context)
+            liveStartedAt = 0L
+            liveAccumulatedSeconds = 0
+            liveRunningSince = 0L
+            liveRunning = false
+            refresh()
+            feedback = "Session saved · add details from History any time"
+            screen = CardioScreen.HOME
+        }
+    }
+
     fun saveForm() {
         val localDateTime = runCatching { LocalDateTime.parse(formDateTime.trim(), cardioDateTimeFormatter) }.getOrNull()
         if (localDateTime == null) {
@@ -581,9 +617,22 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
 
         when (screen) {
             CardioScreen.HOME -> {
-                CardioHero(activeDraft, weekMinutes, weekSessionCount) {
-                    if (activeDraft) screen = CardioScreen.LIVE else screen = CardioScreen.PICK_ACTIVITY
-                }
+                CardioHero(
+                    active = activeDraft,
+                    weekMinutes = weekMinutes,
+                    weekSessions = weekSessionCount,
+                    activeActivity = if (activeDraft) liveActivity else null,
+                    activeWorkoutType = if (activeDraft) liveWorkoutType else null,
+                    activeElapsedSeconds = if (activeDraft) currentLiveElapsedSeconds() else 0,
+                    activeRunning = liveRunning,
+                    onPrimary = {
+                        if (activeDraft) screen = CardioScreen.LIVE else screen = CardioScreen.PICK_ACTIVITY
+                    },
+                    onToggleActive = {
+                        if (liveRunning) pauseLive() else resumeLive()
+                    },
+                    onSaveActive = { quickSaveLiveSession() }
+                )
                 CardioQuickAccessPanel(
                     onLog = {
                         resetForm()
@@ -953,75 +1002,198 @@ private fun CardioHeader(screen: CardioScreen, onBack: () -> Unit) {
 }
 
 @Composable
-private fun CardioHero(active: Boolean, weekMinutes: Int, weekSessions: Int, onPrimary: () -> Unit) {
+private fun CardioHero(
+    active: Boolean,
+    weekMinutes: Int,
+    weekSessions: Int,
+    activeActivity: CardioActivityType?,
+    activeWorkoutType: CardioWorkoutType?,
+    activeElapsedSeconds: Int,
+    activeRunning: Boolean,
+    onPrimary: () -> Unit,
+    onToggleActive: () -> Unit,
+    onSaveActive: () -> Unit
+) {
     Box(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(28.dp))
             .background(
                 Brush.linearGradient(
-                    listOf(Color(0xFF082F39), Color(0xFF0B7567), Color(0xFF2FB494))
+                    if (active) {
+                        listOf(Color(0xFF072B38), Color(0xFF075E56), Color(0xFF159A7D))
+                    } else {
+                        listOf(Color(0xFF082F39), Color(0xFF0B7567), Color(0xFF2FB494))
+                    }
                 )
             )
             .padding(horizontal = 19.dp, vertical = 18.dp)
     ) {
-        Box(
-            Modifier.size(150.dp).align(Alignment.TopEnd)
-                .offset(x = 56.dp, y = (-58).dp)
-                .background(Color.White.copy(alpha = .055f), CircleShape)
-        )
-        Box(
-            Modifier.size(74.dp).align(Alignment.BottomStart)
-                .offset(x = (-28).dp, y = 35.dp)
-                .background(Color.White.copy(alpha = .035f), CircleShape)
-        )
-        Column(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(8.dp).background(if (active) Color(0xFFFFD166) else Color(0xFF7DE3BD), CircleShape))
-                Spacer(Modifier.width(8.dp))
+        CardioHeroBackdrop(active)
+
+        if (active) {
+            Column(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).background(if (activeRunning) Color(0xFF78E0B8) else Color(0xFFFFD166), CircleShape))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        if (activeRunning) "LIVE SESSION" else "SESSION PAUSED",
+                        color = Color.White.copy(alpha = .82f),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = .8.sp
+                    )
+                    Spacer(Modifier.weight(1f))
+                    Box(
+                        Modifier.background(Color.White.copy(alpha = .11f), RoundedCornerShape(20.dp))
+                            .padding(horizontal = 9.dp, vertical = 4.dp)
+                    ) {
+                        Text(
+                            activeWorkoutType?.label?.uppercase() ?: "FREE",
+                            color = Color.White.copy(alpha = .88f),
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
                 Text(
-                    if (active) "SESSION ACTIVE" else "CARDIO",
-                    color = Color.White.copy(alpha = .80f),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = .8.sp
+                    activeActivity?.displayName ?: "Cardio",
+                    color = Color.White.copy(alpha = .76f),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
                 )
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(
-                if (active) "Keep the momentum." else "Train with intent.",
-                color = Color.White,
-                fontSize = 27.sp,
-                fontWeight = FontWeight.Black
-            )
-            Text(
-                if (active) "Your workout is saved and ready to resume." else "Track the work. Watch the engine improve.",
-                color = Color.White.copy(alpha = .72f),
-                fontSize = 10.sp
-            )
-            Spacer(Modifier.height(13.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                CardioHeroStat("7D MIN", weekMinutes.toString(), Modifier.weight(1f))
-                Box(Modifier.width(1.dp).height(34.dp).background(Color.White.copy(alpha = .18f)))
-                CardioHeroStat("SESSIONS", weekSessions.toString(), Modifier.weight(1f))
-            }
-            Spacer(Modifier.height(13.dp))
-            Row(
-                Modifier.fillMaxWidth().heightIn(min = 50.dp)
-                    .background(Color.White, RoundedCornerShape(16.dp))
-                    .clickable { onPrimary() }
-                    .padding(horizontal = 16.dp, vertical = 13.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
                 Text(
-                    if (active) "RESUME CARDIO" else "START CARDIO",
-                    color = CardioDeep,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.weight(1f)
+                    cardioFormatDuration(activeElapsedSeconds),
+                    color = Color.White,
+                    fontSize = 42.sp,
+                    fontWeight = FontWeight.Black
                 )
-                Text("→", color = CardioDeep, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                Text(
+                    if (activeRunning) "Recording now · draft protected locally" else "Paused · ready when you are",
+                    color = Color.White.copy(alpha = .66f),
+                    fontSize = 9.sp
+                )
+
+                Spacer(Modifier.height(14.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        Modifier.weight(1f).heightIn(min = 50.dp)
+                            .background(Color.White, RoundedCornerShape(16.dp))
+                            .clickable { onPrimary() }
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("OPEN SESSION", color = CardioDeep, fontSize = 11.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                        Text("→", color = CardioDeep, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    CardioHeroControlButton(
+                        icon = if (activeRunning) CardioUiIcon.PAUSE else CardioUiIcon.PLAY,
+                        label = if (activeRunning) "Pause" else "Resume",
+                        accent = Color(0xFF7DE3BD),
+                        onClick = onToggleActive
+                    )
+                    CardioHeroControlButton(
+                        icon = CardioUiIcon.STOP,
+                        label = "Save",
+                        accent = Color(0xFFFFA3A7),
+                        onClick = onSaveActive
+                    )
+                }
+            }
+        } else {
+            Column(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(8.dp).background(Color(0xFF7DE3BD), CircleShape))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        "CARDIO",
+                        color = Color.White.copy(alpha = .80f),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = .8.sp
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Text("Train with intent.", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
+                Text("Track the work. Watch the engine improve.", color = Color.White.copy(alpha = .72f), fontSize = 10.sp)
+                Spacer(Modifier.height(13.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    CardioHeroStat("7D MIN", weekMinutes.toString(), Modifier.weight(1f))
+                    Box(Modifier.width(1.dp).height(34.dp).background(Color.White.copy(alpha = .18f)))
+                    CardioHeroStat("SESSIONS", weekSessions.toString(), Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(13.dp))
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = 50.dp)
+                        .background(Color.White, RoundedCornerShape(16.dp))
+                        .clickable { onPrimary() }
+                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("START CARDIO", color = CardioDeep, fontSize = 13.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                    Text("→", color = CardioDeep, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun CardioHeroBackdrop(active: Boolean) {
+    Canvas(Modifier.matchParentSize()) {
+        val line = Color.White.copy(alpha = if (active) .055f else .045f)
+        val ring = Color.White.copy(alpha = if (active) .075f else .055f)
+        drawCircle(
+            color = ring,
+            radius = size.minDimension * .38f,
+            center = androidx.compose.ui.geometry.Offset(size.width * .91f, size.height * .10f),
+            style = Stroke(width = 2.2f)
+        )
+        drawCircle(
+            color = line,
+            radius = size.minDimension * .27f,
+            center = androidx.compose.ui.geometry.Offset(size.width * .91f, size.height * .10f),
+            style = Stroke(width = 1.4f)
+        )
+        drawLine(
+            color = line,
+            start = androidx.compose.ui.geometry.Offset(size.width * .58f, 0f),
+            end = androidx.compose.ui.geometry.Offset(size.width, size.height * .42f),
+            strokeWidth = 1.2f
+        )
+        drawLine(
+            color = line,
+            start = androidx.compose.ui.geometry.Offset(size.width * .72f, 0f),
+            end = androidx.compose.ui.geometry.Offset(size.width, size.height * .28f),
+            strokeWidth = 1.2f
+        )
+    }
+}
+
+@Composable
+private fun CardioHeroControlButton(
+    icon: CardioUiIcon,
+    label: String,
+    accent: Color,
+    onClick: () -> Unit
+) {
+    Column(
+        Modifier.width(58.dp).heightIn(min = 50.dp)
+            .background(Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 6.dp, vertical = 7.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        CardioVectorIcon(icon, accent, Modifier.size(18.dp))
+        Spacer(Modifier.height(3.dp))
+        Text(label, color = Color.White.copy(alpha = .88f), fontSize = 7.sp, fontWeight = FontWeight.Bold)
     }
 }
 
