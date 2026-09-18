@@ -93,6 +93,7 @@ internal data class CardioSession(
     val rpe: Double? = null,
     val notes: String = "",
     val source: String = "manual",
+    val workoutType: CardioWorkoutType = CardioWorkoutType.FREE,
     val zoneSeconds: Map<Int, Int> = emptyMap(),
     val avgSplit500mSeconds: Int? = null,
     val avgPace100mSeconds: Int? = null
@@ -103,7 +104,8 @@ private data class CardioLiveDraft(
     val startedAt: Long,
     val accumulatedSeconds: Int,
     val runningSinceEpochMs: Long,
-    val isRunning: Boolean
+    val isRunning: Boolean,
+    val workoutType: CardioWorkoutType = CardioWorkoutType.FREE
 )
 
 private enum class CardioScreen {
@@ -154,6 +156,7 @@ private fun cardioSessionFromValue(row: HealthValue): CardioSession {
         rpe = d("rpe"),
         notes = meta["notes"].orEmpty(),
         source = meta["cardioSource"].orEmpty().ifBlank { row.source },
+        workoutType = CardioWorkoutType.fromStored(meta["workoutType"]),
         zoneSeconds = zones,
         avgSplit500mSeconds = i("avgSplit500mSeconds"),
         avgPace100mSeconds = i("avgPace100mSeconds")
@@ -170,7 +173,8 @@ private fun CardioSession.toHealthValue(): HealthValue {
         "endedAt" to endedAt.toString(),
         "durationSeconds" to durationSeconds.toString(),
         "notes" to notes,
-        "cardioSource" to source
+        "cardioSource" to source,
+        "workoutType" to workoutType.name
     )
     distanceKm?.let { meta["distanceKm"] = it.toString() }
     avgHeartRate?.let { meta["avgHeartRate"] = it.toString() }
@@ -210,7 +214,8 @@ private fun loadCardioDraft(context: Context): CardioLiveDraft? {
         startedAt = startedAt,
         accumulatedSeconds = prefs.getInt("live_accumulated_seconds", 0).coerceAtLeast(0),
         runningSinceEpochMs = prefs.getLong("live_running_since", 0L),
-        isRunning = prefs.getBoolean("live_is_running", false)
+        isRunning = prefs.getBoolean("live_is_running", false),
+        workoutType = CardioWorkoutType.fromStored(prefs.getString("live_workout_type", null))
     )
 }
 
@@ -221,6 +226,7 @@ private fun saveCardioDraft(context: Context, draft: CardioLiveDraft) {
         .putInt("live_accumulated_seconds", draft.accumulatedSeconds)
         .putLong("live_running_since", draft.runningSinceEpochMs)
         .putBoolean("live_is_running", draft.isRunning)
+        .putString("live_workout_type", draft.workoutType.name)
         .apply()
 }
 
@@ -231,6 +237,7 @@ private fun clearCardioDraft(context: Context) {
         .remove("live_accumulated_seconds")
         .remove("live_running_since")
         .remove("live_is_running")
+        .remove("live_workout_type")
         .apply()
 }
 
@@ -247,6 +254,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var feedback by remember { mutableStateOf<String?>(null) }
 
     var liveActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
+    var liveWorkoutType by remember { mutableStateOf(CardioWorkoutType.FREE) }
     var liveStartedAt by remember { mutableLongStateOf(0L) }
     var liveAccumulatedSeconds by remember { mutableIntStateOf(0) }
     var liveRunningSince by remember { mutableLongStateOf(0L) }
@@ -265,6 +273,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var formRpe by remember { mutableStateOf("") }
     var formNotes by remember { mutableStateOf("") }
     var formSource by remember { mutableStateOf("manual") }
+    var formWorkoutType by remember { mutableStateOf(CardioWorkoutType.FREE) }
     var formEditingId by remember { mutableStateOf<String?>(null) }
     var formLiveStartedAt by remember { mutableLongStateOf(0L) }
     var showZones by remember { mutableStateOf(false) }
@@ -292,6 +301,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         formRpe = ""
         formNotes = ""
         formSource = "manual"
+        formWorkoutType = CardioWorkoutType.FREE
         formEditingId = null
         formLiveStartedAt = 0L
         showZones = false
@@ -312,6 +322,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         formRpe = session.rpe?.let(::cardioFormatNumber).orEmpty()
         formNotes = session.notes
         formSource = session.source.ifBlank { "manual" }
+        formWorkoutType = session.workoutType
         formEditingId = session.id
         formLiveStartedAt = 0L
         showZones = session.zoneSeconds.isNotEmpty()
@@ -336,7 +347,8 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 startedAt = liveStartedAt,
                 accumulatedSeconds = liveAccumulatedSeconds,
                 runningSinceEpochMs = liveRunningSince,
-                isRunning = liveRunning
+                isRunning = liveRunning,
+                workoutType = liveWorkoutType
             )
         )
     }
@@ -388,6 +400,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             .atZone(ZoneId.systemDefault()).toLocalDateTime().format(cardioDateTimeFormatter)
         formDurationMin = String.format(Locale.US, "%.1f", elapsed / 60.0)
         formSource = "live"
+        formWorkoutType = liveWorkoutType
         formLiveStartedAt = liveStartedAt
         screen = CardioScreen.MANUAL
     }
@@ -463,6 +476,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             rpe = rpe,
             notes = formNotes.trim(),
             source = formSource,
+            workoutType = formWorkoutType,
             zoneSeconds = zones,
             avgSplit500mSeconds = split500,
             avgPace100mSeconds = pace100
@@ -493,6 +507,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         resetForm()
         loadCardioDraft(context)?.let { draft ->
             liveActivity = draft.activity
+            liveWorkoutType = draft.workoutType
             liveStartedAt = draft.startedAt
             liveAccumulatedSeconds = draft.accumulatedSeconds
             liveRunningSince = draft.runningSinceEpochMs
