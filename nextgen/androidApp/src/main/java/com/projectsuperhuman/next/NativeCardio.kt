@@ -425,4 +425,198 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             (durationSeconds / distance).roundToInt()
         } else null
         val avgSpeed = if (distance != null && distance > 0.0 && formActivity.paceMode == CardioPaceMode.SPEED) {
-            distance / (dur
+            distance / (durationSeconds / 3600.0)
+        } else null
+        val split500 = if (distance != null && distance > 0.0 && formActivity.paceMode == CardioPaceMode.PER_500M) {
+            (durationSeconds / (distance * 2.0)).roundToInt()
+        } else null
+        val pace100 = if (distance != null && distance > 0.0 && formActivity.paceMode == CardioPaceMode.PER_100M) {
+            (durationSeconds / (distance * 10.0)).roundToInt()
+        } else null
+
+        val existingId = formEditingId
+        val id = existingId ?: "cardio-$startedAt-${System.currentTimeMillis()}"
+        val session = CardioSession(
+            id = id,
+            activity = formActivity,
+            startedAt = startedAt,
+            endedAt = endedAt,
+            durationSeconds = durationSeconds,
+            distanceKm = distance,
+            avgHeartRate = avgHr,
+            maxHeartRate = maxHr,
+            caloriesKcal = calories,
+            avgPaceSecPerKm = avgPace,
+            avgSpeedKmh = avgSpeed,
+            elevationGainM = elevation,
+            cadence = cadence,
+            rpe = rpe,
+            notes = formNotes.trim(),
+            source = formSource,
+            zoneSeconds = zones,
+            avgSplit500mSeconds = split500,
+            avgPace100mSeconds = pace100
+        )
+
+        scope.launch {
+            if (existingId != null) {
+                rows.firstOrNull { it.metadata["sessionId"] == existingId }?.let { NativeDataHub.deleteValue(it) }
+            }
+            NativeDataHub.saveValues(listOf(session.toHealthValue()))
+            if (formSource == "live") {
+                clearCardioDraft(context)
+                liveStartedAt = 0L
+                liveAccumulatedSeconds = 0
+                liveRunningSince = 0L
+                liveRunning = false
+            }
+            refresh()
+            feedback = if (existingId == null) "Cardio session saved" else "Cardio session updated"
+            formEditingId = null
+            formLiveStartedAt = 0L
+            screen = CardioScreen.HOME
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        refresh()
+        resetForm()
+        loadCardioDraft(context)?.let { draft ->
+            liveActivity = draft.activity
+            liveStartedAt = draft.startedAt
+            liveAccumulatedSeconds = draft.accumulatedSeconds
+            liveRunningSince = draft.runningSinceEpochMs
+            liveRunning = draft.isRunning
+            liveTick = System.currentTimeMillis()
+        }
+    }
+
+    LaunchedEffect(liveRunning, liveRunningSince) {
+        while (liveRunning && liveRunningSince > 0L) {
+            liveTick = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
+
+    LaunchedEffect(feedback) {
+        if (feedback != null) {
+            delay(2400)
+            feedback = null
+        }
+    }
+
+    BackHandler {
+        when (screen) {
+            CardioScreen.HOME -> onBack()
+            CardioScreen.LIVE -> screen = CardioScreen.HOME
+            else -> screen = CardioScreen.HOME
+        }
+    }
+
+    val weekStart = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
+    val weekSessions = sessions.filter { it.endedAt >= weekStart }
+    val weekMinutes = weekSessions.sumOf { it.durationSeconds } / 60
+    val weekDistance = weekSessions.mapNotNull { it.distanceKm }.sum()
+    val weekZone2 = weekSessions.sumOf { it.zoneSeconds[2] ?: 0 } / 60
+    val activeDraft = liveStartedAt > 0L
+
+    Column(
+        Modifier.fillMaxSize()
+            .background(CardioBg)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        CardioHeader(screen) {
+            if (screen == CardioScreen.HOME) onBack() else screen = CardioScreen.HOME
+        }
+        feedback?.let { CardioFeedback(it) }
+
+        when (screen) {
+            CardioScreen.HOME -> {
+                CardioHero(activeDraft, weekMinutes, weekSessions.size) {
+                    if (activeDraft) screen = CardioScreen.LIVE else screen = CardioScreen.PICK_ACTIVITY
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
+                    CardioNavTile("L", "LOG ACTIVITY", "Add a previous session", CardioBlue, Modifier.weight(1f)) {
+                        resetForm()
+                        screen = CardioScreen.MANUAL
+                    }
+                    CardioNavTile("H", "HISTORY", "Completed sessions", Color(0xFF7B61C9), Modifier.weight(1f)) {
+                        screen = CardioScreen.HISTORY
+                    }
+                    CardioNavTile("P", "PROGRESS", "Minutes, distance & zones", CardioAccent, Modifier.weight(1f)) {
+                        screen = CardioScreen.PROGRESS
+                    }
+                }
+                CardioSection("THIS WEEK", "Cardio completed in the last 7 days") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        CardioMetric("MINUTES", weekMinutes.toString(), "cardio", CardioBlue, Modifier.weight(1f))
+                        CardioMetric("DISTANCE", cardioFormatNumber(weekDistance), "km logged", CardioAccent, Modifier.weight(1f))
+                        CardioMetric("ZONE 2", weekZone2.toString(), "min measured", Color(0xFF7B61C9), Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    CardioAction("PERSONAL RECORDS", "Longest sessions and best logged pace or speed", CardioAccent) {
+                        screen = CardioScreen.RECORDS
+                    }
+                }
+                sessions.firstOrNull()?.let { latest ->
+                    CardioSection("LATEST ACTIVITY", "Your most recent saved cardio session") {
+                        CardioSessionRow(latest) {
+                            selectedSessionId = latest.id
+                            screen = CardioScreen.DETAIL
+                        }
+                    }
+                } ?: CardioSection("GET STARTED", "Your cardio history will build automatically") {
+                    CardioEmpty("No cardio sessions yet", "Start a timer or log a previous walk, run, ride or other activity.")
+                }
+            }
+
+            CardioScreen.PICK_ACTIVITY -> {
+                CardioHeroStrip("START CARDIO", "Choose an activity", "The live timer works without GPS or a wearable.", CardioAccent)
+                CardioSection("ACTIVITY", "Choose what you are about to do") {
+                    CardioActivityPicker(liveActivity) { activity ->
+                        liveActivity = activity
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    CardioAction("START ${liveActivity.displayName.uppercase()}", "Begin the live timer", CardioAccent) {
+                        startLive(liveActivity)
+                    }
+                }
+            }
+
+            CardioScreen.LIVE -> {
+                val elapsed = currentLiveElapsedSeconds()
+                CardioLiveHero(liveActivity, elapsed, liveRunning)
+                CardioSection("LIVE SESSION", if (liveRunning) "Timer is running" else "Timer is paused") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        CardioMetric("TIME", cardioFormatDuration(elapsed), "elapsed", CardioBlue, Modifier.weight(1f))
+                        CardioMetric("STATUS", if (liveRunning) "ACTIVE" else "PAUSED", "saved locally", CardioAccent, Modifier.weight(1f))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    CardioAction(
+                        if (liveRunning) "PAUSE" else "RESUME",
+                        if (liveRunning) "Stop the timer without ending the session" else "Continue this session",
+                        CardioBlue
+                    ) {
+                        if (liveRunning) pauseLive() else resumeLive()
+                    }
+                    Spacer(Modifier.height(7.dp))
+                    CardioAction("FINISH CARDIO", "Review and add distance, heart rate or notes", CardioAccent) {
+                        prepareFinishedLive()
+                    }
+                }
+                CardioSection("SENSOR DATA", "Optional integrations can add these automatically later") {
+                    Text(
+                        "GPS distance, live heart rate, pace and zone data are intentionally not fabricated. Finish the session to enter anything you measured elsewhere.",
+                        color = CardioMuted,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            CardioScreen.MANUAL -> {
+                val editing = formEditingId != null
+                CardioHeroStrip(
+                    if (editing) "EDIT CARDIO" else if (formSource == "live") "FINISH 
