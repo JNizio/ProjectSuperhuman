@@ -299,7 +299,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
 
     fun loadSessionIntoForm(session: CardioSession) {
         formActivity = session.activity
-        formDateTime = Instant.ofEpochMilli(session.startedAt)
+        formDateTime = Instant.ofEpochMilli(session.endedAt)
             .atZone(ZoneId.systemDefault()).toLocalDateTime().format(cardioDateTimeFormatter)
         formDurationMin = String.format(Locale.US, "%.1f", session.durationSeconds / 60.0)
         formDistanceKm = session.distanceKm?.let(::cardioFormatNumber).orEmpty()
@@ -402,9 +402,13 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             feedback = "Enter a cardio duration"
             return
         }
-        val startedAt = if (formLiveStartedAt > 0L) formLiveStartedAt else
-            localDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        val endedAt = startedAt + durationSeconds * 1000L
+        val enteredEpoch = localDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endedAt = if (formLiveStartedAt > 0L) {
+            formLiveStartedAt + durationSeconds * 1000L
+        } else {
+            enteredEpoch
+        }
+        val startedAt = if (formLiveStartedAt > 0L) formLiveStartedAt else endedAt - durationSeconds * 1000L
         val distance = formDistanceKm.toDoubleOrNull()?.takeIf { it > 0.0 }
         val avgHr = formAvgHr.toIntOrNull()?.takeIf { it in 30..250 }
         val maxHr = formMaxHr.toIntOrNull()?.takeIf { it in 30..250 }
@@ -633,7 +637,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                         { formDateTime = it.take(16) },
                         Modifier.fillMaxWidth(),
                         singleLine = true,
-                        label = { Text("Start - YYYY-MM-DD HH:MM") }
+                        label = { Text("Finished - YYYY-MM-DD HH:MM") }
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
