@@ -265,3 +265,60 @@ private fun canonicalStrengthMuscle(raw: String): String? {
 
 internal fun formatStrengthNumber(value: Double): String =
     if (value % 1.0 == 0.0) value.toInt().toString() else String.format(Locale.US, "%.1f", value)
+
+
+internal data class StrengthActiveMeta(
+    val workoutName: String,
+    val notes: String,
+    val sessionRpe: String
+)
+
+internal fun loadStrengthActiveMeta(context: android.content.Context, startedAt: Long): StrengthActiveMeta {
+    val prefs = context.getSharedPreferences("superhuman_training", 0)
+    val prefix = "active_strength_${startedAt}_"
+    return StrengthActiveMeta(
+        workoutName = prefs.getString(prefix + "name", "").orEmpty(),
+        notes = prefs.getString(prefix + "notes", "").orEmpty(),
+        sessionRpe = prefs.getString(prefix + "rpe", "").orEmpty()
+    )
+}
+
+internal fun saveStrengthActiveMeta(
+    context: android.content.Context,
+    startedAt: Long,
+    workoutName: String,
+    notes: String,
+    sessionRpe: String
+) {
+    if (startedAt <= 0L) return
+    val prefix = "active_strength_${startedAt}_"
+    context.getSharedPreferences("superhuman_training", 0).edit()
+        .putString(prefix + "name", workoutName)
+        .putString(prefix + "notes", notes)
+        .putString(prefix + "rpe", sessionRpe)
+        .apply()
+}
+
+internal fun clearStrengthActiveMeta(context: android.content.Context, startedAt: Long) {
+    if (startedAt <= 0L) return
+    val prefix = "active_strength_${startedAt}_"
+    val prefs = context.getSharedPreferences("superhuman_training", 0)
+    prefs.edit()
+        .remove(prefix + "name")
+        .remove(prefix + "notes")
+        .remove(prefix + "rpe")
+        .apply()
+}
+
+internal fun loadStrengthFavorites(context: android.content.Context): Set<String> {
+    return context.getSharedPreferences("superhuman_training", 0)
+        .getStringSet("strength_favorites", emptySet())
+        ?.toSet()
+        .orEmpty()
+}
+
+internal fun saveStrengthFavorites(context: android.content.Context, favorites: Set<String>) {
+    context.getSharedPreferences("superhuman_training", 0).edit()
+        .putStringSet("strength_favorites", favorites)
+        .apply()
+}
