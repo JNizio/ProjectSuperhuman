@@ -409,11 +409,72 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 }
             }
             "library" -> {
-                val filtered = remember(catalog, query) { val q = query.trim().lowercase(); if (q.isBlank()) catalog else catalog.filter { e -> listOf(e.name, e.group, e.equipment, e.difficulty, e.mechanic).any { it.lowercase().contains(q) } || e.primaryMuscles.any { it.contains(q, true) } } }
-                HeroStrip("EXERCISE LIBRARY", "${catalog.size} illustrated movements", "Search muscles, equipment and movement patterns", ExerciseBlue)
-                PolishedSection("FIND AN EXERCISE", "Fast local search") {
-                    OutlinedTextField(query, { query = it; showCount = 12 }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search exercises") }); Spacer(Modifier.height(8.dp))
-                    filtered.take(showCount).forEach { e -> ExerciseResultRow(e, startedAt > 0L, { selected = e; mode = "detail" }, { if (workoutExercises.none { it.id == e.id }) workoutExercises.add(e); selected = e; mode = "workout"; writeActiveDraft() }) }
+                val muscles = catalog.flatMap { it.primaryMuscles + it.secondaryMuscles }.map(::pretty).distinct().sorted()
+                val equipment = catalog.map { it.equipment }.filter(String::isNotBlank).distinct().sorted()
+                val difficulties = catalog.map { it.difficulty }.filter(String::isNotBlank).distinct().sorted()
+                val mechanics = catalog.map { it.mechanic }.filter(String::isNotBlank).distinct().sorted()
+                fun next(current: String?, values: List<String>): String? {
+                    if (values.isEmpty()) return null
+                    if (current == null) return values.first()
+                    val index = values.indexOf(current)
+                    return if (index < 0 || index == values.lastIndex) null else values[index + 1]
+                }
+                val filtered = remember(catalog, query, muscleFilter, equipmentFilter, difficultyFilter, mechanicFilter, favoritesOnly, favorites) {
+                    val q = query.trim().lowercase()
+                    catalog.filter { e ->
+                        val searchable = listOf(e.name, e.group, e.equipment, e.difficulty, e.mechanic) + e.primaryMuscles + e.secondaryMuscles
+                        (q.isBlank() || searchable.any { it.lowercase().contains(q) }) &&
+                            (muscleFilter == null || (e.primaryMuscles + e.secondaryMuscles).map(::pretty).contains(muscleFilter)) &&
+                            (equipmentFilter == null || e.equipment == equipmentFilter) &&
+                            (difficultyFilter == null || e.difficulty == difficultyFilter) &&
+                            (mechanicFilter == null || e.mechanic == mechanicFilter) &&
+                            (!favoritesOnly || e.id in favorites)
+                    }
+                }
+                val recentIds = recent.mapNotNull { it.metadata["exerciseId"] }.distinct().take(6)
+                HeroStrip("EXERCISE LIBRARY", "${catalog.size} illustrated movements", "RepDB search, filters, favorites and recent movements", ExerciseBlue)
+                if (recentIds.isNotEmpty() && query.isBlank() && !favoritesOnly) {
+                    PolishedSection("RECENTLY USED", "Your latest strength movements") {
+                        recentIds.mapNotNull { id -> catalog.find { it.id == id } }.forEach { e ->
+                            ExerciseResultRow(
+                                e, startedAt > 0L, e.id in favorites,
+                                { selected = e; mode = "detail" },
+                                { if (workoutExercises.none { it.id == e.id }) workoutExercises.add(e); selected = e; mode = "workout"; writeActiveDraft() },
+                                {
+                                    favorites = if (e.id in favorites) favorites - e.id else favorites + e.id
+                                    saveStrengthFavorites(context, favorites)
+                                }
+                            )
+                        }
+                    }
+                }
+                PolishedSection("FIND AN EXERCISE", "Search name, muscles, equipment or movement") {
+                    OutlinedTextField(query, { query = it; showCount = 12 }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search exercises") })
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ChoiceChip(if (favoritesOnly) "★ Favorites" else "☆ Favorites", favoritesOnly) { favoritesOnly = !favoritesOnly; showCount = 12 }
+                        ChoiceChip("Muscle: ${muscleFilter ?: "All"}", muscleFilter != null) { muscleFilter = next(muscleFilter, muscles); showCount = 12 }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        ChoiceChip("Equipment: ${equipmentFilter ?: "All"}", equipmentFilter != null) { equipmentFilter = next(equipmentFilter, equipment); showCount = 12 }
+                        ChoiceChip("Difficulty: ${difficultyFilter ?: "All"}", difficultyFilter != null) { difficultyFilter = next(difficultyFilter, difficulties); showCount = 12 }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    ChoiceChip("Movement: ${mechanicFilter ?: "All"}", mechanicFilter != null) { mechanicFilter = next(mechanicFilter, mechanics); showCount = 12 }
+                    Spacer(Modifier.height(9.dp))
+                    filtered.take(showCount).forEach { e ->
+                        ExerciseResultRow(
+                            e, startedAt > 0L, e.id in favorites,
+                            { selected = e; mode = "detail" },
+                            { if (workoutExercises.none { it.id == e.id }) workoutExercises.add(e); selected = e; mode = "workout"; writeActiveDraft() },
+                            {
+                                favorites = if (e.id in favorites) favorites - e.id else favorites + e.id
+                                saveStrengthFavorites(context, favorites)
+                            }
+                        )
+                    }
+                    if (filtered.isEmpty()) EmptyState("No matches", "Clear or cycle filters to widen the RepDB search.")
                     if (filtered.size > showCount) Text("LOAD 12 MORE", color = ExerciseBlue, fontSize = 10.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clickable { showCount += 12 }.padding(12.dp))
                 }
             }
@@ -421,7 +482,18 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 HeroStrip("MOVEMENT PROFILE", e.name, "${e.group} · ${e.equipment}", ExercisePurple)
                 PolishedSection("FORM & EXECUTION", "${e.difficulty} · ${e.mechanic}${if (e.met > 0) " · ${exerciseNumber(e.met)} MET" else ""}") {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { RepDbImage(e.imageMain ?: e.imageStart, Modifier.weight(1f).height(160.dp)); if (e.imagePeak != null) RepDbImage(e.imagePeak, Modifier.weight(1f).height(160.dp)) }
-                    if (e.primaryMuscles.isNotEmpty()) { Spacer(Modifier.height(10.dp)); ChipRow(e.primaryMuscles.take(4).map(::pretty)) }
+                    if (e.primaryMuscles.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp)); Text("PRIMARY", color = ExerciseMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(4.dp)); ChipRow(e.primaryMuscles.take(5).map(::pretty))
+                    }
+                    if (e.secondaryMuscles.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp)); Text("SECONDARY", color = ExerciseMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                        Spacer(Modifier.height(4.dp)); ChipRow(e.secondaryMuscles.take(5).map(::pretty))
+                    }
+                }
+                WideActionTile(if (e.id in favorites) "★ FAVORITED" else "☆ ADD TO FAVORITES", "Stored locally on this device", ExercisePurple) {
+                    favorites = if (e.id in favorites) favorites - e.id else favorites + e.id
+                    saveStrengthFavorites(context, favorites)
                 }
                 if (e.instructions.isNotEmpty()) PolishedSection("HOW TO", "Movement sequence") { e.instructions.take(6).forEachIndexed { i, s -> InstructionRow(i + 1, s) } }
                 if (e.tips.isNotEmpty()) PolishedSection("FORM TIPS", "Keep the movement clean") { e.tips.take(3).forEach { TipRow(it) } }
@@ -449,6 +521,15 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             }
             "workout" -> {
                 LiveWorkoutHero(session.size, workoutExercises.distinctBy { it.id }.size, startedAt) { finishWorkout() }
+                PolishedSection("SESSION DETAILS", "Name is optional; blank uses an automatic workout name") {
+                    val automaticName = inferStrengthWorkoutNameFromExercises(workoutExercises)
+                    OutlinedTextField(workoutName, { workoutName = it.take(60) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Workout name · auto: $automaticName") })
+                    Spacer(Modifier.height(7.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        OutlinedTextField(sessionRpeText, { sessionRpeText = it.filter { ch -> ch.isDigit() || ch == '.' }.take(4) }, Modifier.weight(.7f), singleLine = true, label = { Text("Session RPE") })
+                        OutlinedTextField(workoutNotes, { workoutNotes = it.take(240) }, Modifier.weight(1.3f), singleLine = true, label = { Text("Notes optional") })
+                    }
+                }
                 if (restSeconds > 0) RestTimerTile(
                     restSeconds,
                     {
@@ -475,15 +556,26 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         val old = recent.filter { it.metadata["exerciseId"] == e.id }
                         val completed = session.filter { it.exercise.id == e.id }
                         completed.forEachIndexed { i, s ->
-                            SetRow(i + 1, s, old.getOrNull(i)) {
-                                val duplicate = s.copy(timestamp = System.currentTimeMillis())
-                                addSet(duplicate)
-                                loadText = exerciseNumber(duplicate.loadKg)
-                                repsText = duplicate.reps.toString()
-                                rirText = duplicate.rir?.toString() ?: rirText
-                                rpeText = duplicate.rpe?.toString() ?: ""
-                                setType = duplicate.type
-                            }
+                            SetRow(
+                                i + 1, s, old.firstOrNull { it.timestampEpochMs < startedAt } ?: old.getOrNull(i),
+                                {
+                                    val duplicate = s.copy(timestamp = System.currentTimeMillis())
+                                    addSet(duplicate)
+                                    loadText = exerciseNumber(duplicate.loadKg)
+                                    repsText = duplicate.reps.toString()
+                                    rirText = duplicate.rir?.toString() ?: rirText
+                                    rpeText = duplicate.rpe?.toString() ?: ""
+                                    setType = duplicate.type
+                                },
+                                { editLoggedSet(s) },
+                                {
+                                    if (pendingSetDeleteTimestamp == s.timestamp) {
+                                        pendingSetDeleteTimestamp = null
+                                        removeLoggedSet(s)
+                                    } else pendingSetDeleteTimestamp = s.timestamp
+                                },
+                                pendingSetDeleteTimestamp == s.timestamp
+                            )
                         }
                         completed.lastOrNull()?.let { last ->
                             Spacer(Modifier.height(9.dp))
