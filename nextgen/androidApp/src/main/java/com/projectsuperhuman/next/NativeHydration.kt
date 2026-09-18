@@ -185,7 +185,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
 @Composable
 private fun HydrationHeader(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.width(42.dp).height(42.dp).background(superhumanSurface, RoundedCornerShape(14.dp)).border(1.dp, HydBorder, RoundedCornerShape(14.dp)).superhumanClickable(onClick = onBack), contentAlignment = Alignment.Center) {
+        Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
             Text("←", color = HydNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(12.dp))
