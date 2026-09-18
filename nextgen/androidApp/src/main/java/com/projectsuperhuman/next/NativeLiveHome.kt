@@ -471,6 +471,7 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val water = rawWaterLitres.coerceIn(0.0, waterGoalMl / 1000.0)
 
     val workouts = exerciseData.between("workout_session", start, now)
+    val cardioSessions = exerciseData.between("cardio_session", start, now)
     val sets = exerciseData.between("exercise_set", start, now)
     val volumes = exerciseData.between("workout_volume", start, now)
     val mindfulness = mindfulnessData.latestState()
@@ -498,7 +499,7 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         waterGoalMl = waterGoalMl,
         caloriesToday = kcal,
         proteinToday = protein,
-        workoutsToday = workouts.size,
+        workoutsToday = workouts.size + cardioSessions.size,
         workoutSetsToday = sets.size,
         workoutVolumeToday = volumes.sumOf { it.value }.roundToInt(),
         bodyWeightKg = bodyMetric("body_weight_kg"),
