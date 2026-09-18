@@ -216,3 +216,213 @@ private fun loadCardioDraft(context: Context): CardioLiveDraft? {
 
 private fun saveCardioDraft(context: Context, draft: CardioLiveDraft) {
     cardioPrefs(context).edit()
+        .putString("live_activity", draft.activity.name)
+        .putLong("live_started_at", draft.startedAt)
+        .putInt("live_accumulated_seconds", draft.accumulatedSeconds)
+        .putLong("live_running_since", draft.runningSinceEpochMs)
+        .putBoolean("live_is_running", draft.isRunning)
+        .apply()
+}
+
+private fun clearCardioDraft(context: Context) {
+    cardioPrefs(context).edit()
+        .remove("live_activity")
+        .remove("live_started_at")
+        .remove("live_accumulated_seconds")
+        .remove("live_running_since")
+        .remove("live_is_running")
+        .apply()
+}
+
+@Composable
+internal fun NativeCardioScreen(onBack: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var screen by remember { mutableStateOf(CardioScreen.HOME) }
+    var rows by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
+    var sessions by remember { mutableStateOf<List<CardioSession>>(emptyList()) }
+    var selectedSessionId by remember { mutableStateOf<String?>(null) }
+    var feedback by remember { mutableStateOf<String?>(null) }
+
+    var liveActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
+    var liveStartedAt by remember { mutableLongStateOf(0L) }
+    var liveAccumulatedSeconds by remember { mutableIntStateOf(0) }
+    var liveRunningSince by remember { mutableLongStateOf(0L) }
+    var liveRunning by remember { mutableStateOf(false) }
+    var liveTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
+
+    var formActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
+    var formDateTime by remember { mutableStateOf("") }
+    var formDurationMin by remember { mutableStateOf("") }
+    var formDistanceKm by remember { mutableStateOf("") }
+    var formAvgHr by remember { mutableStateOf("") }
+    var formMaxHr by remember { mutableStateOf("") }
+    var formCalories by remember { mutableStateOf("") }
+    var formCadence by remember { mutableStateOf("") }
+    var formElevation by remember { mutableStateOf("") }
+    var formRpe by remember { mutableStateOf("") }
+    var formNotes by remember { mutableStateOf("") }
+    var formSource by remember { mutableStateOf("manual") }
+    var formEditingId by remember { mutableStateOf<String?>(null) }
+    var formLiveStartedAt by remember { mutableLongStateOf(0L) }
+    var showZones by remember { mutableStateOf(false) }
+    val zoneMinutes = remember { mutableStateListOf("", "", "", "", "") }
+
+    suspend fun refresh() {
+        val now = System.currentTimeMillis()
+        val lookback = 5L * 365L * 24L * 60L * 60L * 1000L
+        rows = CardioData.between("cardio_session", now - lookback, now)
+            .sortedByDescending { it.timestampEpochMs }
+            .take(3000)
+        sessions = rows.map(::cardioSessionFromValue).sortedByDescending { it.endedAt }
+    }
+
+    fun resetForm(activity: CardioActivityType = CardioActivityType.WALKING) {
+        formActivity = activity
+        formDateTime = LocalDateTime.now().format(cardioDateTimeFormatter)
+        formDurationMin = ""
+        formDistanceKm = ""
+        formAvgHr = ""
+        formMaxHr = ""
+        formCalories = ""
+        formCadence = ""
+        formElevation = ""
+        formRpe = ""
+        formNotes = ""
+        formSource = "manual"
+        formEditingId = null
+        formLiveStartedAt = 0L
+        showZones = false
+        for (i in zoneMinutes.indices) zoneMinutes[i] = ""
+    }
+
+    fun loadSessionIntoForm(session: CardioSession) {
+        formActivity = session.activity
+        formDateTime = Instant.ofEpochMilli(session.startedAt)
+            .atZone(ZoneId.systemDefault()).toLocalDateTime().format(cardioDateTimeFormatter)
+        formDurationMin = String.format(Locale.US, "%.1f", session.durationSeconds / 60.0)
+        formDistanceKm = session.distanceKm?.let(::cardioFormatNumber).orEmpty()
+        formAvgHr = session.avgHeartRate?.toString().orEmpty()
+        formMaxHr = session.maxHeartRate?.toString().orEmpty()
+        formCalories = session.caloriesKcal?.let(::cardioFormatNumber).orEmpty()
+        formCadence = session.cadence?.toString().orEmpty()
+        formElevation = session.elevationGainM?.let(::cardioFormatNumber).orEmpty()
+        formRpe = session.rpe?.let(::cardioFormatNumber).orEmpty()
+        formNotes = session.notes
+        formSource = session.source.ifBlank { "manual" }
+        formEditingId = session.id
+        formLiveStartedAt = 0L
+        showZones = session.zoneSeconds.isNotEmpty()
+        for (i in zoneMinutes.indices) {
+            zoneMinutes[i] = session.zoneSeconds[i + 1]?.let { String.format(Locale.US, "%.1f", it / 60.0) }.orEmpty()
+        }
+    }
+
+    fun currentLiveElapsedSeconds(): Int {
+        val extra = if (liveRunning && liveRunningSince > 0L) {
+            ((liveTick - liveRunningSince).coerceAtLeast(0L) / 1000L).toInt()
+        } else 0
+        return (liveAccumulatedSeconds + extra).coerceAtLeast(0)
+    }
+
+    fun persistLiveState() {
+        if (liveStartedAt <= 0L) return
+        saveCardioDraft(
+            context,
+            CardioLiveDraft(
+                activity = liveActivity,
+                startedAt = liveStartedAt,
+                accumulatedSeconds = liveAccumulatedSeconds,
+                runningSinceEpochMs = liveRunningSince,
+                isRunning = liveRunning
+            )
+        )
+    }
+
+    fun startLive(activity: CardioActivityType) {
+        val now = System.currentTimeMillis()
+        liveActivity = activity
+        liveStartedAt = now
+        liveAccumulatedSeconds = 0
+        liveRunningSince = now
+        liveRunning = true
+        liveTick = now
+        persistLiveState()
+        screen = CardioScreen.LIVE
+    }
+
+    fun pauseLive() {
+        val now = System.currentTimeMillis()
+        liveTick = now
+        if (liveRunning && liveRunningSince > 0L) {
+            liveAccumulatedSeconds += ((now - liveRunningSince).coerceAtLeast(0L) / 1000L).toInt()
+        }
+        liveRunningSince = 0L
+        liveRunning = false
+        persistLiveState()
+        feedback = "Cardio timer paused"
+    }
+
+    fun resumeLive() {
+        liveRunningSince = System.currentTimeMillis()
+        liveRunning = true
+        liveTick = liveRunningSince
+        persistLiveState()
+        feedback = "Cardio timer resumed"
+    }
+
+    fun prepareFinishedLive() {
+        val now = System.currentTimeMillis()
+        liveTick = now
+        val elapsed = currentLiveElapsedSeconds().coerceAtLeast(1)
+        if (liveRunning && liveRunningSince > 0L) {
+            liveAccumulatedSeconds = elapsed
+            liveRunningSince = 0L
+            liveRunning = false
+            persistLiveState()
+        }
+        resetForm(liveActivity)
+        formDateTime = Instant.ofEpochMilli(liveStartedAt)
+            .atZone(ZoneId.systemDefault()).toLocalDateTime().format(cardioDateTimeFormatter)
+        formDurationMin = String.format(Locale.US, "%.1f", elapsed / 60.0)
+        formSource = "live"
+        formLiveStartedAt = liveStartedAt
+        screen = CardioScreen.MANUAL
+    }
+
+    fun saveForm() {
+        val localDateTime = runCatching { LocalDateTime.parse(formDateTime.trim(), cardioDateTimeFormatter) }.getOrNull()
+        if (localDateTime == null) {
+            feedback = "Use date and time format YYYY-MM-DD HH:MM"
+            return
+        }
+        val durationSeconds = ((formDurationMin.toDoubleOrNull() ?: 0.0) * 60.0).roundToInt()
+        if (durationSeconds <= 0) {
+            feedback = "Enter a cardio duration"
+            return
+        }
+        val startedAt = if (formLiveStartedAt > 0L) formLiveStartedAt else
+            localDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val endedAt = startedAt + durationSeconds * 1000L
+        val distance = formDistanceKm.toDoubleOrNull()?.takeIf { it > 0.0 }
+        val avgHr = formAvgHr.toIntOrNull()?.takeIf { it in 30..250 }
+        val maxHr = formMaxHr.toIntOrNull()?.takeIf { it in 30..250 }
+        val calories = formCalories.toDoubleOrNull()?.takeIf { it >= 0.0 }
+        val cadence = formCadence.toIntOrNull()?.takeIf { it > 0 }
+        val elevation = formElevation.toDoubleOrNull()?.takeIf { it >= 0.0 }
+        val rpe = formRpe.toDoubleOrNull()?.takeIf { it in 0.0..10.0 }
+        val zones = zoneMinutes.mapIndexedNotNull { index, text ->
+            val sec = ((text.toDoubleOrNull() ?: 0.0) * 60.0).roundToInt()
+            if (sec > 0) (index + 1) to sec else null
+        }.toMap()
+        if (zones.values.sum() > durationSeconds + 60) {
+            feedback = "Heart-rate zone time cannot exceed session duration"
+            return
+        }
+
+        val avgPace = if (distance != null && distance > 0.0 && formActivity.paceMode == CardioPaceMode.PER_KM) {
+            (durationSeconds / distance).roundToInt()
+        } else null
+        val avgSpeed = if (distance != null && distance > 0.0 && formActivity.paceMode == CardioPaceMode.SPEED) {
+            distance / (dur
