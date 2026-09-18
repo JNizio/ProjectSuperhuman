@@ -1,5 +1,6 @@
 package com.projectsuperhuman.next
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -49,6 +50,14 @@ internal fun NativeExerciseHub(
     openLegacy: () -> Unit
 ) {
     var destination by remember { mutableStateOf(ExerciseDestination.HUB) }
+
+    BackHandler {
+        if (destination == ExerciseDestination.HUB) {
+            onBackToHome()
+        } else {
+            destination = ExerciseDestination.HUB
+        }
+    }
 
     when (destination) {
         ExerciseDestination.HUB -> NativeExerciseLandingPage(
