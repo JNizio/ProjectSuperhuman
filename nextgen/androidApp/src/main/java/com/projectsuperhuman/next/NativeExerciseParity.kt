@@ -136,10 +136,23 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     val scope = rememberCoroutineScope()
     var catalog by remember { mutableStateOf<List<NativeExercise>>(emptyList()) }
     var recent by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
+    var sessionRows by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var mode by remember { mutableStateOf("home") }
     var selected by remember { mutableStateOf<NativeExercise?>(null) }
     var query by remember { mutableStateOf("") }
     var showCount by remember { mutableIntStateOf(12) }
+    var muscleFilter by remember { mutableStateOf<String?>(null) }
+    var equipmentFilter by remember { mutableStateOf<String?>(null) }
+    var difficultyFilter by remember { mutableStateOf<String?>(null) }
+    var mechanicFilter by remember { mutableStateOf<String?>(null) }
+    var favoritesOnly by remember { mutableStateOf(false) }
+    var favorites by remember { mutableStateOf(loadStrengthFavorites(context)) }
+    var selectedHistorySessionId by remember { mutableStateOf<String?>(null) }
+    var historyEditName by remember { mutableStateOf("") }
+    var historyEditNotes by remember { mutableStateOf("") }
+    var historyEditRpe by remember { mutableStateOf("") }
+    var pendingWorkoutDelete by remember { mutableStateOf<String?>(null) }
+    var pendingSetDeleteTimestamp by remember { mutableStateOf<Long?>(null) }
     val session = remember { mutableStateListOf<NativeWorkoutSet>() }
     val workoutExercises = remember { mutableStateListOf<NativeExercise>() }
     var repsText by remember { mutableStateOf("10") }
@@ -149,6 +162,10 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var setType by remember { mutableStateOf("Work") }
     var supersetTag by remember { mutableStateOf<String?>(null) }
     var startedAt by remember { mutableLongStateOf(0L) }
+    var activeSessionId by remember { mutableStateOf("") }
+    var workoutName by remember { mutableStateOf("") }
+    var workoutNotes by remember { mutableStateOf("") }
+    var sessionRpeText by remember { mutableStateOf("") }
     var restSeconds by remember { mutableIntStateOf(0) }
     var restTarget by remember { mutableIntStateOf(120) }
     var restEndsAt by remember { mutableLongStateOf(0L) }
@@ -156,13 +173,19 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var routineName by remember { mutableStateOf("") }
     var routineSelection by remember { mutableStateOf<List<String>>(emptyList()) }
     var summarySets by remember { mutableIntStateOf(0) }
+    var summaryWorkingSets by remember { mutableIntStateOf(0) }
+    var summaryExercises by remember { mutableIntStateOf(0) }
     var summaryVolume by remember { mutableDoubleStateOf(0.0) }
     var summaryDuration by remember { mutableIntStateOf(0) }
+    var summaryPrs by remember { mutableStateOf<List<String>>(emptyList()) }
+    var summaryProgression by remember { mutableStateOf<List<String>>(emptyList()) }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
 
     suspend fun refresh() {
         val now = System.currentTimeMillis()
-        recent = ExerciseData.between("exercise_set", now - 365L * 86400000L, now).sortedByDescending { it.timestampEpochMs }.take(400)
+        val lookback = 5L * 365L * 86400000L
+        recent = ExerciseData.between("exercise_set", now - lookback, now).sortedByDescending { it.timestampEpochMs }.take(5000)
+        sessionRows = ExerciseData.between("workout_session", now - lookback, now).sortedByDescending { it.timestampEpochMs }.take(1000)
     }
 
     fun writeActiveDraft() {
@@ -196,7 +219,8 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             mapOf(
                 "exerciseId" to set.exercise.id, "exerciseName" to set.exercise.name, "group" to set.exercise.group, "equipment" to set.exercise.equipment,
                 "reps" to set.reps.toString(), "loadKg" to set.loadKg.toString(), "met" to set.exercise.met.toString(), "setType" to set.type,
-                "rir" to (set.rir?.toString() ?: ""), "rpe" to (set.rpe?.toString() ?: ""), "superset" to (set.supersetTag ?: "")
+                "rir" to (set.rir?.toString() ?: ""), "rpe" to (set.rpe?.toString() ?: ""), "superset" to (set.supersetTag ?: ""),
+                "sessionId" to activeSessionId
             )
         )))
         refresh()
@@ -218,6 +242,12 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         refresh()
         loadActiveWorkoutDraft(context)?.let { draft ->
             startedAt = draft.startedAt
+            activeSessionId = "strength-${draft.startedAt}"
+            loadStrengthActiveMeta(context, draft.startedAt).let { meta ->
+                workoutName = meta.workoutName
+                workoutNotes = meta.notes
+                sessionRpeText = meta.sessionRpe
+            }
             workoutExercises.clear()
             workoutExercises.addAll(draft.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } })
             session.clear()
@@ -255,6 +285,10 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         if (startedAt > 0L) writeActiveDraft()
     }
 
+    LaunchedEffect(startedAt, workoutName, workoutNotes, sessionRpeText) {
+        if (startedAt > 0L) saveStrengthActiveMeta(context, startedAt, workoutName, workoutNotes, sessionRpeText)
+    }
+
     LaunchedEffect(restSeconds) {
         if (restSeconds > 0) {
             delay(1000)
@@ -269,6 +303,10 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         workoutExercises.addAll(exercises)
         selected = exercises.firstOrNull()
         startedAt = System.currentTimeMillis()
+        activeSessionId = "strength-$startedAt"
+        workoutName = ""
+        workoutNotes = ""
+        sessionRpeText = ""
         restSeconds = 0
         restEndsAt = 0L
         mode = "workout"
@@ -278,21 +316,73 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     fun finishWorkout() {
         val now = System.currentTimeMillis()
         val workoutStartedAt = startedAt
+        val finishedSessionId = activeSessionId.ifBlank { "strength-$workoutStartedAt" }
+        val finalName = workoutName.trim().ifBlank { inferStrengthWorkoutNameFromExercises(workoutExercises) }
         summarySets = session.size
-        summaryVolume = session.sumOf { it.volume }
+        summaryWorkingSets = session.count { it.type != "Warmup" }
+        summaryExercises = workoutExercises.distinctBy { it.id }.size
+        summaryVolume = session.filter { it.type != "Warmup" }.sumOf { it.volume }
         summaryDuration = max(1, ((now - workoutStartedAt) / 60000L).toInt())
+        summaryPrs = detectStrengthSessionPrs(session, recent.filter { it.timestampEpochMs < workoutStartedAt })
+        summaryProgression = summaryPrs.take(3)
         restSeconds = 0
         restEndsAt = 0L
         clearActiveWorkoutDraft(context)
+        clearStrengthActiveMeta(context, workoutStartedAt)
         startedAt = 0L
         scope.launch {
-            NativeDataHub.saveValues(listOf(HealthValue(HealthDomain.EXERCISE, "workout_session", summarySets.toDouble(), "sets", now, "repdb-exercise", mapOf("volumeKg" to summaryVolume.toString(), "durationMin" to summaryDuration.toString(), "exerciseCount" to workoutExercises.distinctBy { it.id }.size.toString()))))
+            NativeDataHub.saveValues(listOf(HealthValue(
+                HealthDomain.EXERCISE,
+                "workout_session",
+                summaryWorkingSets.toDouble(),
+                "sets",
+                now,
+                "repdb-exercise",
+                mapOf(
+                    "sessionId" to finishedSessionId,
+                    "startTime" to workoutStartedAt.toString(),
+                    "endTime" to now.toString(),
+                    "durationMin" to summaryDuration.toString(),
+                    "workoutName" to finalName,
+                    "totalSets" to summarySets.toString(),
+                    "workingSets" to summaryWorkingSets.toString(),
+                    "volumeKg" to summaryVolume.toString(),
+                    "exerciseCount" to summaryExercises.toString(),
+                    "sessionRpe" to sessionRpeText.trim(),
+                    "notes" to workoutNotes.trim()
+                )
+            )))
             refresh()
             mode = "summary"
         }
     }
 
-    val weekRecent = recent.filter { it.timestampEpochMs > System.currentTimeMillis() - 7L * 86400000L }
+    fun removeLoggedSet(set: NativeWorkoutSet) {
+        session.remove(set)
+        writeActiveDraft()
+        scope.launch {
+            recent.firstOrNull { it.timestampEpochMs == set.timestamp && it.metadata["exerciseId"] == set.exercise.id }?.let {
+                NativeDataHub.deleteValue(it)
+            }
+            refresh()
+        }
+    }
+
+    fun editLoggedSet(set: NativeWorkoutSet) {
+        loadText = exerciseNumber(set.loadKg)
+        repsText = set.reps.toString()
+        rirText = set.rir?.toString() ?: ""
+        rpeText = set.rpe?.toString() ?: ""
+        setType = set.type
+        supersetTag = set.supersetTag
+        removeLoggedSet(set)
+    }
+
+    val completedSessions = buildStrengthSessions(sessionRows, recent)
+    val strengthPrs = calculateStrengthPrs(recent, completedSessions)
+    val strengthProgress = calculateStrengthProgress(recent, completedSessions)
+    val muscleVolume = calculateMuscleVolume(recent, catalog)
+    val weekRecent = recent.filter { it.timestampEpochMs > System.currentTimeMillis() - 7L * 86400000L && isStrengthWorkingSet(it) }
 
     Column(Modifier.fillMaxSize().background(ExerciseBg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         TrainingHeader(mode) { if (mode == "home") onBack() else mode = "home" }
