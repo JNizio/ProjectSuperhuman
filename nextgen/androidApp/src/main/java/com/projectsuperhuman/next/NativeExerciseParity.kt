@@ -595,27 +595,131 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 }
             }
             "history" -> {
-                HeroStrip("HISTORY", "Your training timeline", "Recent sets and movement history", ExercisePurple)
-                PolishedSection("RECENT TRAINING", "Latest logged sets") { if (recent.isEmpty()) EmptyState("No workouts yet", "Complete a workout to start building your training history.") else recent.take(40).forEach { HistoryRow(it) } }
+                HeroStrip("HISTORY", "Completed strength sessions", "Tap a workout to inspect every exercise and set", ExercisePurple)
+                PolishedSection("WORKOUT SESSIONS", "Newest first") {
+                    if (completedSessions.isEmpty()) EmptyState("No completed workouts yet", "Finish a strength workout to create a session.")
+                    completedSessions.take(60).forEach { workout ->
+                        SessionHistoryRow(workout) {
+                            selectedHistorySessionId = workout.sessionId
+                            historyEditName = workout.name
+                            historyEditNotes = workout.notes
+                            historyEditRpe = workout.sessionRpe?.let(::exerciseNumber) ?: ""
+                            pendingWorkoutDelete = null
+                            mode = "session_detail"
+                        }
+                    }
+                }
+            }
+            "session_detail" -> {
+                val workout = completedSessions.firstOrNull { it.sessionId == selectedHistorySessionId }
+                if (workout == null) {
+                    EmptyState("Workout unavailable", "This session may have been removed.")
+                } else {
+                    HeroStrip("WORKOUT DETAIL", workout.name, "${workout.durationMin} min · ${workout.workingSets} working sets · ${workout.totalVolumeKg.roundToInt()} kg", ExercisePurple)
+                    PolishedSection("EDIT WORKOUT", "Update metadata without changing logged sets") {
+                        OutlinedTextField(historyEditName, { historyEditName = it.take(60) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Workout name") })
+                        Spacer(Modifier.height(7.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            OutlinedTextField(historyEditRpe, { historyEditRpe = it.filter { ch -> ch.isDigit() || ch == '.' }.take(4) }, Modifier.weight(.7f), singleLine = true, label = { Text("Session RPE") })
+                            OutlinedTextField(historyEditNotes, { historyEditNotes = it.take(240) }, Modifier.weight(1.3f), singleLine = true, label = { Text("Notes") })
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        WideActionTile("SAVE WORKOUT DETAILS", "Preserves the existing session and set history", ExerciseBlue) {
+                            val row = sessionRows.firstOrNull { it.metadata["sessionId"] == workout.sessionId } ?: sessionRows.firstOrNull { it.timestampEpochMs == workout.endTime }
+                            if (row != null) scope.launch {
+                                NativeDataHub.deleteValue(row)
+                                NativeDataHub.saveValues(listOf(row.copy(metadata = row.metadata + mapOf(
+                                    "workoutName" to historyEditName.trim().ifBlank { workout.name },
+                                    "notes" to historyEditNotes.trim(),
+                                    "sessionRpe" to historyEditRpe.trim()
+                                ))))
+                                refresh()
+                                feedbackMessage = "Workout details updated"
+                            }
+                        }
+                    }
+                    PolishedSection("EXERCISES & SETS", "${workout.exerciseCount} exercises · ${workout.totalSets} total sets") {
+                        workout.sets.groupBy { it.metadata["exerciseName"] ?: "Exercise" }.forEach { (name, rows) ->
+                            Text(name, color = ExerciseInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                            rows.forEach { HistoryRow(it) }
+                            Spacer(Modifier.height(5.dp))
+                        }
+                    }
+                    val confirmDelete = pendingWorkoutDelete == workout.sessionId
+                    WideActionTile(if (confirmDelete) "CONFIRM DELETE WORKOUT" else "DELETE WORKOUT", if (confirmDelete) "Removes this session and its linked sets" else "Tap once more to confirm", if (SuperhumanAppearance.darkMode) superhumanRed else Color(0xFFAA4444)) {
+                        if (!confirmDelete) pendingWorkoutDelete = workout.sessionId
+                        else {
+                            val row = sessionRows.firstOrNull { it.metadata["sessionId"] == workout.sessionId } ?: sessionRows.firstOrNull { it.timestampEpochMs == workout.endTime }
+                            scope.launch {
+                                NativeDataHub.deleteValues(workout.sets + listOfNotNull(row))
+                                pendingWorkoutDelete = null
+                                selectedHistorySessionId = null
+                                refresh()
+                                feedbackMessage = "Workout deleted"
+                                mode = "history"
+                            }
+                        }
+                    }
+                }
             }
             "progress" -> {
-                val grouped = recent.groupBy { it.metadata["exerciseName"] ?: "Exercise" }.entries.sortedByDescending { it.value.size }.take(6)
-                HeroStrip("PROGRESS", "Performance trends", "Volume, frequency and best loads", ExerciseGreen)
-                PolishedSection("TOP MOVEMENTS", "Most trained exercises") { if (grouped.isEmpty()) EmptyState("No progress yet", "Your trends and personal records will appear as you log more workouts."); grouped.forEach { (name, values) -> val maxLoad = values.mapNotNull { it.metadata["loadKg"]?.toDoubleOrNull() }.maxOrNull() ?: 0.0; ProgressTile(name, values.size, maxLoad) } }
+                HeroStrip("PROGRESS", "Strength progression", "Frequency, volume, estimated 1RM, PRs and muscle work", ExerciseGreen)
+                PolishedSection("LAST 7 DAYS", "Working sets exclude warm-ups") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        MetricTile("WORK SETS", strengthProgress.weeklyWorkingSets.toString(), "7 days", ExerciseBlue, Modifier.weight(1f))
+                        MetricTile("VOLUME", strengthProgress.weeklyVolumeKg.roundToInt().toString(), "kg", ExerciseGreen, Modifier.weight(1f))
+                        MetricTile("FREQUENCY", strengthProgress.trainingFrequency.toString(), "sessions", ExercisePurple, Modifier.weight(1f))
+                    }
+                    if (strengthProgress.exerciseFrequency.isNotEmpty()) {
+                        Spacer(Modifier.height(9.dp))
+                        Text("Exercise frequency · " + strengthProgress.exerciseFrequency.entries.take(4).joinToString(" · ") { "${it.key} ${it.value}×" }, color = ExerciseMuted, fontSize = 9.sp)
+                    }
+                }
+                PolishedSection("PERSONAL RECORDS", "Estimated 1RM uses Epley; it is not a tested 1RM") {
+                    if (strengthPrs.isEmpty()) EmptyState("No PR data yet", "Log repeated exercises to establish records.")
+                    strengthPrs.take(10).forEach { pr -> StrengthPrRow(pr) }
+                }
+                PolishedSection("MUSCLE-GROUP VOLUME", "Approximate weekly working sets · primary 1.0, secondary 0.5") {
+                    muscleVolume.forEach { volume -> MuscleVolumeRow(volume) }
+                    Spacer(Modifier.height(6.dp))
+                    Text("RepDB-based training estimates, not exact physiological measurements.", color = ExerciseMuted, fontSize = 9.sp)
+                }
+                PolishedSection("TRENDS", "Last 12 logged weeks") {
+                    TrendSummaryRow("Volume", strengthProgress.volumeTrend.map { it.second })
+                    TrendSummaryRow("Best load", strengthProgress.bestLoadTrend.map { it.second })
+                    TrendSummaryRow("Estimated 1RM", strengthProgress.estimated1RmTrend.map { it.second })
+                    if (strengthProgress.recentProgression.isNotEmpty()) {
+                        Spacer(Modifier.height(8.dp))
+                        strengthProgress.recentProgression.forEach { Text("• $it", color = ExerciseInk, fontSize = 10.sp, modifier = Modifier.padding(vertical = 2.dp)) }
+                    }
+                }
             }
             "summary" -> {
-                val baselineVolume = recent.take(100).sumOf { it.value }
-                val insight = when { summarySets == 0 -> "No completed sets were recorded."; summaryVolume > baselineVolume / 10.0 && summarySets >= 8 -> "Strong training output. Volume was high relative to your recent logged baseline."; summarySets >= 12 -> "Solid training density. Recovery, sleep and nutrition can now be compared against this session."; else -> "Session captured. More repeated workouts will sharpen progression and recovery insights." }
-                SummaryHero(summarySets, summaryVolume, summaryDuration)
-                PolishedSection("SUPERHUMAN INSIGHT", "Training-context interpretation") { Text(insight, color = ExerciseInk, fontSize = 11.sp, lineHeight = 17.sp); Spacer(Modifier.height(10.dp)); Text("This is a training-context observation, not a medical conclusion.", color = ExerciseMuted, fontSize = 10.sp) }
-                WideActionTile("DONE", "Return to training dashboard", ExerciseNavy) { session.clear(); workoutExercises.clear(); selected = null; mode = "home" }
+                SummaryHero(summaryWorkingSets, summaryVolume, summaryDuration)
+                PolishedSection("SESSION METRICS", "Concrete results from this workout") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        MetricTile("EXERCISES", summaryExercises.toString(), "completed", ExerciseBlue, Modifier.weight(1f))
+                        MetricTile("ALL SETS", summarySets.toString(), "incl. warm-ups", ExercisePurple, Modifier.weight(1f))
+                        MetricTile("WORK SETS", summaryWorkingSets.toString(), "training sets", ExerciseGreen, Modifier.weight(1f))
+                    }
+                }
+                PolishedSection("PERSONAL RECORDS", "Detected against strength history before this session") {
+                    if (summaryPrs.isEmpty()) Text("No new PRs this session.", color = ExerciseMuted, fontSize = 10.sp)
+                    else summaryPrs.forEach { Text("• $it", color = ExerciseInk, fontSize = 10.sp, modifier = Modifier.padding(vertical = 3.dp)) }
+                }
+                if (summaryProgression.isNotEmpty()) {
+                    PolishedSection("NOTABLE PROGRESSION", "Changes supported by logged metrics") {
+                        summaryProgression.forEach { Text("• $it", color = ExerciseInk, fontSize = 10.sp, modifier = Modifier.padding(vertical = 3.dp)) }
+                    }
+                }
+                WideActionTile("DONE", "Return to training dashboard", ExerciseNavy) { session.clear(); workoutExercises.clear(); selected = null; activeSessionId = ""; workoutName = ""; workoutNotes = ""; sessionRpeText = ""; mode = "home" }
             }
         }
         Text("Exercise data & illustrations by RepDB · repdb.co", color = ExerciseMuted, fontSize = 10.sp, modifier = Modifier.padding(6.dp)); Spacer(Modifier.height(18.dp))
     }
 }
 
-@Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back" }, contentAlignment = Alignment.Center) { Text("←", color = ExerciseBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Exercise" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); Text(if (mode == "workout") "Workout active · saved automatically" else "Strength training · routines · history · progress", color = ExerciseMuted, fontSize = 12.sp) } } }
+@Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back" }, contentAlignment = Alignment.Center) { Text("←", color = ExerciseBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "session_detail" -> "Workout detail"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Exercise" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); Text(if (mode == "workout") "Workout active · saved automatically" else "Strength training · routines · history · progress", color = ExerciseMuted, fontSize = 12.sp) } } }
 @Composable private fun TrainingHero(lastName: String, sets: Int, volume: Int, activeWorkout: Boolean, onStart: () -> Unit) { Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF0A3168), Color(0xFF0D6CB4), Color(0xFF5BA9DB))), RoundedCornerShape(28.dp)).padding(21.dp)) { Text(if (activeWorkout) "WORKOUT IN PROGRESS" else "STRENGTH TRAINING", color = Color.White.copy(alpha = .78f), fontSize = 11.sp, fontWeight = FontWeight.Black); Text(if (activeWorkout) "Continue your workout" else "Ready to train?", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black); Text(if (activeWorkout) "Your active workout is saved on this device" else "Last activity · $lastName", color = Color.White.copy(alpha = .78f), fontSize = 12.sp); Spacer(Modifier.height(14.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { GlassMetric("WORKING SETS", sets.toString(), Modifier.weight(1f)); GlassMetric("TRAINING VOLUME", "$volume kg", Modifier.weight(1f)) }; Spacer(Modifier.height(15.dp)); Box(Modifier.fillMaxWidth().heightIn(min = 52.dp).background(Color.White, RoundedCornerShape(16.dp)).clickable { onStart() }.padding(15.dp), contentAlignment = Alignment.Center) { Text(if (activeWorkout) "RESUME WORKOUT" else "START WORKOUT", color = ExerciseHeroButtonText, fontSize = 14.sp, fontWeight = FontWeight.Black) } } }
 @Composable private fun GlassMetric(label: String, value: String, modifier: Modifier) { Column(modifier.background(Color.White.copy(alpha = .13f), RoundedCornerShape(14.dp)).padding(10.dp)) { Text(label, color = Color.White.copy(alpha = .62f), fontSize = 10.sp); Text(value, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black) } }
 @Composable private fun TrainingNavTile(mark: String, title: String, subtitle: String, accent: Color, modifier: Modifier, onClick: () -> Unit) { Column(modifier.heightIn(min = 96.dp).background(ExerciseSurface, RoundedCornerShape(20.dp)).clickable { onClick() }.padding(12.dp)) { Box(Modifier.size(32.dp).background(accent.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) { Text(mark, color = accent, fontWeight = FontWeight.Black) }; Spacer(Modifier.height(9.dp)); Text(title, color = ExerciseNavy, fontSize = 11.sp, fontWeight = FontWeight.Black); Text(subtitle, color = ExerciseMuted, fontSize = 10.sp) } }
