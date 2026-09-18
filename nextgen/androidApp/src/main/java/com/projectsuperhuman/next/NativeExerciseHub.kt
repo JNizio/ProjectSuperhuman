@@ -57,7 +57,7 @@ internal fun NativeExerciseHub(
             onOpenCardio = { destination = ExerciseDestination.CARDIO }
         )
 
-        ExerciseDestination.STRENGTH -> NativeExerciseParityScreen(
+        ExerciseDestination.STRENGTH -> NativeStrengthTrainingScreen(
             onBack = { destination = ExerciseDestination.HUB },
             openLegacy = openLegacy
         )
@@ -66,6 +66,20 @@ internal fun NativeExerciseHub(
             onBack = { destination = ExerciseDestination.HUB }
         )
     }
+}
+
+/**
+ * Stable Strength integration seam.
+ *
+ * The current parity implementation stays untouched so Strength feature work
+ * can continue independently of top-level Exercise navigation.
+ */
+@Composable
+internal fun NativeStrengthTrainingScreen(
+    onBack: () -> Unit,
+    openLegacy: () -> Unit
+) {
+    NativeExerciseParityScreen(onBack = onBack, openLegacy = openLegacy)
 }
 
 @Composable
