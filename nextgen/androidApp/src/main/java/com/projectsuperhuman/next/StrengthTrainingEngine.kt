@@ -322,3 +322,48 @@ internal fun saveStrengthFavorites(context: android.content.Context, favorites: 
         .putStringSet("strength_favorites", favorites)
         .apply()
 }
+
+
+internal fun inferStrengthWorkoutNameFromExercises(exercises: List<NativeExercise>): String {
+    if (exercises.isEmpty()) return "Strength Workout"
+    val tokens = exercises.flatMap { listOf(it.group) + it.primaryMuscles }.joinToString(" ").lowercase(Locale.US)
+    val chest = "chest" in tokens || "pector" in tokens
+    val back = "back" in tokens || "lat" in tokens
+    val shoulders = "shoulder" in tokens || "deltoid" in tokens
+    val legs = listOf("quad", "hamstring", "glute", "calf", "leg").any { it in tokens }
+    val triceps = "tricep" in tokens
+    return when {
+        (chest || back || shoulders) && legs -> "Full Body"
+        legs && !(chest || back || shoulders) -> "Lower Body"
+        chest && triceps && !back -> "Chest & Triceps"
+        (chest || back || shoulders) && !legs -> "Upper Body"
+        else -> "Strength Workout"
+    }
+}
+
+internal fun detectStrengthSessionPrs(
+    current: List<NativeWorkoutSet>,
+    previousRows: List<HealthValue>
+): List<String> {
+    val notices = mutableListOf<String>()
+    current.groupBy { it.exercise.id }.forEach { (_, sets) ->
+        val exercise = sets.first().exercise
+        val previous = previousRows.filter { it.metadata["exerciseId"] == exercise.id }
+        val previousLoad = previous.mapNotNull { it.metadata["loadKg"]?.toDoubleOrNull() }.maxOrNull() ?: 0.0
+        val previousReps = previous.mapNotNull { it.metadata["reps"]?.toIntOrNull() }.maxOrNull() ?: 0
+        val previousE1rm = previous.mapNotNull {
+            val load = it.metadata["loadKg"]?.toDoubleOrNull()
+            val reps = it.metadata["reps"]?.toIntOrNull()
+            if (load != null && reps != null) strengthEstimated1Rm(load, reps) else null
+        }.maxOrNull() ?: 0.0
+
+        val currentLoad = sets.maxOfOrNull { it.loadKg } ?: 0.0
+        val currentReps = sets.maxOfOrNull { it.reps } ?: 0
+        val currentE1rm = sets.maxOfOrNull { strengthEstimated1Rm(it.loadKg, it.reps) } ?: 0.0
+
+        if (currentLoad > previousLoad && currentLoad > 0.0) notices += "${exercise.name}: heaviest load ${formatStrengthNumber(currentLoad)} kg"
+        if (currentReps > previousReps && currentReps > 0) notices += "${exercise.name}: rep PR $currentReps reps"
+        if (currentE1rm > previousE1rm && currentE1rm > 0.0) notices += "${exercise.name}: estimated 1RM ${formatStrengthNumber(currentE1rm)} kg"
+    }
+    return notices.distinct()
+}
