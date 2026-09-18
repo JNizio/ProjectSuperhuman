@@ -444,6 +444,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         } else null
 
         val existingId = formEditingId
+        val finishingLiveSession = formLiveStartedAt > 0L
         val id = existingId ?: "cardio-$startedAt-${System.currentTimeMillis()}"
         val session = CardioSession(
             id = id,
@@ -472,7 +473,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 rows.firstOrNull { it.metadata["sessionId"] == existingId }?.let { NativeDataHub.deleteValue(it) }
             }
             NativeDataHub.saveValues(listOf(session.toHealthValue()))
-            if (formSource == "live") {
+            if (finishingLiveSession) {
                 clearCardioDraft(context)
                 liveStartedAt = 0L
                 liveAccumulatedSeconds = 0
