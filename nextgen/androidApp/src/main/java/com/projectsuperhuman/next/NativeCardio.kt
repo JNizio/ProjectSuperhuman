@@ -619,4 +619,167 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             CardioScreen.MANUAL -> {
                 val editing = formEditingId != null
                 CardioHeroStrip(
-                    if (editing) "EDIT CARDIO" else if (formSource == "live") "FINISH 
+                    if (editing) "EDIT CARDIO" else if (formSource == "live") "FINISH CARDIO" else "LOG CARDIO",
+                    if (editing) "Update saved session" else if (formSource == "live") "Add your measured details" else "Log a previous activity",
+                    "Only enter data you actually measured. Pace and speed are derived automatically.",
+                    CardioBlue
+                )
+                CardioSection("ACTIVITY", "Choose the session type") {
+                    CardioActivityPicker(formActivity) { formActivity = it }
+                }
+                CardioSection("SESSION", "Duration is required; other fields are optional") {
+                    OutlinedTextField(
+                        formDateTime,
+                        { formDateTime = it.take(16) },
+                        Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text("Start - YYYY-MM-DD HH:MM") }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            formDurationMin,
+                            { formDurationMin = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7) },
+                            Modifier.weight(1f),
+                            singleLine = true,
+                            label = { Text("Duration (min)") }
+                        )
+                        if (formActivity.supportsDistance) {
+                            OutlinedTextField(
+                                formDistanceKm,
+                                { formDistanceKm = it.filter { ch -> ch.isDigit() || ch == '.' }.take(8) },
+                                Modifier.weight(1f),
+                                singleLine = true,
+                                label = { Text("Distance (km)") }
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            formAvgHr,
+                            { formAvgHr = it.filter(Char::isDigit).take(3) },
+                            Modifier.weight(1f),
+                            singleLine = true,
+                            label = { Text("Avg HR") }
+                        )
+                        OutlinedTextField(
+                            formMaxHr,
+                            { formMaxHr = it.filter(Char::isDigit).take(3) },
+                            Modifier.weight(1f),
+                            singleLine = true,
+                            label = { Text("Max HR") }
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        OutlinedTextField(
+                            formCalories,
+                            { formCalories = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7) },
+                            Modifier.weight(1f),
+                            singleLine = true,
+                            label = { Text("Calories (optional)") }
+                        )
+                        OutlinedTextField(
+                            formRpe,
+                            { formRpe = it.filter { ch -> ch.isDigit() || ch == '.' }.take(4) },
+                            Modifier.weight(1f),
+                            singleLine = true,
+                            label = { Text("RPE 0-10") }
+                        )
+                    }
+                    if (formActivity.supportsCadence || formActivity.supportsElevation) {
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            if (formActivity.supportsCadence) {
+                                OutlinedTextField(
+                                    formCadence,
+                                    { formCadence = it.filter(Char::isDigit).take(4) },
+                                    Modifier.weight(1f),
+                                    singleLine = true,
+                                    label = { Text("Cadence") }
+                                )
+                            }
+                            if (formActivity.supportsElevation) {
+                                OutlinedTextField(
+                                    formElevation,
+                                    { formElevation = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7) },
+                                    Modifier.weight(1f),
+                                    singleLine = true,
+                                    label = { Text("Elevation gain (m)") }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        formNotes,
+                        { formNotes = it.take(300) },
+                        Modifier.fillMaxWidth(),
+                        singleLine = false,
+                        minLines = 2,
+                        label = { Text("Notes (optional)") }
+                    )
+                }
+                CardioSection("HEART-RATE ZONES", "Optional - enter measured zone time only") {
+                    CardioAction(
+                        if (showZones) "HIDE ZONE TIMES" else "ADD ZONE TIMES",
+                        "Zone distribution is never guessed from average heart rate",
+                        Color(0xFF7B61C9)
+                    ) { showZones = !showZones }
+                    if (showZones) {
+                        Spacer(Modifier.height(9.dp))
+                        for (rowStart in listOf(0, 3)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+                                val end = if (rowStart == 0) 3 else 5
+                                for (index in rowStart until end) {
+                                    OutlinedTextField(
+                                        zoneMinutes[index],
+                                        { value -> zoneMinutes[index] = value.filter { ch -> ch.isDigit() || ch == '.' }.take(6) },
+                                        Modifier.weight(1f),
+                                        singleLine = true,
+                                        label = { Text("Z${index + 1} min") }
+                                    )
+                                }
+                                if (rowStart == 3) Spacer(Modifier.weight(1f))
+                            }
+                            Spacer(Modifier.height(7.dp))
+                        }
+                    }
+                }
+                CardioAction(
+                    if (editing) "SAVE CHANGES" else "SAVE CARDIO SESSION",
+                    "Store this session in Exercise history",
+                    CardioAccent
+                ) { saveForm() }
+            }
+
+            CardioScreen.HISTORY -> {
+                CardioHeroStrip("HISTORY", "Cardio sessions", "Tap a session for full details, editing or deletion.", Color(0xFF7B61C9))
+                CardioSection("RECENT CARDIO", "Newest first") {
+                    if (sessions.isEmpty()) CardioEmpty("No cardio sessions yet", "Saved sessions will appear here.")
+                    sessions.take(100).forEach { session ->
+                        CardioSessionRow(session) {
+                            selectedSessionId = session.id
+                            screen = CardioScreen.DETAIL
+                        }
+                    }
+                }
+            }
+
+            CardioScreen.DETAIL -> {
+                val session = sessions.firstOrNull { it.id == selectedSessionId }
+                if (session == null) {
+                    CardioEmpty("Session unavailable", "It may have been deleted.")
+                } else {
+                    CardioHeroStrip(
+                        "CARDIO DETAIL",
+                        session.activity.displayName,
+                        Instant.ofEpochMilli(session.startedAt).atZone(ZoneId.systemDefault())
+                            .format(DateTimeFormatter.ofPattern("d MMM yyyy - HH:mm")),
+                        CardioAccent
+                    )
+                    CardioSection("SESSION METRICS", "Saved measurements and derived values") {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            CardioMetric("TIME", cardioFormatDuration(session.durationSeconds), "duration", CardioBlue, Modifier.weight(1f))
+                            CardioMetric("DISTANCE", session.dist
