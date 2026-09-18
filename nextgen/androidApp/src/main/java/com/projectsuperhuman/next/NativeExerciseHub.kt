@@ -270,82 +270,8 @@ private fun ExerciseModuleCard(
     }
 }
 
-/**
- * Cardio integration seam owned by the Exercise router.
- *
- * Task 2 can replace this placeholder body or move the implementation to its
- * own file while keeping the same signature. No cardio persistence/progress
- * logic belongs here.
- */
+/** Stable Cardio integration seam owned by the Exercise router. */
 @Composable
 internal fun NativeCardioEntryScreen(onBack: () -> Unit) {
-    val ink = superhumanTextPrimary
-    val muted = superhumanTextMuted
-    val accent = superhumanGreen
-
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(superhumanBackground)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.superhumanTopButton(onClick = onBack),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "←",
-                    color = accent,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Column(Modifier.padding(start = 12.dp)) {
-                Text(
-                    "Cardio",
-                    color = ink,
-                    fontSize = 25.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Text(
-                    "Running · walking · cycling · endurance",
-                    color = muted,
-                    fontSize = 10.sp
-                )
-            }
-        }
-
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .background(superhumanSurface, RoundedCornerShape(23.dp))
-                .border(1.dp, superhumanBorder, RoundedCornerShape(23.dp))
-                .padding(18.dp)
-        ) {
-            Text(
-                "CARDIO",
-                color = accent,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black
-            )
-            Text(
-                "Cardio training",
-                color = ink,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Cardio logging and progress will plug into this entry point.",
-                color = muted,
-                fontSize = 10.sp,
-                lineHeight = 15.sp
-            )
-        }
-
-        Spacer(Modifier.height(18.dp))
-    }
+    NativeCardioScreen(onBack = onBack)
 }
