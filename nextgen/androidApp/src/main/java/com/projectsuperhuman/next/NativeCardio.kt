@@ -782,4 +782,160 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     CardioSection("SESSION METRICS", "Saved measurements and derived values") {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                             CardioMetric("TIME", cardioFormatDuration(session.durationSeconds), "duration", CardioBlue, Modifier.weight(1f))
-                            CardioMetric("DISTANCE", session.dist
+                            CardioMetric("DISTANCE", session.distanceKm?.let(::cardioFormatNumber) ?: "-", "km", CardioAccent, Modifier.weight(1f))
+                            CardioMetric("AVG HR", session.avgHeartRate?.toString() ?: "-", "bpm", Color(0xFF7B61C9), Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.height(9.dp))
+                        CardioDerivedSummary(session)
+                        if (session.zoneSeconds.isNotEmpty()) {
+                            Spacer(Modifier.height(9.dp))
+                            Text(
+                                (1..5).joinToString(" - ") { zone -> "Z$zone ${cardioFormatDuration(session.zoneSeconds[zone] ?: 0)}" },
+                                color = CardioMuted,
+                                fontSize = 10.sp
+                            )
+                        }
+                        if (session.notes.isNotBlank()) {
+                            Spacer(Modifier.height(9.dp))
+                            Text(session.notes, color = CardioInk, fontSize = 11.sp, lineHeight = 16.sp)
+                        }
+                    }
+                    CardioAction("EDIT SESSION", "Correct manually entered details", CardioBlue) {
+                        loadSessionIntoForm(session)
+                        screen = CardioScreen.MANUAL
+                    }
+                    CardioAction("DELETE SESSION", "Remove this cardio record", if (SuperhumanAppearance.darkMode) superhumanRed else Color(0xFFAA4444)) {
+                        rows.firstOrNull { it.metadata["sessionId"] == session.id }?.let { row ->
+                            scope.launch {
+                                NativeDataHub.deleteValue(row)
+                                refresh()
+                                selectedSessionId = null
+                                feedback = "Cardio session deleted"
+                                screen = CardioScreen.HISTORY
+                            }
+                        }
+                    }
+                }
+            }
+
+            CardioScreen.PROGRESS -> {
+                val totalMinutes = sessions.sumOf { it.durationSeconds } / 60
+                val totalDistance = sessions.mapNotNull { it.distanceKm }.sum()
+                CardioHeroStrip("PROGRESS", "Cardio trends", "Volume and performance from your saved sessions.", CardioAccent)
+                CardioSection("LAST 7 DAYS", "Recent training load") {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        CardioMetric("MINUTES", weekMinutes.toString(), "7 days", CardioBlue, Modifier.weight(1f))
+                        CardioMetric("SESSIONS", weekSessions.size.toString(), "7 days", CardioAccent, Modifier.weight(1f))
+                        CardioMetric("ZONE 2", weekZone2.toString(), "measured min", Color(0xFF7B61C9), Modifier.weight(1f))
+                    }
+                }
+                CardioSection("ALL LOGGED CARDIO", "Simple totals; activity-specific records are separate") {
+                    Text("$totalMinutes total minutes - ${cardioFormatNumber(totalDistance)} km with recorded distance", color = CardioInk, fontSize = 11.sp)
+                    Spacer(Modifier.height(9.dp))
+                    sessions.groupBy { it.activity }.entries.sortedByDescending { it.value.size }.take(8).forEach { (activity, values) ->
+                        val minutes = values.sumOf { it.durationSeconds } / 60
+                        val distance = values.mapNotNull { it.distanceKm }.sum()
+                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(activity.displayName, color = CardioInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text("${values.size} sessions - ${minutes}m${if (distance > 0.0) " - ${cardioFormatNumber(distance)} km" else ""}", color = CardioMuted, fontSize = 10.sp)
+                        }
+                    }
+                }
+                CardioSection("EFFICIENCY METRICS", "More advanced comparisons unlock with consistent sensor data") {
+                    Text(
+                        "Future Health Connect, chest-strap and GPS samples can support pace-at-heart-rate, heart-rate-at-pace, VO2max estimates and training load. This screen does not infer those from insufficient data.",
+                        color = CardioMuted,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            CardioScreen.RECORDS -> {
+                CardioHeroStrip("PERSONAL RECORDS", "Best logged cardio", "Records use only measurements present in saved sessions.", CardioAccent)
+                CardioSection("ACTIVITY RECORDS", "Longest duration, longest distance and best average pace/speed") {
+                    if (sessions.isEmpty()) CardioEmpty("No personal records yet", "Records appear automatically as you log cardio.")
+                    sessions.groupBy { it.activity }.entries.sortedBy { it.key.displayName }.forEach { (activity, values) ->
+                        CardioRecordBlock(activity, values)
+                    }
+                }
+                CardioSection("PRECISE DISTANCE PRS", "Split data is required") {
+                    Text(
+                        "Exact 1 km, mile, 5 km, 10 km, 500 m and 2 km records should come from GPS or split-level data. Project Superhuman will not estimate them from a longer session's average pace.",
+                        color = CardioMuted,
+                        fontSize = 11.sp,
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(18.dp))
+    }
+}
+
+@Composable
+private fun CardioHeader(screen: CardioScreen, onBack: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
+            Text("<-", color = CardioAccent, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(
+                when (screen) {
+                    CardioScreen.HOME -> "Cardio"
+                    CardioScreen.PICK_ACTIVITY -> "Start cardio"
+                    CardioScreen.LIVE -> "Live cardio"
+                    CardioScreen.MANUAL -> "Log cardio"
+                    CardioScreen.HISTORY -> "Cardio history"
+                    CardioScreen.DETAIL -> "Session detail"
+                    CardioScreen.PROGRESS -> "Cardio progress"
+                    CardioScreen.RECORDS -> "Personal records"
+                },
+                color = CardioInk,
+                fontSize = 25.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text("Endurance - heart rate - pace - progress", color = CardioMuted, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun CardioHero(active: Boolean, weekMinutes: Int, weekSessions: Int, onPrimary: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().background(
+            Brush.linearGradient(listOf(Color(0xFF0B4D46), Color(0xFF14836F), Color(0xFF4AB69A))),
+            RoundedCornerShape(28.dp)
+        ).padding(21.dp)
+    ) {
+        Text(if (active) "CARDIO IN PROGRESS" else "CARDIO TRAINING", color = Color.White.copy(alpha = .78f), fontSize = 11.sp, fontWeight = FontWeight.Black)
+        Text(if (active) "Continue your session" else "Ready to move?", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(13.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            CardioGlassMetric("7D MINUTES", weekMinutes.toString(), Modifier.weight(1f))
+            CardioGlassMetric("7D SESSIONS", weekSessions.toString(), Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(15.dp))
+        Box(
+            Modifier.fillMaxWidth().heightIn(min = 52.dp).background(Color.White, RoundedCornerShape(16.dp))
+                .clickable { onPrimary() }.padding(15.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(if (active) "RESUME CARDIO" else "START CARDIO", color = Color(0xFF0B4D46), fontSize = 14.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
+
+@Composable
+private fun CardioLiveHero(activity: CardioActivityType, elapsed: Int, running: Boolean) {
+    Column(
+        Modifier.fillMaxWidth().background(
+            Brush.linearGradient(listOf(Color(0xFF0B4D46), Color(0xFF14836F))),
+            RoundedCornerShape(27.dp)
+        ).padding(21.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(activity.displayName.uppercase(), color = Color.White.copy(alpha = .75f), fontSize = 11.sp, fontWeight = FontWeight.Black)
+        Text(cardioFormatDuration(elapsed), color = Color.White,
