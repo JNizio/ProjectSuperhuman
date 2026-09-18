@@ -1121,4 +1121,14 @@ private fun CardioRecordBlock(activity: CardioActivityType, sessions: List<Cardi
         CardioPaceMode.SPEED -> sessions.mapNotNull { it.avgSpeedKmh }.maxOrNull()?.let { "Best avg speed ${cardioFormatNumber(it)} km/h" }
         CardioPaceMode.PER_500M -> sessions.mapNotNull { it.avgSplit500mSeconds }.minOrNull()?.let { "Best avg split ${cardioFormatPace(it)}/500m" }
         CardioPaceMode.PER_100M -> sessions.mapNotNull { it.avgPace100mSeconds }.minOrNull()?.let { "Best avg pace ${cardioFormatPace(it)}/100m" }
-        CardioPaceMode.NONE 
+        CardioPaceMode.NONE -> null
+    }
+
+    Column(Modifier.fillMaxWidth().background(CardioSoft, RoundedCornerShape(15.dp)).padding(12.dp)) {
+        Text(activity.displayName, color = CardioInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        longestDuration?.let { Text("Longest session ${cardioFormatDuration(it.durationSeconds)}", color = CardioMuted, fontSize = 10.sp) }
+        longestDistance?.distanceKm?.let { Text("Longest distance ${cardioFormatNumber(it)} km", color = CardioMuted, fontSize = 10.sp) }
+        performance?.let { Text(it, color = CardioAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+    }
+    Spacer(Modifier.height(7.dp))
+}
