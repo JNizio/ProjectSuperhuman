@@ -2,6 +2,7 @@ package com.projectsuperhuman.next
 
 import android.content.Context
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,8 +16,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -40,6 +45,9 @@ private val CardioBg get() = superhumanBackground
 private val CardioSurface get() = superhumanSurface
 private val CardioSoft get() = superhumanSurfaceSoft
 private val CardioBorder get() = superhumanBorder
+private val CardioGold = Color(0xFFC9902E)
+private val CardioCoral = Color(0xFFC8575E)
+private val CardioDeep = Color(0xFF0A3440)
 private val CardioData = NativeDomainData.forDomain(HealthDomain.EXERCISE)
 private val cardioDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
@@ -552,6 +560,11 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     val weekZone2 = weekSummary.first[2]
     val weekDistance = weekSummary.second
     val loadSnapshot = remember(sessions) { calculateCardioLoadSnapshot(sessions) }
+    val weekZoneTotals = remember(sessions) {
+        val weekStart = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
+        val recent = sessions.filter { it.endedAt >= weekStart }
+        (1..5).associateWith { zone -> recent.sumOf { it.zoneSeconds[zone] ?: 0 } }
+    }
     val activeDraft = liveStartedAt > 0L
 
     Column(
@@ -571,59 +584,29 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 CardioHero(activeDraft, weekMinutes, weekSessionCount) {
                     if (activeDraft) screen = CardioScreen.LIVE else screen = CardioScreen.PICK_ACTIVITY
                 }
-                CardioSection("QUICK ACCESS", "Everything important is one tap away") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        CardioQuickAction("+", "Log activity", "Previous session", CardioBlue, Modifier.weight(1f)) {
-                            resetForm()
-                            screen = CardioScreen.MANUAL
-                        }
-                        CardioQuickAction("H", "History", "All sessions", Color(0xFF7B61C9), Modifier.weight(1f)) {
-                            screen = CardioScreen.HISTORY
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        CardioQuickAction("P", "Progress", "Load & trends", CardioAccent, Modifier.weight(1f)) {
-                            screen = CardioScreen.PROGRESS
-                        }
-                        CardioQuickAction("★", "Records", "Personal bests", Color(0xFFC78A21), Modifier.weight(1f)) {
-                            screen = CardioScreen.RECORDS
-                        }
-                    }
-                }
-                CardioSection("THIS WEEK", "Cardio completed in the last 7 days") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        CardioMetric("MINUTES", weekMinutes.toString(), "cardio", CardioBlue, Modifier.weight(1f))
-                        CardioMetric("DISTANCE", cardioFormatNumber(weekDistance), "km logged", CardioAccent, Modifier.weight(1f))
-                        CardioMetric("ZONE 2", weekZone2.toString(), "min measured", Color(0xFF7B61C9), Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        CardioMetric(
-                            "CARDIO LOAD",
-                            if (loadSnapshot.sourceCoverage > 0) formatCardioLoad(loadSnapshot.recent7DayLoad) else "-",
-                            cardioLoadLabel(loadSnapshot),
-                            CardioBlue,
-                            Modifier.weight(1f)
-                        )
-                        CardioMetric(
-                            "LOAD RATIO",
-                            loadSnapshot.loadRatio?.let { String.format(Locale.US, "%.2f", it) } ?: "-",
-                            "7d vs recent baseline",
-                            Color(0xFF7B61C9),
-                            Modifier.weight(1f)
-                        )
-                    }
-                }
+                CardioQuickAccessPanel(
+                    onLog = {
+                        resetForm()
+                        screen = CardioScreen.MANUAL
+                    },
+                    onHistory = { screen = CardioScreen.HISTORY },
+                    onProgress = { screen = CardioScreen.PROGRESS },
+                    onRecords = { screen = CardioScreen.RECORDS }
+                )
+                CardioWeeklyOverview(
+                    minutes = weekMinutes,
+                    sessions = weekSessionCount,
+                    distanceKm = weekDistance,
+                    zone2Minutes = weekZone2,
+                    loadSnapshot = loadSnapshot
+                )
                 sessions.firstOrNull()?.let { latest ->
-                    CardioSection("LATEST ACTIVITY", "Your most recent saved cardio session") {
-                        CardioSessionRow(latest) {
-                            selectedSessionId = latest.id
-                            screen = CardioScreen.DETAIL
-                        }
+                    CardioLatestActivityPanel(latest) {
+                        selectedSessionId = latest.id
+                        screen = CardioScreen.DETAIL
                     }
-                } ?: CardioSection("GET STARTED", "Your cardio history will build automatically") {
-                    CardioEmpty("No cardio sessions yet", "Start a timer or log a previous walk, run, ride or other activity.")
+                } ?: CardioSection("GET STARTED", "Build a useful baseline with your first session") {
+                    CardioEmpty("No cardio sessions yet", "Start a workout or log something you already completed.")
                 }
             }
 
@@ -648,39 +631,13 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
 
             CardioScreen.LIVE -> {
                 val elapsed = currentLiveElapsedSeconds()
-                CardioLiveHero(liveActivity, elapsed, liveRunning)
-                CardioSection("LIVE SESSION", "${liveWorkoutType.label} · " + if (liveRunning) "Timer is running" else "Timer is paused") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        CardioMetric("TIME", cardioFormatDuration(elapsed), "elapsed", CardioBlue, Modifier.weight(1f))
-                        CardioMetric("STATUS", if (liveRunning) "ACTIVE" else "PAUSED", "saved locally", CardioAccent, Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    CardioAction(
-                        if (liveRunning) "PAUSE" else "RESUME",
-                        if (liveRunning) "Stop the timer without ending the session" else "Continue this session",
-                        CardioBlue
-                    ) {
-                        if (liveRunning) pauseLive() else resumeLive()
-                    }
-                    Spacer(Modifier.height(7.dp))
-                    CardioAction("FINISH CARDIO", "Review and add distance, heart rate or notes", CardioAccent) {
-                        prepareFinishedLive()
-                    }
-                }
-                CardioSection("LIVE METRICS", "Sensor-ready without pretending data exists") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        CardioSensorChip("HR", "Waiting", Color(0xFFC44D69), Modifier.weight(1f))
-                        CardioSensorChip("GPS", "Waiting", CardioBlue, Modifier.weight(1f))
-                        CardioSensorChip("PACE", "Waiting", CardioAccent, Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Connect a supported sensor later for live heart rate, distance, pace and measured zone time.",
-                        color = CardioMuted,
-                        fontSize = 10.sp,
-                        lineHeight = 15.sp
-                    )
-                }
+                CardioLiveHero(liveActivity, liveWorkoutType, elapsed, liveRunning)
+                CardioLiveControls(
+                    running = liveRunning,
+                    onToggle = { if (liveRunning) pauseLive() else resumeLive() },
+                    onFinish = { prepareFinishedLive() }
+                )
+                CardioLiveMetricsPanel(liveActivity)
             }
 
             CardioScreen.MANUAL -> {
@@ -843,63 +800,47 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 if (session == null) {
                     CardioEmpty("Session unavailable", "It may have been deleted.")
                 } else {
-                    CardioHeroStrip(
-                        "CARDIO DETAIL",
-                        session.activity.displayName,
-                        Instant.ofEpochMilli(session.startedAt).atZone(ZoneId.systemDefault())
-                            .format(DateTimeFormatter.ofPattern("d MMM yyyy - HH:mm")),
-                        CardioAccent
-                    )
-                    CardioSection("SESSION METRICS", "${session.workoutType.label} · saved measurements and derived values") {
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            CardioMetric("TIME", cardioFormatDuration(session.durationSeconds), "duration", CardioBlue, Modifier.weight(1f))
-                            CardioMetric("DISTANCE", session.distanceKm?.let(::cardioFormatNumber) ?: "-", "km", CardioAccent, Modifier.weight(1f))
-                            CardioMetric("AVG HR", session.avgHeartRate?.toString() ?: "-", "bpm", Color(0xFF7B61C9), Modifier.weight(1f))
-                        }
-                        Spacer(Modifier.height(9.dp))
-                        CardioDerivedSummary(session)
-                        cardioSessionLoad(session)?.let { load ->
-                            Spacer(Modifier.height(7.dp))
-                            Text("Cardio load · ${formatCardioLoad(load)}", color = CardioBlue, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                        findCardioEfficiencyComparison(session, sessions)?.let { comparison ->
-                            Spacer(Modifier.height(7.dp))
-                            Text("Matched-session insight · ${comparison.message}", color = CardioAccent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                        }
-                        if (session.zoneSeconds.isNotEmpty()) {
-                            Spacer(Modifier.height(9.dp))
-                            Text(
-                                (1..5).joinToString(" - ") { zone -> "Z$zone ${cardioFormatDuration(session.zoneSeconds[zone] ?: 0)}" },
-                                color = CardioMuted,
-                                fontSize = 10.sp
-                            )
-                        }
-                        if (session.notes.isNotBlank()) {
-                            Spacer(Modifier.height(9.dp))
-                            Text(session.notes, color = CardioInk, fontSize = 11.sp, lineHeight = 16.sp)
+                    CardioSessionHero(session)
+                    CardioSessionOverview(session)
+
+                    val load = cardioSessionLoad(session)
+                    val comparison = findCardioEfficiencyComparison(session, sessions)
+                    if (load != null || comparison != null) {
+                        CardioInsightPanel(load, comparison?.message)
+                    }
+                    if (session.zoneSeconds.isNotEmpty()) {
+                        CardioZonePanel("HEART-RATE ZONES", session.zoneSeconds)
+                    }
+                    if (session.notes.isNotBlank()) {
+                        CardioSection("NOTES", "Session context") {
+                            Text(session.notes, color = CardioInk, fontSize = 11.sp, lineHeight = 17.sp)
                         }
                     }
-                    CardioAction("EDIT SESSION", "Correct manually entered details", CardioBlue) {
-                        loadSessionIntoForm(session)
-                        screen = CardioScreen.MANUAL
-                    }
-                    val confirmDelete = pendingDeleteSessionId == session.id
-                    CardioAction(
-                        if (confirmDelete) "CONFIRM DELETE" else "DELETE SESSION",
-                        if (confirmDelete) "Tap again to permanently remove this local record" else "Remove this cardio record",
-                        if (SuperhumanAppearance.darkMode) superhumanRed else Color(0xFFAA4444)
-                    ) {
-                        if (!confirmDelete) {
-                            pendingDeleteSessionId = session.id
-                        } else {
-                            rows.firstOrNull { it.metadata["sessionId"] == session.id }?.let { row ->
-                                scope.launch {
-                                    NativeDataHub.deleteValue(row)
-                                    refresh()
-                                    selectedSessionId = null
-                                    pendingDeleteSessionId = null
-                                    feedback = "Cardio session deleted"
-                                    screen = CardioScreen.HISTORY
+
+                    CardioSection("SESSION OPTIONS", "Keep analytics primary; maintenance stays out of the way") {
+                        CardioActionCompact("Edit session", "Correct saved details", CardioBlue) {
+                            loadSessionIntoForm(session)
+                            screen = CardioScreen.MANUAL
+                        }
+                        Spacer(Modifier.height(7.dp))
+                        val confirmDelete = pendingDeleteSessionId == session.id
+                        CardioActionCompact(
+                            if (confirmDelete) "Confirm delete" else "Delete session",
+                            if (confirmDelete) "Tap again to permanently remove this record" else "Remove this local record",
+                            CardioCoral
+                        ) {
+                            if (!confirmDelete) {
+                                pendingDeleteSessionId = session.id
+                            } else {
+                                rows.firstOrNull { it.metadata["sessionId"] == session.id }?.let { row ->
+                                    scope.launch {
+                                        NativeDataHub.deleteValue(row)
+                                        refresh()
+                                        selectedSessionId = null
+                                        pendingDeleteSessionId = null
+                                        feedback = "Cardio session deleted"
+                                        screen = CardioScreen.HISTORY
+                                    }
                                 }
                             }
                         }
@@ -908,95 +849,59 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             }
 
             CardioScreen.PROGRESS -> {
-                val totalMinutes = sessions.sumOf { it.durationSeconds } / 60
-                val totalDistance = sessions.mapNotNull { it.distanceKm }.sum()
-                CardioHeroStrip("PROGRESS", "Cardio trends", "Volume and performance from your saved sessions.", CardioAccent)
-                CardioSection("TRAINING LOAD", "Recent strain compared with your own recent baseline") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        CardioMetric(
-                            "7D LOAD",
-                            if (loadSnapshot.sourceCoverage > 0) formatCardioLoad(loadSnapshot.recent7DayLoad) else "-",
-                            "${loadSnapshot.sourceCoverage}/${loadSnapshot.recentSessions} sessions scored",
-                            CardioBlue,
-                            Modifier.weight(1f)
-                        )
-                        CardioMetric(
-                            "BASELINE",
-                            loadSnapshot.previous21DayWeeklyAverage?.let(::formatCardioLoad) ?: "-",
-                            "weekly avg · prior 21d",
-                            CardioAccent,
-                            Modifier.weight(1f)
-                        )
-                        CardioMetric(
-                            "RATIO",
-                            loadSnapshot.loadRatio?.let { String.format(Locale.US, "%.2f", it) } ?: "-",
-                            cardioLoadLabel(loadSnapshot),
-                            Color(0xFF7B61C9),
-                            Modifier.weight(1f)
-                        )
+                val totalMinutes = remember(sessions) { sessions.sumOf { it.durationSeconds } / 60 }
+                val totalDistance = remember(sessions) { sessions.mapNotNull { it.distanceKm }.sum() }
+                CardioHeroStrip("PROGRESS", "Training analytics", "Volume, load and measured intensity.", CardioAccent)
+                CardioLoadPanel(loadSnapshot)
+                CardioWeeklyProgressPanel(
+                    minutes = weekMinutes,
+                    sessions = weekSessionCount,
+                    distanceKm = weekDistance,
+                    zone2Minutes = weekZone2
+                )
+                if (weekZoneTotals.values.sum() > 0) {
+                    CardioZonePanel("7-DAY ZONE DISTRIBUTION", weekZoneTotals)
+                }
+                CardioSection("ACTIVITY MIX", "$totalMinutes total minutes · ${cardioFormatNumber(totalDistance)} km with distance recorded") {
+                    sessions.groupBy { it.activity }.entries.sortedByDescending { it.value.size }.take(8).forEachIndexed { index, (activity, values) ->
+                        val minutes = values.sumOf { it.durationSeconds } / 60
+                        val distance = values.mapNotNull { it.distanceKm }.sum()
+                        CardioActivityProgressRow(activity, values.size, minutes, distance)
+                        if (index < sessions.groupBy { it.activity }.size.coerceAtMost(8) - 1) {
+                            Spacer(Modifier.height(5.dp))
+                        }
                     }
-                    Spacer(Modifier.height(8.dp))
+                }
+                CardioSection("EFFICIENCY", "Unlock richer comparisons with consistent HR and pace data") {
                     Text(
-                        "Load uses measured zone time when available, otherwise session RPE × minutes. It is a training-management score, not a medical measurement.",
+                        "Matched-session insights appear automatically when comparable sessions contain both pace and heart-rate data.",
                         color = CardioMuted,
                         fontSize = 10.sp,
                         lineHeight = 15.sp
                     )
                 }
-                CardioSection("LAST 7 DAYS", "Recent cardio volume") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        CardioMetric("MINUTES", weekMinutes.toString(), "7 days", CardioBlue, Modifier.weight(1f))
-                        CardioMetric("SESSIONS", weekSessionCount.toString(), "7 days", CardioAccent, Modifier.weight(1f))
-                        CardioMetric("ZONE 2", weekZone2.toString(), "measured min", Color(0xFF7B61C9), Modifier.weight(1f))
-                    }
-                }
-                CardioSection("ALL LOGGED CARDIO", "Simple totals; activity-specific records are separate") {
-                    Text("$totalMinutes total minutes - ${cardioFormatNumber(totalDistance)} km with recorded distance", color = CardioInk, fontSize = 11.sp)
-                    Spacer(Modifier.height(9.dp))
-                    sessions.groupBy { it.activity }.entries.sortedByDescending { it.value.size }.take(8).forEach { (activity, values) ->
-                        val minutes = values.sumOf { it.durationSeconds } / 60
-                        val distance = values.mapNotNull { it.distanceKm }.sum()
-                        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Text(activity.displayName, color = CardioInk, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                            Text("${values.size} sessions - ${minutes}m${if (distance > 0.0) " - ${cardioFormatNumber(distance)} km" else ""}", color = CardioMuted, fontSize = 10.sp)
-                        }
-                    }
-                }
-                CardioSection("EFFICIENCY METRICS", "More advanced comparisons unlock with consistent sensor data") {
-                    Text(
-                        "Future Health Connect, chest-strap and GPS samples can support pace-at-heart-rate, heart-rate-at-pace, VO2max estimates and training load. This screen does not infer those from insufficient data.",
-                        color = CardioMuted,
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp
-                    )
-                }
             }
 
             CardioScreen.RECORDS -> {
-                CardioHeroStrip("PERSONAL RECORDS", "Best logged cardio", "Records use only measurements present in saved sessions.", CardioAccent)
-                CardioSection("YOUR BEST", "Verified from saved session data") {
-                    if (sessions.isEmpty()) {
-                        CardioEmpty("No personal records yet", "Log a few sessions and this becomes your performance board.")
-                    } else {
-                        val longest = sessions.maxByOrNull { it.durationSeconds }
-                        val farthest = sessions.filter { it.distanceKm != null }.maxByOrNull { it.distanceKm ?: 0.0 }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            CardioMetric("LONGEST", longest?.let { cardioFormatDuration(it.durationSeconds) } ?: "-", "session", CardioBlue, Modifier.weight(1f))
-                            CardioMetric("FARTHEST", farthest?.distanceKm?.let(::cardioFormatNumber) ?: "-", "km", CardioAccent, Modifier.weight(1f))
+                CardioHeroStrip("PERSONAL RECORDS", "Your best work", "Only verified values from saved sessions count.", CardioGold)
+                if (sessions.isEmpty()) {
+                    CardioSection("FEATURED BESTS", "Your performance board will build automatically") {
+                        CardioEmpty("No records yet", "Complete or log a few sessions to start building personal bests.")
+                    }
+                } else {
+                    CardioFeaturedRecords(sessions)
+                    CardioSection("BY ACTIVITY", "Best verified performance for each discipline") {
+                        sessions.groupBy { it.activity }.entries.sortedBy { it.key.displayName }.forEach { (activity, values) ->
+                            CardioRecordBlock(activity, values)
                         }
                     }
                 }
-                CardioSection("BY ACTIVITY", "Longest duration, distance and best average performance") {
-                    sessions.groupBy { it.activity }.entries.sortedBy { it.key.displayName }.forEach { (activity, values) ->
-                        CardioRecordBlock(activity, values)
-                    }
-                }
-                CardioSection("PRECISE DISTANCE PRS", "Split data is required") {
+                CardioSection("DISTANCE PRS", "GPS, lap or split data unlocks exact-distance records") {
                     Text(
-                        "Exact 1 km, mile, 5 km, 10 km, 500 m and 2 km records should come from GPS or split-level data. Project Superhuman will not estimate them from a longer session's average pace.",
+                        "1 km, mile, 5 km, 10 km, 500 m and 2 km records stay locked until exact split data exists. Average pace is never used to fabricate a PR.",
                         color = CardioMuted,
-                        fontSize = 11.sp,
-                        lineHeight = 16.sp
+                        fontSize = 10.sp,
+                        lineHeight = 15.sp
                     )
                 }
             }
@@ -1049,65 +954,154 @@ private fun CardioHeader(screen: CardioScreen, onBack: () -> Unit) {
 
 @Composable
 private fun CardioHero(active: Boolean, weekMinutes: Int, weekSessions: Int, onPrimary: () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(Color(0xFF0B4D46), Color(0xFF14836F), Color(0xFF4AB69A))),
-            RoundedCornerShape(28.dp)
-        ).padding(horizontal = 19.dp, vertical = 17.dp)
+    Box(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(Color(0xFF082F39), Color(0xFF0B7567), Color(0xFF2FB494))
+                )
+            )
+            .padding(horizontal = 19.dp, vertical = 18.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).background(if (active) Color(0xFFFFD166) else Color.White, CircleShape))
-            Spacer(Modifier.width(8.dp))
-            Text(if (active) "CARDIO IN PROGRESS" else "CARDIO TRAINING", color = Color.White.copy(alpha = .82f), fontSize = 10.sp, fontWeight = FontWeight.Black)
-        }
-        Spacer(Modifier.height(5.dp))
-        Text(if (active) "Continue your session" else "What are we training today?", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            CardioGlassMetric("7D MINUTES", weekMinutes.toString(), Modifier.weight(1f))
-            CardioGlassMetric("7D SESSIONS", weekSessions.toString(), Modifier.weight(1f))
-        }
-        Spacer(Modifier.height(11.dp))
         Box(
-            Modifier.fillMaxWidth().heightIn(min = 48.dp).background(Color.White, RoundedCornerShape(15.dp))
-                .clickable { onPrimary() }.padding(15.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(if (active) "RESUME CARDIO" else "START CARDIO", color = Color(0xFF0B4D46), fontSize = 14.sp, fontWeight = FontWeight.Black)
+            Modifier.size(150.dp).align(Alignment.TopEnd)
+                .offset(x = 56.dp, y = (-58).dp)
+                .background(Color.White.copy(alpha = .055f), CircleShape)
+        )
+        Box(
+            Modifier.size(74.dp).align(Alignment.BottomStart)
+                .offset(x = (-28).dp, y = 35.dp)
+                .background(Color.White.copy(alpha = .035f), CircleShape)
+        )
+        Column(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).background(if (active) Color(0xFFFFD166) else Color(0xFF7DE3BD), CircleShape))
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (active) "SESSION ACTIVE" else "CARDIO",
+                    color = Color.White.copy(alpha = .80f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = .8.sp
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (active) "Keep the momentum." else "Train with intent.",
+                color = Color.White,
+                fontSize = 27.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                if (active) "Your workout is saved and ready to resume." else "Track the work. Watch the engine improve.",
+                color = Color.White.copy(alpha = .72f),
+                fontSize = 10.sp
+            )
+            Spacer(Modifier.height(13.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                CardioHeroStat("7D MIN", weekMinutes.toString(), Modifier.weight(1f))
+                Box(Modifier.width(1.dp).height(34.dp).background(Color.White.copy(alpha = .18f)))
+                CardioHeroStat("SESSIONS", weekSessions.toString(), Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(13.dp))
+            Row(
+                Modifier.fillMaxWidth().heightIn(min = 50.dp)
+                    .background(Color.White, RoundedCornerShape(16.dp))
+                    .clickable { onPrimary() }
+                    .padding(horizontal = 16.dp, vertical = 13.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    if (active) "RESUME CARDIO" else "START CARDIO",
+                    color = CardioDeep,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.weight(1f)
+                )
+                Text("→", color = CardioDeep, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
 
 @Composable
-private fun CardioLiveHero(activity: CardioActivityType, elapsed: Int, running: Boolean) {
-    Column(
-        Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(Color(0xFF0B4D46), Color(0xFF14836F))),
-            RoundedCornerShape(27.dp)
-        ).padding(horizontal = 21.dp, vertical = 18.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun CardioLiveHero(
+    activity: CardioActivityType,
+    workoutType: CardioWorkoutType,
+    elapsed: Int,
+    running: Boolean
+) {
+    Box(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(28.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(Color(0xFF082F39), Color(0xFF0A6F63), Color(0xFF18A083))
+                )
+            )
+            .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).background(if (running) Color(0xFF72E0B8) else Color(0xFFFFD166), CircleShape))
-            Spacer(Modifier.width(7.dp))
-            Text(activity.displayName.uppercase(), color = Color.White.copy(alpha = .80f), fontSize = 10.sp, fontWeight = FontWeight.Black)
+        Box(
+            Modifier.size(118.dp).align(Alignment.TopEnd)
+                .offset(x = 42.dp, y = (-44).dp)
+                .background(Color.White.copy(alpha = .055f), CircleShape)
+        )
+        Column(
+            Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(activity.displayName.uppercase(), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.width(8.dp))
+                Box(
+                    Modifier.background(Color.White.copy(alpha = .13f), RoundedCornerShape(20.dp))
+                        .padding(horizontal = 9.dp, vertical = 4.dp)
+                ) {
+                    Text(workoutType.label.uppercase(), color = Color.White.copy(alpha = .90f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(cardioFormatDuration(elapsed), color = Color.White, fontSize = 49.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(8.dp).background(if (running) Color(0xFF77E1B8) else Color(0xFFFFD166), CircleShape))
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    if (running) "RECORDING" else "PAUSED",
+                    color = Color.White.copy(alpha = .88f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text("  ·  draft saved", color = Color.White.copy(alpha = .64f), fontSize = 9.sp)
+            }
         }
-        Text(cardioFormatDuration(elapsed), color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Black)
-        Text(if (running) "Recording · draft saved locally" else "Paused · draft saved locally", color = Color.White.copy(alpha = .78f), fontSize = 10.sp)
     }
 }
 
 @Composable
 private fun CardioHeroStrip(kicker: String, title: String, subtitle: String, accent: Color) {
-    Column(
-        Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(accent.copy(alpha = .96f), accent.copy(alpha = .72f))),
-            RoundedCornerShape(24.dp)
-        ).padding(18.dp)
+    Box(
+        Modifier.fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(CardioDeep, accent.copy(alpha = .96f))
+                )
+            )
+            .padding(horizontal = 18.dp, vertical = 17.dp)
     ) {
-        Text(kicker, color = Color.White.copy(alpha = .76f), fontSize = 10.sp, fontWeight = FontWeight.Black)
-        Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
-        Text(subtitle, color = Color.White.copy(alpha = .84f), fontSize = 11.sp, lineHeight = 16.sp)
+        Box(
+            Modifier.size(92.dp).align(Alignment.TopEnd)
+                .offset(x = 34.dp, y = (-34).dp)
+                .background(Color.White.copy(alpha = .06f), CircleShape)
+        )
+        Column {
+            Text(kicker, color = Color.White.copy(alpha = .68f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+            Spacer(Modifier.height(3.dp))
+            Text(title, color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
+            Text(subtitle, color = Color.White.copy(alpha = .76f), fontSize = 10.sp, lineHeight = 14.sp)
+        }
     }
 }
 
@@ -1122,11 +1116,16 @@ private fun CardioGlassMetric(label: String, value: String, modifier: Modifier) 
 @Composable
 private fun CardioSection(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        Modifier.fillMaxWidth().background(CardioSurface, RoundedCornerShape(23.dp))
-            .border(1.dp, CardioBorder, RoundedCornerShape(23.dp)).padding(16.dp)
+        Modifier.fillMaxWidth()
+            .background(CardioSurface, RoundedCornerShape(21.dp))
+            .border(1.dp, CardioBorder.copy(alpha = .72f), RoundedCornerShape(21.dp))
+            .padding(horizontal = 16.dp, vertical = 15.dp)
     ) {
-        Text(title, color = CardioInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text(subtitle, color = CardioMuted, fontSize = 11.sp)
+        Text(title, color = CardioInk, fontSize = 15.sp, fontWeight = FontWeight.Black, letterSpacing = .2.sp)
+        if (subtitle.isNotBlank()) {
+            Spacer(Modifier.height(2.dp))
+            Text(subtitle, color = CardioMuted, fontSize = 10.sp, lineHeight = 14.sp)
+        }
         Spacer(Modifier.height(11.dp))
         content()
     }
