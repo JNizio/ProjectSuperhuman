@@ -1146,7 +1146,7 @@ private fun CardioHero(
 
 @Composable
 private fun CardioHeroBackdrop(active: Boolean) {
-    Canvas(Modifier.matchParentSize()) {
+    Canvas(Modifier.fillMaxSize()) {
         val line = Color.White.copy(alpha = if (active) .055f else .045f)
         val ring = Color.White.copy(alpha = if (active) .075f else .055f)
         drawCircle(
