@@ -938,4 +938,187 @@ private fun CardioLiveHero(activity: CardioActivityType, elapsed: Int, running: 
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(activity.displayName.uppercase(), color = Color.White.copy(alpha = .75f), fontSize = 11.sp, fontWeight = FontWeight.Black)
-        Text(cardioFormatDuration(elapsed), color = Color.White,
+        Text(cardioFormatDuration(elapsed), color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Black)
+        Text(if (running) "Timer running - draft saved locally" else "Paused - draft saved locally", color = Color.White.copy(alpha = .75f), fontSize = 11.sp)
+    }
+}
+
+@Composable
+private fun CardioHeroStrip(kicker: String, title: String, subtitle: String, accent: Color) {
+    Column(
+        Modifier.fillMaxWidth().background(
+            Brush.linearGradient(listOf(accent.copy(alpha = .96f), accent.copy(alpha = .72f))),
+            RoundedCornerShape(24.dp)
+        ).padding(18.dp)
+    ) {
+        Text(kicker, color = Color.White.copy(alpha = .76f), fontSize = 10.sp, fontWeight = FontWeight.Black)
+        Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
+        Text(subtitle, color = Color.White.copy(alpha = .84f), fontSize = 11.sp, lineHeight = 16.sp)
+    }
+}
+
+@Composable
+private fun CardioGlassMetric(label: String, value: String, modifier: Modifier) {
+    Column(modifier.background(Color.White.copy(alpha = .13f), RoundedCornerShape(14.dp)).padding(10.dp)) {
+        Text(label, color = Color.White.copy(alpha = .70f), fontSize = 10.sp)
+        Text(value, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun CardioSection(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().background(CardioSurface, RoundedCornerShape(23.dp))
+            .border(1.dp, CardioBorder, RoundedCornerShape(23.dp)).padding(16.dp)
+    ) {
+        Text(title, color = CardioInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+        Text(subtitle, color = CardioMuted, fontSize = 11.sp)
+        Spacer(Modifier.height(11.dp))
+        content()
+    }
+}
+
+@Composable
+private fun CardioMetric(label: String, value: String, detail: String, accent: Color, modifier: Modifier) {
+    Column(modifier.background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .08f), RoundedCornerShape(16.dp)).padding(11.dp)) {
+        Text(label, color = CardioMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = CardioInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
+        Text(detail, color = CardioMuted, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun CardioNavTile(mark: String, title: String, subtitle: String, accent: Color, modifier: Modifier, onClick: () -> Unit) {
+    Column(
+        modifier.heightIn(min = 96.dp).background(CardioSurface, RoundedCornerShape(20.dp))
+            .border(1.dp, CardioBorder, RoundedCornerShape(20.dp))
+            .clickable { onClick() }.padding(12.dp)
+    ) {
+        Box(Modifier.size(32.dp).background(accent.copy(alpha = .13f), CircleShape), contentAlignment = Alignment.Center) {
+            Text(mark, color = accent, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.height(9.dp))
+        Text(title, color = CardioInk, fontSize = 11.sp, fontWeight = FontWeight.Black)
+        Text(subtitle, color = CardioMuted, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun CardioAction(title: String, subtitle: String, accent: Color, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f), RoundedCornerShape(17.dp))
+            .clickable { onClick() }.padding(13.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(8.dp).background(accent, CircleShape))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black)
+            Text(subtitle, color = CardioMuted, fontSize = 10.sp)
+        }
+        Text("->", color = accent, fontSize = 18.sp)
+    }
+}
+
+@Composable
+private fun CardioFeedback(message: String) {
+    Row(
+        Modifier.fillMaxWidth().background(CardioAccent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .10f), RoundedCornerShape(14.dp))
+            .border(1.dp, CardioAccent.copy(alpha = .28f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("OK", color = CardioAccent, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.width(9.dp))
+        Text(message, color = CardioInk, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun CardioEmpty(title: String, subtitle: String) {
+    Column(
+        Modifier.fillMaxWidth().background(CardioSoft, RoundedCornerShape(16.dp)).padding(14.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(title, color = CardioInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
+        Text(subtitle, color = CardioMuted, fontSize = 11.sp, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun CardioActivityPicker(selected: CardioActivityType, onSelect: (CardioActivityType) -> Unit) {
+    CardioActivityType.entries.toList().chunked(2).forEach { pair ->
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+            pair.forEach { activity ->
+                val active = activity == selected
+                Box(
+                    Modifier.weight(1f).heightIn(min = 48.dp)
+                        .background(if (active) CardioAccent else CardioSoft, RoundedCornerShape(13.dp))
+                        .clickable { onSelect(activity) }.padding(horizontal = 10.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        activity.displayName,
+                        color = if (active) Color.White else CardioInk,
+                        fontSize = 10.sp,
+                        fontWeight = if (active) FontWeight.Black else FontWeight.SemiBold,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+            if (pair.size == 1) Spacer(Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(7.dp))
+    }
+}
+
+@Composable
+private fun CardioSessionRow(session: CardioSession, onOpen: () -> Unit) {
+    val whenText = remember(session.endedAt) {
+        Instant.ofEpochMilli(session.endedAt).atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("d MMM - HH:mm"))
+    }
+    Row(
+        Modifier.fillMaxWidth().background(CardioSoft, RoundedCornerShape(16.dp))
+            .clickable { onOpen() }.padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(session.activity.displayName, color = CardioInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
+            Text(whenText, color = CardioAccent, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            val facts = buildList {
+                add(cardioFormatDuration(session.durationSeconds))
+                session.distanceKm?.let { add("${cardioFormatNumber(it)} km") }
+                session.avgHeartRate?.let { add("Avg HR $it") }
+            }
+            Text(facts.joinToString(" - "), color = CardioMuted, fontSize = 10.sp)
+            CardioDerivedSummary(session)
+        }
+        Text("->", color = CardioAccent, fontSize = 18.sp)
+    }
+    Spacer(Modifier.height(7.dp))
+}
+
+@Composable
+private fun CardioDerivedSummary(session: CardioSession) {
+    val text = when (session.activity.paceMode) {
+        CardioPaceMode.PER_KM -> session.avgPaceSecPerKm?.let { "Avg pace ${cardioFormatPace(it)}/km" }
+        CardioPaceMode.SPEED -> session.avgSpeedKmh?.let { "Avg speed ${cardioFormatNumber(it)} km/h" }
+        CardioPaceMode.PER_500M -> session.avgSplit500mSeconds?.let { "Avg split ${cardioFormatPace(it)}/500m" }
+        CardioPaceMode.PER_100M -> session.avgPace100mSeconds?.let { "Avg pace ${cardioFormatPace(it)}/100m" }
+        CardioPaceMode.NONE -> null
+    }
+    if (text != null) Text(text, color = CardioMuted, fontSize = 10.sp)
+}
+
+@Composable
+private fun CardioRecordBlock(activity: CardioActivityType, sessions: List<CardioSession>) {
+    val longestDuration = sessions.maxByOrNull { it.durationSeconds }
+    val longestDistance = sessions.filter { it.distanceKm != null }.maxByOrNull { it.distanceKm ?: 0.0 }
+    val performance = when (activity.paceMode) {
+        CardioPaceMode.PER_KM -> sessions.mapNotNull { it.avgPaceSecPerKm }.minOrNull()?.let { "Best avg pace ${cardioFormatPace(it)}/km" }
+        CardioPaceMode.SPEED -> sessions.mapNotNull { it.avgSpeedKmh }.maxOrNull()?.let { "Best avg speed ${cardioFormatNumber(it)} km/h" }
+        CardioPaceMode.PER_500M -> sessions.mapNotNull { it.avgSplit500mSeconds }.minOrNull()?.let { "Best avg split ${cardioFormatPace(it)}/500m" }
+        CardioPaceMode.PER_100M -> sessions.mapNotNull { it.avgPace100mSeconds }.minOrNull()?.let { "Best avg pace ${cardioFormatPace(it)}/100m" }
+        CardioPaceMode.NONE 
