@@ -97,6 +97,7 @@ internal object H19cWearableRuntime {
     private const val PREFS = "project_superhuman_h19c"
     private const val PREF_ADDRESS = "saved_address"
     private const val PREF_NAME = "saved_name"
+    private const val PREF_AUTO_RECONNECT = "auto_reconnect"
     private const val SCAN_TIMEOUT_MS = 12_000L
     private const val LIVE_HR_DELAY_MS = 3_000L
 
@@ -165,6 +166,11 @@ internal object H19cWearableRuntime {
     fun hasPermissions(context: Context): Boolean =
         requiredPermissions().all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
 
+    fun shouldAutoReconnect(context: Context): Boolean {
+        val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getBoolean(PREF_AUTO_RECONNECT, prefs.contains(PREF_ADDRESS))
+    }
+
     @SuppressLint("MissingPermission")
     fun scanAndConnect(context: Context) {
         initialize(context)
@@ -216,6 +222,9 @@ internal object H19cWearableRuntime {
     @SuppressLint("MissingPermission")
     fun reconnectSaved(context: Context) {
         initialize(context)
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(PREF_AUTO_RECONNECT, true)
+            .apply()
         if (!hasPermissions(context)) {
             fail("Bluetooth permission is required")
             return
@@ -242,6 +251,9 @@ internal object H19cWearableRuntime {
 
     @SuppressLint("MissingPermission")
     fun disconnect() {
+        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()
+            ?.putBoolean(PREF_AUTO_RECONNECT, false)
+            ?.apply()
         stopScan()
         setLiveHeartRate(false)
         disconnectGatt(updateState = true)
@@ -255,6 +267,7 @@ internal object H19cWearableRuntime {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .remove(PREF_ADDRESS)
             .remove(PREF_NAME)
+            .remove(PREF_AUTO_RECONNECT)
             .apply()
         _state.value = H19cWearableState(status = "H19C forgotten")
     }
@@ -412,6 +425,7 @@ internal object H19cWearableRuntime {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(PREF_ADDRESS, address)
             .putString(PREF_NAME, name)
+            .putBoolean(PREF_AUTO_RECONNECT, true)
             .apply()
         _state.value = _state.value.copy(
             phase = H19cConnectionPhase.READY,
