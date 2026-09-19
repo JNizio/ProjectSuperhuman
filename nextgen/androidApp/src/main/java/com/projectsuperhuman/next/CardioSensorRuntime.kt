@@ -107,7 +107,10 @@ internal object CardioSensorRuntime {
         ensureInitialized()
         when (selectedType) {
             CardioSensorProviderType.H19C,
-            CardioSensorProviderType.BLE_HEART_RATE -> selectedProvider?.connect()
+            CardioSensorProviderType.BLE_HEART_RATE -> {
+                selectedProvider?.connect()
+                resumeProviderCollectionIfSessionActive()
+            }
             else -> Unit
         }
     }
@@ -146,6 +149,7 @@ internal object CardioSensorRuntime {
             bindProvider(CardioSensorProviderType.BLE_HEART_RATE, persist = true)
         }
         bleProvider?.connectDevice(sensorId)
+        resumeProviderCollectionIfSessionActive()
     }
 
     suspend fun disconnectSelected() {
@@ -235,6 +239,11 @@ internal object CardioSensorRuntime {
         activeSessionId?.let { id ->
             provider.startSession(id, activeSessionStartedAt ?: System.currentTimeMillis())
         }
+    }
+
+    private fun resumeProviderCollectionIfSessionActive() {
+        val id = activeSessionId ?: return
+        selectedProvider?.startSession(id, activeSessionStartedAt ?: System.currentTimeMillis())
     }
 
     private fun refreshLiveMetrics(
