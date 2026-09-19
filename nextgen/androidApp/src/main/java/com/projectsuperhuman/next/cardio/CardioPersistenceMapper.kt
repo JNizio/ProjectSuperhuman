@@ -21,6 +21,13 @@ internal fun cardioSessionFromValue(row: HealthValue): CardioSession {
         meta.filterKeys { it.startsWith("ext.") }
             .forEach { (key, value) -> put(key.removePrefix("ext."), value) }
 
+        // Preserve the physical Data Vault identity of externally imported sessions so an edit
+        // remains an upsert of the same logical workout rather than creating a native duplicate.
+        meta["sourceRecordId"]?.takeIf { it.isNotBlank() }?.let {
+            put("_storageSourceRecordId", it)
+        }
+        put("_storageSource", row.source)
+
         // Preserve sensor/import provenance that may have been written directly by an importer
         // before the versioned core Cardio session mapper existed.
         meta.forEach { (key, value) ->
@@ -66,9 +73,16 @@ internal fun cardioSessionFromValue(row: HealthValue): CardioSession {
 }
 
 internal fun CardioSession.toHealthValue(): HealthValue {
+    val storageSourceRecordId = extensions["_storageSourceRecordId"]
+        ?.takeIf { it.isNotBlank() }
+        ?: ("cardio:" + id)
+    val storageSource = extensions["_storageSource"]
+        ?.takeIf { it.isNotBlank() }
+        ?: "native-cardio"
+
     val meta = mutableMapOf(
         "sessionId" to id,
-        "sourceRecordId" to ("cardio:" + id),
+        "sourceRecordId" to storageSourceRecordId,
         "cardioSchemaVersion" to schemaVersion.toString(),
         "activityType" to activity.name,
         "activityName" to activity.displayName,
@@ -96,7 +110,9 @@ internal fun CardioSession.toHealthValue(): HealthValue {
     avgPace100mSeconds?.let { meta["avgPace100mSeconds"] = it.toString() }
     zoneSeconds.forEach { (zone, seconds) -> meta["zone" + zone + "Seconds"] = seconds.toString() }
     extensions.forEach { (key, value) ->
-        if (key.isNotBlank()) meta["ext." + key] = value
+        if (key.isNotBlank() && !key.startsWith("_storage")) {
+            meta["ext." + key] = value
+        }
     }
 
     return HealthValue(
@@ -105,7 +121,7 @@ internal fun CardioSession.toHealthValue(): HealthValue {
         value = durationSeconds / 60.0,
         unit = "min",
         timestampEpochMs = endedAt,
-        source = "native-cardio",
+        source = storageSource,
         metadata = meta
     )
 }
