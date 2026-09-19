@@ -9,14 +9,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,8 +36,8 @@ import kotlinx.coroutines.launch
 
 private enum class CardioPendingSensorAction {
     NONE,
-    CONNECT_H19C,
-    SCAN_BLE
+    RECONNECT_H19C,
+    RECONNECT_BLE
 }
 
 @Composable
@@ -51,16 +46,23 @@ internal fun CardioSensorPickerPanel(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    CardioSensorRuntime.initialize(context)
+    H19cWearableRuntime.initialize(context)
+
     val sensorState by CardioSensorRuntime.state.collectAsState()
-    val bleDevices by CardioSensorRuntime.bleDevices.collectAsState()
+    val h19cState by H19cWearableRuntime.state.collectAsState()
     var pendingAction by remember { mutableStateOf(CardioPendingSensorAction.NONE) }
 
     fun runPendingAction(action: CardioPendingSensorAction) {
         pendingAction = CardioPendingSensorAction.NONE
         scope.launch {
             when (action) {
-                CardioPendingSensorAction.CONNECT_H19C -> CardioSensorRuntime.reconnectPreferred()
-                CardioPendingSensorAction.SCAN_BLE -> CardioSensorRuntime.scanBle()
+                CardioPendingSensorAction.RECONNECT_H19C -> {
+                    CardioSensorRuntime.selectH19c(connect = true)
+                }
+                CardioPendingSensorAction.RECONNECT_BLE -> {
+                    CardioSensorRuntime.selectBle(connectPreferred = true)
+                }
                 CardioPendingSensorAction.NONE -> Unit
             }
         }
@@ -69,14 +71,19 @@ internal fun CardioSensorPickerPanel(
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { result ->
-        val granted = result.values.all { it }
         val action = pendingAction
-        if (granted) runPendingAction(action) else pendingAction = CardioPendingSensorAction.NONE
+        if (result.values.all { it }) runPendingAction(action)
+        else pendingAction = CardioPendingSensorAction.NONE
     }
 
-    fun ensurePermissionsThen(action: CardioPendingSensorAction) {
-        val permissions = CardioSensorRuntime.requiredPermissions()
-        if (permissions.isEmpty() || CardioSensorRuntime.hasRequiredPermissions(context)) {
+    fun ensurePermissionsThen(action: CardioPendingSensorAction, permissions: Array<String>) {
+        val granted = permissions.isEmpty() || permissions.all { permission ->
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                permission
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (granted) {
             runPendingAction(action)
         } else {
             pendingAction = action
@@ -101,9 +108,9 @@ internal fun CardioSensorPickerPanel(
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    "Optional · cardio still works without a sensor",
+                    "Choose a saved sensor · add new devices in Settings → Smart Devices",
                     color = superhumanTextMuted,
-                    fontSize = 11.sp
+                    fontSize = 10.sp
                 )
             }
             Box(
@@ -156,9 +163,13 @@ internal fun CardioSensorPickerPanel(
                 selected = sensorState.providerType == CardioSensorProviderType.H19C,
                 modifier = Modifier.weight(1f)
             ) {
-                scope.launch {
-                    CardioSensorRuntime.selectH19c(connect = false)
-                    ensurePermissionsThen(CardioPendingSensorAction.CONNECT_H19C)
+                if (h19cState.deviceAddress == null) {
+                    scope.launch { CardioSensorRuntime.selectH19c(connect = false) }
+                } else {
+                    ensurePermissionsThen(
+                        CardioPendingSensorAction.RECONNECT_H19C,
+                        H19cWearableRuntime.requiredPermissions()
+                    )
                 }
             }
             SensorChoice(
@@ -168,73 +179,28 @@ internal fun CardioSensorPickerPanel(
             ) {
                 scope.launch {
                     CardioSensorRuntime.selectBle(connectPreferred = false)
-                    ensurePermissionsThen(CardioPendingSensorAction.SCAN_BLE)
-                }
-            }
-        }
-
-        if (sensorState.providerType == CardioSensorProviderType.BLE_HEART_RATE) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    "Standard Bluetooth heart-rate straps",
-                    color = superhumanTextMuted,
-                    fontSize = 11.sp,
-                    modifier = Modifier.weight(1f)
-                )
-                Text(
-                    "SCAN",
-                    color = superhumanBlue,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier
-                        .heightIn(min = 48.dp)
-                        .semantics {
-                            role = Role.Button
-                            contentDescription = "Scan for Bluetooth heart-rate sensors"
-                        }
-                        .clickable {
-                            ensurePermissionsThen(CardioPendingSensorAction.SCAN_BLE)
-                        }
-                        .padding(horizontal = 10.dp, vertical = 14.dp)
-                )
-            }
-
-            if (bleDevices.isNotEmpty()) {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(bleDevices, key = { it.sensorId }) { device ->
-                        Column(
-                            Modifier
-                                .width(170.dp)
-                                .heightIn(min = 62.dp)
-                                .background(superhumanSurfaceSoft, RoundedCornerShape(14.dp))
-                                .semantics {
-                                    role = Role.Button
-                                    contentDescription = "Connect to ${device.displayName}"
-                                }
-                                .clickable {
-                                    scope.launch { CardioSensorRuntime.connectBle(device.sensorId) }
-                                }
-                                .padding(11.dp)
-                        ) {
-                            Text(
-                                device.displayName,
-                                color = superhumanTextPrimary,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                "Signal ${device.rssi} dBm · tap to connect",
-                                color = superhumanTextMuted,
-                                fontSize = 10.sp
-                            )
-                        }
+                    val permissions = CardioSensorRuntime.requiredPermissions()
+                    val granted = permissions.isEmpty() || CardioSensorRuntime.hasRequiredPermissions(context)
+                    if (granted) {
+                        runPendingAction(CardioPendingSensorAction.RECONNECT_BLE)
+                    } else {
+                        pendingAction = CardioPendingSensorAction.RECONNECT_BLE
+                        permissionLauncher.launch(permissions)
                     }
                 }
             }
         }
 
         Text(
-            sensorState.message,
+            when {
+                sensorState.providerType == CardioSensorProviderType.H19C &&
+                    h19cState.deviceAddress == null ->
+                    "No H19C is saved yet. Add the watch once in Settings → Smart Devices."
+                sensorState.providerType == CardioSensorProviderType.BLE_HEART_RATE &&
+                    sensorState.connection != CardioSensorConnectionState.CONNECTED ->
+                    "Project Superhuman will reconnect the saved standard BLE heart-rate sensor. Pair a new sensor in Smart Devices."
+                else -> sensorState.message
+            },
             color = superhumanTextMuted,
             fontSize = 10.sp
         )
@@ -265,7 +231,7 @@ private fun SensorChoice(
                 role = Role.Button
                 contentDescription = label + if (selected) ", selected" else ""
             }
-            .clickable { onClick() }
+            .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center
     ) {
