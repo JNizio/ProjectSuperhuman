@@ -37,6 +37,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.projectsuperhuman.next.core.HealthDomain
+import com.projectsuperhuman.next.core.HealthValue
+import com.projectsuperhuman.next.core.ObservationDeviceIdentity
+import com.projectsuperhuman.next.core.ObservationProvenance
+import com.projectsuperhuman.next.core.ObservationTimeBasis
+import com.projectsuperhuman.next.core.ObservationTiming
+import com.projectsuperhuman.next.core.ObservationTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -57,6 +63,10 @@ internal data class OkokBiaResult(
 )
 
 internal object OkokScaleManager {
+    const val SOURCE = "okok-direct-ble"
+    private const val PREFS = "project_superhuman_okok_scale"
+    private const val PREF_ENABLED = "enabled"
+
     var status by mutableStateOf("Ready — step on your scale"); private set
     var listening by mutableStateOf(false); private set
     var measurement by mutableStateOf<OkokMeasurement?>(null); private set
@@ -78,10 +88,29 @@ internal object OkokScaleManager {
     fun setProfile(heightCm: Double?, male: Boolean?) { profileHeightCm = heightCm; profileMale = male }
     fun requiredPermissions(): Array<String> = if (Build.VERSION.SDK_INT >= 31) arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT) else arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
     fun hasPermissions(context: Context): Boolean = requiredPermissions().all { ContextCompat.checkSelfPermission(context, it) == PackageManager.PERMISSION_GRANTED }
+    fun isEnabled(context: Context): Boolean =
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(PREF_ENABLED, true)
+
+    fun enableAndStart(context: Context, onSaved: () -> Unit = {}) {
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(PREF_ENABLED, true)
+            .apply()
+        startAutoTracking(context, onSaved)
+    }
+
+    fun forget(context: Context) {
+        stopAutoTracking()
+        context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(PREF_ENABLED, false)
+            .apply()
+        measurement = null
+        status = "Smart scale disabled · historical measurements kept"
+    }
 
     @SuppressLint("MissingPermission")
     fun startAutoTracking(context: Context, onSaved: () -> Unit = {}) {
         if (listening) return
+        if (!isEnabled(context)) { status = "Smart scale disabled in Smart Devices"; return }
         if (!hasPermissions(context)) { status = "Bluetooth permission needed"; return }
         val adapter = (context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager)?.adapter
         if (adapter == null) { status = "Bluetooth LE unavailable"; return }
@@ -121,10 +150,10 @@ internal object OkokScaleManager {
         val stable = stableCount >= 3
         measurement = OkokMeasurement(weight, lastImpedance, stable, now)
         status = when { stable && lastImpedance != null -> "Measurement captured"; stable -> "Weight stable — finishing body composition"; else -> "Reading — stay still" }
-        if (stable && lastImpedance != null) maybeAutoSave(weight, lastImpedance, onSaved)
+        if (stable && lastImpedance != null) maybeAutoSave(weight, lastImpedance, now, onSaved)
     }
 
-    private fun maybeAutoSave(weight: Double, impedance: Double?, onSaved: () -> Unit) {
+    private fun maybeAutoSave(weight: Double, impedance: Double?, measuredAtEpochMs: Long, onSaved: () -> Unit) {
         if (impedance == null) return
         val h = profileHeightCm
         val male = profileMale
@@ -134,26 +163,63 @@ internal object OkokScaleManager {
         val recentlySaved = lastSavedAt?.let { System.currentTimeMillis() - it < 20_000 } == true
         if (sameWeight && sameImpedance && recentlySaved) return
         scope.launch {
-            NativeDataHub.saveMetric(HealthDomain.BODY, "body_weight_kg", weight, "kg")
+            val importedAt = System.currentTimeMillis()
+            val deviceId = CardioSensorIds.anonymous(TARGET_SCALE_MAC)
+            val provenance = ObservationProvenance(
+                timing = ObservationTiming(
+                    measuredAtEpochMs = measuredAtEpochMs,
+                    receivedAtEpochMs = measuredAtEpochMs,
+                    importedAtEpochMs = importedAt,
+                    timeBasis = ObservationTimeBasis.PHONE_RECEIVE_TIME
+                ),
+                device = ObservationDeviceIdentity(
+                    deviceId = deviceId,
+                    displayName = TARGET_SCALE_NAME,
+                    deviceType = "smart_scale"
+                ),
+                transport = ObservationTransport.DIRECT_BLE,
+                protocol = "OKOK BLE advertisement",
+                sourceApplication = "Project Superhuman",
+                sourceLabel = SOURCE
+            )
+            val common = provenance.toMetadata() + mapOf(
+                "sourceRecordId" to "okok:$measuredAtEpochMs:${deviceId ?: "scale"}",
+                "summaryType" to "stable-measurement"
+            )
+
+            fun row(metric: String, value: Double, unit: String): HealthValue = HealthValue(
+                domain = HealthDomain.BODY,
+                metric = metric,
+                value = value,
+                unit = unit,
+                timestampEpochMs = measuredAtEpochMs,
+                source = SOURCE,
+                metadata = common + ("sourceRecordId" to "${common["sourceRecordId"]}:$metric")
+            )
+
+            val values = mutableListOf(row("body_weight_kg", weight, "kg"))
             if (impedance != null) {
-                NativeDataHub.saveMetric(HealthDomain.BODY, "body_impedance_ohm", impedance, "ohm")
+                values += row("body_impedance_ohm", impedance, "ohm")
                 OkokBiaEstimator.estimate(weight, impedance, h, male)?.let { b ->
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_fat_pct", b.bodyFatPct, "%")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_fat_mass_kg", b.fatMassKg, "kg")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_fat_free_mass_kg", b.fatFreeMassKg, "kg")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_water_pct", b.waterPct, "%")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_water_l", b.totalBodyWaterL, "L")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_muscle_pct", b.musclePct, "%")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_muscle_mass_kg", b.muscleMassKg, "kg")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_skeletal_muscle_pct", b.skeletalMusclePct, "%")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_skeletal_muscle_mass_kg", b.skeletalMuscleMassKg, "kg")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_visceral_fat_estimate", b.visceralFatEstimate, "index")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_bmi", b.bmi, "kg/m2")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_ffmi", b.ffmi, "kg/m2")
-                    NativeDataHub.saveMetric(HealthDomain.BODY, "body_fmi", b.fmi, "kg/m2")
+                    values += row("body_fat_pct", b.bodyFatPct, "%")
+                    values += row("body_fat_mass_kg", b.fatMassKg, "kg")
+                    values += row("body_fat_free_mass_kg", b.fatFreeMassKg, "kg")
+                    values += row("body_water_pct", b.waterPct, "%")
+                    values += row("body_water_l", b.totalBodyWaterL, "L")
+                    values += row("body_muscle_pct", b.musclePct, "%")
+                    values += row("body_muscle_mass_kg", b.muscleMassKg, "kg")
+                    values += row("body_skeletal_muscle_pct", b.skeletalMusclePct, "%")
+                    values += row("body_skeletal_muscle_mass_kg", b.skeletalMuscleMassKg, "kg")
+                    values += row("body_visceral_fat_estimate", b.visceralFatEstimate, "index")
+                    values += row("body_bmi", b.bmi, "kg/m2")
+                    values += row("body_ffmi", b.ffmi, "kg/m2")
+                    values += row("body_fmi", b.fmi, "kg/m2")
                 }
             }
-            lastSavedWeight = weight; lastSavedImpedance = impedance; lastSavedAt = System.currentTimeMillis()
+            NativeDataHub.saveValues(values)
+            lastSavedWeight = weight
+            lastSavedImpedance = impedance
+            lastSavedAt = importedAt
             status = "Full body scan synced"
             onSaved()
         }
@@ -193,7 +259,9 @@ internal fun NativeOkokScaleCard(onSaved: () -> Unit) {
         val h = values.firstOrNull { it.metric == "body_height_cm" }?.value
         val male = values.firstOrNull { it.metric == "body_sex_code" }?.value?.let { it >= 0.5 }
         OkokScaleManager.setProfile(h, male)
-        if (OkokScaleManager.hasPermissions(context)) OkokScaleManager.startAutoTracking(context, onSaved)
+        if (OkokScaleManager.hasPermissions(context) && OkokScaleManager.isEnabled(context)) {
+            OkokScaleManager.startAutoTracking(context, onSaved)
+        }
     }
     DisposableEffect(Unit) { onDispose { OkokScaleManager.stopAutoTracking() } }
 
