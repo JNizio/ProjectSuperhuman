@@ -80,7 +80,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var liveActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
     var liveWorkoutType by remember { mutableStateOf(CardioWorkoutType.FREE) }
 
-    var formActivity by remember { mutableStateOf(CardioActivityType.WALKING) }    var formActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
+    var formActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
     var formDateTime by remember { mutableStateOf("") }
     var formDurationMin by remember { mutableStateOf("") }
     var formDistanceKm by remember { mutableStateOf("") }
