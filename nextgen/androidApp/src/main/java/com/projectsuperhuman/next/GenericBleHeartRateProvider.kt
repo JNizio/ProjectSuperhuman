@@ -67,10 +67,13 @@ internal interface BleHeartRateClient {
 
     fun requiredPermissions(): Array<String>
     fun hasPermissions(): Boolean
+    fun hasSavedDevice(): Boolean
+    fun savedDeviceName(): String?
     suspend fun scan()
     suspend fun connectDevice(sensorId: String)
     suspend fun reconnectSaved()
     suspend fun disconnect()
+    suspend fun forgetSaved()
 }
 
 /**
@@ -106,6 +109,12 @@ internal class AndroidBleHeartRateClient(
         requiredPermissions().all {
             ContextCompat.checkSelfPermission(appContext, it) == PackageManager.PERMISSION_GRANTED
         }
+
+    override fun hasSavedDevice(): Boolean =
+        !prefs.getString(PREF_ADDRESS, null).isNullOrBlank()
+
+    override fun savedDeviceName(): String? =
+        prefs.getString(PREF_NAME, null)
 
     @SuppressLint("MissingPermission")
     override suspend fun scan() {
@@ -199,7 +208,7 @@ internal class AndroidBleHeartRateClient(
         }
         val address = prefs.getString(PREF_ADDRESS, null)
         if (address.isNullOrBlank()) {
-            scan()
+            _events.emit(BleHeartRateClientEvent.Error("No saved heart-rate sensor · add one in Smart Devices"))
             return
         }
         val adapter = appContext.getSystemService(BluetoothManager::class.java)?.adapter
@@ -227,6 +236,14 @@ internal class AndroidBleHeartRateClient(
         runCatching { current?.disconnect() }
         runCatching { current?.close() }
         _events.emit(BleHeartRateClientEvent.Disconnected("Heart-rate sensor disconnected"))
+    }
+
+    override suspend fun forgetSaved() {
+        disconnect()
+        prefs.edit().remove(PREF_ADDRESS).remove(PREF_NAME).apply()
+        discovered.clear()
+        _scannedDevices.value = emptyList()
+        _events.emit(BleHeartRateClientEvent.Disconnected("Heart-rate sensor forgotten"))
     }
 
     @SuppressLint("MissingPermission")
@@ -396,6 +413,8 @@ internal class GenericBleHeartRateProvider(
     val scannedDevices: StateFlow<List<BleHeartRateDevice>> = client.scannedDevices
     fun requiredPermissions(): Array<String> = client.requiredPermissions()
     fun hasPermissions(): Boolean = client.hasPermissions()
+    fun hasSavedDevice(): Boolean = client.hasSavedDevice()
+    fun savedDeviceName(): String? = client.savedDeviceName()
 
     private var sessionActive = false
     private var deviceName: String? = null
@@ -454,6 +473,18 @@ internal class GenericBleHeartRateProvider(
     override suspend fun disconnect() {
         sessionActive = false
         client.disconnect()
+    }
+
+    suspend fun forget() {
+        sessionActive = false
+        client.forgetSaved()
+        deviceName = null
+        sensorId = null
+        _state.value = CardioSensorState(
+            providerType = providerType,
+            connection = CardioSensorConnectionState.DISCONNECTED,
+            message = "No saved BLE heart-rate sensor"
+        )
     }
 
     override fun startSession(sessionId: String, startedAtEpochMs: Long) {
