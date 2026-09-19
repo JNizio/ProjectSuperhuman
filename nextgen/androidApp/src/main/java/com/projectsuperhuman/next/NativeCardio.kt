@@ -455,7 +455,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             feedback = "Use date and time format YYYY-MM-DD HH:MM"
             return
         }
-        val durationSeconds = ((formDurationMin.toDoubleOrNull() ?: 0.0) * 60.0).roundToInt()
+        val durationSeconds = ((CardioUnits.parseLocalizedDecimal(formDurationMin) ?: 0.0) * 60.0).roundToInt()
         if (durationSeconds <= 0) {
             feedback = "Enter a cardio duration"
             return
@@ -471,15 +471,15 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             enteredEpoch
         }
         val startedAt = if (formLiveStartedAt > 0L) formLiveStartedAt else endedAt - durationSeconds * 1000L
-        val distance = formDistanceKm.toDoubleOrNull()?.takeIf { it > 0.0 }
+        val distance = CardioUnits.parseLocalizedDecimal(formDistanceKm)?.takeIf { it > 0.0 }
         val avgHr = formAvgHr.toIntOrNull()?.takeIf { it in 30..250 }
         val maxHr = formMaxHr.toIntOrNull()?.takeIf { it in 30..250 }
-        val calories = formCalories.toDoubleOrNull()?.takeIf { it >= 0.0 }
+        val calories = CardioUnits.parseLocalizedDecimal(formCalories)?.takeIf { it >= 0.0 }
         val cadence = formCadence.toIntOrNull()?.takeIf { it > 0 }
-        val elevation = formElevation.toDoubleOrNull()?.takeIf { it >= 0.0 }
-        val rpe = formRpe.toDoubleOrNull()?.takeIf { it in 0.0..10.0 }
+        val elevation = CardioUnits.parseLocalizedDecimal(formElevation)?.takeIf { it >= 0.0 }
+        val rpe = CardioUnits.parseLocalizedDecimal(formRpe)?.takeIf { it in 0.0..10.0 }
         val zones = zoneMinutes.mapIndexedNotNull { index, text ->
-            val sec = ((text.toDoubleOrNull() ?: 0.0) * 60.0).roundToInt()
+            val sec = ((CardioUnits.parseLocalizedDecimal(text) ?: 0.0) * 60.0).roundToInt()
             if (sec > 0) (index + 1) to sec else null
         }.toMap()
         if (zones.values.sum() > durationSeconds + 60) {
@@ -715,7 +715,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
                             formDurationMin,
-                            { formDurationMin = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7) },
+                            { formDurationMin = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
                             Modifier.weight(1f),
                             singleLine = true,
                             label = { Text("Duration (min)") }
@@ -723,7 +723,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                         if (formActivity.supportsDistance) {
                             OutlinedTextField(
                                 formDistanceKm,
-                                { formDistanceKm = it.filter { ch -> ch.isDigit() || ch == '.' }.take(8) },
+                                { formDistanceKm = CardioUnits.sanitizeDecimalInput(it, maxLength = 8) },
                                 Modifier.weight(1f),
                                 singleLine = true,
                                 label = { Text("Distance (km)") }
@@ -751,14 +751,14 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
                             formCalories,
-                            { formCalories = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7) },
+                            { formCalories = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
                             Modifier.weight(1f),
                             singleLine = true,
                             label = { Text("Calories (optional)") }
                         )
                         OutlinedTextField(
                             formRpe,
-                            { formRpe = it.filter { ch -> ch.isDigit() || ch == '.' }.take(4) },
+                            { formRpe = CardioUnits.sanitizeDecimalInput(it, maxLength = 4) },
                             Modifier.weight(1f),
                             singleLine = true,
                             label = { Text("RPE 0-10") }
@@ -779,7 +779,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             if (formActivity.supportsElevation) {
                                 OutlinedTextField(
                                     formElevation,
-                                    { formElevation = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7) },
+                                    { formElevation = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
                                     Modifier.weight(1f),
                                     singleLine = true,
                                     label = { Text("Elevation gain (m)") }
@@ -811,7 +811,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                                 for (index in rowStart until end) {
                                     OutlinedTextField(
                                         zoneMinutes[index],
-                                        { value -> zoneMinutes[index] = value.filter { ch -> ch.isDigit() || ch == '.' }.take(6) },
+                                        { value -> zoneMinutes[index] = CardioUnits.sanitizeDecimalInput(value, maxLength = 6) },
                                         Modifier.weight(1f),
                                         singleLine = true,
                                         label = { Text("Z${index + 1} min") }
@@ -832,16 +832,14 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
 
             CardioScreen.HISTORY -> {
                 CardioHeroStrip("HISTORY", "Cardio sessions", "Tap a session for full details, editing or deletion.", Color(0xFF7B61C9))
-                CardioSection("RECENT CARDIO", "Newest first") {
-                    if (sessions.isEmpty()) CardioEmpty("No cardio sessions yet", "Saved sessions will appear here.")
-                    sessions.take(100).forEach { session ->
-                        CardioSessionRow(session) {
-                            selectedSessionId = session.id
-                            pendingDeleteSessionId = null
-                            screen = CardioScreen.DETAIL
-                        }
+                CardioAnalyticsHistoryPanel(
+                    sessions = sessions,
+                    onOpenSession = { session ->
+                        selectedSessionId = session.id
+                        pendingDeleteSessionId = null
+                        screen = CardioScreen.DETAIL
                     }
-                }
+                )
             }
 
             CardioScreen.DETAIL -> {
@@ -851,6 +849,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 } else {
                     CardioSessionHero(session)
                     CardioSessionOverview(session)
+                    CardioSessionComparisonPanel(session, sessions)
 
                     val load = cardioSessionLoad(session)
                     val comparison = findCardioEfficiencyComparison(session, sessions)
@@ -901,6 +900,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 val totalMinutes = remember(sessions) { sessions.sumOf { it.durationSeconds } / 60 }
                 val totalDistance = remember(sessions) { sessions.mapNotNull { it.distanceKm }.sum() }
                 CardioHeroStrip("PROGRESS", "Training analytics", "Volume, load and measured intensity.", CardioAccent)
+                CardioAnalyticsProgressPanel(sessions)
                 CardioLoadPanel(loadSnapshot)
                 CardioWeeklyProgressPanel(
                     minutes = weekMinutes,
@@ -933,6 +933,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
 
             CardioScreen.RECORDS -> {
                 CardioHeroStrip("PERSONAL RECORDS", "Your best work", "Only verified values from saved sessions count.", CardioGold)
+                CardioAnalyticsRecordsPanel(sessions)
                 if (sessions.isEmpty()) {
                     CardioSection("FEATURED BESTS", "Your performance board will build automatically") {
                         CardioEmpty("No records yet", "Complete or log a few sessions to start building personal bests.")
