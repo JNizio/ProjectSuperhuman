@@ -150,7 +150,9 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Settings", color = SettingsInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
-        Text("Appearance, smart devices, backup and app controls.", color = SettingsMuted, fontSize = 11.sp)\n\n        SmartDevicesHub()
+        Text("Appearance, smart devices, backup and app controls.", color = SettingsMuted, fontSize = 11.sp)
+
+        SmartDevicesHub()
 
         Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
