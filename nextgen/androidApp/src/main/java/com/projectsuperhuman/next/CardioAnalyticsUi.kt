@@ -283,6 +283,21 @@ internal fun CardioActivityProgressPanel(
     val metrics = remember(matching, activity) {
         CardioTrendEngine.availableActivityMetrics(activity, matching)
     }
+    val orderedMetrics = remember(metrics) {
+        listOf(
+            CardioTrendMetric.PACE_SEC_PER_KM,
+            CardioTrendMetric.SPEED_KMH,
+            CardioTrendMetric.AVG_HEART_RATE,
+            CardioTrendMetric.MAX_HEART_RATE,
+            CardioTrendMetric.CADENCE,
+            CardioTrendMetric.ELEVATION_GAIN_M,
+            CardioTrendMetric.RPE,
+            CardioTrendMetric.DURATION_MINUTES,
+            CardioTrendMetric.DISTANCE_KM
+        ).filter { it in metrics }
+    }
+    var selectedMetric by remember(activity, range) { mutableStateOf<CardioTrendMetric?>(null) }
+    val activeMetric = selectedMetric?.takeIf { it in orderedMetrics } ?: orderedMetrics.firstOrNull()
 
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -296,37 +311,49 @@ internal fun CardioActivityProgressPanel(
             return@Column
         }
 
-        val preferred = listOf(
-            CardioTrendMetric.PACE_SEC_PER_KM,
-            CardioTrendMetric.SPEED_KMH,
-            CardioTrendMetric.AVG_HEART_RATE,
-            CardioTrendMetric.RPE,
-            CardioTrendMetric.DURATION_MINUTES
-        ).filter { it in metrics }
-
-        preferred.take(3).forEach { metric ->
-            val series = CardioTrendEngine.activityTrend(sessions, activity, range, metric) ?: return@forEach
-            val formatter: (Double) -> String = when (metric) {
-                CardioTrendMetric.PACE_SEC_PER_KM -> { value ->
-                    val baseSeconds = when (activity.paceMode) {
-                        CardioPaceMode.PER_KM -> {
-                            if (unitSystem == CardioUnitSystem.METRIC) value else CardioUnits.secondsPerKmToSecondsPerMile(value)
-                        }
-                        else -> value
-                    }
-                    CardioUnits.formatPace(baseSeconds.roundToInt())
-                }
-                CardioTrendMetric.SPEED_KMH -> { value ->
-                    val display = CardioUnits.displaySpeed(value, unitSystem)
+        val totalMinutes = matching.sumOf { it.durationSeconds } / 60.0
+        val distances = matching.mapNotNull { it.distanceKm }
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(superhumanSurfaceSoft, RoundedCornerShape(16.dp))
+                .padding(12.dp)
+        ) {
+            AnalyticsFactRow("Sessions", matching.size.toString())
+            AnalyticsFactRow("Minutes", totalMinutes.roundToInt().toString())
+            if (distances.isNotEmpty()) {
+                val display = CardioUnits.displayDistance(distances.sum(), unitSystem)
+                AnalyticsFactRow(
+                    "Distance",
                     String.format(Locale.getDefault(), "%.1f %s", display.first, display.second)
-                }
-                CardioTrendMetric.AVG_HEART_RATE, CardioTrendMetric.MAX_HEART_RATE ->
-                    { value -> value.roundToInt().toString() + " bpm" }
-                CardioTrendMetric.RPE -> { value -> String.format(Locale.getDefault(), "%.1f", value) }
-                CardioTrendMetric.DURATION_MINUTES -> { value -> value.roundToInt().toString() + " min" }
-                else -> { value -> String.format(Locale.getDefault(), "%.1f", value) }
+                )
             }
-            CardioTrendChart(series, metric.label, formatter)
+        }
+
+        if (orderedMetrics.isEmpty()) {
+            AnalyticsEmpty("No additional recorded metrics are available for this activity.")
+            return@Column
+        }
+
+        Text("Trend metric", color = superhumanTextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(orderedMetrics) { metric ->
+                AnalyticsFilterChip(
+                    text = activityTrendMetricLabel(metric, activity),
+                    selected = activeMetric == metric
+                ) {
+                    selectedMetric = metric
+                }
+            }
+        }
+
+        activeMetric?.let { metric ->
+            val series = CardioTrendEngine.activityTrend(sessions, activity, range, metric) ?: return@let
+            CardioTrendChart(
+                series = series,
+                title = activityTrendMetricLabel(metric, activity),
+                valueFormatter = activityTrendValueFormatter(metric, activity, unitSystem)
+            )
         }
     }
 }
@@ -931,6 +958,57 @@ private fun AnalyticsEmpty(message: String) {
     ) {
         Text(message, color = superhumanTextMuted, fontSize = 13.sp, textAlign = TextAlign.Center)
     }
+}
+
+private fun activityTrendMetricLabel(
+    metric: CardioTrendMetric,
+    activity: CardioActivityType
+): String = when (metric) {
+    CardioTrendMetric.PACE_SEC_PER_KM -> when (activity.paceMode) {
+        CardioPaceMode.PER_500M -> "500 m split"
+        CardioPaceMode.PER_100M -> "100 m pace"
+        else -> "Pace"
+    }
+    CardioTrendMetric.SPEED_KMH -> "Speed"
+    CardioTrendMetric.AVG_HEART_RATE -> "Average HR"
+    CardioTrendMetric.MAX_HEART_RATE -> "Max HR"
+    CardioTrendMetric.CADENCE -> "Cadence"
+    CardioTrendMetric.ELEVATION_GAIN_M -> "Elevation gain"
+    CardioTrendMetric.RPE -> "RPE"
+    CardioTrendMetric.DURATION_MINUTES -> "Duration"
+    CardioTrendMetric.DISTANCE_KM -> "Distance"
+    else -> metric.label
+}
+
+private fun activityTrendValueFormatter(
+    metric: CardioTrendMetric,
+    activity: CardioActivityType,
+    unitSystem: CardioUnitSystem
+): (Double) -> String = when (metric) {
+    CardioTrendMetric.PACE_SEC_PER_KM -> { value ->
+        val seconds = if (activity.paceMode == CardioPaceMode.PER_KM && unitSystem == CardioUnitSystem.IMPERIAL) {
+            CardioUnits.secondsPerKmToSecondsPerMile(value)
+        } else value
+        CardioUnits.formatPace(seconds.roundToInt())
+    }
+    CardioTrendMetric.SPEED_KMH -> { value ->
+        val display = CardioUnits.displaySpeed(value, unitSystem)
+        String.format(Locale.getDefault(), "%.1f %s", display.first, display.second)
+    }
+    CardioTrendMetric.AVG_HEART_RATE,
+    CardioTrendMetric.MAX_HEART_RATE -> { value -> value.roundToInt().toString() + " bpm" }
+    CardioTrendMetric.CADENCE -> { value -> value.roundToInt().toString() + " /min" }
+    CardioTrendMetric.ELEVATION_GAIN_M -> { value ->
+        val display = CardioUnits.displayElevation(value, unitSystem)
+        String.format(Locale.getDefault(), "%.0f %s", display.first, display.second)
+    }
+    CardioTrendMetric.RPE -> { value -> String.format(Locale.getDefault(), "%.1f", value) }
+    CardioTrendMetric.DURATION_MINUTES -> { value -> value.roundToInt().toString() + " min" }
+    CardioTrendMetric.DISTANCE_KM -> { value ->
+        val display = CardioUnits.displayDistance(value, unitSystem)
+        String.format(Locale.getDefault(), "%.1f %s", display.first, display.second)
+    }
+    else -> { value -> String.format(Locale.getDefault(), "%.1f", value) }
 }
 
 private fun goalValue(value: Double, type: CardioGoalType): String = when (type) {
