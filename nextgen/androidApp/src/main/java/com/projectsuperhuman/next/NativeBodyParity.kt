@@ -112,7 +112,7 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
             goalDelta = goalDelta
         )
 
-        NativeOkokScaleCard(onSaved = { scope.launch { refresh() } })
+        BodyDataSourceCard()
 
         BodyViewToggle(view = view, onChange = { view = it })
 
@@ -126,6 +126,58 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun BodyDataSourceCard() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scaleEnabled = OkokScaleManager.isEnabled(context)
+    Column(
+        Modifier.fillMaxWidth()
+            .background(BodySurface, RoundedCornerShape(18.dp))
+            .border(1.dp, BodyBorder, RoundedCornerShape(18.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("BODY DATA SOURCE", color = BodyMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text(
+                    if (scaleEnabled) "OKOK smart scale available" else "No smart scale enabled",
+                    color = BodyInk,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    OkokScaleManager.lastSavedAt?.let { "Last device measurement ${bodySourceFreshness(it)}" }
+                        ?: if (scaleEnabled) "Measurements are captured while the scale is listening in Smart Devices."
+                        else "Add or enable a scale from Smart Devices.",
+                    color = BodyMuted,
+                    fontSize = 8.sp,
+                    lineHeight = 12.sp
+                )
+            }
+            Text(
+                "MANAGE",
+                color = BodyBlue,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier
+                    .clickable { SmartDevicesNavigationBridge.open?.invoke() }
+                    .padding(horizontal = 10.dp, vertical = 12.dp)
+            )
+        }
+    }
+}
+
+private fun bodySourceFreshness(timestampEpochMs: Long): String {
+    val age = (System.currentTimeMillis() - timestampEpochMs).coerceAtLeast(0L)
+    return when {
+        age < 60_000L -> "${age / 1_000L}s ago"
+        age < 3_600_000L -> "${age / 60_000L}m ago"
+        age < 86_400_000L -> "${age / 3_600_000L}h ago"
+        else -> "${age / 86_400_000L}d ago"
     }
 }
 
