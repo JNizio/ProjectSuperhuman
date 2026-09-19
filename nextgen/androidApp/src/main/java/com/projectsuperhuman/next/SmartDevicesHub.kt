@@ -336,18 +336,12 @@ internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
                     bleConnected -> scope.launch { CardioSensorRuntime.disconnectBle() }
                     bleSaved -> ensureBluetoothPermissions(
                         DeviceBluetoothAction.BLE_RECONNECT,
-                        CardioSensorRuntime.run {
-                            selectBle(connectPreferred = false)
-                            requiredPermissions()
-                        }
+                        CardioSensorRuntime.bleRequiredPermissions()
                     )
-                    else -> {
-                        scope.launch { CardioSensorRuntime.selectBle(connectPreferred = false) }
-                        ensureBluetoothPermissions(
-                            DeviceBluetoothAction.BLE_SCAN,
-                            CardioSensorRuntime.requiredPermissions()
-                        )
-                    }
+                    else -> ensureBluetoothPermissions(
+                        DeviceBluetoothAction.BLE_SCAN,
+                        CardioSensorRuntime.bleRequiredPermissions()
+                    )
                 }
             },
             secondaryAction = if (bleSaved) {
