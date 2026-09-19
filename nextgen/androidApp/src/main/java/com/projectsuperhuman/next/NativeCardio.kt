@@ -337,6 +337,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         formWorkoutType = session.workoutType
         formEditingId = session.id
         formLiveStartedAt = 0L
+        pendingLiveSensorSummary = null
         showZones = session.zoneSeconds.isNotEmpty()
         for (i in zoneMinutes.indices) {
             zoneMinutes[i] = session.zoneSeconds[i + 1]?.let { String.format(Locale.US, "%.1f", it / 60.0) }.orEmpty()
