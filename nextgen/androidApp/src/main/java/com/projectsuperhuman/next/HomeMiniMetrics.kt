@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,6 +49,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
+import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -300,71 +302,45 @@ private fun MiniMetricVisual(style: MiniVisualStyle, accent: Color, modifier: Mo
 internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () -> Unit) {
     val context = LocalContext.current
     val isForeground = rememberMiniMetricsForeground()
-    val scope = rememberCoroutineScope()
     val accent = accentFor(metric)
-    val permission = MiniMetricsHealthConnect.permissionFor(metric)
 
     var detail by remember(metric) { mutableStateOf(MiniMetricDetailData()) }
     var syncing by remember(metric) { mutableStateOf(false) }
     var connected by remember(metric) { mutableStateOf(false) }
-    var backgroundAvailable by remember(metric) { mutableStateOf(false) }
-    var backgroundEnabled by remember(metric) { mutableStateOf(false) }
-    var status by remember(metric) { mutableStateOf("Checking Health Connect…") }
+    var status by remember(metric) { mutableStateOf("Checking connected data sources…") }
 
-    suspend fun refresh() { detail = loadMiniMetricDetail(metric) }
-    suspend fun sync() {
+    suspend fun refresh() {
+        detail = loadMiniMetricDetail(metric)
+    }
+
+    suspend fun syncExistingSources() {
+        if (!MiniMetricsHealthConnect.hasPermission(context, metric)) {
+            connected = false
+            status = "Health Connect is not connected · manage sources in Smart Devices"
+            refresh()
+            return
+        }
         syncing = true
         val result = MiniMetricsHealthConnect.sync(context)
-        val advanced = if (metric == HomeMiniMetric.HEART_RATE && result.success) HeartRateAdvancedHealthConnect.sync(context) else null
+        val advanced = if (metric == HomeMiniMetric.HEART_RATE && result.success) {
+            HeartRateAdvancedHealthConnect.sync(context)
+        } else null
         syncing = false
+        connected = true
         status = advanced?.message ?: result.message
-        connected = permission != null && MiniMetricsHealthConnect.hasPermission(context, metric)
         refresh()
     }
-
-    val permissionLauncher = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { _ ->
-        scope.launch {
-            connected = MiniMetricsHealthConnect.hasPermission(context, metric)
-            backgroundAvailable = MiniMetricsHealthConnect.backgroundReadAvailable(context)
-            backgroundEnabled = MiniMetricsHealthConnect.hasBackgroundReadPermission(context)
-            if (backgroundEnabled) MiniMetricsBackgroundSync.ensureScheduled(context)
-            status = when {
-                connected && backgroundEnabled -> "Samsung Health connected · background sync enabled"
-                connected -> "Samsung Health connected through Health Connect"
-                else -> "Access wasn’t enabled"
-            }
-            if (connected) sync()
-        }
-    }
-
-    fun connectOrSync() {
-        scope.launch {
-            when (MiniMetricsHealthConnect.availability(context)) {
-                HealthConnectClient.SDK_AVAILABLE -> {
-                    if (MiniMetricsHealthConnect.hasPermission(context, metric)) sync()
-                    else if (permission != null) permissionLauncher.launch(MiniMetricsHealthConnect.requestPermissionsFor(context, metric))
-                }
-                HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> status = "Health Connect needs an update"
-                else -> status = "Health Connect isn’t available on this device"
-            }
-        }
-    }
-    fun enableBackgroundSync() { if (backgroundAvailable) permissionLauncher.launch(setOf(MiniMetricsHealthConnect.backgroundReadPermission)) }
 
     LaunchedEffect(metric) {
         refresh()
         val available = MiniMetricsHealthConnect.availability(context) == HealthConnectClient.SDK_AVAILABLE
         connected = available && MiniMetricsHealthConnect.hasPermission(context, metric)
-        backgroundAvailable = available && MiniMetricsHealthConnect.backgroundReadAvailable(context)
-        backgroundEnabled = available && MiniMetricsHealthConnect.hasBackgroundReadPermission(context)
-        if (backgroundEnabled) MiniMetricsBackgroundSync.ensureScheduled(context)
         status = when {
-            !available -> "Health Connect isn’t available on this device"
-            connected && backgroundEnabled -> "Samsung Health connected · background sync enabled"
-            connected -> "Samsung Health connected through Health Connect"
-            else -> "Samsung Health is optional when using H19C direct BLE"
+            !available -> "Health Connect is unavailable on this device"
+            connected -> "Health Connect available as historical/backfill source"
+            else -> "Manage external data sources in Settings → Smart Devices"
         }
-        if (connected) sync()
+        if (connected) syncExistingSources()
     }
 
     LaunchedEffect(metric, connected, isForeground) {
@@ -374,31 +350,297 @@ internal fun NativeMiniMetricPlaceholderPage(metric: HomeMiniMetric, onBack: () 
             HomeMiniMetric.BLOOD_OXYGEN -> 15_000L
             HomeMiniMetric.CALORIES -> 10_000L
         }
-        while (true) { delay(intervalMs); MiniMetricsHealthConnect.syncCurrent(context, metric) }
+        while (true) {
+            delay(intervalMs)
+            MiniMetricsHealthConnect.syncCurrent(context, metric)
+            refresh()
+        }
     }
+
     LaunchedEffect(metric, isForeground) {
         if (!isForeground) return@LaunchedEffect
-        while (true) { delay(3_000L); refresh() }
+        while (true) {
+            delay(3_000L)
+            refresh()
+        }
     }
 
     Column(
-        Modifier.fillMaxSize().background(superhumanBackground).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
+        Modifier.fillMaxSize().background(superhumanBackground).verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         MiniMetricHeader(metric, onBack)
         MiniMetricHero(metric, detail, accent)
+
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             MetricStat(detail.primaryLabel, detail.primaryValue, Modifier.weight(1f))
             MetricStat(detail.secondaryLabel, detail.secondaryValue, Modifier.weight(1f))
             MetricStat(detail.tertiaryLabel, detail.tertiaryValue, Modifier.weight(1f))
         }
+
+        if (metric == HomeMiniMetric.HEART_RATE) {
+            HeartRateDeviceSourcesCard()
+            AdvancedHeartRateSection(syncing = syncing, refreshSignal = status)
+        } else {
+            MetricSourcesReadOnlyCard(
+                sourceLabel = detail.sourceLabel,
+                status = status,
+                healthConnectConnected = connected
+            )
+        }
+
         MiniMetricHistoryCard(metric, detail.history, accent)
-        if (metric == HomeMiniMetric.HEART_RATE) AdvancedHeartRateSection(syncing = syncing, refreshSignal = status)
-        ThemedH19cMiniMetricCard(metric)
-        HealthConnectMiniCard(connected, syncing, status, backgroundAvailable, backgroundEnabled, ::connectOrSync, ::enableBackgroundSync)
+        ManageDevicesShortcut()
         Spacer(Modifier.height(18.dp))
     }
 }
+
+@Composable
+private fun HeartRateDeviceSourcesCard() {
+    val context = LocalContext.current
+    SmartDeviceRuntime.initialize(context)
+
+    val h19c by H19cWearableRuntime.state.collectAsState()
+    val ble by CardioSensorRuntime.bleSensorState.collectAsState()
+    var historical by remember { mutableStateOf<HealthValue?>(null) }
+    var enabledH19cForPage by remember { mutableStateOf(false) }
+
+    LaunchedEffect(h19c.connected) {
+        if (h19c.connected && !h19c.liveHeartRate) {
+            enabledH19cForPage = true
+            H19cWearableRuntime.setLiveHeartRate(true)
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (
+                enabledH19cForPage &&
+                H19cWearableRuntime.state.value.connected &&
+                !(CardioSensorRuntime.hasActiveSession() &&
+                    CardioSensorRuntime.preferredProviderType() == CardioSensorProviderType.H19C)
+            ) {
+                H19cWearableRuntime.setLiveHeartRate(false)
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            historical = NativeDataHub.between(
+                HealthDomain.EXERCISE,
+                "heart_rate_bpm",
+                now - 7L * 24L * 60L * 60L * 1000L,
+                now
+            ).filter { it.source == MiniMetricsHealthConnect.SOURCE }
+                .maxByOrNull { it.timestampEpochMs }
+            delay(3_000L)
+        }
+    }
+
+    val h19cReading = SmartDeviceObservationMapper.h19cHeartRate(h19c)
+    val bleReading = SmartDeviceObservationMapper.bleHeartRate(ble)
+    val historicalReading = historical?.let(SmartDeviceObservationMapper::historicalHeartRate)
+    val hasAnyDirect = h19c.deviceAddress != null || CardioSensorRuntime.hasSavedBleDevice()
+
+    Column(
+        Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(22.dp))
+            .border(1.dp, MiniBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("HEART-RATE SOURCES", color = MiniMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                Text("Live devices stay separate", color = MiniNavy, fontSize = 16.sp, fontWeight = FontWeight.Black)
+                Text(
+                    "Each reading keeps its device, measurement time and data path.",
+                    color = MiniMuted,
+                    fontSize = 9.sp,
+                    lineHeight = 13.sp
+                )
+            }
+            Box(
+                Modifier.background(superhumanAccentSoft, RoundedCornerShape(13.dp))
+                    .clickable { SmartDevicesNavigationBridge.open?.invoke() }
+                    .padding(horizontal = 11.dp, vertical = 9.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("MANAGE", color = MiniSteps, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            }
+        }
+
+        if (h19c.deviceAddress != null) {
+            HeartRateSourceRow(
+                name = h19c.deviceName ?: "H19C",
+                reading = h19cReading,
+                stateLabel = directStateLabel(h19c.connected, h19cReading?.ageMs()),
+                path = "Direct BLE · H19C / FEEA"
+            )
+        }
+
+        if (CardioSensorRuntime.hasSavedBleDevice() || ble.provenance != null) {
+            HeartRateSourceRow(
+                name = ble.provenance?.deviceName ?: CardioSensorRuntime.savedBleDeviceName() ?: "Bluetooth HR sensor",
+                reading = bleReading,
+                stateLabel = when (ble.connection) {
+                    CardioSensorConnectionState.CONNECTED -> directStateLabel(true, bleReading?.ageMs())
+                    CardioSensorConnectionState.STALE -> "STALE"
+                    CardioSensorConnectionState.CONNECTING -> "CONNECTING"
+                    CardioSensorConnectionState.RECONNECTING -> "RECONNECTING"
+                    CardioSensorConnectionState.ERROR -> "ERROR"
+                    else -> "DISCONNECTED"
+                },
+                path = "Direct Bluetooth · Heart Rate Service"
+            )
+        }
+
+        historicalReading?.let { reading ->
+            HeartRateSourceRow(
+                name = reading.provenance.device.displayName ?: "Samsung Health / Health Connect",
+                reading = reading,
+                stateLabel = "HISTORICAL",
+                path = "Samsung Health → Health Connect",
+                historical = true
+            )
+        }
+
+        if (!hasAnyDirect && historicalReading == null) {
+            Text(
+                "No heart-rate source is configured yet. Add a live sensor or health service from Smart Devices.",
+                color = MiniMuted,
+                fontSize = 9.sp,
+                lineHeight = 14.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun HeartRateSourceRow(
+    name: String,
+    reading: SmartDeviceReading?,
+    stateLabel: String,
+    path: String,
+    historical: Boolean = false
+) {
+    val measuredAt = reading?.measuredAtEpochMs
+    val importedAt = reading?.importedAtEpochMs
+    val bpm = reading?.value?.roundToInt()
+    val stateAccent = when {
+        stateLabel == "LIVE" -> superhumanGreen
+        stateLabel == "HISTORICAL" -> MiniSteps
+        stateLabel == "STALE" -> MiniCalories
+        else -> MiniMuted
+    }
+
+    Column(
+        Modifier.fillMaxWidth().background(superhumanSurfaceSoft, RoundedCornerShape(16.dp)).padding(13.dp),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(name, color = MiniNavy, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Text(path, color = MiniMuted, fontSize = 8.sp)
+            }
+            Box(
+                Modifier.background(stateAccent.copy(alpha = .12f), RoundedCornerShape(11.dp))
+                    .padding(horizontal = 8.dp, vertical = 5.dp)
+            ) {
+                Text(stateLabel, color = stateAccent, fontSize = 7.sp, fontWeight = FontWeight.Black)
+            }
+        }
+
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(bpm?.toString() ?: "—", color = MiniNavy, fontSize = 25.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.width(4.dp))
+            Text("bpm", color = MiniMuted, fontSize = 8.sp, modifier = Modifier.padding(bottom = 4.dp))
+        }
+
+        measuredAt?.let {
+            val age = observationFreshness(it)
+            Text(
+                "Measured ${formatObservationClock(it)} · $age",
+                color = MiniMuted,
+                fontSize = 8.sp
+            )
+        }
+
+        if (historical && importedAt != null) {
+            Text(
+                "Imported ${formatObservationClock(importedAt)} · source-reported timestamp",
+                color = MiniMuted,
+                fontSize = 8.sp
+            )
+        } else if (reading != null) {
+            Text(
+                "Timestamp basis · ${reading.provenance.timing.timeBasis.name.lowercase().replace('_', ' ')}",
+                color = MiniMuted,
+                fontSize = 8.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun MetricSourcesReadOnlyCard(
+    sourceLabel: String?,
+    status: String,
+    healthConnectConnected: Boolean
+) {
+    Column(
+        Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(20.dp))
+            .border(1.dp, MiniBorder, RoundedCornerShape(20.dp)).padding(15.dp)
+    ) {
+        Text("DATA SOURCE", color = MiniMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+        Spacer(Modifier.height(5.dp))
+        Text(sourceLabel ?: "No source data yet", color = MiniNavy, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text(status, color = MiniMuted, fontSize = 9.sp, lineHeight = 13.sp)
+        if (!healthConnectConnected) {
+            Spacer(Modifier.height(5.dp))
+            Text("Connections are managed only in Settings → Smart Devices.", color = MiniMuted, fontSize = 8.sp)
+        }
+    }
+}
+
+@Composable
+private fun ManageDevicesShortcut() {
+    Row(
+        Modifier.fillMaxWidth().background(superhumanSurfaceSoft, RoundedCornerShape(16.dp))
+            .clickable { SmartDevicesNavigationBridge.open?.invoke() }
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Manage Smart Devices", color = MiniNavy, fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Text("Pairing, permissions, disconnect and forget controls", color = MiniMuted, fontSize = 8.sp)
+        }
+        Text("→", color = MiniSteps, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+private fun directStateLabel(connected: Boolean, ageMs: Long?): String {
+    if (!connected) return "DISCONNECTED"
+    if (ageMs == null) return "CONNECTED"
+    return if (ageMs <= CARDIO_HR_STALE_AFTER_MS) "LIVE" else "STALE"
+}
+
+private fun observationFreshness(timestampEpochMs: Long): String {
+    val age = (System.currentTimeMillis() - timestampEpochMs).coerceAtLeast(0L)
+    return when {
+        age < 1_000L -> "<1s ago"
+        age < 60_000L -> "${age / 1_000L}s ago"
+        age < 3_600_000L -> "${age / 60_000L}m ago"
+        age < 86_400_000L -> "${age / 3_600_000L}h ago"
+        else -> "${age / 86_400_000L}d ago"
+    }
+}
+
+private fun formatObservationClock(timestampEpochMs: Long): String =
+    Instant.ofEpochMilli(timestampEpochMs)
+        .atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("HH:mm:ss"))
 
 @Composable
 private fun MiniMetricHeader(metric: HomeMiniMetric, onBack: () -> Unit) {
@@ -491,34 +733,6 @@ private fun MiniHistoryChart(values: List<Double?>, accent: Color) {
                 drawLine(accent.copy(alpha = .72f), Offset(x, size.height * .86f), Offset(x, top), strokeWidth = 8f)
                 drawCircle(accent, 5f, Offset(x, top))
             }
-        }
-    }
-}
-
-@Composable
-private fun HealthConnectMiniCard(
-    connected: Boolean,
-    syncing: Boolean,
-    status: String,
-    backgroundAvailable: Boolean,
-    backgroundEnabled: Boolean,
-    onClick: () -> Unit,
-    onEnableBackground: () -> Unit
-) {
-    Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(22.dp)).border(1.dp, MiniBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
-        Text("HEALTH CONNECT", color = MiniMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-        Spacer(Modifier.height(6.dp))
-        Text(if (connected) "Samsung Health connected" else "Optional Samsung / Health Connect source", color = MiniNavy, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.height(4.dp)); Text(status, color = MiniMuted, fontSize = 9.sp, lineHeight = 13.sp); Spacer(Modifier.height(11.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.background(superhumanAccentSoft, RoundedCornerShape(14.dp)).clickable(enabled = !syncing, onClick = onClick).padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Text(when { syncing -> "SYNCING…"; connected -> "SYNC NOW"; else -> "CONNECT" }, color = MiniSteps, fontSize = 9.sp, fontWeight = FontWeight.Black)
-            }
-            if (connected && backgroundAvailable && !backgroundEnabled) {
-                Box(Modifier.background(superhumanSurfaceSoft, RoundedCornerShape(14.dp)).clickable(enabled = !syncing, onClick = onEnableBackground).padding(horizontal = 12.dp, vertical = 10.dp)) {
-                    Text("BACKGROUND", color = MiniNavy, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                }
-            } else if (connected && backgroundEnabled) Text("15 min background sync", color = MiniMuted, fontSize = 8.sp)
         }
     }
 }
