@@ -17,8 +17,23 @@ internal fun cardioSessionFromValue(row: HealthValue): CardioSession {
     val zones = (1..5).mapNotNull { zone ->
         i("zone" + zone + "Seconds")?.takeIf { it > 0 }?.let { zone to it }
     }.toMap()
-    val extensions = meta.filterKeys { it.startsWith("ext.") }
-        .mapKeys { it.key.removePrefix("ext.") }
+    val extensions = buildMap {
+        meta.filterKeys { it.startsWith("ext.") }
+            .forEach { (key, value) -> put(key.removePrefix("ext."), value) }
+
+        // Preserve sensor/import provenance that may have been written directly by an importer
+        // before the versioned core Cardio session mapper existed.
+        meta.forEach { (key, value) ->
+            if (
+                key.startsWith("heartRate") ||
+                key.startsWith("sensor") ||
+                key.startsWith("workout") ||
+                key.startsWith("healthConnect")
+            ) {
+                putIfAbsent(key, value)
+            }
+        }
+    }
 
     return CardioSession(
         id = meta["sessionId"].orEmpty().ifBlank { "legacy-cardio-" + row.timestampEpochMs },
