@@ -15,6 +15,11 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
+import com.projectsuperhuman.next.core.ObservationDeviceIdentity
+import com.projectsuperhuman.next.core.ObservationProvenance
+import com.projectsuperhuman.next.core.ObservationTimeBasis
+import com.projectsuperhuman.next.core.ObservationTiming
+import com.projectsuperhuman.next.core.ObservationTransport
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -689,13 +694,41 @@ internal object MiniMetricsHealthConnect {
         unit: String,
         timestamp: Long,
         metadata: Map<String, String>
-    ): HealthValue = HealthValue(
-        domain = domain,
-        metric = metric,
-        value = value,
-        unit = unit,
-        timestampEpochMs = timestamp,
-        source = SOURCE,
-        metadata = metadata
-    )
+    ): HealthValue {
+        val importedAt = System.currentTimeMillis()
+        val isSummary = metadata["summaryType"] == "daily"
+        val provenance = ObservationProvenance(
+            timing = ObservationTiming(
+                measuredAtEpochMs = timestamp,
+                receivedAtEpochMs = importedAt,
+                importedAtEpochMs = importedAt,
+                sourceModifiedAtEpochMs = metadata["sourceLastModifiedMs"]?.toLongOrNull(),
+                timeBasis = if (isSummary) {
+                    ObservationTimeBasis.SESSION_DERIVED
+                } else {
+                    ObservationTimeBasis.SOURCE_REPORTED
+                }
+            ),
+            device = ObservationDeviceIdentity(
+                displayName = metadata["originDeviceName"] ?: metadata["sourceDeviceFamily"],
+                manufacturer = metadata["originManufacturer"],
+                model = metadata["originModel"],
+                deviceType = "wearable"
+            ),
+            transport = ObservationTransport.HEALTH_CONNECT,
+            sourceApplication = "Samsung Health",
+            sourcePackage = metadata["sourcePackage"] ?: SAMSUNG_HEALTH_PACKAGE,
+            externalRecordId = metadata["healthConnectRecordId"],
+            sourceLabel = SOURCE
+        )
+        return HealthValue(
+            domain = domain,
+            metric = metric,
+            value = value,
+            unit = unit,
+            timestampEpochMs = timestamp,
+            source = SOURCE,
+            metadata = metadata + provenance.toMetadata()
+        )
+    }
 }
