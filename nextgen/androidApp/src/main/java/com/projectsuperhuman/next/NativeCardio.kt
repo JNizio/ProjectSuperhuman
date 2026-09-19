@@ -15,6 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -176,7 +177,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             return
         }
 
-        val durationSeconds = ((formDurationMin.toDoubleOrNull() ?: 0.0) * 60.0).roundToInt()
+        val durationSeconds = ((CardioUnits.parseLocalizedDecimal(formDurationMin) ?: 0.0) * 60.0).roundToInt()
         if (durationSeconds <= 0) {
             feedback = "Enter a cardio duration"
             return
@@ -195,15 +196,15 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             endedAt - durationSeconds * 1000L
         }
 
-        val distance = formDistanceKm.toDoubleOrNull()?.takeIf { it > 0.0 }
+        val distance = CardioUnits.parseLocalizedDecimal(formDistanceKm)?.takeIf { it > 0.0 }
         val avgHr = formAvgHr.toIntOrNull()?.takeIf { it in 30..250 }
         val maxHr = formMaxHr.toIntOrNull()?.takeIf { it in 30..250 }
-        val calories = formCalories.toDoubleOrNull()?.takeIf { it >= 0.0 }
+        val calories = CardioUnits.parseLocalizedDecimal(formCalories)?.takeIf { it >= 0.0 }
         val cadence = formCadence.toIntOrNull()?.takeIf { it > 0 }
-        val elevation = formElevation.toDoubleOrNull()?.takeIf { it >= 0.0 }
-        val rpe = formRpe.toDoubleOrNull()?.takeIf { it in 0.0..10.0 }
+        val elevation = CardioUnits.parseLocalizedDecimal(formElevation)?.takeIf { it >= 0.0 }
+        val rpe = CardioUnits.parseLocalizedDecimal(formRpe)?.takeIf { it in 0.0..10.0 }
         val zones = zoneMinutes.mapIndexedNotNull { index, text ->
-            val seconds = ((text.toDoubleOrNull() ?: 0.0) * 60.0).roundToInt()
+            val seconds = ((CardioUnits.parseLocalizedDecimal(text) ?: 0.0) * 60.0).roundToInt()
             if (seconds > 0) (index + 1) to seconds else null
         }.toMap()
         if (zones.values.sum() > durationSeconds) {
@@ -316,6 +317,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         val recent = sessions.filter { it.endedAt >= weekStart }
         (1..5).associateWith { zone -> recent.sumOf { it.zoneSeconds[zone] ?: 0 } }
     }
+    val activityGroups = remember(sessions) { sessions.groupBy { it.activity } }
     val activeDraftState = cardioState.liveDraft
     val activeDraft = activeDraftState != null
 
@@ -483,28 +485,28 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     CardioWorkoutTypePicker(formWorkoutType) { formWorkoutType = it }
                 }
                 CardioSection("SESSION", "Duration is required; other fields are optional") {
-                    OutlinedTextField(
-                        formDateTime,
-                        { formDateTime = it.take(16) },
-                        Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("Finished - YYYY-MM-DD HH:MM") }
+                    CardioDateTimePickerField(
+                        value = formDateTime,
+                        onValueChange = { formDateTime = it },
+                        label = "Finished"
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
                             formDurationMin,
-                            { formDurationMin = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7) },
+                            { formDurationMin = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
                             Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = cardioDecimalKeyboardOptions,
                             label = { Text("Duration (min)") }
                         )
                         if (formActivity.supportsDistance) {
                             OutlinedTextField(
                                 formDistanceKm,
-                                { formDistanceKm = it.filter { ch -> ch.isDigit() || ch == '.' }.take(8) },
+                                { formDistanceKm = CardioUnits.sanitizeDecimalInput(it, maxLength = 8) },
                                 Modifier.weight(1f),
                                 singleLine = true,
+                                keyboardOptions = cardioDecimalKeyboardOptions,
                                 label = { Text("Distance (km)") }
                             )
                         }
@@ -516,6 +518,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             { formAvgHr = it.filter(Char::isDigit).take(3) },
                             Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = cardioIntegerKeyboardOptions,
                             label = { Text("Avg HR") }
                         )
                         OutlinedTextField(
@@ -523,6 +526,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             { formMaxHr = it.filter(Char::isDigit).take(3) },
                             Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = cardioIntegerKeyboardOptions,
                             label = { Text("Max HR") }
                         )
                     }
@@ -530,16 +534,18 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
                             formCalories,
-                            { formCalories = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7) },
+                            { formCalories = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
                             Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = cardioDecimalKeyboardOptions,
                             label = { Text("Calories (optional)") }
                         )
                         OutlinedTextField(
                             formRpe,
-                            { formRpe = it.filter { ch -> ch.isDigit() || ch == '.' }.take(4) },
+                            { formRpe = CardioUnits.sanitizeDecimalInput(it, maxLength = 4) },
                             Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = cardioDecimalKeyboardOptions,
                             label = { Text("RPE 0-10") }
                         )
                     }
@@ -552,15 +558,17 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                                     { formCadence = it.filter(Char::isDigit).take(4) },
                                     Modifier.weight(1f),
                                     singleLine = true,
+                                    keyboardOptions = cardioIntegerKeyboardOptions,
                                     label = { Text("Cadence") }
                                 )
                             }
                             if (formActivity.supportsElevation) {
                                 OutlinedTextField(
                                     formElevation,
-                                    { formElevation = it.filter { ch -> ch.isDigit() || ch == '.' }.take(7) },
+                                    { formElevation = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
                                     Modifier.weight(1f),
                                     singleLine = true,
+                                    keyboardOptions = cardioDecimalKeyboardOptions,
                                     label = { Text("Elevation gain (m)") }
                                 )
                             }
@@ -590,9 +598,10 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                                 for (index in rowStart until end) {
                                     OutlinedTextField(
                                         zoneMinutes[index],
-                                        { value -> zoneMinutes[index] = value.filter { ch -> ch.isDigit() || ch == '.' }.take(6) },
+                                        { value -> zoneMinutes[index] = CardioUnits.sanitizeDecimalInput(value, maxLength = 6) },
                                         Modifier.weight(1f),
                                         singleLine = true,
+                                        keyboardOptions = cardioDecimalKeyboardOptions,
                                         label = { Text("Z${index + 1} min") }
                                     )
                                 }
