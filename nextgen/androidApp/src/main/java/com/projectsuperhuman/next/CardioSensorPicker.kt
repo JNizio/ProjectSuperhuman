@@ -1,7 +1,5 @@
 package com.projectsuperhuman.next
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -17,10 +15,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,62 +29,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 
-private enum class CardioPendingSensorAction {
-    NONE,
-    RECONNECT_H19C,
-    RECONNECT_BLE
-}
-
+/**
+ * Cardio chooses among devices that have already been configured in Settings -> Smart Devices.
+ * This panel deliberately owns no scanning, pairing or permission onboarding.
+ */
 @Composable
 internal fun CardioSensorPickerPanel(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+
     CardioSensorRuntime.initialize(context)
     H19cWearableRuntime.initialize(context)
 
     val sensorState by CardioSensorRuntime.state.collectAsState()
     val h19cState by H19cWearableRuntime.state.collectAsState()
-    var pendingAction by remember { mutableStateOf(CardioPendingSensorAction.NONE) }
 
-    fun runPendingAction(action: CardioPendingSensorAction) {
-        pendingAction = CardioPendingSensorAction.NONE
-        scope.launch {
-            when (action) {
-                CardioPendingSensorAction.RECONNECT_H19C -> {
-                    CardioSensorRuntime.selectH19c(connect = true)
-                }
-                CardioPendingSensorAction.RECONNECT_BLE -> {
-                    CardioSensorRuntime.selectBle(connectPreferred = true)
-                }
-                CardioPendingSensorAction.NONE -> Unit
-            }
-        }
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { result ->
-        val action = pendingAction
-        if (result.values.all { it }) runPendingAction(action)
-        else pendingAction = CardioPendingSensorAction.NONE
-    }
-
-    fun ensurePermissionsThen(action: CardioPendingSensorAction, permissions: Array<String>) {
-        val granted = permissions.isEmpty() || permissions.all { permission ->
-            androidx.core.content.ContextCompat.checkSelfPermission(
-                context,
-                permission
-            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-        }
-        if (granted) {
-            runPendingAction(action)
-        } else {
-            pendingAction = action
-            permissionLauncher.launch(permissions)
-        }
-    }
+    val h19cReady = h19cState.deviceAddress != null &&
+        H19cWearableRuntime.hasPermissions(context)
+    val bleReady = CardioSensorRuntime.hasSavedBleDevice() &&
+        CardioSensorRuntime.hasBlePermissions()
 
     Column(
         modifier
@@ -102,13 +62,13 @@ internal fun CardioSensorPickerPanel(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "HEART-RATE SENSOR",
+                    "HEART-RATE SOURCE",
                     color = superhumanTextPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    "Choose a saved sensor · add new devices in Settings → Smart Devices",
+                    "Choose an already configured source for this workout.",
                     color = superhumanTextMuted,
                     fontSize = 10.sp
                 )
@@ -158,35 +118,28 @@ internal fun CardioSensorPickerPanel(
             ) {
                 scope.launch { CardioSensorRuntime.selectNone() }
             }
+
             SensorChoice(
                 label = "H19C",
                 selected = sensorState.providerType == CardioSensorProviderType.H19C,
                 modifier = Modifier.weight(1f)
             ) {
-                if (h19cState.deviceAddress == null) {
-                    scope.launch { CardioSensorRuntime.selectH19c(connect = false) }
+                if (!h19cReady) {
+                    SmartDevicesNavigationBridge.open?.invoke()
                 } else {
-                    ensurePermissionsThen(
-                        CardioPendingSensorAction.RECONNECT_H19C,
-                        H19cWearableRuntime.requiredPermissions()
-                    )
+                    scope.launch { CardioSensorRuntime.selectH19c(connect = true) }
                 }
             }
+
             SensorChoice(
                 label = "BLE HR",
                 selected = sensorState.providerType == CardioSensorProviderType.BLE_HEART_RATE,
                 modifier = Modifier.weight(1f)
             ) {
-                scope.launch {
-                    CardioSensorRuntime.selectBle(connectPreferred = false)
-                    val permissions = CardioSensorRuntime.requiredPermissions()
-                    val granted = permissions.isEmpty() || CardioSensorRuntime.hasRequiredPermissions(context)
-                    if (granted) {
-                        runPendingAction(CardioPendingSensorAction.RECONNECT_BLE)
-                    } else {
-                        pendingAction = CardioPendingSensorAction.RECONNECT_BLE
-                        permissionLauncher.launch(permissions)
-                    }
+                if (!bleReady) {
+                    SmartDevicesNavigationBridge.open?.invoke()
+                } else {
+                    scope.launch { CardioSensorRuntime.selectBle(connectPreferred = true) }
                 }
             }
         }
@@ -194,12 +147,10 @@ internal fun CardioSensorPickerPanel(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 when {
-                    sensorState.providerType == CardioSensorProviderType.H19C &&
-                        h19cState.deviceAddress == null ->
-                        "No H19C is saved yet. Add the watch once in Smart Devices."
-                    sensorState.providerType == CardioSensorProviderType.BLE_HEART_RATE &&
-                        sensorState.connection != CardioSensorConnectionState.CONNECTED ->
-                        "Project Superhuman will reconnect the saved BLE heart-rate sensor."
+                    sensorState.providerType == CardioSensorProviderType.H19C && !h19cReady ->
+                        "H19C needs setup in Smart Devices before Cardio can use it."
+                    sensorState.providerType == CardioSensorProviderType.BLE_HEART_RATE && !bleReady ->
+                        "Add and authorize a Bluetooth HR sensor in Smart Devices first."
                     else -> sensorState.message
                 },
                 color = superhumanTextMuted,
