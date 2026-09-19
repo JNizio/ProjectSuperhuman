@@ -253,6 +253,8 @@ private fun clearCardioDraft(context: Context) {
 internal fun NativeCardioScreen(onBack: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
+    CardioSensorRuntime.initialize(context)
+    val sensorMetrics by CardioSensorRuntime.liveMetrics.collectAsState()
 
     var screen by remember { mutableStateOf(CardioScreen.HOME) }
     var rows by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
@@ -285,6 +287,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var formEditingId by remember { mutableStateOf<String?>(null) }
     var formLiveStartedAt by remember { mutableLongStateOf(0L) }
     var showZones by remember { mutableStateOf(false) }
+    var pendingLiveSensorSummary by remember { mutableStateOf<CardioHeartRateSummary?>(null) }
     val zoneMinutes = remember { mutableStateListOf("", "", "", "", "") }
 
     suspend fun refresh() {
@@ -313,6 +316,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         formEditingId = null
         formLiveStartedAt = 0L
         showZones = false
+        pendingLiveSensorSummary = null
         for (i in zoneMinutes.indices) zoneMinutes[i] = ""
     }
 
@@ -370,6 +374,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         liveRunning = true
         liveTick = now
         persistLiveState()
+        CardioSensorRuntime.startSession("live-$now", now)
         screen = CardioScreen.LIVE
     }
 
@@ -381,6 +386,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         }
         liveRunningSince = 0L
         liveRunning = false
+        CardioSensorRuntime.pauseSession(now)
         persistLiveState()
         feedback = "Cardio timer paused"
     }
@@ -389,6 +395,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         liveRunningSince = System.currentTimeMillis()
         liveRunning = true
         liveTick = liveRunningSince
+        CardioSensorRuntime.resumeSession(liveRunningSince)
         persistLiveState()
         feedback = "Cardio timer resumed"
     }
@@ -403,7 +410,20 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             liveRunning = false
             persistLiveState()
         }
+        CardioSensorRuntime.pauseSession(now)
+        val sensorSummary = CardioSensorRuntime.snapshot(now)
         resetForm(liveActivity)
+        pendingLiveSensorSummary = sensorSummary.takeIf { it.sampleCount > 0 }
+        sensorSummary.averageBpm?.let { formAvgHr = it.toString() }
+        sensorSummary.maxBpm?.let { formMaxHr = it.toString() }
+        if (sensorSummary.zoneSeconds.isNotEmpty()) {
+            showZones = true
+            for (i in zoneMinutes.indices) {
+                zoneMinutes[i] = sensorSummary.zoneSeconds[i + 1]
+                    ?.let { String.format(Locale.US, "%.1f", it / 60.0) }
+                    .orEmpty()
+            }
+        }
         formDateTime = Instant.ofEpochMilli(now)
             .atZone(ZoneId.systemDefault()).toLocalDateTime().format(cardioDateTimeFormatter)
         formDurationMin = String.format(Locale.US, "%.1f", elapsed / 60.0)
@@ -418,6 +438,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         val now = System.currentTimeMillis()
         liveTick = now
         val elapsed = currentLiveElapsedSeconds().coerceAtLeast(1)
+        val sensorSummary = CardioSensorRuntime.stopSession(now)
 
         if (liveRunning && liveRunningSince > 0L) {
             liveAccumulatedSeconds = elapsed
@@ -437,7 +458,9 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         )
 
         scope.launch {
-            NativeDataHub.saveValues(listOf(session.toHealthValue()))
+            NativeDataHub.saveValues(
+                listOf(session.toHealthValue().withCardioHeartRateSummary(sensorSummary))
+            )
             clearCardioDraft(context)
             liveStartedAt = 0L
             liveAccumulatedSeconds = 0
@@ -526,17 +549,27 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             avgPace100mSeconds = pace100
         )
 
+        val finalSensorSummary = if (finishingLiveSession) {
+            CardioSensorRuntime.stopSession(System.currentTimeMillis()).takeIf { it.sampleCount > 0 }
+                ?: pendingLiveSensorSummary
+        } else {
+            pendingLiveSensorSummary
+        }
+
         scope.launch {
             if (existingId != null) {
                 rows.firstOrNull { it.metadata["sessionId"] == existingId }?.let { NativeDataHub.deleteValue(it) }
             }
-            NativeDataHub.saveValues(listOf(session.toHealthValue()))
+            val value = finalSensorSummary?.let { session.toHealthValue().withCardioHeartRateSummary(it) }
+                ?: session.toHealthValue()
+            NativeDataHub.saveValues(listOf(value))
             if (finishingLiveSession) {
                 clearCardioDraft(context)
                 liveStartedAt = 0L
                 liveAccumulatedSeconds = 0
                 liveRunningSince = 0L
                 liveRunning = false
+                pendingLiveSensorSummary = null
             }
             refresh()
             feedback = if (existingId == null) "Cardio session saved" else "Cardio session updated"
@@ -557,7 +590,10 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             liveRunningSince = draft.runningSinceEpochMs
             liveRunning = draft.isRunning
             liveTick = System.currentTimeMillis()
+            CardioSensorRuntime.startSession("live-${draft.startedAt}", draft.startedAt)
+            if (!draft.isRunning) CardioSensorRuntime.pauseSession(liveTick)
         }
+        CardioSensorRuntime.reconnectPreferred()
     }
 
     LaunchedEffect(liveRunning, liveRunningSince) {
@@ -686,7 +722,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     onToggle = { if (liveRunning) pauseLive() else resumeLive() },
                     onFinish = { prepareFinishedLive() }
                 )
-                CardioLiveMetricsPanel(liveActivity)
+                CardioLiveMetricsPanel(liveActivity, sensorMetrics)
             }
 
             CardioScreen.MANUAL -> {
@@ -1675,12 +1711,28 @@ private fun CardioControlButton(
 }
 
 @Composable
-private fun CardioLiveMetricsPanel(activity: CardioActivityType) {
-    val performanceLabel = when (activity.paceMode) {
-        CardioPaceMode.SPEED -> "SPEED"
-        CardioPaceMode.PER_500M -> "500M"
-        CardioPaceMode.PER_100M -> "100M"
-        else -> "PACE"
+private fun CardioLiveMetricsPanel(
+    activity: CardioActivityType,
+    metrics: CardioLiveSensorMetrics
+) {
+    val connectionLabel = when (metrics.connection) {
+        CardioSensorConnectionState.CONNECTED -> "LIVE"
+        CardioSensorConnectionState.STALE -> "STALE"
+        CardioSensorConnectionState.RECONNECTING -> "RECONNECTING"
+        CardioSensorConnectionState.CONNECTING -> "CONNECTING"
+        CardioSensorConnectionState.SCANNING -> "SCANNING"
+        CardioSensorConnectionState.ERROR -> "ERROR"
+        CardioSensorConnectionState.DISCONNECTED -> "DISCONNECTED"
+        CardioSensorConnectionState.NO_SENSOR -> "NO SENSOR"
+    }
+    val statusColor = when (metrics.connection) {
+        CardioSensorConnectionState.CONNECTED -> CardioAccent
+        CardioSensorConnectionState.STALE,
+        CardioSensorConnectionState.RECONNECTING,
+        CardioSensorConnectionState.CONNECTING,
+        CardioSensorConnectionState.SCANNING -> CardioGold
+        CardioSensorConnectionState.ERROR -> CardioCoral
+        else -> CardioMuted
     }
     Column(
         Modifier.fillMaxWidth()
@@ -1690,20 +1742,30 @@ private fun CardioLiveMetricsPanel(activity: CardioActivityType) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("LIVE METRICS", color = CardioInk, fontSize = 13.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
-            Box(Modifier.size(7.dp).background(CardioMuted.copy(alpha = .55f), CircleShape))
+            Box(Modifier.size(7.dp).background(statusColor, CircleShape))
             Spacer(Modifier.width(5.dp))
-            Text("NO SENSOR", color = CardioMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+            Text("${metrics.sourceLabel} · $connectionLabel", color = statusColor, fontSize = 7.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(13.dp))
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            CardioLiveMetricCell("HEART RATE", "—", "bpm", Color(0xFFC85772), Modifier.weight(1f))
+            CardioLiveMetricCell("HEART RATE", metrics.currentHeartRateBpm?.toString() ?: "—", "bpm", Color(0xFFC85772), Modifier.weight(1f))
             CardioStatDivider()
-            CardioLiveMetricCell(performanceLabel, "—", null, CardioBlue, Modifier.weight(1f))
+            CardioLiveMetricCell("AVG HR", metrics.averageHeartRateBpm?.toString() ?: "—", "bpm", CardioBlue, Modifier.weight(1f))
             CardioStatDivider()
-            CardioLiveMetricCell(if (activity.supportsDistance) "DISTANCE" else "CADENCE", "—", if (activity.supportsDistance) "km" else null, CardioAccent, Modifier.weight(1f))
+            CardioLiveMetricCell("MAX HR", metrics.maxHeartRateBpm?.toString() ?: "—", "bpm", CardioAccent, Modifier.weight(1f))
         }
         Spacer(Modifier.height(12.dp))
-        Text("Connect a supported sensor for live HR, pace and distance.", color = CardioMuted, fontSize = 9.sp)
+        val freshness = metrics.lastSampleAgeMs?.let { " · last ${(it / 1000L).coerceAtLeast(0L)}s ago" }.orEmpty()
+        val zone = metrics.currentZone?.let { "Z$it" } ?: "—"
+        Text(
+            "Zone $zone · HR coverage ${String.format(Locale.US, "%.0f", metrics.heartRateCoveragePct)}%$freshness",
+            color = CardioMuted,
+            fontSize = 9.sp
+        )
+        if (metrics.connection != CardioSensorConnectionState.CONNECTED) {
+            Spacer(Modifier.height(4.dp))
+            Text(metrics.message, color = CardioMuted, fontSize = 8.sp)
+        }
     }
 }
 
