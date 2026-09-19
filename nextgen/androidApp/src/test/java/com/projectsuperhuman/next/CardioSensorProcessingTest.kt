@@ -111,7 +111,7 @@ internal class CardioSensorProcessingTest {
     @Test
     fun reconnectStateIsExplicit() = runTest {
         val client = FakeBleHeartRateClient()
-        val provider = GenericBleHeartRateProvider(client, scope = this)
+        val provider = GenericBleHeartRateProvider(client, scope = backgroundScope)
         runCurrent()
         client.emit(BleHeartRateClientEvent.Reconnecting(2))
         runCurrent()
@@ -239,7 +239,7 @@ internal class CardioSensorProcessingTest {
     @Test
     fun sessionStopClosesSensorCollection() = runTest {
         val client = FakeBleHeartRateClient()
-        val provider = GenericBleHeartRateProvider(client, scope = this)
+        val provider = GenericBleHeartRateProvider(client, scope = backgroundScope)
         runCurrent()
         val collected = mutableListOf<CardioHeartRateSample>()
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
@@ -259,7 +259,7 @@ internal class CardioSensorProcessingTest {
     @Test
     fun sensorDisconnectDoesNotCrashActiveWorkout() = runTest {
         val client = FakeBleHeartRateClient()
-        val provider = GenericBleHeartRateProvider(client, scope = this)
+        val provider = GenericBleHeartRateProvider(client, scope = backgroundScope)
         runCurrent()
         provider.startSession("session", 0)
         client.emit(BleHeartRateClientEvent.Connected("Chest strap", "sensor"))
