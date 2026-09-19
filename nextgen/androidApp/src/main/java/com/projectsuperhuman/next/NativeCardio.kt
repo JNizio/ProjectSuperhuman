@@ -684,11 +684,9 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                                         screen = CardioScreen.HISTORY
                                     }
                                 }
+                            }
+                        }
                     }
-                }
-            }
-
-            CardioScreen.PROGRESS -> {                    }
                 }
             }
 
