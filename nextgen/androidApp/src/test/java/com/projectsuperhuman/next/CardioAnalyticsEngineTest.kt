@@ -254,6 +254,25 @@ class CardioAnalyticsEngineTest {
     }
 
     @Test
+    fun localizedDecimalAcceptsLocaleAndPeriodFallback() {
+        assertEquals(12.5, CardioUnits.parseLocalizedDecimal("12,5", java.util.Locale.GERMANY))
+        assertEquals(12.5, CardioUnits.parseLocalizedDecimal("12.5", java.util.Locale.GERMANY))
+        assertEquals(1234.5, CardioUnits.parseLocalizedDecimal("1.234,5", java.util.Locale.GERMANY))
+    }
+
+    @Test
+    fun aerobicDecouplingRejectsInsufficientData() {
+        val samples = List(10) { index ->
+            CardioTimeSeriesSample(
+                elapsedSeconds = index * 60.0,
+                heartRateBpm = 140.0,
+                speedMetersPerSecond = 3.0
+            )
+        }
+        assertNull(CardioAnalyticsEngine.aerobicDecoupling(samples))
+    }
+
+    @Test
     fun emptyDatasets() {
         val series = CardioTrendEngine.volumeTrend(emptyList(), CardioAnalysisRange.DAYS_7, CardioTrendMetric.MINUTES, now, utc)
         assertEquals(7, series.points.size)
@@ -276,6 +295,8 @@ class CardioAnalyticsEngineTest {
         val load = CardioAnalyticsEngine.loadAnalytics(listOf(only), now)
         assertEquals(1, load.scoredSessions)
         assertEquals(CardioBaselineQuality.INSUFFICIENT, load.baselineQuality)
+        assertEquals(0, load.baselineScoredSessions)
+        assertEquals(0, load.baselineActiveWeeks)
         assertNull(load.loadRatio)
     }
 
@@ -310,6 +331,22 @@ class CardioAnalyticsEngineTest {
             zoneId = utc
         )
         assertEquals(listOf("s10"), search.items.map { it.id })
+
+        val classified = sessions.toMutableList().also {
+            it[4] = it[4].copy(source = "health-connect", workoutType = CardioWorkoutType.INTERVALS)
+        }
+        val advanced = CardioHistoryEngine.filterAndPage(
+            classified,
+            CardioHistoryFilter(
+                workoutTypes = setOf(CardioWorkoutType.INTERVALS),
+                sources = setOf("health-connect")
+            ),
+            page = 0,
+            pageSize = 30,
+            nowEpochMs = now,
+            zoneId = utc
+        )
+        assertEquals(listOf("s4"), advanced.items.map { it.id })
     }
 
     private fun session(
