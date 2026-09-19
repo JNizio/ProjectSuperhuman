@@ -400,7 +400,7 @@ internal class GenericBleHeartRateProvider(
                     }
                     is BleHeartRateClientEvent.Connected -> {
                         deviceName = event.displayName ?: deviceName
-                        sensorId = event.sensorId.ifBlank { sensorId }
+                        sensorId = event.sensorId.ifBlank { sensorId ?: "" }
                         updateConnection(CardioSensorConnectionState.CONNECTED, "BLE heart-rate sensor connected")
                     }
                     is BleHeartRateClientEvent.Reconnecting -> {
