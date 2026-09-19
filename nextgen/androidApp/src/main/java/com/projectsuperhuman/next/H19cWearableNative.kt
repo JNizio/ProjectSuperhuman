@@ -242,6 +242,18 @@ internal object H19cWearableRuntime {
         disconnectGatt(updateState = true)
     }
 
+    fun forget(context: Context? = appContext) {
+        val ctx = context?.applicationContext ?: return
+        stopScan()
+        setLiveHeartRate(false)
+        disconnectGatt(updateState = false)
+        ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(PREF_ADDRESS)
+            .remove(PREF_NAME)
+            .apply()
+        _state.value = H19cWearableState(status = "H19C forgotten")
+    }
+
     fun refreshActivity() {
         if (!requireReady()) return
         stepsCharacteristic?.let { enqueue(GattOp.Read(it)) }
@@ -704,7 +716,7 @@ internal object H19cWearableRuntime {
     private fun deviceMetadata(): Map<String, String> = buildMap {
         put("transport", "ble-direct")
         put("protocolService", "FEEA")
-        _state.value.deviceAddress?.let { put("deviceAddress", it) }
+        CardioSensorIds.anonymous(_state.value.deviceAddress)?.let { put("deviceId", it) }
         _state.value.deviceName?.let { put("deviceName", it) }
         _state.value.manufacturer?.let { put("manufacturer", it) }
         _state.value.model?.let { put("model", it) }
