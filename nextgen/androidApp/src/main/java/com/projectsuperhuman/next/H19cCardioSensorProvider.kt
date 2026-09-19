@@ -81,6 +81,10 @@ internal class H19cCardioSensorProvider(
                 if (wearable.phase in setOf(H19cConnectionPhase.READY, H19cConnectionPhase.ERROR, H19cConnectionPhase.IDLE)) {
                     reconnecting = false
                 }
+                if (sessionActive && wearable.connected && !wearable.liveHeartRate) {
+                    enabledLiveForSession = true
+                    H19cWearableRuntime.setLiveHeartRate(true)
+                }
                 val timestamp = wearable.lastHeartRateEpochMs
                 val bpm = wearable.heartRateBpm
                 if (
