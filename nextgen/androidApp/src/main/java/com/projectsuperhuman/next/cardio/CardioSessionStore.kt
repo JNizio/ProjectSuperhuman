@@ -124,6 +124,7 @@ internal class DataStoreCardioSessionStore(context: Context) : CardioSessionStor
         val startedAt = legacy.getLong("live_started_at", 0L)
         if (startedAt <= 0L) return existing
 
+        val legacyIsRunning = legacy.getBoolean("live_is_running", false)
         val old = CardioDraftRaw(
             schemaVersion = 1,
             sessionId = null,
@@ -134,11 +135,16 @@ internal class DataStoreCardioSessionStore(context: Context) : CardioSessionStor
                 .coerceAtLeast(0) * 1000L,
             accumulatedPausedMs = 0L,
             phase = null,
-            phaseStartedEpochMs = legacy.getLong("live_running_since", 0L)
-                .takeIf { it > 0L } ?: startedAt,
+            phaseStartedEpochMs = if (legacyIsRunning) {
+                legacy.getLong("live_running_since", 0L).takeIf { it > 0L } ?: startedAt
+            } else {
+                // The legacy paused format did not store pause-start wall time. Start the paused
+                // phase at migration time rather than incorrectly counting the whole workout as pause.
+                System.currentTimeMillis()
+            },
             phaseStartedElapsedRealtimeMs = 0L,
             pendingCompletionEpochMs = null,
-            legacyIsRunning = legacy.getBoolean("live_is_running", false)
+            legacyIsRunning = legacyIsRunning
         )
         val migrated = CardioDraftSchema.decode(old)
         migrated.draft?.let { save(it) }
