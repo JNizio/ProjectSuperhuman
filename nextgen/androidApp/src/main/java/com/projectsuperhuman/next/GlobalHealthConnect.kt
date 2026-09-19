@@ -42,6 +42,14 @@ internal object GlobalHealthConnect {
     suspend fun hasBackgroundPermission(context: Context): Boolean =
         MiniMetricsHealthConnect.hasBackgroundReadPermission(context)
 
+    suspend fun disconnect(context: Context): Boolean {
+        if (availability(context) != HealthConnectClient.SDK_AVAILABLE) return false
+        return runCatching {
+            HealthConnectClient.getOrCreate(context).permissionController.revokeAllPermissions()
+            !hasAnyCorePermission(context)
+        }.getOrDefault(false)
+    }
+
     /**
      * SleepHealthConnect.sync() remains the broad wearable orchestration point. Calorie repair is
      * deliberately run afterwards so its coverage-aware daily totals replace the simpler raw
