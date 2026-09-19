@@ -108,6 +108,7 @@ internal object CardioSensorRuntime {
     }
 
     fun preferredProviderType(): CardioSensorProviderType = selectedType
+    fun hasActiveSession(): Boolean = activeSessionId != null
 
     fun hasSavedBleDevice(): Boolean = bleProvider?.hasSavedDevice() == true
     fun savedBleDeviceName(): String? = bleProvider?.savedDeviceName()
