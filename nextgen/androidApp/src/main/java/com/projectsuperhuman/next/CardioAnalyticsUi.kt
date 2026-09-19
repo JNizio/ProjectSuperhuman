@@ -140,6 +140,7 @@ internal fun CardioAnalyticsProgressPanel(
 ) {
     var range by remember { mutableStateOf(CardioAnalysisRange.WEEKS_4) }
     var unitSystem by remember { mutableStateOf(CardioUnitSystem.METRIC) }
+    var selectedActivityDetail by remember { mutableStateOf<CardioActivityType?>(null) }
 
     val filtered = remember(sessions, range) {
         CardioTrendEngine.filterRange(sessions, range)
@@ -226,6 +227,42 @@ internal fun CardioAnalyticsProgressPanel(
                 "Rolling 28-day frequency",
                 String.format(Locale.getDefault(), "%.1f / week", consistency.rolling28DaySessionsPerWeek)
             )
+        }
+
+        val activitiesInRange = filtered.map { it.activity }.distinct().sortedBy { it.displayName }
+        if (activitiesInRange.isNotEmpty()) {
+            Text(
+                "Activity detail",
+                color = superhumanTextPrimary,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "Choose a discipline to reveal only the trends it actually records.",
+                color = superhumanTextMuted,
+                fontSize = 12.sp,
+                lineHeight = 17.sp
+            )
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(activitiesInRange) { activity ->
+                    AnalyticsFilterChip(
+                        text = activity.displayName,
+                        selected = selectedActivityDetail == activity
+                    ) {
+                        selectedActivityDetail = if (selectedActivityDetail == activity) null else activity
+                    }
+                }
+            }
+            selectedActivityDetail
+                ?.takeIf { it in activitiesInRange }
+                ?.let { activity ->
+                    CardioActivityProgressPanel(
+                        activity = activity,
+                        sessions = sessions,
+                        range = range,
+                        unitSystem = unitSystem
+                    )
+                }
         }
     }
 }
@@ -707,6 +744,12 @@ private fun CardioLoadQualityCard(load: CardioLoadAnalytics) {
         Spacer(Modifier.height(7.dp))
         AnalyticsFactRow("7-day load", load.recent7DayLoad.roundToInt().toString())
         AnalyticsFactRow("Baseline", load.baselineQuality.label)
+        AnalyticsFactRow(
+            "Baseline depth",
+            load.baselineScoredSessions.toString() + " scored · " +
+                load.baselineActiveWeeks.toString() + " active weeks · " +
+                load.baselineSpanDays.toString() + " days"
+        )
         AnalyticsFactRow("Scored sessions", load.scoredSessions.toString() + " of " + load.totalSessions)
         AnalyticsFactRow(
             "Measured-zone coverage",
