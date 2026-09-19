@@ -329,7 +329,9 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             if (screen == CardioScreen.HOME) onBack() else screen = CardioScreen.HOME
         }
         feedback?.let { CardioFeedback(it) }
-        cardioState.feedback?.let { CardioFeedback(it) }
+        cardioState.feedback?.let {
+            CardioFeedback(it, isError = cardioState.saveState == CardioSaveState.FAILED)
+        }
         cardioState.undo?.let {
             CardioUndoBanner(onUndo = cardioViewModel::undoQuickSave)
         }
@@ -980,7 +982,7 @@ private fun CardioHeroControlButton(
     onClick: () -> Unit
 ) {
     Column(
-        Modifier.width(58.dp).heightIn(min = 50.dp)
+        Modifier.width(72.dp).heightIn(min = 50.dp)
             .background(Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp))
             .clickable(enabled = enabled) { onClick() }
             .padding(horizontal = 6.dp, vertical = 7.dp),
@@ -1944,14 +1946,19 @@ private fun CardioUndoBanner(onUndo: () -> Unit) {
 }
 
 @Composable
-private fun CardioFeedback(message: String) {
+private fun CardioFeedback(message: String, isError: Boolean = false) {
+    val accent = if (isError) CardioCoral else CardioAccent
     Row(
-        Modifier.fillMaxWidth().background(CardioAccent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .10f), RoundedCornerShape(14.dp))
-            .border(1.dp, CardioAccent.copy(alpha = .28f), RoundedCornerShape(14.dp))
+        Modifier.fillMaxWidth()
+            .background(
+                accent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .10f),
+                RoundedCornerShape(14.dp)
+            )
+            .border(1.dp, accent.copy(alpha = .28f), RoundedCornerShape(14.dp))
             .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text("OK", color = CardioAccent, fontSize = 14.sp, fontWeight = FontWeight.Black)
+        Text(if (isError) "!" else "OK", color = accent, fontSize = 14.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.width(9.dp))
         Text(message, color = CardioInk, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
     }
