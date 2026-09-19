@@ -91,6 +91,18 @@ internal object CardioSensorRuntime {
 
     fun preferredProviderType(): CardioSensorProviderType = selectedType
 
+    fun requiredPermissions(): Array<String> = when (selectedType) {
+        CardioSensorProviderType.H19C -> H19cWearableRuntime.requiredPermissions()
+        CardioSensorProviderType.BLE_HEART_RATE -> bleProvider?.requiredPermissions() ?: emptyArray()
+        else -> emptyArray()
+    }
+
+    fun hasRequiredPermissions(context: Context): Boolean = when (selectedType) {
+        CardioSensorProviderType.H19C -> H19cWearableRuntime.hasPermissions(context)
+        CardioSensorProviderType.BLE_HEART_RATE -> bleProvider?.hasPermissions() == true
+        else -> true
+    }
+
     suspend fun reconnectPreferred() {
         ensureInitialized()
         when (selectedType) {
