@@ -2,7 +2,9 @@ name: Build Project Superhuman 11
 
 on:
   push:
-    branches: [ main, '11.2', '11.3' ]
+    branches: [ main, '11.2', '11.3', 'cardio-core-reliability', 'cardio-consolidated' ]
+  pull_request:
+    branches: [ '11.3' ]
     paths:
       - 'nextgen/**'
       - 'app/src/main/java/**'
@@ -55,7 +57,10 @@ jobs:
         with:
           gradle-version: '8.11.1'
 
-      - name: Compile Project Superhuman 11.2.0 APK
+      - name: Run Cardio and Android unit tests
+        run: gradle --no-daemon --build-cache -p nextgen :androidApp:testDebugUnitTest --tests 'com.projectsuperhuman.next.Cardio*'
+
+      - name: Compile Project Superhuman APK
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
 
       - name: Verify APK was produced

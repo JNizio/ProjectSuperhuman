@@ -1,0 +1,37 @@
+name: Cardio analytics branch verification
+
+on:
+  push:
+    branches:
+      - cardio-analytics-ux
+
+concurrency:
+  group: cardio-analytics-ux-ci
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Run Cardio unit tests
+        run: gradle --no-daemon -p nextgen :androidApp:testDebugUnitTest --tests "com.projectsuperhuman.next.CardioAnalyticsEngineTest"
+
+      - name: Assemble debug APK
+        run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
