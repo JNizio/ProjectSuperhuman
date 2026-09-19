@@ -9,8 +9,6 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -190,7 +188,6 @@ internal object OkokBiaEstimator {
 @Composable
 internal fun NativeOkokScaleCard(onSaved: () -> Unit) {
     val context = LocalContext.current
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants -> if (grants.values.all { it }) OkokScaleManager.startAutoTracking(context, onSaved) }
     LaunchedEffect(Unit) {
         val values = NativeDataHub.latestForDomain(HealthDomain.BODY)
         val h = values.firstOrNull { it.metric == "body_height_cm" }?.value
@@ -207,11 +204,11 @@ internal fun NativeOkokScaleCard(onSaved: () -> Unit) {
                 Text("Smart Scale Sync", color=Color.White, fontSize=17.sp, fontWeight=FontWeight.Black)
                 Text(OkokScaleManager.status, color=Color.White.copy(alpha=.80f), fontSize=9.sp)
             }
-            if (!OkokScaleManager.hasPermissions(context)) Box(Modifier.background(Color.White, RoundedCornerShape(13.dp)).clickable { launcher.launch(OkokScaleManager.requiredPermissions()) }.padding(horizontal=13.dp, vertical=10.dp)) { Text("ENABLE", color=Color(0xFF0A6370), fontSize=9.sp, fontWeight=FontWeight.Black) }
+            if (!OkokScaleManager.hasPermissions(context)) Box(Modifier.background(Color.White, RoundedCornerShape(13.dp)).clickable { SmartDevicesNavigationBridge.open?.invoke() }.padding(horizontal=13.dp, vertical=10.dp)) { Text("SMART DEVICES", color=Color(0xFF0A6370), fontSize=8.sp, fontWeight=FontWeight.Black) }
             else Box(Modifier.background(Color.White.copy(alpha=.12f), RoundedCornerShape(13.dp)).padding(horizontal=12.dp, vertical=9.dp)) { Text(if(OkokScaleManager.listening)"AUTO" else "PAUSED", color=Color.White, fontSize=9.sp, fontWeight=FontWeight.Black) }
         }
         OkokScaleManager.measurement?.let { m -> Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) { ScaleMetric("WEIGHT", "%.2f kg".format(m.weightKg), Modifier.weight(1f)); ScaleMetric("IMPEDANCE", m.impedanceOhm?.let { "%.0f Ω".format(it) } ?: "—", Modifier.weight(1f)) } }
-        if (OkokScaleManager.measurement == null) Text("Step on your scale normally. Weight and body composition sync automatically when the reading settles.", color=Color.White.copy(alpha=.70f), fontSize=8.sp, lineHeight=12.sp)
+        if (OkokScaleManager.measurement == null) Text(if (OkokScaleManager.hasPermissions(context)) "Step on your scale normally. Weight and body composition sync automatically when the reading settles." else "Enable and manage the scale from Settings → Smart Devices.", color=Color.White.copy(alpha=.70f), fontSize=8.sp, lineHeight=12.sp)
     }
 }
 

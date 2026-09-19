@@ -890,13 +890,15 @@ internal fun H19cWearableCard() {
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
-        if (grants.values.all { it }) H19cWearableRuntime.scanAndConnect(context)
+        if (grants.values.all { it } && state.deviceAddress != null) {
+            H19cWearableRuntime.reconnectSaved(context)
+        }
     }
 
-    fun connect() {
+    fun reconnectSaved() {
+        if (state.deviceAddress == null) return
         if (H19cWearableRuntime.hasPermissions(context)) {
-            if (state.deviceAddress != null) H19cWearableRuntime.reconnectSaved(context)
-            else H19cWearableRuntime.scanAndConnect(context)
+            H19cWearableRuntime.reconnectSaved(context)
         } else {
             permissionLauncher.launch(permissions)
         }
@@ -966,13 +968,21 @@ internal fun H19cWearableCard() {
                 H19cConnectionPhase.SCANNING -> "SCANNING…"
                 H19cConnectionPhase.CONNECTING, H19cConnectionPhase.DISCOVERING -> "CONNECTING…"
                 H19cConnectionPhase.READY -> "DISCONNECT"
-                else -> if (state.deviceAddress != null) "RECONNECT H19C" else "FIND H19C"
+                else -> if (state.deviceAddress != null) "RECONNECT H19C" else "ADD IN SMART DEVICES"
             },
             if (state.connected) Color(0xFFCA3A3A) else accent,
             Modifier.fillMaxWidth(),
-            enabled = state.phase !in setOf(H19cConnectionPhase.SCANNING, H19cConnectionPhase.CONNECTING, H19cConnectionPhase.DISCOVERING)
+            enabled = state.phase !in setOf(
+                H19cConnectionPhase.SCANNING,
+                H19cConnectionPhase.CONNECTING,
+                H19cConnectionPhase.DISCOVERING
+            )
         ) {
-            if (state.connected) H19cWearableRuntime.disconnect() else connect()
+            when {
+                state.connected -> H19cWearableRuntime.disconnect()
+                state.deviceAddress != null -> reconnectSaved()
+                else -> SmartDevicesNavigationBridge.open?.invoke()
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -998,13 +1008,15 @@ internal fun H19cMiniMetricCard(metric: HomeMiniMetric) {
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
-        if (grants.values.all { it }) H19cWearableRuntime.scanAndConnect(context)
+        if (grants.values.all { it } && state.deviceAddress != null) {
+            H19cWearableRuntime.reconnectSaved(context)
+        }
     }
 
-    fun connect() {
+    fun reconnectSaved() {
+        if (state.deviceAddress == null) return
         if (H19cWearableRuntime.hasPermissions(context)) {
-            if (state.deviceAddress != null) H19cWearableRuntime.reconnectSaved(context)
-            else H19cWearableRuntime.scanAndConnect(context)
+            H19cWearableRuntime.reconnectSaved(context)
         } else {
             permissionLauncher.launch(permissions)
         }
@@ -1037,10 +1049,13 @@ internal fun H19cMiniMetricCard(metric: HomeMiniMetric) {
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             if (!state.connected) {
                 H19cAction(
-                    if (state.deviceAddress != null) "RECONNECT" else "FIND H19C",
+                    if (state.deviceAddress != null) "RECONNECT" else "ADD IN SMART DEVICES",
                     accent,
                     Modifier.weight(1f)
-                ) { connect() }
+                ) {
+                    if (state.deviceAddress != null) reconnectSaved()
+                    else SmartDevicesNavigationBridge.open?.invoke()
+                }
             } else {
                 when (metric) {
                     HomeMiniMetric.HEART_RATE -> {

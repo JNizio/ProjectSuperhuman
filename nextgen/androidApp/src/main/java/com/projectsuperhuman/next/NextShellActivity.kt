@@ -100,6 +100,7 @@ private fun SuperhumanShell(
     val trudyState = remember { TrudyConversationState() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
+    SmartDevicesNavigationBridge.open = { page = ShellPage.SETTINGS }
 
     Surface(color = ShellBg, modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
