@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -1183,8 +1184,12 @@ private fun CardioHeroControlButton(
     onClick: () -> Unit
 ) {
     Column(
-        Modifier.width(58.dp).heightIn(min = 50.dp)
+        Modifier.width(64.dp).heightIn(min = 52.dp)
             .background(Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp))
+            .semantics {
+                role = Role.Button
+                contentDescription = label
+            }
             .clickable { onClick() }
             .padding(horizontal = 6.dp, vertical = 7.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1192,7 +1197,7 @@ private fun CardioHeroControlButton(
     ) {
         CardioVectorIcon(icon, accent, Modifier.size(18.dp))
         Spacer(Modifier.height(3.dp))
-        Text(label, color = Color.White.copy(alpha = .88f), fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Color.White.copy(alpha = .88f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -1205,6 +1210,12 @@ private fun CardioLiveHero(
 ) {
     Box(
         Modifier.fillMaxWidth()
+            .semantics {
+                liveRegion = LiveRegionMode.Polite
+                stateDescription = if (running) "Recording" else "Paused"
+                contentDescription = activity.displayName + " cardio. " + workoutType.label + ". " +
+                    if (running) "Recording." else "Paused."
+            }
             .clip(RoundedCornerShape(28.dp))
             .background(
                 Brush.linearGradient(
@@ -1229,7 +1240,7 @@ private fun CardioLiveHero(
                     Modifier.background(Color.White.copy(alpha = .13f), RoundedCornerShape(20.dp))
                         .padding(horizontal = 9.dp, vertical = 4.dp)
                 ) {
-                    Text(workoutType.label.uppercase(), color = Color.White.copy(alpha = .90f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text(workoutType.label.uppercase(), color = Color.White.copy(alpha = .90f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -1241,10 +1252,10 @@ private fun CardioLiveHero(
                 Text(
                     if (running) "RECORDING" else "PAUSED",
                     color = Color.White.copy(alpha = .88f),
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Black
                 )
-                Text("  ·  draft saved", color = Color.White.copy(alpha = .64f), fontSize = 9.sp)
+                Text("  ·  draft saved", color = Color.White.copy(alpha = .64f), fontSize = 11.sp)
             }
         }
     }
