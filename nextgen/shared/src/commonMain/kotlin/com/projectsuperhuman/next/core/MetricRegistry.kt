@@ -149,6 +149,7 @@ object CoreMetricRegistry : MetricRegistry {
         MetricDefinition("blood_oxygen_max_percent", HealthDomain.BODY, "%", aliases = setOf("spo2_max_pct"), aggregation = MetricAggregation.MIN_MAX_AVG, minAccepted = 40.0, maxAccepted = 100.0),
 
         // Exercise / wearable-style streams
+        MetricDefinition("cardio_session", HealthDomain.EXERCISE, "min", aggregation = MetricAggregation.SUM, minAccepted = 0.0, maxAccepted = 1440.0),
         MetricDefinition("exercise_set", HealthDomain.EXERCISE, "kg-reps", aggregation = MetricAggregation.SUM, minAccepted = 0.0),
         MetricDefinition("workout_session", HealthDomain.EXERCISE, "sets", aggregation = MetricAggregation.SUM, minAccepted = 0.0),
         MetricDefinition("workout_volume", HealthDomain.EXERCISE, "kg-reps", aggregation = MetricAggregation.SUM, minAccepted = 0.0),
