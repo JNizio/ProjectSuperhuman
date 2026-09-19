@@ -91,6 +91,7 @@ UI can extend beyond the initial bounded Data Vault page without loading the ent
 Consolidated additions include:
 
 - live sensor current/average/max HR and freshness/coverage state
+- functional pre-workout sensor picker with permission handling, BLE scan and device selection
 - measured HR values prefilled into the detailed finish form
 - analytics history panel
 - previous comparable-session panel
@@ -103,8 +104,9 @@ Consolidated additions include:
 
 ## Known limitations
 
-- Generic sensor selection backend exists, but a complete final sensor-picker UI is still not
-  exposed from Cardio; timer-only mode remains valid.
+- Cardio now exposes a functional pre-workout None / H19C / generic BLE HR picker. Sensor
+  switching during an already active workout remains intentionally limited; timer-only mode
+  remains valid.
 - Live HR samples are memory-backed during a session. Core workout state survives process death,
   but high-frequency sensor samples collected before process death are not yet crash-persisted.
 - Exact-distance PRs remain locked until a future live/import path supplies real `CardioLap`
