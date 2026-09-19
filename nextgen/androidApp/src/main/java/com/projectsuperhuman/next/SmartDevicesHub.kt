@@ -42,6 +42,10 @@ import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import kotlinx.coroutines.launch
 
+internal object SmartDevicesNavigationBridge {
+    var open: (() -> Unit)? = null
+}
+
 internal enum class SmartDeviceFamily {
     PLATFORM_BRIDGE,
     WEARABLE,
