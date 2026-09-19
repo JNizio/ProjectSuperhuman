@@ -631,21 +631,20 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             }
 
             CardioScreen.HISTORY -> {
-                CardioHeroStrip("HISTORY", "Cardio sessions", "Tap a session for full details, editing or deletion.", Color(0xFF7B61C9))
-                CardioSection("RECENT CARDIO", "Newest first") {
-                    if (sessions.isEmpty()) CardioEmpty("No cardio sessions yet", "Saved sessions will appear here.")
-                    sessions.forEach { session ->
-                        CardioSessionRow(session) {
-                            selectedSessionId = session.id
-                            pendingDeleteSessionId = null
-                            screen = CardioScreen.DETAIL
-                        }
+                CardioHeroStrip("HISTORY", "Cardio sessions", "Filter, search and review completed sessions.", Color(0xFF7B61C9))
+                CardioAnalyticsHistoryPanel(
+                    sessions = sessions,
+                    onOpenSession = { session ->
+                        selectedSessionId = session.id
+                        pendingDeleteSessionId = null
+                        screen = CardioScreen.DETAIL
                     }
-                    if (cardioState.canLoadMoreHistory) {
-                        Spacer(Modifier.height(8.dp))
+                )
+                if (cardioState.canLoadMoreHistory) {
+                    CardioSection("OLDER HISTORY", "The Data Vault has more sessions than are currently loaded") {
                         CardioActionCompact(
-                            "Load more",
-                            "Fetch the next 250 Cardio sessions",
+                            "Load 250 more",
+                            "Extend the analytics/history window without loading the entire archive",
                             CardioBlue
                         ) { cardioViewModel.loadMoreHistory() }
                     }
@@ -659,6 +658,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 } else {
                     CardioSessionHero(session)
                     CardioSessionOverview(session)
+                    CardioSessionComparisonPanel(session, sessions)
 
                     val load = cardioSessionLoad(session)
                     val comparison = findCardioEfficiencyComparison(session, sessions)
@@ -706,6 +706,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 val totalMinutes = remember(sessions) { sessions.sumOf { it.durationSeconds } / 60 }
                 val totalDistance = remember(sessions) { sessions.mapNotNull { it.distanceKm }.sum() }
                 CardioHeroStrip("PROGRESS", "Training analytics", "Volume, load and measured intensity.", CardioAccent)
+                CardioAnalyticsProgressPanel(sessions)
                 CardioLoadPanel(loadSnapshot)
                 CardioWeeklyProgressPanel(
                     minutes = weekMinutes,
@@ -717,11 +718,11 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     CardioZonePanel("7-DAY ZONE DISTRIBUTION", weekZoneTotals)
                 }
                 CardioSection("ACTIVITY MIX", "$totalMinutes total minutes · ${cardioFormatNumber(totalDistance)} km with distance recorded") {
-                    sessions.groupBy { it.activity }.entries.sortedByDescending { it.value.size }.take(8).forEachIndexed { index, (activity, values) ->
+                    activityGroups.entries.sortedByDescending { it.value.size }.take(8).forEachIndexed { index, (activity, values) ->
                         val minutes = values.sumOf { it.durationSeconds } / 60
                         val distance = values.mapNotNull { it.distanceKm }.sum()
                         CardioActivityProgressRow(activity, values.size, minutes, distance)
-                        if (index < sessions.groupBy { it.activity }.size.coerceAtMost(8) - 1) {
+                        if (index < activityGroups.size.coerceAtMost(8) - 1) {
                             Spacer(Modifier.height(5.dp))
                         }
                     }
@@ -738,6 +739,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
 
             CardioScreen.RECORDS -> {
                 CardioHeroStrip("PERSONAL RECORDS", "Your best work", "Only verified values from saved sessions count.", CardioGold)
+                CardioAnalyticsRecordsPanel(sessions)
                 if (sessions.isEmpty()) {
                     CardioSection("FEATURED BESTS", "Your performance board will build automatically") {
                         CardioEmpty("No records yet", "Complete or log a few sessions to start building personal bests.")
@@ -992,8 +994,13 @@ private fun CardioHeroControlButton(
     onClick: () -> Unit
 ) {
     Column(
-        Modifier.width(72.dp).heightIn(min = 50.dp)
+        Modifier.width(72.dp).heightIn(min = 52.dp)
             .background(Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp))
+            .semantics {
+                role = Role.Button
+                contentDescription = label
+                stateDescription = if (enabled) "Available" else "Disabled"
+            }
             .clickable(enabled = enabled) { onClick() }
             .padding(horizontal = 6.dp, vertical = 7.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -1001,7 +1008,7 @@ private fun CardioHeroControlButton(
     ) {
         CardioVectorIcon(icon, accent, Modifier.size(18.dp))
         Spacer(Modifier.height(3.dp))
-        Text(label, color = Color.White.copy(alpha = .88f), fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Color.White.copy(alpha = .88f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -1014,6 +1021,12 @@ private fun CardioLiveHero(
 ) {
     Box(
         Modifier.fillMaxWidth()
+            .semantics {
+                liveRegion = LiveRegionMode.Polite
+                stateDescription = if (running) "Recording" else "Paused"
+                contentDescription = activity.displayName + " cardio. " + workoutType.label + ". " +
+                    if (running) "Recording." else "Paused."
+            }
             .clip(RoundedCornerShape(28.dp))
             .background(
                 Brush.linearGradient(
@@ -1038,7 +1051,7 @@ private fun CardioLiveHero(
                     Modifier.background(Color.White.copy(alpha = .13f), RoundedCornerShape(20.dp))
                         .padding(horizontal = 9.dp, vertical = 4.dp)
                 ) {
-                    Text(workoutType.label.uppercase(), color = Color.White.copy(alpha = .90f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text(workoutType.label.uppercase(), color = Color.White.copy(alpha = .90f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -1050,10 +1063,10 @@ private fun CardioLiveHero(
                 Text(
                     if (running) "RECORDING" else "PAUSED",
                     color = Color.White.copy(alpha = .88f),
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Black
                 )
-                Text("  ·  draft saved", color = Color.White.copy(alpha = .64f), fontSize = 9.sp)
+                Text("  ·  draft saved", color = Color.White.copy(alpha = .64f), fontSize = 11.sp)
             }
         }
     }
