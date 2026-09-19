@@ -9,32 +9,9 @@ import android.bluetooth.le.ScanSettings
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
@@ -251,34 +228,4 @@ internal object OkokBiaEstimator {
     }
 }
 
-@Composable
-internal fun NativeOkokScaleCard(onSaved: () -> Unit) {
-    val context = LocalContext.current
-    LaunchedEffect(Unit) {
-        val values = NativeDataHub.latestForDomain(HealthDomain.BODY)
-        val h = values.firstOrNull { it.metric == "body_height_cm" }?.value
-        val male = values.firstOrNull { it.metric == "body_sex_code" }?.value?.let { it >= 0.5 }
-        OkokScaleManager.setProfile(h, male)
-        if (OkokScaleManager.hasPermissions(context) && OkokScaleManager.isEnabled(context)) {
-            OkokScaleManager.startAutoTracking(context, onSaved)
-        }
-    }
-    DisposableEffect(Unit) { onDispose { OkokScaleManager.stopAutoTracking() } }
-
-    Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF0B3554), Color(0xFF0A6370), Color(0xFF138A78))), RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("AUTOMATIC BODY SCAN", color = Color.White.copy(alpha=.60f), fontSize=8.sp, fontWeight=FontWeight.Black)
-                Text("Smart Scale Sync", color=Color.White, fontSize=17.sp, fontWeight=FontWeight.Black)
-                Text(OkokScaleManager.status, color=Color.White.copy(alpha=.80f), fontSize=9.sp)
-            }
-            if (!OkokScaleManager.hasPermissions(context)) Box(Modifier.background(Color.White, RoundedCornerShape(13.dp)).clickable { SmartDevicesNavigationBridge.open?.invoke() }.padding(horizontal=13.dp, vertical=10.dp)) { Text("SMART DEVICES", color=Color(0xFF0A6370), fontSize=8.sp, fontWeight=FontWeight.Black) }
-            else Box(Modifier.background(Color.White.copy(alpha=.12f), RoundedCornerShape(13.dp)).padding(horizontal=12.dp, vertical=9.dp)) { Text(if(OkokScaleManager.listening)"AUTO" else "PAUSED", color=Color.White, fontSize=9.sp, fontWeight=FontWeight.Black) }
-        }
-        OkokScaleManager.measurement?.let { m -> Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) { ScaleMetric("WEIGHT", "%.2f kg".format(m.weightKg), Modifier.weight(1f)); ScaleMetric("IMPEDANCE", m.impedanceOhm?.let { "%.0f Ω".format(it) } ?: "—", Modifier.weight(1f)) } }
-        if (OkokScaleManager.measurement == null) Text(if (OkokScaleManager.hasPermissions(context)) "Step on your scale normally. Weight and body composition sync automatically when the reading settles." else "Enable and manage the scale from Settings → Smart Devices.", color=Color.White.copy(alpha=.70f), fontSize=8.sp, lineHeight=12.sp)
-    }
-}
-
-@Composable private fun ScaleMetric(label:String,value:String,modifier:Modifier){Column(modifier.background(Color.White.copy(alpha=.10f),RoundedCornerShape(14.dp)).padding(11.dp)){Text(label,color=Color.White.copy(alpha=.55f),fontSize=7.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(4.dp));Text(value,color=Color.White,fontSize=12.sp,fontWeight=FontWeight.Black)}}
 private fun oneDecimal(value:Double):Double=round(value*10.0)/10.0
