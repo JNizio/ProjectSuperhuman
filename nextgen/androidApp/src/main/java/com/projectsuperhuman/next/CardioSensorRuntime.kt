@@ -111,6 +111,7 @@ internal object CardioSensorRuntime {
 
     fun hasSavedBleDevice(): Boolean = bleProvider?.hasSavedDevice() == true
     fun savedBleDeviceName(): String? = bleProvider?.savedDeviceName()
+    fun shouldAutoReconnectBle(): Boolean = bleProvider?.shouldAutoReconnect() == true
     fun bleRequiredPermissions(): Array<String> = bleProvider?.requiredPermissions() ?: emptyArray()
     fun hasBlePermissions(): Boolean = bleProvider?.hasPermissions() == true
 
