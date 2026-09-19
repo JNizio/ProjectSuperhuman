@@ -33,7 +33,23 @@ internal fun CardioTrendChart(
     modifier: Modifier = Modifier
 ) {
     val values = remember(series) { series.points.mapNotNull { it.value } }
-    val description = remember(series, title) {
+    val qualityText = remember(series) {
+        val qualities = series.points
+            .filter { it.value != null && it.quality != CardioMetricQuality.UNAVAILABLE }
+            .map { it.quality }
+            .distinct()
+        when {
+            qualities.isEmpty() -> "Unavailable"
+            qualities.size == 1 -> when (qualities.single()) {
+                CardioMetricQuality.MEASURED -> "Measured"
+                CardioMetricQuality.DERIVED -> "Derived"
+                CardioMetricQuality.ESTIMATED -> "Estimated"
+                CardioMetricQuality.UNAVAILABLE -> "Unavailable"
+            }
+            else -> "Mixed data quality"
+        }
+    }
+    val description = remember(series, title, qualityText) {
         val available = series.points.filter { it.value != null }
         if (available.isEmpty()) {
             title + ". No recorded values in this range."
@@ -56,6 +72,12 @@ internal fun CardioTrendChart(
             color = superhumanTextPrimary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold
+        )
+        Text(
+            qualityText,
+            color = superhumanTextMuted,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold
         )
         Spacer(Modifier.height(4.dp))
         if (values.isEmpty()) {
