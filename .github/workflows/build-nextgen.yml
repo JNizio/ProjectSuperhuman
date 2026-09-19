@@ -2,7 +2,9 @@ name: Build Project Superhuman 11
 
 on:
   push:
-    branches: [ main, '11.2', '11.3', 'cardio-core-reliability' ]
+    branches: [ main, '11.2', '11.3', 'cardio-core-reliability', 'cardio-consolidated' ]
+  pull_request:
+    branches: [ '11.3' ]
     paths:
       - 'nextgen/**'
       - 'app/src/main/java/**'
