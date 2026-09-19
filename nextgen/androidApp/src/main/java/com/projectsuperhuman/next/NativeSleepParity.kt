@@ -1,6 +1,5 @@
 package com.projectsuperhuman.next
 
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -22,7 +21,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,10 +32,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.PermissionController
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -74,11 +70,9 @@ private enum class SleepViewMode { RECORDED, INTERPRETED }
 @Composable
 internal fun NativeSleepParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var snapshot by remember { mutableStateOf<NativeSleepSnapshot?>(null) }
     var connected by remember { mutableStateOf(false) }
     var syncing by remember { mutableStateOf(false) }
-    var connectionChecked by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Checking Health Connect…") }
     var viewMode by remember { mutableStateOf(SleepViewMode.INTERPRETED) }
 
@@ -93,42 +87,14 @@ internal fun NativeSleepParityScreen(onBack: () -> Unit, openLegacy: () -> Unit)
         refresh()
     }
 
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = PermissionController.createRequestPermissionResultContract()
-    ) { granted ->
-        if (SleepHealthConnect.permission in granted) {
-            connected = true
-            status = "Connected"
-            scope.launch { sync() }
-        } else {
-            connected = false
-            status = "Sleep access wasn’t enabled"
-        }
-    }
-
-    fun connectOrSync() {
-        scope.launch {
-            when (SleepHealthConnect.availability(context)) {
-                HealthConnectClient.SDK_AVAILABLE -> {
-                    if (SleepHealthConnect.hasPermission(context)) sync()
-                    else permissionLauncher.launch(setOf(SleepHealthConnect.permission))
-                }
-                HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED ->
-                    status = "Health Connect needs an update before sleep can sync"
-                else -> status = "Health Connect isn’t available on this device"
-            }
-        }
-    }
-
     LaunchedEffect(Unit) {
         refresh()
         val available = SleepHealthConnect.availability(context) == HealthConnectClient.SDK_AVAILABLE
         connected = available && SleepHealthConnect.hasPermission(context)
-        connectionChecked = true
         status = when {
             !available -> "Health Connect isn’t available on this device"
             connected -> "Connected"
-            else -> "Connect to bring in sleep from your watch or health apps"
+            else -> "No sleep service connected · manage sources in Smart Devices"
         }
         if (connected) sync()
     }
@@ -152,7 +118,7 @@ internal fun NativeSleepParityScreen(onBack: () -> Unit, openLegacy: () -> Unit)
         } else {
             EmptySleepCard(connected)
         }
-        HealthConnectCard(connected, connectionChecked, syncing, status, ::connectOrSync)
+        SleepDataSourceCard(connected = connected, syncing = syncing, status = status)
         Spacer(Modifier.height(22.dp))
     }
 }
@@ -416,45 +382,56 @@ private fun SleepTrendCard(s: NativeSleepSnapshot) {
 }
 
 @Composable
-private fun HealthConnectCard(connected: Boolean, checked: Boolean, syncing: Boolean, status: String, onAction: () -> Unit) {
+private fun SleepDataSourceCard(
+    connected: Boolean,
+    syncing: Boolean,
+    status: String
+) {
     Column(
         Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp))
             .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(11.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                Text("Health Connect", color = SleepInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text("Sleep data source", color = SleepInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 Text(
-                    if (connected) "Sleep data is connected and ready to sync" else "Connect your sleep data securely",
-                    color = SleepMuted, fontSize = 9.sp, lineHeight = 14.sp
+                    if (connected) "Health Connect · historical/backfill source"
+                    else "No external sleep source connected",
+                    color = SleepMuted,
+                    fontSize = 9.sp,
+                    lineHeight = 14.sp
                 )
             }
             Box(
-                Modifier.background(if (connected) SleepGood.copy(alpha = .12f) else SleepPurple.copy(alpha = .10f), RoundedCornerShape(99.dp))
-                    .padding(horizontal = 9.dp, vertical = 6.dp)
+                Modifier.background(
+                    if (connected) SleepGood.copy(alpha = .12f) else SleepPurple.copy(alpha = .10f),
+                    RoundedCornerShape(99.dp)
+                ).padding(horizontal = 9.dp, vertical = 6.dp)
             ) {
                 Text(
-                    when { !checked -> "CHECKING"; connected -> "CONNECTED"; else -> "NOT CONNECTED" },
+                    when {
+                        syncing -> "SYNCING"
+                        connected -> "CONNECTED"
+                        else -> "OFFLINE"
+                    },
                     color = if (connected) SleepGood else SleepPurple,
                     fontSize = 7.sp,
                     fontWeight = FontWeight.Black
                 )
             }
         }
+
+        Text(status, color = SleepMuted, fontSize = 8.sp, lineHeight = 12.sp)
+
         Box(
-            Modifier.fillMaxWidth().background(if (connected) Color(0xFFF0F3FF) else SleepPurple, RoundedCornerShape(15.dp))
-                .superhumanClickable(enabled = !syncing, onClick = onAction).padding(vertical = 12.dp),
+            Modifier.fillMaxWidth().background(Color(0xFFF0F3FF), RoundedCornerShape(15.dp))
+                .superhumanClickable { SmartDevicesNavigationBridge.open?.invoke() }
+                .padding(vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                when { syncing -> "SYNCING…"; connected -> "SYNC NOW"; else -> "CONNECT HEALTH CONNECT" },
-                color = if (connected) SleepPurple else Color.White,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black
-            )
+            Text("MANAGE SMART DEVICES", color = SleepPurple, fontSize = 9.sp, fontWeight = FontWeight.Black)
         }
-        Text(status, color = SleepMuted, fontSize = 8.sp)
     }
 }
 
@@ -466,8 +443,8 @@ private fun EmptySleepCard(connected: Boolean) {
     ) {
         Text("No sleep data yet", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
         Text(
-            if (connected) "Sync after your next recorded night, or check that your sleep app is sharing data with Health Connect."
-            else "Connect Health Connect to import sleep recorded by compatible apps and devices.",
+            if (connected) "Sleep will refresh from your configured historical source when this screen loads."
+            else "Add a sleep-capable service from Settings → Smart Devices.",
             color = SleepMuted, fontSize = 10.sp, lineHeight = 15.sp
         )
     }
