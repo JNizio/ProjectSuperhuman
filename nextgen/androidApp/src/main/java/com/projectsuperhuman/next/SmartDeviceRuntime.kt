@@ -4,6 +4,9 @@ import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
@@ -14,6 +17,10 @@ import kotlinx.coroutines.launch
  */
 internal object SmartDeviceRuntime {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+
+    private val _liveHeartRateReadings = MutableStateFlow<List<SmartDeviceReading>>(emptyList())
+    val liveHeartRateReadings: StateFlow<List<SmartDeviceReading>> = _liveHeartRateReadings.asStateFlow()
+
     private var initialized = false
 
     @Synchronized
@@ -24,6 +31,28 @@ internal object SmartDeviceRuntime {
         val appContext = context.applicationContext
         H19cWearableRuntime.initialize(appContext)
         CardioSensorRuntime.initialize(appContext)
+
+        fun publishHeartRateReadings() {
+            _liveHeartRateReadings.value = buildList {
+                SmartDeviceObservationMapper.h19cHeartRate(H19cWearableRuntime.state.value)?.let { add(it) }
+                SmartDeviceObservationMapper.bleHeartRate(CardioSensorRuntime.bleSensorState.value)?.let { add(it) }
+            }.distinctBy { reading ->
+                reading.provenance.device.deviceId
+                    ?: "${reading.provenance.sourceLabel}:${reading.provenance.device.displayName}"
+            }
+        }
+
+        scope.launch {
+            H19cWearableRuntime.state.collect {
+                publishHeartRateReadings()
+            }
+        }
+        scope.launch {
+            CardioSensorRuntime.bleSensorState.collect {
+                publishHeartRateReadings()
+            }
+        }
+        publishHeartRateReadings()
 
         if (
             H19cWearableRuntime.state.value.deviceAddress != null &&
