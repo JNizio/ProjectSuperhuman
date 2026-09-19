@@ -192,7 +192,7 @@ class CardioCoreReliabilityTest {
     @Test
     fun explicitDiscardRemovesOnlyLiveDraft() = runTest {
         val fixture = fixture()
-        fixture.coordinator.start(CardioActivityType.JUMP_ROPE, CardioWorkoutType.HIIT)
+        fixture.coordinator.start(CardioActivityType.JUMP_ROPE, CardioWorkoutType.INTERVALS)
         assertNotNull(fixture.store.load().draft)
 
         assertTrue(fixture.coordinator.discard())
