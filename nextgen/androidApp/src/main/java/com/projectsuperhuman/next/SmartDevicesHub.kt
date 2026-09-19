@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -20,7 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -68,11 +66,6 @@ internal data class SmartDeviceSupport(
     val nativePath: String
 )
 
-/**
- * User-facing support catalogue. This describes only integrations that actually exist in the app.
- * Vendor devices that publish through Health Connect are represented by the bridge rather than
- * pretending Project Superhuman speaks every proprietary watch protocol directly.
- */
 internal object SmartDeviceCatalog {
     val supported: List<SmartDeviceSupport> = listOf(
         SmartDeviceSupport(
@@ -112,15 +105,15 @@ internal object SmartDeviceCatalog {
 
 private enum class DeviceBluetoothAction {
     NONE,
-    H19C_CONNECT,
+    H19C_ADD,
+    H19C_RECONNECT,
     BLE_SCAN,
-    SCALE_LISTEN
+    BLE_RECONNECT,
+    SCALE_ENABLE
 }
 
 @Composable
-internal fun SmartDevicesHub(
-    modifier: Modifier = Modifier
-) {
+internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -128,7 +121,7 @@ internal fun SmartDevicesHub(
     CardioSensorRuntime.initialize(context)
 
     val h19c by H19cWearableRuntime.state.collectAsState()
-    val cardioSensor by CardioSensorRuntime.state.collectAsState()
+    val bleSensor by CardioSensorRuntime.bleSensorState.collectAsState()
     val bleDevices by CardioSensorRuntime.bleDevices.collectAsState()
 
     var healthConnected by remember { mutableStateOf(false) }
@@ -136,7 +129,14 @@ internal fun SmartDevicesHub(
     var healthStatus by remember { mutableStateOf("Checking Health Connect…") }
     var healthSyncing by remember { mutableStateOf(false) }
     var pendingBluetoothAction by remember { mutableStateOf(DeviceBluetoothAction.NONE) }
-    var startedScaleHere by remember { mutableStateOf(false) }
+    var confirmForgetH19c by remember { mutableStateOf(false) }
+    var confirmForgetBle by remember { mutableStateOf(false) }
+    var confirmDisableScale by remember { mutableStateOf(false) }
+    var confirmDisconnectHealth by remember { mutableStateOf(false) }
+
+    val bleSaved = CardioSensorRuntime.hasSavedBleDevice()
+    val bleSavedName = CardioSensorRuntime.savedBleDeviceName()
+    val scaleEnabled = OkokScaleManager.isEnabled(context)
 
     suspend fun refreshHealthState() {
         when (GlobalHealthConnect.availability(context)) {
@@ -145,8 +145,8 @@ internal fun SmartDevicesHub(
                 healthAllPermissions = GlobalHealthConnect.hasAllCorePermissions(context)
                 healthStatus = when {
                     healthAllPermissions -> "Connected · all requested health permissions available"
-                    healthConnected -> "Connected · some health permissions are still optional/missing"
-                    else -> "Ready to connect compatible watches and health apps"
+                    healthConnected -> "Connected · some health permissions are missing"
+                    else -> "Not connected · add compatible health apps here"
                 }
             }
             HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> {
@@ -186,16 +186,17 @@ internal fun SmartDevicesHub(
     fun runBluetoothAction(action: DeviceBluetoothAction) {
         pendingBluetoothAction = DeviceBluetoothAction.NONE
         when (action) {
-            DeviceBluetoothAction.H19C_CONNECT -> scope.launch {
-                CardioSensorRuntime.selectH19c(connect = true)
-            }
+            DeviceBluetoothAction.H19C_ADD -> H19cWearableRuntime.scanAndConnect(context)
+            DeviceBluetoothAction.H19C_RECONNECT -> H19cWearableRuntime.reconnectSaved(context)
             DeviceBluetoothAction.BLE_SCAN -> scope.launch {
                 CardioSensorRuntime.selectBle(connectPreferred = false)
                 CardioSensorRuntime.scanBle()
             }
-            DeviceBluetoothAction.SCALE_LISTEN -> {
-                startedScaleHere = true
-                OkokScaleManager.startAutoTracking(context)
+            DeviceBluetoothAction.BLE_RECONNECT -> scope.launch {
+                CardioSensorRuntime.selectBle(connectPreferred = true)
+            }
+            DeviceBluetoothAction.SCALE_ENABLE -> {
+                OkokScaleManager.enableAndStart(context)
             }
             DeviceBluetoothAction.NONE -> Unit
         }
@@ -210,15 +211,14 @@ internal fun SmartDevicesHub(
     }
 
     fun ensureBluetoothPermissions(action: DeviceBluetoothAction, permissions: Array<String>) {
-        if (permissions.isEmpty() || permissions.all { permission ->
-                androidx.core.content.ContextCompat.checkSelfPermission(
-                    context,
-                    permission
-                ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-            }
-        ) {
-            runBluetoothAction(action)
-        } else {
+        val granted = permissions.isEmpty() || permissions.all { permission ->
+            androidx.core.content.ContextCompat.checkSelfPermission(
+                context,
+                permission
+            ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+        if (granted) runBluetoothAction(action)
+        else {
             pendingBluetoothAction = action
             bluetoothPermissionLauncher.launch(permissions)
         }
@@ -226,12 +226,6 @@ internal fun SmartDevicesHub(
 
     LaunchedEffect(Unit) {
         refreshHealthState()
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            if (startedScaleHere) OkokScaleManager.stopAutoTracking()
-        }
     }
 
     Column(
@@ -244,128 +238,140 @@ internal fun SmartDevicesHub(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
+                Text("Smart Devices", color = superhumanTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
                 Text(
-                    "Smart Devices",
-                    color = superhumanTextPrimary,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Text(
-                    "One place for watches, sensors, scales and health-data bridges.",
+                    "One place to add, connect, disconnect and inspect every device or health service.",
                     color = superhumanTextMuted,
-                    fontSize = 10.sp
+                    fontSize = 10.sp,
+                    lineHeight = 14.sp
                 )
             }
-            Box(
-                Modifier
-                    .background(superhumanBlue.copy(alpha = .12f), RoundedCornerShape(16.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    "DEVICE HUB",
-                    color = superhumanBlue,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
+            DeviceBadge("DEVICE HUB", superhumanBlue)
         }
 
         Text(
-            "Pair and manage devices here. Exercise, Body, Sleep and other modules consume the same native Data Vault instead of maintaining separate device accounts.",
+            "Modules consume measurements from this device layer. They no longer own pairing, Bluetooth permissions or account connection flows.",
             color = superhumanTextMuted,
             fontSize = 9.sp,
             lineHeight = 14.sp
         )
 
-        DeviceHubCard(
-            title = "Health Connect",
-            subtitle = healthStatus,
-            status = when {
-                healthAllPermissions -> "CONNECTED"
-                healthConnected -> "PARTIAL"
-                else -> "NOT CONNECTED"
-            },
-            healthy = healthConnected,
-            capabilities = "Sleep · HR · steps · calories · workouts",
-            action = if (healthSyncing) "SYNCING…" else if (healthConnected) "SYNC NOW" else "CONNECT",
-            actionEnabled = !healthSyncing,
-            onAction = {
-                scope.launch {
-                    if (GlobalHealthConnect.availability(context) != HealthConnectClient.SDK_AVAILABLE) {
-                        refreshHealthState()
-                    } else if (healthConnected) {
-                        syncHealthConnect()
-                    } else {
-                        healthPermissionLauncher.launch(GlobalHealthConnect.requestPermissions(context))
-                    }
-                }
-            }
-        )
+        SmartDeviceSectionLabel("PHYSICAL DEVICES")
 
         DeviceHubCard(
             title = h19c.deviceName ?: "H19C / Da Fit wearable",
-            subtitle = h19c.status,
+            subtitle = buildString {
+                append(h19c.status)
+                h19c.lastHeartRateEpochMs?.let { append(" · HR ").append(deviceFreshness(it)) }
+            },
             status = when (h19c.phase) {
                 H19cConnectionPhase.READY -> "CONNECTED"
                 H19cConnectionPhase.SCANNING -> "SCANNING"
                 H19cConnectionPhase.CONNECTING, H19cConnectionPhase.DISCOVERING -> "CONNECTING"
                 H19cConnectionPhase.ERROR -> "ERROR"
-                else -> if (h19c.deviceAddress != null) "SAVED" else "NOT CONNECTED"
+                else -> if (h19c.deviceAddress != null) "SAVED" else "NOT ADDED"
             },
             healthy = h19c.connected,
-            capabilities = "Direct BLE · HR · SpO₂ · steps · activity · sleep",
-            action = if (h19c.connected) "DISCONNECT" else if (h19c.deviceAddress != null) "RECONNECT" else "ADD WATCH",
-            actionEnabled = h19c.phase !in setOf(
-                H19cConnectionPhase.SCANNING,
-                H19cConnectionPhase.CONNECTING,
-                H19cConnectionPhase.DISCOVERING
-            ),
+            capabilities = "Direct BLE · HR · SpO₂ · steps · sleep" +
+                (h19c.batteryPercent?.let { " · battery $it%" } ?: ""),
+            action = when {
+                h19c.connected -> "DISCONNECT"
+                h19c.deviceAddress != null -> "RECONNECT"
+                else -> "ADD WATCH"
+            },
             onAction = {
-                if (h19c.connected) {
-                    H19cWearableRuntime.disconnect()
-                } else {
-                    scope.launch { CardioSensorRuntime.selectH19c(connect = false) }
-                    ensureBluetoothPermissions(
-                        DeviceBluetoothAction.H19C_CONNECT,
+                confirmForgetH19c = false
+                when {
+                    h19c.connected -> H19cWearableRuntime.disconnect()
+                    h19c.deviceAddress != null -> ensureBluetoothPermissions(
+                        DeviceBluetoothAction.H19C_RECONNECT,
                         H19cWearableRuntime.requiredPermissions()
                     )
+                    else -> ensureBluetoothPermissions(
+                        DeviceBluetoothAction.H19C_ADD,
+                        H19cWearableRuntime.requiredPermissions()
+                    )
+                }
+            },
+            secondaryAction = if (h19c.deviceAddress != null) {
+                if (confirmForgetH19c) "TAP TO CONFIRM FORGET" else "FORGET DEVICE"
+            } else null,
+            secondaryDanger = true,
+            onSecondaryAction = {
+                if (!confirmForgetH19c) {
+                    confirmForgetH19c = true
+                } else {
+                    H19cWearableRuntime.forget(context)
+                    confirmForgetH19c = false
                 }
             }
         )
 
+        val bleConnected = bleSensor.connection == CardioSensorConnectionState.CONNECTED
         DeviceHubCard(
-            title = "Bluetooth heart-rate sensors",
-            subtitle = cardioSensor.message,
-            status = when (cardioSensor.connection) {
+            title = bleSensor.provenance?.deviceName ?: bleSavedName ?: "Bluetooth heart-rate sensor",
+            subtitle = buildString {
+                append(bleSensor.message)
+                bleSensor.lastSampleEpochMs?.let { append(" · HR ").append(deviceFreshness(it)) }
+            },
+            status = when (bleSensor.connection) {
                 CardioSensorConnectionState.CONNECTED -> "CONNECTED"
                 CardioSensorConnectionState.SCANNING -> "SCANNING"
                 CardioSensorConnectionState.CONNECTING -> "CONNECTING"
                 CardioSensorConnectionState.RECONNECTING -> "RECONNECTING"
                 CardioSensorConnectionState.STALE -> "STALE"
                 CardioSensorConnectionState.ERROR -> "ERROR"
-                else -> "AVAILABLE"
+                else -> if (bleSaved) "SAVED" else "NOT ADDED"
             },
-            healthy = cardioSensor.providerType == CardioSensorProviderType.BLE_HEART_RATE &&
-                cardioSensor.connection == CardioSensorConnectionState.CONNECTED,
-            capabilities = "Standard BLE HR · live Cardio telemetry",
-            action = if (cardioSensor.providerType == CardioSensorProviderType.BLE_HEART_RATE &&
-                cardioSensor.connection == CardioSensorConnectionState.CONNECTED) "DISCONNECT" else "SCAN",
+            healthy = bleConnected,
+            capabilities = "Standard BLE · live heart rate · Cardio telemetry",
+            action = when {
+                bleConnected -> "DISCONNECT"
+                bleSaved -> "RECONNECT"
+                else -> "ADD HR SENSOR"
+            },
             onAction = {
-                if (cardioSensor.providerType == CardioSensorProviderType.BLE_HEART_RATE &&
-                    cardioSensor.connection == CardioSensorConnectionState.CONNECTED
-                ) {
-                    scope.launch { CardioSensorRuntime.disconnectSelected() }
-                } else {
-                    scope.launch {
-                        CardioSensorRuntime.selectBle(connectPreferred = false)
-                        val permissions = CardioSensorRuntime.requiredPermissions()
-                        ensureBluetoothPermissions(DeviceBluetoothAction.BLE_SCAN, permissions)
+                confirmForgetBle = false
+                when {
+                    bleConnected -> scope.launch { CardioSensorRuntime.disconnectBle() }
+                    bleSaved -> ensureBluetoothPermissions(
+                        DeviceBluetoothAction.BLE_RECONNECT,
+                        CardioSensorRuntime.run {
+                            selectBle(connectPreferred = false)
+                            requiredPermissions()
+                        }
+                    )
+                    else -> {
+                        scope.launch { CardioSensorRuntime.selectBle(connectPreferred = false) }
+                        ensureBluetoothPermissions(
+                            DeviceBluetoothAction.BLE_SCAN,
+                            CardioSensorRuntime.requiredPermissions()
+                        )
                     }
+                }
+            },
+            secondaryAction = if (bleSaved) {
+                if (confirmForgetBle) "TAP TO CONFIRM FORGET" else "FORGET DEVICE"
+            } else null,
+            secondaryDanger = true,
+            onSecondaryAction = {
+                if (!confirmForgetBle) {
+                    confirmForgetBle = true
+                } else {
+                    scope.launch { CardioSensorRuntime.forgetBleDevice() }
+                    confirmForgetBle = false
                 }
             }
         )
 
-        if (bleDevices.isNotEmpty()) {
+        if (bleDevices.isNotEmpty() && !bleConnected) {
+            Text(
+                "NEARBY HEART-RATE SENSORS",
+                color = superhumanTextMuted,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = .8.sp
+            )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(bleDevices, key = { it.sensorId }) { device ->
                     Column(
@@ -382,18 +388,9 @@ internal fun SmartDevicesHub(
                             }
                             .padding(11.dp)
                     ) {
-                        Text(
-                            device.displayName,
-                            color = superhumanTextPrimary,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(Modifier.height(3.dp))
-                        Text(
-                            "Signal ${device.rssi} dBm · tap to add",
-                            color = superhumanTextMuted,
-                            fontSize = 9.sp
-                        )
+                        Text(device.displayName, color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.heightIn(min = 3.dp))
+                        Text("Signal ${device.rssi} dBm · tap to connect", color = superhumanTextMuted, fontSize = 9.sp)
                     }
                 }
             }
@@ -402,20 +399,92 @@ internal fun SmartDevicesHub(
         DeviceHubCard(
             title = "OKOK smart scale",
             subtitle = OkokScaleManager.status,
-            status = if (OkokScaleManager.listening) "LISTENING" else
-                if (OkokScaleManager.lastSavedAt != null) "READY" else "AVAILABLE",
-            healthy = OkokScaleManager.lastSavedAt != null,
-            capabilities = "Direct BLE · weight · impedance · body composition",
-            action = if (OkokScaleManager.listening) "STOP" else "LISTEN NOW",
+            status = when {
+                !scaleEnabled -> "DISABLED"
+                OkokScaleManager.listening -> "LISTENING"
+                OkokScaleManager.lastSavedAt != null -> "READY"
+                else -> "ENABLED"
+            },
+            healthy = scaleEnabled && (OkokScaleManager.listening || OkokScaleManager.lastSavedAt != null),
+            capabilities = "Direct BLE · weight · impedance · body composition" +
+                (OkokScaleManager.lastSavedAt?.let { " · last measurement ${deviceFreshness(it)}" } ?: ""),
+            action = when {
+                OkokScaleManager.listening -> "DISCONNECT"
+                !scaleEnabled -> "ENABLE SCALE"
+                else -> "LISTEN NOW"
+            },
             onAction = {
+                confirmDisableScale = false
                 if (OkokScaleManager.listening) {
                     OkokScaleManager.stopAutoTracking()
-                    startedScaleHere = false
                 } else {
                     ensureBluetoothPermissions(
-                        DeviceBluetoothAction.SCALE_LISTEN,
+                        DeviceBluetoothAction.SCALE_ENABLE,
                         OkokScaleManager.requiredPermissions()
                     )
+                }
+            },
+            secondaryAction = if (scaleEnabled) {
+                if (confirmDisableScale) "TAP TO CONFIRM DISABLE" else "FORGET / DISABLE"
+            } else null,
+            secondaryDanger = true,
+            onSecondaryAction = {
+                if (!confirmDisableScale) {
+                    confirmDisableScale = true
+                } else {
+                    OkokScaleManager.forget(context)
+                    confirmDisableScale = false
+                }
+            }
+        )
+
+        SmartDeviceSectionLabel("CONNECTED SERVICES")
+
+        DeviceHubCard(
+            title = "Health Connect",
+            subtitle = healthStatus,
+            status = when {
+                healthAllPermissions -> "CONNECTED"
+                healthConnected -> "PARTIAL"
+                else -> "NOT CONNECTED"
+            },
+            healthy = healthConnected,
+            capabilities = "Historical/backfill · sleep · HR · steps · calories · workouts",
+            action = when {
+                healthSyncing -> "SYNCING…"
+                healthConnected -> "SYNC NOW"
+                else -> "CONNECT"
+            },
+            actionEnabled = !healthSyncing,
+            onAction = {
+                confirmDisconnectHealth = false
+                scope.launch {
+                    when {
+                        GlobalHealthConnect.availability(context) != HealthConnectClient.SDK_AVAILABLE ->
+                            refreshHealthState()
+                        healthConnected -> syncHealthConnect()
+                        else -> healthPermissionLauncher.launch(GlobalHealthConnect.requestPermissions(context))
+                    }
+                }
+            },
+            secondaryAction = if (healthConnected) {
+                if (confirmDisconnectHealth) "TAP TO CONFIRM DISCONNECT" else "DISCONNECT"
+            } else null,
+            secondaryDanger = true,
+            onSecondaryAction = {
+                if (!confirmDisconnectHealth) {
+                    confirmDisconnectHealth = true
+                } else {
+                    scope.launch {
+                        val disconnected = GlobalHealthConnect.disconnect(context)
+                        healthStatus = if (disconnected) {
+                            "Disconnected · previously imported history remains in Project Superhuman"
+                        } else {
+                            "Could not revoke Health Connect access"
+                        }
+                        refreshHealthState()
+                    }
+                    confirmDisconnectHealth = false
                 }
             }
         )
@@ -426,20 +495,37 @@ internal fun SmartDevicesHub(
                 .background(superhumanSurfaceSoft, RoundedCornerShape(16.dp))
                 .padding(13.dp)
         ) {
+            Text("SOURCE RULES", color = superhumanTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.heightIn(min = 4.dp))
             Text(
-                "COMPATIBILITY MODEL",
-                color = superhumanTextMuted,
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                "Project Superhuman can support many watches through Health Connect, standard Bluetooth sensors through published BLE profiles, and selected devices through direct adapters. Proprietary devices still need an explicit adapter or their companion app to publish data through Health Connect.",
+                "Direct devices are the fast path for live physiology. Health Connect is treated as delayed historical/backfill data. Disconnecting or forgetting a device never deletes measurements already stored in the Data Vault.",
                 color = superhumanTextPrimary,
                 fontSize = 9.sp,
                 lineHeight = 14.sp
             )
         }
+    }
+}
+
+@Composable
+private fun SmartDeviceSectionLabel(label: String) {
+    Text(
+        label,
+        color = superhumanTextMuted,
+        fontSize = 8.sp,
+        fontWeight = FontWeight.Black,
+        letterSpacing = 1.0.sp
+    )
+}
+
+@Composable
+private fun DeviceBadge(label: String, accent: androidx.compose.ui.graphics.Color) {
+    Box(
+        Modifier
+            .background(accent.copy(alpha = .12f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Text(label, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -452,7 +538,10 @@ private fun DeviceHubCard(
     capabilities: String,
     action: String,
     actionEnabled: Boolean = true,
-    onAction: () -> Unit
+    onAction: () -> Unit,
+    secondaryAction: String? = null,
+    secondaryDanger: Boolean = false,
+    onSecondaryAction: () -> Unit = {}
 ) {
     Column(
         Modifier
@@ -463,18 +552,8 @@ private fun DeviceHubCard(
     ) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text(
-                    title,
-                    color = superhumanTextPrimary,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Text(
-                    capabilities,
-                    color = superhumanTextMuted,
-                    fontSize = 8.sp,
-                    lineHeight = 12.sp
-                )
+                Text(title, color = superhumanTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text(capabilities, color = superhumanTextMuted, fontSize = 8.sp, lineHeight = 12.sp)
             }
             Box(
                 Modifier
@@ -493,35 +572,69 @@ private fun DeviceHubCard(
             }
         }
 
-        Text(
-            subtitle,
-            color = superhumanTextMuted,
-            fontSize = 9.sp,
-            lineHeight = 13.sp
-        )
+        Text(subtitle, color = superhumanTextMuted, fontSize = 9.sp, lineHeight = 13.sp)
 
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .heightIn(min = 46.dp)
-                .background(
-                    if (actionEnabled) superhumanBlue.copy(alpha = .12f) else superhumanBorder.copy(alpha = .35f),
-                    RoundedCornerShape(13.dp)
-                )
-                .semantics {
-                    role = Role.Button
-                    contentDescription = "$action $title"
-                }
-                .clickable(enabled = actionEnabled, onClick = onAction)
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                action,
-                color = if (actionEnabled) superhumanBlue else superhumanTextMuted,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            DeviceAction(
+                label = action,
+                enabled = actionEnabled,
+                danger = action == "DISCONNECT",
+                modifier = Modifier.weight(1f),
+                onClick = onAction
             )
+            secondaryAction?.let { label ->
+                DeviceAction(
+                    label = label,
+                    enabled = actionEnabled,
+                    danger = secondaryDanger,
+                    modifier = Modifier.weight(1f),
+                    onClick = onSecondaryAction
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun DeviceAction(
+    label: String,
+    enabled: Boolean,
+    danger: Boolean,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    val accent = if (danger) superhumanRed else superhumanBlue
+    Box(
+        modifier
+            .heightIn(min = 46.dp)
+            .background(
+                if (enabled) accent.copy(alpha = .12f) else superhumanBorder.copy(alpha = .35f),
+                RoundedCornerShape(13.dp)
+            )
+            .semantics {
+                role = Role.Button
+                contentDescription = label
+            }
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = if (enabled) accent else superhumanTextMuted,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Black
+        )
+    }
+}
+
+private fun deviceFreshness(timestampEpochMs: Long): String {
+    val ageMs = (System.currentTimeMillis() - timestampEpochMs).coerceAtLeast(0L)
+    return when {
+        ageMs < 1_000L -> "live"
+        ageMs < 60_000L -> "${ageMs / 1_000L}s ago"
+        ageMs < 3_600_000L -> "${ageMs / 60_000L}m ago"
+        ageMs < 86_400_000L -> "${ageMs / 3_600_000L}h ago"
+        else -> "saved history"
     }
 }
