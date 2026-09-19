@@ -19,16 +19,27 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
 
     private val _state = MutableStateFlow(CardioUiState())
     val state: StateFlow<CardioUiState> = _state.asStateFlow()
+    private var pendingLiveSensorSummary: CardioHeartRateSummary? = null
 
     init {
         NativeDataHub.initialize(application)
+        CardioSensorRuntime.initialize(application)
 
         viewModelScope.launch {
             val restore = store.migrateLegacyIfNeeded()
             if (restore.draft != null) {
-                // Re-establish the foreground owner whenever a recoverable draft is discovered.
+                // Re-establish both the foreground owner and sensor collection around the same
+                // durable session identity whenever a recoverable draft is discovered.
                 CardioSessionForeground.start(getApplication())
+                CardioSensorRuntime.startSession(
+                    restore.draft.sessionId,
+                    restore.draft.startedAtEpochMs
+                )
+                if (restore.draft.phase != CardioLivePhase.RECORDING) {
+                    CardioSensorRuntime.pauseSession(System.currentTimeMillis())
+                }
             }
+            runCatching { CardioSensorRuntime.reconnectPreferred() }
             _state.update {
                 it.copy(
                     restoredSession = restore.draft != null,
@@ -98,7 +109,9 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         }
         viewModelScope.launch {
             runCatching { coordinator.start(activity, workoutType) }
-                .onSuccess {
+                .onSuccess { draft ->
+                    CardioSensorRuntime.startSession(draft.sessionId, draft.startedAtEpochMs)
+                    pendingLiveSensorSummary = null
                     CardioSessionForeground.start(getApplication())
                     setFeedback("Recording started")
                     onStarted()
@@ -110,7 +123,10 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
     fun pause() {
         viewModelScope.launch {
             runCatching { coordinator.pause() }
-                .onSuccess { setFeedback("Cardio timer paused") }
+                .onSuccess {
+                    CardioSensorRuntime.pauseSession(System.currentTimeMillis())
+                    setFeedback("Cardio timer paused")
+                }
                 .onFailure { setFailure(it.message ?: "Could not pause cardio session") }
         }
     }
@@ -119,6 +135,7 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         viewModelScope.launch {
             runCatching { coordinator.resume() }
                 .onSuccess {
+                    CardioSensorRuntime.resumeSession(System.currentTimeMillis())
                     CardioSessionForeground.start(getApplication())
                     setFeedback("Cardio timer resumed")
                 }
@@ -134,7 +151,14 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
                     if (prepared == null) {
                         setFailure("No active cardio session")
                     } else {
-                        onReady(prepared.session)
+                        CardioSensorRuntime.pauseSession(prepared.session.endedAt)
+                        val summary = CardioSensorRuntime.snapshot(prepared.session.endedAt)
+                            .takeIf { it.sampleCount > 0 }
+                        pendingLiveSensorSummary = summary
+                        onReady(
+                            summary?.let(prepared.session::withCardioHeartRateSummary)
+                                ?: prepared.session
+                        )
                     }
                 }
                 .onFailure { setFailure(it.message ?: "Could not prepare cardio finish") }
@@ -148,7 +172,13 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         }
 
         viewModelScope.launch {
-            val result = runCatching { coordinator.quickSave() }
+            val result = runCatching {
+                coordinator.quickSave { session ->
+                    CardioSensorRuntime.pauseSession(session.endedAt)
+                    val summary = CardioSensorRuntime.snapshot(session.endedAt)
+                    if (summary.sampleCount > 0) session.withCardioHeartRateSummary(summary) else session
+                }
+            }
                 .getOrElse {
                     setFailure(it.message ?: "Cardio save failed")
                     onComplete(false)
@@ -156,6 +186,8 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
                 }
 
             if (result.success && result.session != null) {
+                CardioSensorRuntime.stopSession(result.session.endedAt)
+                pendingLiveSensorSummary = null
                 CardioSessionForeground.stop(getApplication())
                 refreshRecent()
                 _state.update {
@@ -188,11 +220,18 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         }
 
         viewModelScope.launch {
+            val finalSession = if (finishingLive) {
+                val summary = pendingLiveSensorSummary
+                    ?: CardioSensorRuntime.snapshot(session.endedAt).takeIf { it.sampleCount > 0 }
+                summary?.let(session::withCardioHeartRateSummary) ?: session
+            } else {
+                session
+            }
             val result = runCatching {
                 when {
-                    finishingLive -> coordinator.saveDetailedLive(session)
-                    editing -> coordinator.updateCompleted(session)
-                    else -> coordinator.saveManual(session)
+                    finishingLive -> coordinator.saveDetailedLive(finalSession)
+                    editing -> coordinator.updateCompleted(finalSession)
+                    else -> coordinator.saveManual(finalSession)
                 }
             }.getOrElse {
                 setFailure(it.message ?: "Cardio save failed")
@@ -201,7 +240,11 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
             }
 
             if (result.success) {
-                if (finishingLive) CardioSessionForeground.stop(getApplication())
+                if (finishingLive) {
+                    CardioSensorRuntime.stopSession(finalSession.endedAt)
+                    pendingLiveSensorSummary = null
+                    CardioSessionForeground.stop(getApplication())
+                }
                 refreshRecent()
                 _state.update {
                     it.copy(
@@ -223,6 +266,8 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         viewModelScope.launch {
             val ok = runCatching { coordinator.discard() }.getOrDefault(false)
             if (ok) {
+                CardioSensorRuntime.stopSession(System.currentTimeMillis())
+                pendingLiveSensorSummary = null
                 CardioSessionForeground.stop(getApplication())
                 _state.update {
                     it.copy(
@@ -253,6 +298,8 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
                 }
 
             if (result.restored) {
+                CardioSensorRuntime.startSession(token.session.id, token.session.startedAt)
+                CardioSensorRuntime.pauseSession(System.currentTimeMillis())
                 CardioSessionForeground.start(getApplication())
                 refreshRecent()
                 _state.update {
