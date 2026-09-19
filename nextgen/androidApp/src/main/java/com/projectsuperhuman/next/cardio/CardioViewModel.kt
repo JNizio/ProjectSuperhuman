@@ -25,6 +25,10 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
 
         viewModelScope.launch {
             val restore = store.migrateLegacyIfNeeded()
+            if (restore.draft != null) {
+                // Re-establish the foreground owner whenever a recoverable draft is discovered.
+                CardioSessionForeground.start(getApplication())
+            }
             _state.update {
                 it.copy(
                     restoredSession = restore.draft != null,
