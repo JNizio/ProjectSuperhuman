@@ -17,6 +17,7 @@ import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
+import com.projectsuperhuman.next.core.ObservationTimeBasis
 import java.time.Duration
 import java.time.Instant
 import kotlin.math.roundToInt
@@ -450,7 +451,15 @@ internal object CardioHealthConnect {
                         timestamp in start.toEpochMilli()..end.toEpochMilli() &&
                         bpm in CARDIO_HR_MIN_BPM..CARDIO_HR_MAX_BPM
                     ) {
-                        samples += CardioHeartRateSample(timestamp, bpm, provenance)
+                        val importedAt = System.currentTimeMillis()
+                        samples += CardioHeartRateSample(
+                            timestampEpochMs = timestamp,
+                            bpm = bpm,
+                            source = provenance,
+                            receivedAtEpochMs = importedAt,
+                            importedAtEpochMs = importedAt,
+                            timeBasis = ObservationTimeBasis.SOURCE_REPORTED
+                        )
                     }
                 }
             }
