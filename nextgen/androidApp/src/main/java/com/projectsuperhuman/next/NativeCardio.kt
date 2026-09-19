@@ -603,6 +603,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         (1..5).associateWith { zone -> recent.sumOf { it.zoneSeconds[zone] ?: 0 } }
     }
     val activeDraft = liveStartedAt > 0L
+    val activityGroups = remember(sessions) { sessions.groupBy { it.activity } }
 
     Column(
         Modifier.fillMaxSize()
@@ -920,11 +921,11 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     CardioZonePanel("7-DAY ZONE DISTRIBUTION", weekZoneTotals)
                 }
                 CardioSection("ACTIVITY MIX", "$totalMinutes total minutes · ${cardioFormatNumber(totalDistance)} km with distance recorded") {
-                    sessions.groupBy { it.activity }.entries.sortedByDescending { it.value.size }.take(8).forEachIndexed { index, (activity, values) ->
+                    activityGroups.entries.sortedByDescending { it.value.size }.take(8).forEachIndexed { index, (activity, values) ->
                         val minutes = values.sumOf { it.durationSeconds } / 60
                         val distance = values.mapNotNull { it.distanceKm }.sum()
                         CardioActivityProgressRow(activity, values.size, minutes, distance)
-                        if (index < sessions.groupBy { it.activity }.size.coerceAtMost(8) - 1) {
+                        if (index < activityGroups.size.coerceAtMost(8) - 1) {
                             Spacer(Modifier.height(5.dp))
                         }
                     }
