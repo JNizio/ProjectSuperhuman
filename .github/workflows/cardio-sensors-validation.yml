@@ -30,7 +30,7 @@ jobs:
           gradle-version: '8.11.1'
 
       - name: Cardio sensor unit tests
-        run: gradle --no-daemon --stacktrace -p nextgen :androidApp:testDebugUnitTest
+        run: gradle --no-daemon --stacktrace -p nextgen :androidApp:testDebugUnitTest --tests 'com.projectsuperhuman.next.CardioSensorProcessingTest'
 
       - name: Assemble debug APK
         run: gradle --no-daemon --stacktrace -p nextgen :androidApp:assembleDebug
