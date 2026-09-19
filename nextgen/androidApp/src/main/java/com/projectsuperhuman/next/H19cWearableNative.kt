@@ -74,6 +74,7 @@ internal data class H19cWearableState(
     val firmware: String? = null,
     val batteryPercent: Int? = null,
     val heartRateBpm: Int? = null,
+    val lastHeartRateEpochMs: Long? = null,
     val bloodOxygenPercent: Int? = null,
     val steps: Int? = null,
     val distanceMeters: Int? = null,
@@ -429,6 +430,7 @@ internal object H19cWearableRuntime {
         val now = System.currentTimeMillis()
         _state.value = _state.value.copy(
             heartRateBpm = bpm,
+            lastHeartRateEpochMs = now,
             lastSyncEpochMs = now,
             status = "Heart rate · $bpm bpm"
         )
@@ -452,6 +454,7 @@ internal object H19cWearableRuntime {
                     val now = System.currentTimeMillis()
                     _state.value = _state.value.copy(
                         heartRateBpm = bpm,
+                        lastHeartRateEpochMs = now,
                         lastSyncEpochMs = now,
                         status = if (_state.value.liveHeartRate) "Live heart rate · $bpm bpm" else "Heart rate · $bpm bpm"
                     )
