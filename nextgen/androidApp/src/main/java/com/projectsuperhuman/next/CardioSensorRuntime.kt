@@ -181,6 +181,11 @@ internal object CardioSensorRuntime {
         refreshLiveMetrics(System.currentTimeMillis())
     }
 
+    suspend fun reconnectBleDevice() {
+        ensureInitialized()
+        bleProvider?.connect()
+    }
+
     suspend fun disconnectBle() {
         ensureInitialized()
         bleProvider?.disconnect()
