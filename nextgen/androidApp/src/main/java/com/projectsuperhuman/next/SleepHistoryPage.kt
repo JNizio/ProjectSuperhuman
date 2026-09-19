@@ -1,6 +1,5 @@
 package com.projectsuperhuman.next
 
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -26,7 +25,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,9 +35,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.health.connect.client.HealthConnectClient
-import androidx.health.connect.client.PermissionController
-import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
@@ -71,11 +66,9 @@ private enum class HistoryDataView { INTERPRETED, RAW }
 @Composable
 internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var nights by remember { mutableStateOf<List<HistoricalSleepNight>>(emptyList()) }
     var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
     var month by remember { mutableStateOf(YearMonth.now()) }
-    var syncing by remember { mutableStateOf(false) }
     var connected by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Loading sleep history…") }
     var dashboardView by remember { mutableStateOf(HistoryDataView.INTERPRETED) }
@@ -101,42 +94,16 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
         }
     }
 
-    suspend fun sync() {
-        syncing = true
-        val result = SleepHealthConnect.sync(context)
-        connected = SleepHealthConnect.hasPermission(context)
-        status = result.message
-        refreshHistory()
-        syncing = false
-    }
-
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = PermissionController.createRequestPermissionResultContract()
-    ) { granted ->
-        if (SleepHealthConnect.permission in granted) scope.launch { sync() }
-        else status = "Sleep access wasn’t enabled"
-    }
-
-    fun connectOrSync() {
-        scope.launch {
-            when (SleepHealthConnect.availability(context)) {
-                HealthConnectClient.SDK_AVAILABLE -> {
-                    if (SleepHealthConnect.hasPermission(context)) sync()
-                    else permissionLauncher.launch(setOf(SleepHealthConnect.permission))
-                }
-                HealthConnectClient.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED -> status = "Health Connect needs an update"
-                else -> status = "Health Connect isn’t available on this device"
-            }
-        }
-    }
-
     LaunchedEffect(Unit) {
         connected = SleepHealthConnect.hasPermission(context)
         NativeHistoricalSleepStore.loadLatestWakeDate()?.let { latestDate ->
             selectedDate = latestDate
             month = YearMonth.from(latestDate)
         }
-        if (connected) sync()
+        if (connected) {
+            runCatching { SleepHealthConnect.sync(context) }
+        }
+        refreshHistory()
     }
 
     LaunchedEffect(month) {
@@ -160,7 +127,7 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
             onNext = { month = month.plusMonths(1) },
             onSelect = { selectedDate = it }
         )
-        HistorySyncCard(connected, syncing, status, ::connectOrSync)
+        HistorySourceCard(connected, status)
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -712,7 +679,7 @@ private fun HistoryStageRow(name: String, minutes: Int?, accent: Color) {
 }
 
 @Composable
-private fun HistorySyncCard(connected: Boolean, syncing: Boolean, status: String, onAction: () -> Unit) {
+private fun HistorySourceCard(connected: Boolean, status: String) {
     Column(
         Modifier.fillMaxWidth().background(HistorySurface, RoundedCornerShape(22.dp))
             .border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(16.dp),
@@ -720,21 +687,38 @@ private fun HistorySyncCard(connected: Boolean, syncing: Boolean, status: String
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 8.dp)) {
-                Text("Health Connect", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                Text(if (connected) "Sleep history is connected and ready to refresh" else "Connect your sleep data to build history", color = HistoryMuted, fontSize = 9.sp, lineHeight = 14.sp)
+                Text("Sleep data source", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                Text(
+                    if (connected) "Health Connect · historical/backfill source" else "No external sleep source connected",
+                    color = HistoryMuted,
+                    fontSize = 9.sp,
+                    lineHeight = 14.sp
+                )
             }
-            Box(Modifier.background(if (connected) HistoryGood.copy(alpha = .12f) else HistoryPurple.copy(alpha = .14f), RoundedCornerShape(99.dp)).padding(horizontal = 9.dp, vertical = 6.dp)) {
-                Text(if (connected) "CONNECTED" else "NOT CONNECTED", color = if (connected) HistoryGood else HistoryPurple, fontSize = 7.sp, fontWeight = FontWeight.Black)
+            Box(
+                Modifier.background(
+                    if (connected) HistoryGood.copy(alpha = .12f) else HistoryPurple.copy(alpha = .14f),
+                    RoundedCornerShape(99.dp)
+                ).padding(horizontal = 9.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    if (connected) "CONNECTED" else "OFFLINE",
+                    color = if (connected) HistoryGood else HistoryPurple,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Black
+                )
             }
         }
+        Text(status, color = HistoryMuted, fontSize = 8.sp, lineHeight = 12.sp)
         Box(
-            Modifier.fillMaxWidth().background(if (connected) HistoryElevated else HistoryPurple, RoundedCornerShape(15.dp))
-                .superhumanClickable(enabled = !syncing, onClick = onAction).padding(vertical = 12.dp),
+            Modifier.fillMaxWidth()
+                .background(HistorySoft, RoundedCornerShape(15.dp))
+                .superhumanClickable { SmartDevicesNavigationBridge.open?.invoke() }
+                .padding(vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text(if (syncing) "SYNCING…" else "SYNC NOW", color = if (connected) HistoryPurple else Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            Text("MANAGE SMART DEVICES", color = HistoryPurple, fontSize = 9.sp, fontWeight = FontWeight.Black)
         }
-        Text(status, color = HistoryMuted, fontSize = 8.sp)
     }
 }
 
@@ -742,7 +726,7 @@ private fun HistorySyncCard(connected: Boolean, syncing: Boolean, status: String
 private fun EmptyHistoryCard(hasHistory: Boolean) {
     Column(Modifier.fillMaxWidth().background(HistorySurface, RoundedCornerShape(22.dp)).border(1.dp, HistoryBorder, RoundedCornerShape(22.dp)).padding(18.dp)) {
         Text(if (hasHistory) "No sleep on this date" else "No sleep history yet", color = HistoryInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text(if (hasHistory) "Choose a highlighted date in the calendar to inspect that sleep episode." else "Sync Health Connect after a recorded night and previous nights will appear here.", color = HistoryMuted, fontSize = 10.sp, lineHeight = 15.sp)
+        Text(if (hasHistory) "Choose a highlighted date in the calendar to inspect that sleep episode." else "Connect a sleep source in Settings → Smart Devices. Imported nights will appear here automatically.", color = HistoryMuted, fontSize = 10.sp, lineHeight = 15.sp)
     }
 }
 
