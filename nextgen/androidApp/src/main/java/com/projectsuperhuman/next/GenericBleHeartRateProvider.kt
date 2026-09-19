@@ -69,6 +69,7 @@ internal interface BleHeartRateClient {
     fun hasPermissions(): Boolean
     fun hasSavedDevice(): Boolean
     fun savedDeviceName(): String?
+    fun shouldAutoReconnect(): Boolean
     suspend fun scan()
     suspend fun connectDevice(sensorId: String)
     suspend fun reconnectSaved()
@@ -116,12 +117,16 @@ internal class AndroidBleHeartRateClient(
     override fun savedDeviceName(): String? =
         prefs.getString(PREF_NAME, null)
 
+    override fun shouldAutoReconnect(): Boolean =
+        prefs.getBoolean(PREF_AUTO_RECONNECT, hasSavedDevice())
+
     @SuppressLint("MissingPermission")
     override suspend fun scan() {
         if (!hasPermissions()) {
             _events.emit(BleHeartRateClientEvent.Error("Bluetooth permission is required"))
             return
         }
+        prefs.edit().putBoolean(PREF_AUTO_RECONNECT, true).apply()
         val adapter = appContext.getSystemService(BluetoothManager::class.java)?.adapter
         if (adapter == null || !adapter.isEnabled) {
             _events.emit(BleHeartRateClientEvent.Error("Turn Bluetooth on, then try again"))
@@ -196,6 +201,7 @@ internal class AndroidBleHeartRateClient(
         prefs.edit()
             .putString(PREF_ADDRESS, device.address)
             .putString(PREF_NAME, name)
+            .putBoolean(PREF_AUTO_RECONNECT, true)
             .apply()
         connectGatt(device, name, reconnecting = false)
     }
@@ -230,6 +236,7 @@ internal class AndroidBleHeartRateClient(
     override suspend fun disconnect() {
         explicitDisconnect = true
         reconnectAttempts = 0
+        prefs.edit().putBoolean(PREF_AUTO_RECONNECT, false).apply()
         stopScan()
         val current = gatt
         gatt = null
@@ -240,7 +247,7 @@ internal class AndroidBleHeartRateClient(
 
     override suspend fun forgetSaved() {
         disconnect()
-        prefs.edit().remove(PREF_ADDRESS).remove(PREF_NAME).apply()
+        prefs.edit().remove(PREF_ADDRESS).remove(PREF_NAME).remove(PREF_AUTO_RECONNECT).apply()
         discovered.clear()
         _scannedDevices.value = emptyList()
         _events.emit(BleHeartRateClientEvent.Disconnected("Heart-rate sensor forgotten"))
@@ -383,6 +390,7 @@ internal class AndroidBleHeartRateClient(
         private const val PREFS = "superhuman_cardio_ble_hr"
         private const val PREF_ADDRESS = "preferred_address"
         private const val PREF_NAME = "preferred_name"
+        private const val PREF_AUTO_RECONNECT = "auto_reconnect"
         private const val SCAN_TIMEOUT_MS = 12_000L
         private const val MAX_RECONNECT_ATTEMPTS = 5
         private val HEART_RATE_SERVICE: UUID = UUID.fromString("0000180d-0000-1000-8000-00805f9b34fb")
@@ -415,6 +423,7 @@ internal class GenericBleHeartRateProvider(
     fun hasPermissions(): Boolean = client.hasPermissions()
     fun hasSavedDevice(): Boolean = client.hasSavedDevice()
     fun savedDeviceName(): String? = client.savedDeviceName()
+    fun shouldAutoReconnect(): Boolean = client.shouldAutoReconnect()
 
     private var sessionActive = false
     private var deviceName: String? = null
