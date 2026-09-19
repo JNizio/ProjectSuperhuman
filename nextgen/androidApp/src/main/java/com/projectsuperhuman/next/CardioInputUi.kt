@@ -56,10 +56,13 @@ internal fun CardioDateTimePickerField(
         DatePickerDialog(
             context,
             { _, year, month, day ->
-                val afterDate = parsed
-                    .withYear(year)
-                    .withMonth(month + 1)
-                    .withDayOfMonth(day)
+                val afterDate = LocalDateTime.of(
+                    year,
+                    month + 1,
+                    day,
+                    parsed.hour,
+                    parsed.minute
+                )
                 TimePickerDialog(
                     context,
                     { _, hour, minute ->
