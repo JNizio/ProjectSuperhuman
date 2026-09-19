@@ -156,6 +156,9 @@ internal fun CardioAnalyticsProgressPanel(
         CardioAnalyticsEngine.consistency(sessions, range)
     }
     val load = remember(sessions) { CardioAnalyticsEngine.loadAnalytics(sessions) }
+    val activitiesInRange = remember(filtered) {
+        filtered.map { it.activity }.distinct().sortedBy { it.displayName }
+    }
 
     Column(
         modifier
@@ -229,7 +232,6 @@ internal fun CardioAnalyticsProgressPanel(
             )
         }
 
-        val activitiesInRange = filtered.map { it.activity }.distinct().sortedBy { it.displayName }
         if (activitiesInRange.isNotEmpty()) {
             Text(
                 "Activity detail",
@@ -592,6 +594,9 @@ internal fun CardioAnalyticsRecordsPanel(
     modifier: Modifier = Modifier
 ) {
     val records = remember(sessions, laps) { CardioRecordsEngine.allRecords(sessions, laps) }
+    val sortedRecords = remember(records) {
+        records.toSortedMap(compareBy<CardioActivityType> { it.displayName })
+    }
     Column(
         modifier
             .fillMaxWidth()
@@ -615,7 +620,7 @@ internal fun CardioAnalyticsRecordsPanel(
         if (records.isEmpty()) {
             AnalyticsEmpty("No saved cardio records yet.")
         } else {
-            records.toSortedMap(compareBy<CardioActivityType> { it.displayName }).forEach { (activity, activityRecords) ->
+            sortedRecords.forEach { (activity, activityRecords) ->
                 Text(
                     activity.displayName,
                     color = superhumanTextPrimary,
