@@ -972,16 +972,17 @@ internal fun H19cWearableCard() {
             },
             if (state.connected) Color(0xFFCA3A3A) else accent,
             Modifier.fillMaxWidth(),
-            enabled = state.connected || (
-                state.deviceAddress != null &&
-                    state.phase !in setOf(
-                        H19cConnectionPhase.SCANNING,
-                        H19cConnectionPhase.CONNECTING,
-                        H19cConnectionPhase.DISCOVERING
-                    )
-                )
+            enabled = state.phase !in setOf(
+                H19cConnectionPhase.SCANNING,
+                H19cConnectionPhase.CONNECTING,
+                H19cConnectionPhase.DISCOVERING
+            )
         ) {
-            if (state.connected) H19cWearableRuntime.disconnect() else reconnectSaved()
+            when {
+                state.connected -> H19cWearableRuntime.disconnect()
+                state.deviceAddress != null -> reconnectSaved()
+                else -> SmartDevicesNavigationBridge.open?.invoke()
+            }
         }
         Spacer(Modifier.height(8.dp))
         Text(
@@ -1050,9 +1051,11 @@ internal fun H19cMiniMetricCard(metric: HomeMiniMetric) {
                 H19cAction(
                     if (state.deviceAddress != null) "RECONNECT" else "ADD IN SMART DEVICES",
                     accent,
-                    Modifier.weight(1f),
-                    enabled = state.deviceAddress != null
-                ) { reconnectSaved() }
+                    Modifier.weight(1f)
+                ) {
+                    if (state.deviceAddress != null) reconnectSaved()
+                    else SmartDevicesNavigationBridge.open?.invoke()
+                }
             } else {
                 when (metric) {
                     HomeMiniMetric.HEART_RATE -> {
