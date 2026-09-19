@@ -164,6 +164,61 @@ internal class CardioSensorProcessingTest {
     }
 
     @Test
+    fun sourceSwitchingKeepsPerSampleDeviceIdentity() {
+        val first = CardioSensorProvenance(
+            providerType = CardioSensorProviderType.BLE_HEART_RATE,
+            sourceName = "ble",
+            transport = CardioSensorTransport.LIVE_BLE,
+            deviceName = "Chest strap",
+            anonymousSensorId = "device-a"
+        )
+        val second = CardioSensorProvenance(
+            providerType = CardioSensorProviderType.H19C,
+            sourceName = "h19c",
+            transport = CardioSensorTransport.LIVE_BLE,
+            deviceName = "H19C",
+            anonymousSensorId = "device-b"
+        )
+        val encoded = CardioHeartRateTimeline.encode(
+            listOf(
+                CardioHeartRateSample(1_000L, 90, first),
+                CardioHeartRateSample(2_000L, 92, second)
+            )
+        )
+        assertTrue(encoded.contains("BLE_HEART_RATE:device-a"))
+        assertTrue(encoded.contains("H19C:device-b"))
+    }
+
+    @Test
+    fun historicalObservationKeepsMeasurementAndImportTimesSeparate() {
+        val value = com.projectsuperhuman.next.core.HealthValue(
+            domain = com.projectsuperhuman.next.core.HealthDomain.EXERCISE,
+            metric = "heart_rate_bpm",
+            value = 71.0,
+            unit = "bpm",
+            timestampEpochMs = 1_000L,
+            source = MiniMetricsHealthConnect.SOURCE,
+            metadata = mapOf(
+                "measuredAtEpochMs" to "1000",
+                "receivedAtEpochMs" to "5000",
+                "importedAtEpochMs" to "5000",
+                "timeBasis" to "SOURCE_REPORTED",
+                "originDeviceName" to "Galaxy Watch",
+                "sourceApplication" to "Samsung Health"
+            )
+        )
+        val reading = SmartDeviceObservationMapper.historicalHeartRate(value)
+        assertEquals(1_000L, reading?.measuredAtEpochMs)
+        assertEquals(5_000L, reading?.receivedAtEpochMs)
+        assertEquals(5_000L, reading?.importedAtEpochMs)
+        assertEquals("Galaxy Watch", reading?.provenance?.device?.displayName)
+        assertEquals(
+            com.projectsuperhuman.next.core.ObservationTimeBasis.SOURCE_REPORTED,
+            reading?.provenance?.timing?.timeBasis
+        )
+    }
+
+    @Test
     fun h19cAdapterMapsRuntimeState() {
         val mapped = H19cCardioMapper.map(
             H19cWearableState(
