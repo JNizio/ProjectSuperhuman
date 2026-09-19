@@ -224,7 +224,8 @@ internal object CardioHealthConnect {
                             return@forEach
                         }
                         CardioExternalDedupeDecision.UPDATE -> {
-                            old?.let { NativeDataHub.deleteValue(it) }
+                            // Keep the old row until the replacement has been accepted. The stable
+                            // sourceRecordId lets the Data Vault perform an idempotent upsert.
                             updated += 1
                         }
                         CardioExternalDedupeDecision.IMPORT -> imported += 1
@@ -233,7 +234,18 @@ internal object CardioHealthConnect {
                     val mapping = CardioHealthConnectRules.mapActivity(session.exerciseType)
                     val metrics = readWorkoutMetrics(client, session, granted, mapping.activity)
                     val value = toHealthValue(session, mapping, metrics, packageName, sourceRecordId, modifiedMs)
-                    NativeDataHub.saveValues(listOf(value))
+                    val ingestion = NativeDataHub.ingestValues(listOf(value))
+                    if (ingestion.accepted == 0) {
+                        when (CardioHealthConnectRules.dedupeDecision(
+                            if (old == null) null else oldModified ?: Long.MIN_VALUE,
+                            modifiedMs
+                        )) {
+                            CardioExternalDedupeDecision.IMPORT -> imported = (imported - 1).coerceAtLeast(0)
+                            CardioExternalDedupeDecision.UPDATE -> updated = (updated - 1).coerceAtLeast(0)
+                            CardioExternalDedupeDecision.DEDUPLICATE -> Unit
+                        }
+                        rejected += 1
+                    }
                 }
 
                 result(
