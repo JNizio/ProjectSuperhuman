@@ -704,12 +704,10 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     CardioWorkoutTypePicker(formWorkoutType) { formWorkoutType = it }
                 }
                 CardioSection("SESSION", "Duration is required; other fields are optional") {
-                    OutlinedTextField(
-                        formDateTime,
-                        { formDateTime = it.take(16) },
-                        Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        label = { Text("Finished - YYYY-MM-DD HH:MM") }
+                    CardioDateTimePickerField(
+                        value = formDateTime,
+                        onValueChange = { formDateTime = it },
+                        label = "Finished"
                     )
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
