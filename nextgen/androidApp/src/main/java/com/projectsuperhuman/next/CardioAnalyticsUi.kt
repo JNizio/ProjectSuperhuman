@@ -293,6 +293,87 @@ internal fun CardioActivityProgressPanel(
 }
 
 @Composable
+internal fun CardioGoalsPanel(
+    goals: List<CardioGoal>,
+    sessions: List<CardioSession>,
+    modifier: Modifier = Modifier
+) {
+    val progress = remember(goals, sessions) {
+        CardioAnalyticsEngine.goalProgress(goals, sessions)
+    }
+    Column(
+        modifier
+            .fillMaxWidth()
+            .background(superhumanSurface, RoundedCornerShape(22.dp))
+            .border(1.dp, superhumanBorder, RoundedCornerShape(22.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            "Optional goals",
+            color = superhumanTextPrimary,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            "Targets are separate from your recorded training and can be changed without rewriting history.",
+            color = superhumanTextMuted,
+            fontSize = 12.sp,
+            lineHeight = 17.sp
+        )
+        if (progress.isEmpty()) {
+            AnalyticsEmpty("No cardio goals set. Your analytics work normally without them.")
+        } else {
+            progress.forEach { item ->
+                val fraction = item.progressFraction.toFloat().coerceIn(0f, 1f)
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(superhumanSurfaceSoft, RoundedCornerShape(15.dp))
+                        .semantics {
+                            contentDescription = item.goal.type.label + ", " +
+                                goalValue(item.current, item.goal.type) + " of " +
+                                goalValue(item.goal.target, item.goal.type)
+                        }
+                        .padding(12.dp)
+                ) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            item.goal.type.label,
+                            color = superhumanTextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Text(
+                            goalValue(item.current, item.goal.type) + " / " + goalValue(item.goal.target, item.goal.type),
+                            color = superhumanTextMuted,
+                            fontSize = 12.sp
+                        )
+                    }
+                    Spacer(Modifier.height(7.dp))
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .background(superhumanBorder.copy(alpha = .55f), RoundedCornerShape(8.dp))
+                    ) {
+                        if (fraction > 0f) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(fraction)
+                                    .height(8.dp)
+                                    .background(superhumanGreen, RoundedCornerShape(8.dp))
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 internal fun CardioAnalyticsHistoryPanel(
     sessions: List<CardioSession>,
     onOpenSession: (CardioSession) -> Unit,
@@ -300,13 +381,24 @@ internal fun CardioAnalyticsHistoryPanel(
 ) {
     var range by remember { mutableStateOf(CardioAnalysisRange.ALL_TIME) }
     var selectedActivity by remember { mutableStateOf<CardioActivityType?>(null) }
+    var selectedWorkoutType by remember { mutableStateOf<CardioWorkoutType?>(null) }
+    var selectedSource by remember { mutableStateOf<String?>(null) }
+    var showAdvancedFilters by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     var pagesVisible by remember { mutableIntStateOf(1) }
 
-    val filter = remember(range, selectedActivity, query) {
+    val availableSources = remember(sessions) {
+        sessions.map { it.source.trim() }
+            .filter { it.isNotBlank() }
+            .distinctBy { it.lowercase() }
+            .sortedBy { it.lowercase() }
+    }
+    val filter = remember(range, selectedActivity, selectedWorkoutType, selectedSource, query) {
         CardioHistoryFilter(
             range = range,
             activities = selectedActivity?.let { setOf(it) }.orEmpty(),
+            workoutTypes = selectedWorkoutType?.let { setOf(it) }.orEmpty(),
+            sources = selectedSource?.let { setOf(it) }.orEmpty(),
             query = query
         )
     }
@@ -364,6 +456,47 @@ internal fun CardioAnalyticsHistoryPanel(
                 ) {
                     selectedActivity = activity
                     pagesVisible = 1
+                }
+            }
+        }
+
+        AnalyticsFilterChip(
+            text = if (showAdvancedFilters) "Hide extra filters" else "More filters",
+            selected = showAdvancedFilters
+        ) {
+            showAdvancedFilters = !showAdvancedFilters
+        }
+        if (showAdvancedFilters) {
+            Text("Workout type", color = superhumanTextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item {
+                    AnalyticsFilterChip("All types", selectedWorkoutType == null) {
+                        selectedWorkoutType = null
+                        pagesVisible = 1
+                    }
+                }
+                items(CardioWorkoutType.entries.toList()) { type ->
+                    AnalyticsFilterChip(type.label, selectedWorkoutType == type) {
+                        selectedWorkoutType = type
+                        pagesVisible = 1
+                    }
+                }
+            }
+            if (availableSources.isNotEmpty()) {
+                Text("Source / provider", color = superhumanTextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    item {
+                        AnalyticsFilterChip("All sources", selectedSource == null) {
+                            selectedSource = null
+                            pagesVisible = 1
+                        }
+                    }
+                    items(availableSources) { source ->
+                        AnalyticsFilterChip(source, selectedSource == source) {
+                            selectedSource = source
+                            pagesVisible = 1
+                        }
+                    }
                 }
             }
         }
@@ -750,6 +883,13 @@ private fun AnalyticsEmpty(message: String) {
     ) {
         Text(message, color = superhumanTextMuted, fontSize = 13.sp, textAlign = TextAlign.Center)
     }
+}
+
+private fun goalValue(value: Double, type: CardioGoalType): String = when (type) {
+    CardioGoalType.WEEKLY_MINUTES,
+    CardioGoalType.WEEKLY_ZONE_2_MINUTES -> value.roundToInt().toString() + " min"
+    CardioGoalType.WEEKLY_DISTANCE_KM -> String.format(Locale.getDefault(), "%.1f km", value)
+    CardioGoalType.WEEKLY_SESSIONS -> value.roundToInt().toString()
 }
 
 private fun analyticsFormatDuration(seconds: Int): String {
