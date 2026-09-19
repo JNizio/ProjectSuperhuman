@@ -14,7 +14,7 @@ The analytics layer is intentionally split from Compose:
 - `CardioHistoryEngine.kt` — filter/search/pagination.
 - `CardioUnits.kt` — canonical-SI presentation conversion and locale-aware decimal parsing.
 - `CardioCharts.kt` — lightweight Compose Canvas trend chart with null-gap handling and accessibility description.
-- `CardioAnalyticsUi.kt` — reusable range, unit, progress, history, records, activity-detail, load-quality and session-comparison UI.
+- `CardioAnalyticsUi.kt` — reusable range, unit, progress, history, records, optional goals, activity-detail, load-quality and session-comparison UI.\n- `CardioInputUi.kt` — native Android date/time picker abstraction for Cardio session entry.
 
 All engines are pure functions over immutable inputs and are suitable for ViewModel precomputation.
 
@@ -216,7 +216,7 @@ CardioAnalyticsEngine.goalProgress(goals, sessions)
 
 Consistency is descriptive: sessions/week, active weeks, average weekly minutes, average weekly distance when present, and rolling 28-day frequency.
 
-Goals are optional models. Persist target configuration separately from observed session data. Changing or disabling a goal must never rewrite Cardio history.
+Goals are optional models. `CardioGoalsPanel` renders neutral target/progress UI when goals exist and a non-punitive empty state otherwise. Persist target configuration separately from observed session data. Changing or disabling a goal must never rewrite Cardio history.
 
 ## Aerobic decoupling
 
@@ -262,7 +262,7 @@ A future app-wide unit preference should be injected into the analytics UI rathe
 
 `CardioHistoryEngine.filterAndPage` applies range/activity/workout/source/query filters before pagination.
 
-`CardioAnalyticsHistoryPanel` uses a bounded `LazyColumn` and loads 30 rows at a time. This replaces the previous eager `.take(100)` path at the integration point.
+`CardioAnalyticsHistoryPanel` uses a bounded `LazyColumn` and loads 30 rows at a time. This replaces the previous eager `.take(100)` path at the integration point. Range, activity and search stay visible; workout-type and source/provider filters use progressive disclosure under **More filters**.
 
 For the refactored Cardio ViewModel, recommended state is:
 
@@ -285,7 +285,7 @@ This branch intentionally makes only small integration edits in `NativeCardio.kt
 2. Session detail adds `CardioSessionComparisonPanel`.
 3. Progress adds `CardioAnalyticsProgressPanel` while retaining the existing progress cards.
 4. Records adds `CardioAnalyticsRecordsPanel` while retaining existing record UI.
-5. Existing decimal entry/save paths use locale-aware `CardioUnits` helpers.
+5. Existing decimal entry/save paths use locale-aware `CardioUnits` helpers.\n6. Manual finish time uses `CardioDateTimePickerField`, backed by native Android date and time dialogs while preserving the existing storage string format.
 
 When the core Cardio ViewModel refactor is merged, keep the new analytics files and rewire these calls to ViewModel-provided immutable session/lap state.
 
@@ -329,4 +329,4 @@ The live Recording/Paused announcement remains owned by the session/lifecycle br
 - Zone 2 trends are unavailable when a bucket has sessions but no measured zone data.
 - Aerobic decoupling is not shown from session-average HR plus average pace.
 - Goal persistence is deliberately not implemented here because persistence ownership belongs to the core branch.
-- App-wide unit preference persistence and native date/time picker migration should be completed in the shared settings/core integration layer rather than duplicated inside Cardio.
+- App-wide unit preference persistence should be completed in the shared settings/core integration layer rather than duplicated inside Cardio. The branch now supplies a native Cardio date/time picker while keeping the existing persistence string contract.
