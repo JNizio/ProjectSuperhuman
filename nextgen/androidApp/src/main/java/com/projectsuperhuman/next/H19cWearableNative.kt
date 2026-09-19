@@ -46,6 +46,11 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
+import com.projectsuperhuman.next.core.ObservationDeviceIdentity
+import com.projectsuperhuman.next.core.ObservationProvenance
+import com.projectsuperhuman.next.core.ObservationTimeBasis
+import com.projectsuperhuman.next.core.ObservationTiming
+import com.projectsuperhuman.next.core.ObservationTransport
 import java.nio.charset.StandardCharsets
 import java.time.LocalDate
 import java.time.ZoneId
@@ -544,11 +549,14 @@ internal object H19cWearableRuntime {
                 }
             }
             if (old.isNotEmpty()) NativeDataHub.deleteValues(old)
-            val common = deviceMetadata() + mapOf(
-                "summaryDate" to date.toString(),
-                "summaryType" to "daily-total",
-                "sourceLastModifiedMs" to System.currentTimeMillis().toString()
-            )
+            val receivedAt = System.currentTimeMillis()
+            val common = deviceMetadata() +
+                observationMetadata(timestamp, ObservationTimeBasis.SESSION_DERIVED, receivedAt) +
+                mapOf(
+                    "summaryDate" to date.toString(),
+                    "summaryType" to "daily-total",
+                    "sourceLastModifiedMs" to receivedAt.toString()
+                )
             NativeDataHub.saveValues(
                 listOf(
                     HealthValue(HealthDomain.EXERCISE, "steps", steps.toDouble(), "count", timestamp, SOURCE, common + ("sourceRecordId" to "h19c:steps:$date")),
@@ -577,10 +585,12 @@ internal object H19cWearableRuntime {
                         unit = unit,
                         timestampEpochMs = timestamp,
                         source = SOURCE,
-                        metadata = deviceMetadata() + mapOf(
-                            "summaryType" to "latest-reading",
-                            "sourceRecordId" to "h19c:$kind:$timestamp:${sourceCounter.incrementAndGet()}"
-                        )
+                        metadata = deviceMetadata() +
+                            observationMetadata(timestamp, ObservationTimeBasis.PHONE_RECEIVE_TIME) +
+                            mapOf(
+                                "summaryType" to "latest-reading",
+                                "sourceRecordId" to "h19c:$kind:$timestamp:${sourceCounter.incrementAndGet()}"
+                            )
                     )
                 )
             )
@@ -617,11 +627,13 @@ internal object H19cWearableRuntime {
                     "%",
                     timestamp,
                     SOURCE,
-                    deviceMetadata() + mapOf(
-                        "summaryDate" to date.toString(),
-                        "summaryType" to "daily-summary",
-                        "sourceRecordId" to "h19c:oxygen-$suffix:$date"
-                    )
+                    deviceMetadata() +
+                        observationMetadata(timestamp, ObservationTimeBasis.SESSION_DERIVED) +
+                        mapOf(
+                            "summaryDate" to date.toString(),
+                            "summaryType" to "daily-summary",
+                            "sourceRecordId" to "h19c:oxygen-$suffix:$date"
+                        )
                 )
             })
         }
@@ -689,11 +701,13 @@ internal object H19cWearableRuntime {
                     .filter { it.source == SOURCE && it.metadata["summaryDate"] == targetEndDate.toString() }
             }
             if (old.isNotEmpty()) NativeDataHub.deleteValues(old)
-            val meta = deviceMetadata() + mapOf(
-                "summaryDate" to targetEndDate.toString(),
-                "summaryType" to "sleep-summary",
-                "stageSource" to "h19c-light-deep-only"
-            )
+            val meta = deviceMetadata() +
+                observationMetadata(end, ObservationTimeBasis.SESSION_DERIVED) +
+                mapOf(
+                    "summaryDate" to targetEndDate.toString(),
+                    "summaryType" to "sleep-summary",
+                    "stageSource" to "h19c-light-deep-only"
+                )
             val ts = end
             NativeDataHub.saveValues(
                 listOf(
@@ -722,6 +736,32 @@ internal object H19cWearableRuntime {
         _state.value.model?.let { put("model", it) }
         _state.value.firmware?.let { put("firmware", it) }
     }
+
+    private fun observationMetadata(
+        measuredAtEpochMs: Long,
+        timeBasis: ObservationTimeBasis,
+        receivedAtEpochMs: Long = System.currentTimeMillis()
+    ): Map<String, String> =
+        ObservationProvenance(
+            timing = ObservationTiming(
+                measuredAtEpochMs = measuredAtEpochMs,
+                receivedAtEpochMs = receivedAtEpochMs,
+                importedAtEpochMs = receivedAtEpochMs,
+                timeBasis = timeBasis
+            ),
+            device = ObservationDeviceIdentity(
+                deviceId = CardioSensorIds.anonymous(_state.value.deviceAddress),
+                displayName = _state.value.deviceName ?: "H19C",
+                manufacturer = _state.value.manufacturer,
+                model = _state.value.model,
+                firmware = _state.value.firmware,
+                deviceType = "wearable"
+            ),
+            transport = ObservationTransport.DIRECT_BLE,
+            protocol = "FEEA",
+            sourceApplication = "Project Superhuman",
+            sourceLabel = SOURCE
+        ).toMetadata()
 
     private fun sendCommand(command: Int, payload: ByteArray = byteArrayOf()) {
         val characteristic = dataOut ?: return
