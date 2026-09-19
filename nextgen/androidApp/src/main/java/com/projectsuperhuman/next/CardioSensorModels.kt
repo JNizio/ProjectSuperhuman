@@ -1,5 +1,6 @@
 package com.projectsuperhuman.next
 
+import com.projectsuperhuman.next.core.ObservationTimeBasis
 import java.security.MessageDigest
 import kotlin.math.ceil
 import kotlin.math.roundToInt
@@ -68,9 +69,15 @@ internal object CardioSensorIds {
 }
 
 internal data class CardioHeartRateSample(
+    /** Physiological timeline time. */
     val timestampEpochMs: Long,
     val bpm: Int,
-    val source: CardioSensorProvenance
+    val source: CardioSensorProvenance,
+    /** When Project Superhuman received the packet/record. */
+    val receivedAtEpochMs: Long = timestampEpochMs,
+    /** When a delayed/imported record entered Project Superhuman. Null for live packets. */
+    val importedAtEpochMs: Long? = null,
+    val timeBasis: ObservationTimeBasis = ObservationTimeBasis.PHONE_RECEIVE_TIME
 ) {
     val isPhysiologicallyStorable: Boolean get() = bpm in CARDIO_HR_MIN_BPM..CARDIO_HR_MAX_BPM
 }
@@ -239,7 +246,8 @@ internal object CardioHeartRateTimeline {
     fun encode(samples: List<CardioHeartRateSample>): String =
         samples.joinToString(";") { sample ->
             val pkg = sample.source.sourcePackage.orEmpty().replace(";", "").replace(":", "")
-            "${sample.timestampEpochMs}:${sample.bpm}:${sample.source.providerType.name}:$pkg"
+            val device = sample.source.anonymousSensorId.orEmpty().replace(";", "").replace(":", "")
+            "${sample.timestampEpochMs}:${sample.receivedAtEpochMs}:${sample.importedAtEpochMs ?: 0L}:${sample.timeBasis.name}:${sample.bpm}:${sample.source.providerType.name}:$device:$pkg"
         }
 }
 
