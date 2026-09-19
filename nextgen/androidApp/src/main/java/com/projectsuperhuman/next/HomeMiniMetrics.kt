@@ -522,6 +522,7 @@ private fun HeartRateSourceRow(
     historical: Boolean = false
 ) {
     val measuredAt = reading?.measuredAtEpochMs
+    val receivedAt = reading?.receivedAtEpochMs
     val importedAt = reading?.importedAtEpochMs
     val bpm = reading?.value?.roundToInt()
     val stateAccent = when {
@@ -570,8 +571,19 @@ private fun HeartRateSourceRow(
                 fontSize = 8.sp
             )
         } else if (reading != null) {
+            val latencyMs = if (measuredAt != null && receivedAt != null) {
+                (receivedAt - measuredAt).coerceAtLeast(0L)
+            } else null
             Text(
-                "Timestamp basis · ${reading.provenance.timing.timeBasis.name.lowercase().replace('_', ' ')}",
+                buildString {
+                    if (receivedAt != null) {
+                        append("Received ").append(formatObservationClockMillis(receivedAt))
+                        latencyMs?.let { append(" · latency ").append(it).append(" ms") }
+                        append(" · ")
+                    }
+                    append("timestamp basis ")
+                    append(reading.provenance.timing.timeBasis.name.lowercase().replace('_', ' '))
+                },
                 color = MiniMuted,
                 fontSize = 8.sp
             )
@@ -637,6 +649,11 @@ private fun formatObservationClock(timestampEpochMs: Long): String =
     Instant.ofEpochMilli(timestampEpochMs)
         .atZone(ZoneId.systemDefault())
         .format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+
+private fun formatObservationClockMillis(timestampEpochMs: Long): String =
+    Instant.ofEpochMilli(timestampEpochMs)
+        .atZone(ZoneId.systemDefault())
+        .format(DateTimeFormatter.ofPattern("HH:mm:ss.SSS"))
 
 @Composable
 private fun MiniMetricHeader(metric: HomeMiniMetric, onBack: () -> Unit) {
