@@ -375,6 +375,9 @@ internal class GenericBleHeartRateProvider(
     override val heartRateSamples: SharedFlow<CardioHeartRateSample> = _samples.asSharedFlow()
 
     val scannedDevices: StateFlow<List<BleHeartRateDevice>> = client.scannedDevices
+    fun requiredPermissions(): Array<String> = client.requiredPermissions()
+    fun hasPermissions(): Boolean = client.hasPermissions()
+
     private var sessionActive = false
     private var deviceName: String? = null
     private var sensorId: String? = null
