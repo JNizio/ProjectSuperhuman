@@ -44,5 +44,15 @@ internal object SmartDeviceRuntime {
                 CardioSensorRuntime.reconnectBleDevice()
             }
         }
+
+        if (OkokScaleManager.isEnabled(appContext) && OkokScaleManager.hasPermissions(appContext)) {
+            scope.launch {
+                val body = NativeDataHub.latestForDomain(com.projectsuperhuman.next.core.HealthDomain.BODY)
+                val heightCm = body.firstOrNull { it.metric == "body_height_cm" }?.value
+                val male = body.firstOrNull { it.metric == "body_sex_code" }?.value?.let { it >= 0.5 }
+                OkokScaleManager.setProfile(heightCm, male)
+                OkokScaleManager.startAutoTracking(appContext)
+            }
+        }
     }
 }
