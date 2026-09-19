@@ -445,7 +445,7 @@ internal fun CardioAnalyticsRecordsPanel(
         if (records.isEmpty()) {
             AnalyticsEmpty("No saved cardio records yet.")
         } else {
-            records.toSortedMap(compareBy { it.displayName }).forEach { (activity, activityRecords) ->
+            records.toSortedMap(compareBy<CardioActivityType> { it.displayName }).forEach { (activity, activityRecords) ->
                 Text(
                     activity.displayName,
                     color = superhumanTextPrimary,
