@@ -191,19 +191,36 @@ internal fun CardioSensorPickerPanel(
             }
         }
 
-        Text(
-            when {
-                sensorState.providerType == CardioSensorProviderType.H19C &&
-                    h19cState.deviceAddress == null ->
-                    "No H19C is saved yet. Add the watch once in Settings → Smart Devices."
-                sensorState.providerType == CardioSensorProviderType.BLE_HEART_RATE &&
-                    sensorState.connection != CardioSensorConnectionState.CONNECTED ->
-                    "Project Superhuman will reconnect the saved standard BLE heart-rate sensor. Pair a new sensor in Smart Devices."
-                else -> sensorState.message
-            },
-            color = superhumanTextMuted,
-            fontSize = 10.sp
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                when {
+                    sensorState.providerType == CardioSensorProviderType.H19C &&
+                        h19cState.deviceAddress == null ->
+                        "No H19C is saved yet. Add the watch once in Smart Devices."
+                    sensorState.providerType == CardioSensorProviderType.BLE_HEART_RATE &&
+                        sensorState.connection != CardioSensorConnectionState.CONNECTED ->
+                        "Project Superhuman will reconnect the saved BLE heart-rate sensor."
+                    else -> sensorState.message
+                },
+                color = superhumanTextMuted,
+                fontSize = 10.sp,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                "MANAGE",
+                color = superhumanBlue,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier
+                    .heightIn(min = 44.dp)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Manage smart devices"
+                    }
+                    .clickable { SmartDevicesNavigationBridge.open?.invoke() }
+                    .padding(horizontal = 10.dp, vertical = 13.dp)
+            )
+        }
     }
 }
 
