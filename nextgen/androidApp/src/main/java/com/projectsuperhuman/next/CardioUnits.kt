@@ -45,11 +45,18 @@ internal object CardioUnits {
      * as a fallback for data copied from devices/apps.
      */
     fun parseLocalizedDecimal(input: String, locale: Locale = Locale.getDefault()): Double? {
-        val decimal = DecimalFormatSymbols.getInstance(locale).decimalSeparator
-        val grouping = DecimalFormatSymbols.getInstance(locale).groupingSeparator
-        val normalized = input.trim()
-            .replace(grouping.toString(), "")
-            .replace(decimal, '.')
+        val symbols = DecimalFormatSymbols.getInstance(locale)
+        val decimal = symbols.decimalSeparator
+        val grouping = symbols.groupingSeparator
+        val raw = input.trim()
+            .replace("\u00A0", "")
+            .replace(" ", "")
+        val normalized = if (decimal != '.' && raw.contains(decimal)) {
+            raw.replace(grouping.toString(), "").replace(decimal, '.')
+        } else {
+            val withoutGrouping = if (grouping != '.') raw.replace(grouping.toString(), "") else raw
+            withoutGrouping.replace(decimal, '.')
+        }
         if (normalized.count { it == '.' } > 1) return null
         return normalized.toDoubleOrNull()
     }
