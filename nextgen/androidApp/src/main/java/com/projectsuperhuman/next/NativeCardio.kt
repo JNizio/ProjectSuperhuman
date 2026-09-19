@@ -408,6 +408,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 CardioSection("WORKOUT PURPOSE", "Optional structure for how this session should feel") {
                     CardioWorkoutTypePicker(liveWorkoutType) { liveWorkoutType = it }
                 }
+                CardioSensorPickerPanel()
                 CardioAction(
                     "START ${liveActivity.displayName.uppercase()}",
                     "${liveWorkoutType.label} session · begin live timer",
