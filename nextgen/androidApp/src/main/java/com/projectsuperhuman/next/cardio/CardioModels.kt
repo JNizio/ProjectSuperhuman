@@ -45,7 +45,6 @@ internal data class CardioSession(
     val startedAt: Long,
     val endedAt: Long,
     val durationSeconds: Int,
-    val pausedDurationSeconds: Int = 0,
     val distanceKm: Double? = null,
     val avgHeartRate: Int? = null,
     val maxHeartRate: Int? = null,
@@ -64,6 +63,7 @@ internal data class CardioSession(
     val zoneSeconds: Map<Int, Int> = emptyMap(),
     val avgSplit500mSeconds: Int? = null,
     val avgPace100mSeconds: Int? = null,
+    val pausedDurationSeconds: Int = 0,
     val schemaVersion: Int = CARDIO_SESSION_SCHEMA_VERSION,
     val extensions: Map<String, String> = emptyMap()
 )
