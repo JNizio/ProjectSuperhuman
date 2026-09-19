@@ -45,7 +45,9 @@ internal class CardioSessionCoordinator(
         prepared
     }
 
-    suspend fun quickSave(): CardioQuickSaveResult = mutationMutex.withLock {
+    suspend fun quickSave(
+        transform: (CardioSession) -> CardioSession = { it }
+    ): CardioQuickSaveResult = mutationMutex.withLock {
         val current = store.load().draft
             ?: return@withLock CardioQuickSaveResult(false, null, "No active cardio session")
         val prepared = controller.freezeForCompletion(current)
@@ -53,13 +55,14 @@ internal class CardioSessionCoordinator(
         // Freeze + checkpoint before touching completed storage. A failed/rejected ingestion can
         // never destroy the only recoverable copy of the workout.
         store.save(prepared.draft)
-        val write = repository.save(prepared.session)
+        val finalSession = transform(prepared.session)
+        val write = repository.save(finalSession)
         if (!write.success) {
-            return@withLock CardioQuickSaveResult(false, prepared.session, write.message)
+            return@withLock CardioQuickSaveResult(false, finalSession, write.message)
         }
 
-        store.clear(expectedSessionId = prepared.session.id)
-        CardioQuickSaveResult(true, prepared.session, "Cardio session saved")
+        store.clear(expectedSessionId = finalSession.id)
+        CardioQuickSaveResult(true, finalSession, "Cardio session saved")
     }
 
     suspend fun saveDetailedLive(session: CardioSession): CardioWriteResult = mutationMutex.withLock {
