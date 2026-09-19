@@ -120,6 +120,50 @@ internal class CardioSensorProcessingTest {
     }
 
     @Test
+    fun liveHeartRateSamplePreservesReceiveTimeBasis() {
+        val provenance = CardioSensorProvenance(
+            providerType = CardioSensorProviderType.BLE_HEART_RATE,
+            sourceName = "test",
+            transport = CardioSensorTransport.LIVE_BLE,
+            anonymousSensorId = "sensor"
+        )
+        val sample = CardioHeartRateSample(
+            timestampEpochMs = 1_000L,
+            bpm = 88,
+            source = provenance
+        )
+        assertEquals(1_000L, sample.receivedAtEpochMs)
+        assertNull(sample.importedAtEpochMs)
+        assertEquals(
+            com.projectsuperhuman.next.core.ObservationTimeBasis.PHONE_RECEIVE_TIME,
+            sample.timeBasis
+        )
+    }
+
+    @Test
+    fun encodedTimelineRetainsSampleSourceAndTiming() {
+        val provenance = CardioSensorProvenance(
+            providerType = CardioSensorProviderType.BLE_HEART_RATE,
+            sourceName = "test",
+            transport = CardioSensorTransport.LIVE_BLE,
+            anonymousSensorId = "device-a"
+        )
+        val encoded = CardioHeartRateTimeline.encode(
+            listOf(
+                CardioHeartRateSample(
+                    timestampEpochMs = 1_000L,
+                    bpm = 90,
+                    source = provenance,
+                    receivedAtEpochMs = 1_050L,
+                    importedAtEpochMs = 1_100L,
+                    timeBasis = com.projectsuperhuman.next.core.ObservationTimeBasis.SOURCE_REPORTED
+                )
+            )
+        )
+        assertTrue(encoded.contains("1000:1050:1100:SOURCE_REPORTED:90:BLE_HEART_RATE:device-a"))
+    }
+
+    @Test
     fun h19cAdapterMapsRuntimeState() {
         val mapped = H19cCardioMapper.map(
             H19cWearableState(
@@ -308,6 +352,9 @@ private class FakeBleHeartRateClient : BleHeartRateClient {
 
     override fun requiredPermissions(): Array<String> = emptyArray()
     override fun hasPermissions(): Boolean = true
+    override fun hasSavedDevice(): Boolean = false
+    override fun savedDeviceName(): String? = null
+    override fun shouldAutoReconnect(): Boolean = false
     override suspend fun scan() {
         emit(BleHeartRateClientEvent.ScanStarted)
     }
@@ -319,6 +366,9 @@ private class FakeBleHeartRateClient : BleHeartRateClient {
     }
     override suspend fun disconnect() {
         emit(BleHeartRateClientEvent.Disconnected("fake disconnect"))
+    }
+    override suspend fun forgetSaved() {
+        emit(BleHeartRateClientEvent.Disconnected("fake forgotten"))
     }
 
     suspend fun emit(event: BleHeartRateClientEvent) {
