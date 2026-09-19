@@ -1,6 +1,5 @@
 package com.projectsuperhuman.next
 
-import android.content.Context
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -26,10 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.projectsuperhuman.next.core.HealthDomain
-import com.projectsuperhuman.next.core.HealthValue
+import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -48,73 +45,7 @@ private val CardioBorder get() = superhumanBorder
 private val CardioGold = Color(0xFFC9902E)
 private val CardioCoral = Color(0xFFC8575E)
 private val CardioDeep = Color(0xFF0A3440)
-private val CardioData = NativeDomainData.forDomain(HealthDomain.EXERCISE)
 private val cardioDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-
-internal enum class CardioActivityType(
-    val displayName: String,
-    val supportsDistance: Boolean,
-    val paceMode: CardioPaceMode = CardioPaceMode.NONE,
-    val supportsCadence: Boolean = false,
-    val supportsElevation: Boolean = false
-) {
-    WALKING("Walking", true, CardioPaceMode.PER_KM, true, true),
-    RUNNING("Running", true, CardioPaceMode.PER_KM, true, true),
-    TREADMILL("Treadmill", true, CardioPaceMode.PER_KM, true, false),
-    CYCLING("Cycling", true, CardioPaceMode.SPEED, true, true),
-    STATIONARY_BIKE("Stationary Bike", true, CardioPaceMode.SPEED, true, false),
-    ROWING("Rowing", true, CardioPaceMode.PER_500M, true, false),
-    ELLIPTICAL("Elliptical", true, CardioPaceMode.SPEED, false, false),
-    STAIR_CLIMBER("Stair Climber", false),
-    SWIMMING("Swimming", true, CardioPaceMode.PER_100M, false, false),
-    HIKING("Hiking", true, CardioPaceMode.PER_KM, false, true),
-    JUMP_ROPE("Jump Rope", false, CardioPaceMode.NONE, true, false),
-    HIIT("HIIT", false),
-    GENERAL_CARDIO("General Cardio", false),
-    CUSTOM("Custom", true, CardioPaceMode.SPEED, false, true);
-
-    companion object {
-        fun fromStored(raw: String?): CardioActivityType =
-            entries.firstOrNull { it.name == raw } ?: GENERAL_CARDIO
-    }
-}
-
-internal enum class CardioPaceMode { NONE, PER_KM, SPEED, PER_500M, PER_100M }
-
-internal data class CardioSession(
-    val id: String,
-    val activity: CardioActivityType,
-    val startedAt: Long,
-    val endedAt: Long,
-    val durationSeconds: Int,
-    val distanceKm: Double? = null,
-    val avgHeartRate: Int? = null,
-    val maxHeartRate: Int? = null,
-    val minHeartRate: Int? = null,
-    val caloriesKcal: Double? = null,
-    val avgPaceSecPerKm: Int? = null,
-    val bestPaceSecPerKm: Int? = null,
-    val avgSpeedKmh: Double? = null,
-    val maxSpeedKmh: Double? = null,
-    val elevationGainM: Double? = null,
-    val cadence: Int? = null,
-    val rpe: Double? = null,
-    val notes: String = "",
-    val source: String = "manual",
-    val workoutType: CardioWorkoutType = CardioWorkoutType.FREE,
-    val zoneSeconds: Map<Int, Int> = emptyMap(),
-    val avgSplit500mSeconds: Int? = null,
-    val avgPace100mSeconds: Int? = null
-)
-
-private data class CardioLiveDraft(
-    val activity: CardioActivityType,
-    val startedAt: Long,
-    val accumulatedSeconds: Int,
-    val runningSinceEpochMs: Long,
-    val isRunning: Boolean,
-    val workoutType: CardioWorkoutType = CardioWorkoutType.FREE
-)
 
 private enum class CardioScreen {
     HOME, PICK_ACTIVITY, LIVE, MANUAL, HISTORY, DETAIL, PROGRESS, RECORDS
@@ -134,142 +65,22 @@ private fun cardioFormatDuration(seconds: Int): String {
 private fun cardioFormatPace(seconds: Int?): String =
     seconds?.takeIf { it > 0 }?.let { "${it / 60}:${(it % 60).toString().padStart(2, '0')}" } ?: "-"
 
-private fun cardioSessionFromValue(row: HealthValue): CardioSession {
-    val meta = row.metadata
-    fun d(key: String) = meta[key]?.toDoubleOrNull()
-    fun i(key: String) = meta[key]?.toIntOrNull()
-    val ended = meta["endedAt"]?.toLongOrNull() ?: row.timestampEpochMs
-    val duration = i("durationSeconds") ?: (row.value * 60.0).roundToInt().coerceAtLeast(0)
-    val started = meta["startedAt"]?.toLongOrNull() ?: (ended - duration * 1000L)
-    val zones = (1..5).mapNotNull { zone ->
-        i("zone${zone}Seconds")?.takeIf { it > 0 }?.let { zone to it }
-    }.toMap()
-    return CardioSession(
-        id = meta["sessionId"].orEmpty().ifBlank { "legacy-cardio-${row.timestampEpochMs}" },
-        activity = CardioActivityType.fromStored(meta["activityType"]),
-        startedAt = started,
-        endedAt = ended,
-        durationSeconds = duration,
-        distanceKm = d("distanceKm"),
-        avgHeartRate = i("avgHeartRate"),
-        maxHeartRate = i("maxHeartRate"),
-        minHeartRate = i("minHeartRate"),
-        caloriesKcal = d("caloriesKcal"),
-        avgPaceSecPerKm = i("avgPaceSecPerKm"),
-        bestPaceSecPerKm = i("bestPaceSecPerKm"),
-        avgSpeedKmh = d("avgSpeedKmh"),
-        maxSpeedKmh = d("maxSpeedKmh"),
-        elevationGainM = d("elevationGainM"),
-        cadence = i("cadence"),
-        rpe = d("rpe"),
-        notes = meta["notes"].orEmpty(),
-        source = meta["cardioSource"].orEmpty().ifBlank { row.source },
-        workoutType = CardioWorkoutType.fromStored(meta["workoutType"]),
-        zoneSeconds = zones,
-        avgSplit500mSeconds = i("avgSplit500mSeconds"),
-        avgPace100mSeconds = i("avgPace100mSeconds")
-    )
-}
-
-private fun CardioSession.toHealthValue(): HealthValue {
-    val meta = mutableMapOf(
-        "sessionId" to id,
-        "sourceRecordId" to "cardio:$id",
-        "activityType" to activity.name,
-        "activityName" to activity.displayName,
-        "startedAt" to startedAt.toString(),
-        "endedAt" to endedAt.toString(),
-        "durationSeconds" to durationSeconds.toString(),
-        "notes" to notes,
-        "cardioSource" to source,
-        "workoutType" to workoutType.name
-    )
-    distanceKm?.let { meta["distanceKm"] = it.toString() }
-    avgHeartRate?.let { meta["avgHeartRate"] = it.toString() }
-    maxHeartRate?.let { meta["maxHeartRate"] = it.toString() }
-    minHeartRate?.let { meta["minHeartRate"] = it.toString() }
-    caloriesKcal?.let { meta["caloriesKcal"] = it.toString() }
-    avgPaceSecPerKm?.let { meta["avgPaceSecPerKm"] = it.toString() }
-    bestPaceSecPerKm?.let { meta["bestPaceSecPerKm"] = it.toString() }
-    avgSpeedKmh?.let { meta["avgSpeedKmh"] = it.toString() }
-    maxSpeedKmh?.let { meta["maxSpeedKmh"] = it.toString() }
-    elevationGainM?.let { meta["elevationGainM"] = it.toString() }
-    cadence?.let { meta["cadence"] = it.toString() }
-    rpe?.let { meta["rpe"] = it.toString() }
-    avgSplit500mSeconds?.let { meta["avgSplit500mSeconds"] = it.toString() }
-    avgPace100mSeconds?.let { meta["avgPace100mSeconds"] = it.toString() }
-    zoneSeconds.forEach { (zone, seconds) -> meta["zone${zone}Seconds"] = seconds.toString() }
-
-    return HealthValue(
-        domain = HealthDomain.EXERCISE,
-        metric = "cardio_session",
-        value = durationSeconds / 60.0,
-        unit = "min",
-        timestampEpochMs = endedAt,
-        source = "native-cardio",
-        metadata = meta
-    )
-}
-
-private fun cardioPrefs(context: Context) = context.getSharedPreferences("superhuman_cardio", 0)
-
-private fun loadCardioDraft(context: Context): CardioLiveDraft? {
-    val prefs = cardioPrefs(context)
-    val startedAt = prefs.getLong("live_started_at", 0L)
-    if (startedAt <= 0L) return null
-    return CardioLiveDraft(
-        activity = CardioActivityType.fromStored(prefs.getString("live_activity", null)),
-        startedAt = startedAt,
-        accumulatedSeconds = prefs.getInt("live_accumulated_seconds", 0).coerceAtLeast(0),
-        runningSinceEpochMs = prefs.getLong("live_running_since", 0L),
-        isRunning = prefs.getBoolean("live_is_running", false),
-        workoutType = CardioWorkoutType.fromStored(prefs.getString("live_workout_type", null))
-    )
-}
-
-private fun saveCardioDraft(context: Context, draft: CardioLiveDraft) {
-    cardioPrefs(context).edit()
-        .putString("live_activity", draft.activity.name)
-        .putLong("live_started_at", draft.startedAt)
-        .putInt("live_accumulated_seconds", draft.accumulatedSeconds)
-        .putLong("live_running_since", draft.runningSinceEpochMs)
-        .putBoolean("live_is_running", draft.isRunning)
-        .putString("live_workout_type", draft.workoutType.name)
-        .apply()
-}
-
-private fun clearCardioDraft(context: Context) {
-    cardioPrefs(context).edit()
-        .remove("live_activity")
-        .remove("live_started_at")
-        .remove("live_accumulated_seconds")
-        .remove("live_running_since")
-        .remove("live_is_running")
-        .remove("live_workout_type")
-        .apply()
-}
-
 @Composable
 internal fun NativeCardioScreen(onBack: () -> Unit) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val scope = rememberCoroutineScope()
+    val cardioViewModel: CardioViewModel = viewModel()
+    val cardioState by cardioViewModel.state.collectAsState()
+    val sessions = cardioState.sessions
 
     var screen by remember { mutableStateOf(CardioScreen.HOME) }
-    var rows by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
-    var sessions by remember { mutableStateOf<List<CardioSession>>(emptyList()) }
     var selectedSessionId by remember { mutableStateOf<String?>(null) }
     var pendingDeleteSessionId by remember { mutableStateOf<String?>(null) }
     var feedback by remember { mutableStateOf<String?>(null) }
+    var confirmDiscard by remember { mutableStateOf(false) }
 
     var liveActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
     var liveWorkoutType by remember { mutableStateOf(CardioWorkoutType.FREE) }
-    var liveStartedAt by remember { mutableLongStateOf(0L) }
-    var liveAccumulatedSeconds by remember { mutableIntStateOf(0) }
-    var liveRunningSince by remember { mutableLongStateOf(0L) }
-    var liveRunning by remember { mutableStateOf(false) }
-    var liveTick by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
-    var formActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
+    var formActivity by remember { mutableStateOf(CardioActivityType.WALKING) }    var formActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
     var formDateTime by remember { mutableStateOf("") }
     var formDurationMin by remember { mutableStateOf("") }
     var formDistanceKm by remember { mutableStateOf("") }
@@ -284,17 +95,11 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var formWorkoutType by remember { mutableStateOf(CardioWorkoutType.FREE) }
     var formEditingId by remember { mutableStateOf<String?>(null) }
     var formLiveStartedAt by remember { mutableLongStateOf(0L) }
+    var formLiveEndedAt by remember { mutableLongStateOf(0L) }
+    var formLiveSessionId by remember { mutableStateOf<String?>(null) }
+    var formLivePausedSeconds by remember { mutableIntStateOf(0) }
     var showZones by remember { mutableStateOf(false) }
     val zoneMinutes = remember { mutableStateListOf("", "", "", "", "") }
-
-    suspend fun refresh() {
-        val now = System.currentTimeMillis()
-        val lookback = 5L * 365L * 24L * 60L * 60L * 1000L
-        rows = CardioData.between("cardio_session", now - lookback, now)
-            .sortedByDescending { it.timestampEpochMs }
-            .take(3000)
-        sessions = rows.map(::cardioSessionFromValue).sortedByDescending { it.endedAt }
-    }
 
     fun resetForm(activity: CardioActivityType = CardioActivityType.WALKING) {
         formActivity = activity
@@ -312,6 +117,9 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         formWorkoutType = CardioWorkoutType.FREE
         formEditingId = null
         formLiveStartedAt = 0L
+        formLiveEndedAt = 0L
+        formLiveSessionId = null
+        formLivePausedSeconds = 0
         showZones = false
         for (i in zoneMinutes.indices) zoneMinutes[i] = ""
     }
@@ -333,144 +141,59 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         formWorkoutType = session.workoutType
         formEditingId = session.id
         formLiveStartedAt = 0L
+        formLiveEndedAt = 0L
+        formLiveSessionId = null
+        formLivePausedSeconds = 0
         showZones = session.zoneSeconds.isNotEmpty()
         for (i in zoneMinutes.indices) {
             zoneMinutes[i] = session.zoneSeconds[i + 1]?.let { String.format(Locale.US, "%.1f", it / 60.0) }.orEmpty()
         }
     }
 
-    fun currentLiveElapsedSeconds(): Int {
-        val extra = if (liveRunning && liveRunningSince > 0L) {
-            ((liveTick - liveRunningSince).coerceAtLeast(0L) / 1000L).toInt()
-        } else 0
-        return (liveAccumulatedSeconds + extra).coerceAtLeast(0)
-    }
-
-    fun persistLiveState() {
-        if (liveStartedAt <= 0L) return
-        saveCardioDraft(
-            context,
-            CardioLiveDraft(
-                activity = liveActivity,
-                startedAt = liveStartedAt,
-                accumulatedSeconds = liveAccumulatedSeconds,
-                runningSinceEpochMs = liveRunningSince,
-                isRunning = liveRunning,
-                workoutType = liveWorkoutType
-            )
-        )
-    }
-
-    fun startLive(activity: CardioActivityType) {
-        val now = System.currentTimeMillis()
-        liveActivity = activity
-        liveStartedAt = now
-        liveAccumulatedSeconds = 0
-        liveRunningSince = now
-        liveRunning = true
-        liveTick = now
-        persistLiveState()
-        screen = CardioScreen.LIVE
-    }
-
-    fun pauseLive() {
-        val now = System.currentTimeMillis()
-        liveTick = now
-        if (liveRunning && liveRunningSince > 0L) {
-            liveAccumulatedSeconds += ((now - liveRunningSince).coerceAtLeast(0L) / 1000L).toInt()
-        }
-        liveRunningSince = 0L
-        liveRunning = false
-        persistLiveState()
-        feedback = "Cardio timer paused"
-    }
-
-    fun resumeLive() {
-        liveRunningSince = System.currentTimeMillis()
-        liveRunning = true
-        liveTick = liveRunningSince
-        persistLiveState()
-        feedback = "Cardio timer resumed"
-    }
-
     fun prepareFinishedLive() {
-        val now = System.currentTimeMillis()
-        liveTick = now
-        val elapsed = currentLiveElapsedSeconds().coerceAtLeast(1)
-        if (liveRunning && liveRunningSince > 0L) {
-            liveAccumulatedSeconds = elapsed
-            liveRunningSince = 0L
-            liveRunning = false
-            persistLiveState()
-        }
-        resetForm(liveActivity)
-        formDateTime = Instant.ofEpochMilli(now)
-            .atZone(ZoneId.systemDefault()).toLocalDateTime().format(cardioDateTimeFormatter)
-        formDurationMin = String.format(Locale.US, "%.1f", elapsed / 60.0)
-        formSource = "live"
-        formWorkoutType = liveWorkoutType
-        formLiveStartedAt = liveStartedAt
-        screen = CardioScreen.MANUAL
-    }
-
-    fun quickSaveLiveSession() {
-        if (liveStartedAt <= 0L) return
-        val now = System.currentTimeMillis()
-        liveTick = now
-        val elapsed = currentLiveElapsedSeconds().coerceAtLeast(1)
-
-        if (liveRunning && liveRunningSince > 0L) {
-            liveAccumulatedSeconds = elapsed
-            liveRunningSince = 0L
-            liveRunning = false
-        }
-
-        val startedAt = liveStartedAt
-        val session = CardioSession(
-            id = "cardio-$startedAt-$now",
-            activity = liveActivity,
-            startedAt = startedAt,
-            endedAt = now,
-            durationSeconds = elapsed,
-            source = "live",
-            workoutType = liveWorkoutType
-        )
-
-        scope.launch {
-            NativeDataHub.saveValues(listOf(session.toHealthValue()))
-            clearCardioDraft(context)
-            liveStartedAt = 0L
-            liveAccumulatedSeconds = 0
-            liveRunningSince = 0L
-            liveRunning = false
-            refresh()
-            feedback = "Session saved · add details from History any time"
-            screen = CardioScreen.HOME
+        cardioViewModel.prepareDetailedFinish { session ->
+            resetForm(session.activity)
+            formDateTime = Instant.ofEpochMilli(session.endedAt)
+                .atZone(ZoneId.systemDefault()).toLocalDateTime().format(cardioDateTimeFormatter)
+            formDurationMin = String.format(Locale.US, "%.1f", session.durationSeconds / 60.0)
+            formSource = "live"
+            formWorkoutType = session.workoutType
+            formLiveStartedAt = session.startedAt
+            formLiveEndedAt = session.endedAt
+            formLiveSessionId = session.id
+            formLivePausedSeconds = session.pausedDurationSeconds
+            screen = CardioScreen.MANUAL
         }
     }
 
     fun saveForm() {
-        val localDateTime = runCatching { LocalDateTime.parse(formDateTime.trim(), cardioDateTimeFormatter) }.getOrNull()
+        val localDateTime = runCatching {
+            LocalDateTime.parse(formDateTime.trim(), cardioDateTimeFormatter)
+        }.getOrNull()
         if (localDateTime == null) {
             feedback = "Use date and time format YYYY-MM-DD HH:MM"
             return
         }
+
         val durationSeconds = ((formDurationMin.toDoubleOrNull() ?: 0.0) * 60.0).roundToInt()
         if (durationSeconds <= 0) {
             feedback = "Enter a cardio duration"
             return
         }
+
         val enteredEpoch = localDateTime.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        if (formLiveStartedAt <= 0L && enteredEpoch > System.currentTimeMillis() + 60_000L) {
+        val finishingLiveSession = formLiveStartedAt > 0L && formLiveSessionId != null
+        val endedAt = if (finishingLiveSession) formLiveEndedAt else enteredEpoch
+        if (endedAt > System.currentTimeMillis() + 60_000L) {
             feedback = "Finish time cannot be in the future"
             return
         }
-        val endedAt = if (formLiveStartedAt > 0L) {
-            formLiveStartedAt + durationSeconds * 1000L
+        val startedAt = if (finishingLiveSession) {
+            formLiveStartedAt
         } else {
-            enteredEpoch
+            endedAt - durationSeconds * 1000L
         }
-        val startedAt = if (formLiveStartedAt > 0L) formLiveStartedAt else endedAt - durationSeconds * 1000L
+
         val distance = formDistanceKm.toDoubleOrNull()?.takeIf { it > 0.0 }
         val avgHr = formAvgHr.toIntOrNull()?.takeIf { it in 30..250 }
         val maxHr = formMaxHr.toIntOrNull()?.takeIf { it in 30..250 }
@@ -479,36 +202,35 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         val elevation = formElevation.toDoubleOrNull()?.takeIf { it >= 0.0 }
         val rpe = formRpe.toDoubleOrNull()?.takeIf { it in 0.0..10.0 }
         val zones = zoneMinutes.mapIndexedNotNull { index, text ->
-            val sec = ((text.toDoubleOrNull() ?: 0.0) * 60.0).roundToInt()
-            if (sec > 0) (index + 1) to sec else null
+            val seconds = ((text.toDoubleOrNull() ?: 0.0) * 60.0).roundToInt()
+            if (seconds > 0) (index + 1) to seconds else null
         }.toMap()
-        if (zones.values.sum() > durationSeconds + 60) {
+        if (zones.values.sum() > durationSeconds) {
             feedback = "Heart-rate zone time cannot exceed session duration"
             return
         }
 
-        val avgPace = if (distance != null && distance > 0.0 && formActivity.paceMode == CardioPaceMode.PER_KM) {
+        val avgPace = if (distance != null && formActivity.paceMode == CardioPaceMode.PER_KM) {
             (durationSeconds / distance).roundToInt()
         } else null
-        val avgSpeed = if (distance != null && distance > 0.0 && formActivity.paceMode == CardioPaceMode.SPEED) {
+        val avgSpeed = if (distance != null && formActivity.paceMode == CardioPaceMode.SPEED) {
             distance / (durationSeconds / 3600.0)
         } else null
-        val split500 = if (distance != null && distance > 0.0 && formActivity.paceMode == CardioPaceMode.PER_500M) {
+        val split500 = if (distance != null && formActivity.paceMode == CardioPaceMode.PER_500M) {
             (durationSeconds / (distance * 2.0)).roundToInt()
         } else null
-        val pace100 = if (distance != null && distance > 0.0 && formActivity.paceMode == CardioPaceMode.PER_100M) {
+        val pace100 = if (distance != null && formActivity.paceMode == CardioPaceMode.PER_100M) {
             (durationSeconds / (distance * 10.0)).roundToInt()
         } else null
 
         val existingId = formEditingId
-        val finishingLiveSession = formLiveStartedAt > 0L
-        val id = existingId ?: "cardio-$startedAt-${System.currentTimeMillis()}"
         val session = CardioSession(
-            id = id,
+            id = existingId ?: formLiveSessionId ?: java.util.UUID.randomUUID().toString(),
             activity = formActivity,
             startedAt = startedAt,
             endedAt = endedAt,
             durationSeconds = durationSeconds,
+            pausedDurationSeconds = if (finishingLiveSession) formLivePausedSeconds else 0,
             distanceKm = distance,
             avgHeartRate = avgHr,
             maxHeartRate = maxHr,
@@ -519,58 +241,50 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             cadence = cadence,
             rpe = rpe,
             notes = formNotes.trim(),
-            source = formSource,
+            source = if (finishingLiveSession) "live" else formSource,
             workoutType = formWorkoutType,
             zoneSeconds = zones,
             avgSplit500mSeconds = split500,
             avgPace100mSeconds = pace100
         )
 
-        scope.launch {
-            if (existingId != null) {
-                rows.firstOrNull { it.metadata["sessionId"] == existingId }?.let { NativeDataHub.deleteValue(it) }
+        val validation = CardioValidation.validate(session, System.currentTimeMillis())
+        if (validation.isNotEmpty()) {
+            feedback = validation.first().message
+            return
+        }
+
+        cardioViewModel.saveSession(
+            session = session,
+            editing = existingId != null,
+            finishingLive = finishingLiveSession
+        ) { success ->
+            if (success) {
+                formEditingId = null
+                formLiveStartedAt = 0L
+                formLiveEndedAt = 0L
+                formLiveSessionId = null
+                formLivePausedSeconds = 0
+                screen = CardioScreen.HOME
             }
-            NativeDataHub.saveValues(listOf(session.toHealthValue()))
-            if (finishingLiveSession) {
-                clearCardioDraft(context)
-                liveStartedAt = 0L
-                liveAccumulatedSeconds = 0
-                liveRunningSince = 0L
-                liveRunning = false
-            }
-            refresh()
-            feedback = if (existingId == null) "Cardio session saved" else "Cardio session updated"
-            formEditingId = null
-            formLiveStartedAt = 0L
-            screen = CardioScreen.HOME
         }
     }
 
     LaunchedEffect(Unit) {
-        refresh()
         resetForm()
-        loadCardioDraft(context)?.let { draft ->
-            liveActivity = draft.activity
-            liveWorkoutType = draft.workoutType
-            liveStartedAt = draft.startedAt
-            liveAccumulatedSeconds = draft.accumulatedSeconds
-            liveRunningSince = draft.runningSinceEpochMs
-            liveRunning = draft.isRunning
-            liveTick = System.currentTimeMillis()
-        }
-    }
-
-    LaunchedEffect(liveRunning, liveRunningSince) {
-        while (liveRunning && liveRunningSince > 0L) {
-            liveTick = System.currentTimeMillis()
-            delay(1000)
-        }
     }
 
     LaunchedEffect(feedback) {
         if (feedback != null) {
             delay(2400)
             feedback = null
+        }
+    }
+
+    LaunchedEffect(cardioState.feedback) {
+        if (cardioState.feedback != null) {
+            delay(3200)
+            cardioViewModel.clearFeedback()
         }
     }
 
@@ -601,7 +315,8 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         val recent = sessions.filter { it.endedAt >= weekStart }
         (1..5).associateWith { zone -> recent.sumOf { it.zoneSeconds[zone] ?: 0 } }
     }
-    val activeDraft = liveStartedAt > 0L
+    val activeDraftState = cardioState.liveDraft
+    val activeDraft = activeDraftState != null
 
     Column(
         Modifier.fillMaxSize()
@@ -614,6 +329,10 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             if (screen == CardioScreen.HOME) onBack() else screen = CardioScreen.HOME
         }
         feedback?.let { CardioFeedback(it) }
+        cardioState.feedback?.let { CardioFeedback(it) }
+        cardioState.undo?.let {
+            CardioUndoBanner(onUndo = cardioViewModel::undoQuickSave)
+        }
 
         when (screen) {
             CardioScreen.HOME -> {
@@ -621,17 +340,22 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     active = activeDraft,
                     weekMinutes = weekMinutes,
                     weekSessions = weekSessionCount,
-                    activeActivity = if (activeDraft) liveActivity else null,
-                    activeWorkoutType = if (activeDraft) liveWorkoutType else null,
-                    activeElapsedSeconds = if (activeDraft) currentLiveElapsedSeconds() else 0,
-                    activeRunning = liveRunning,
+                    activeActivity = activeDraftState?.activity,
+                    activeWorkoutType = activeDraftState?.workoutType,
+                    activeElapsedSeconds = cardioState.liveElapsedSeconds,
+                    activeRunning = cardioState.isRecording,
+                    saveInProgress = cardioState.saveInProgress,
                     onPrimary = {
                         if (activeDraft) screen = CardioScreen.LIVE else screen = CardioScreen.PICK_ACTIVITY
                     },
                     onToggleActive = {
-                        if (liveRunning) pauseLive() else resumeLive()
+                        if (cardioState.isRecording) cardioViewModel.pause() else cardioViewModel.resume()
                     },
-                    onSaveActive = { quickSaveLiveSession() }
+                    onSaveActive = {
+                        cardioViewModel.quickSave { success ->
+                            if (success) screen = CardioScreen.HOME
+                        }
+                    }
                 )
                 CardioQuickAccessPanel(
                     onLog = {
@@ -674,19 +398,71 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     "${liveWorkoutType.label} session · begin live timer",
                     CardioAccent
                 ) {
-                    startLive(liveActivity)
+                    cardioViewModel.start(liveActivity, liveWorkoutType) {
+                        screen = CardioScreen.LIVE
+                    }
                 }
             }
 
             CardioScreen.LIVE -> {
-                val elapsed = currentLiveElapsedSeconds()
-                CardioLiveHero(liveActivity, liveWorkoutType, elapsed, liveRunning)
-                CardioLiveControls(
-                    running = liveRunning,
-                    onToggle = { if (liveRunning) pauseLive() else resumeLive() },
-                    onFinish = { prepareFinishedLive() }
-                )
-                CardioLiveMetricsPanel(liveActivity)
+                val draft = cardioState.liveDraft
+                if (draft == null) {
+                    CardioEmpty(
+                        "No active workout",
+                        "The session may already have been saved or discarded."
+                    )
+                } else {
+                    CardioLiveHero(
+                        draft.activity,
+                        draft.workoutType,
+                        cardioState.liveElapsedSeconds,
+                        cardioState.isRecording
+                    )
+                    CardioLiveControls(
+                        running = cardioState.isRecording,
+                        onToggle = {
+                            if (cardioState.isRecording) cardioViewModel.pause() else cardioViewModel.resume()
+                        },
+                        onFinish = { prepareFinishedLive() }
+                    )
+                    CardioSection("WORKOUT STATE", "Recording and pause time are tracked independently") {
+                        Text(
+                            "Started " + Instant.ofEpochMilli(draft.startedAtEpochMs)
+                                .atZone(ZoneId.systemDefault()).toLocalDateTime()
+                                .format(cardioDateTimeFormatter),
+                            color = CardioInk,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Active " + cardioFormatDuration(cardioState.liveElapsedSeconds) +
+                                " · paused " + cardioFormatDuration(cardioState.pausedElapsedSeconds),
+                            color = CardioMuted,
+                            fontSize = 10.sp
+                        )
+                        Spacer(Modifier.height(9.dp))
+                        CardioActionCompact(
+                            if (confirmDiscard) "Confirm discard" else "Discard workout",
+                            if (confirmDiscard) {
+                                "This permanently removes the recoverable live draft"
+                            } else {
+                                "Stop without saving this workout"
+                            },
+                            CardioCoral
+                        ) {
+                            if (confirmDiscard) {
+                                cardioViewModel.discardLive {
+                                    confirmDiscard = false
+                                    screen = CardioScreen.HOME
+                                }
+                            } else {
+                                confirmDiscard = true
+                            }
+                        }
+                    }
+                    CardioLiveMetricsPanel(draft.activity)
+                }
             }
 
             CardioScreen.MANUAL -> {
@@ -824,22 +600,42 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     }
                 }
                 CardioAction(
-                    if (editing) "SAVE CHANGES" else "SAVE CARDIO SESSION",
-                    "Store this session in Exercise history",
+                    if (cardioState.saveInProgress) {
+                        "SAVING…"
+                    } else if (editing) {
+                        "SAVE CHANGES"
+                    } else {
+                        "SAVE CARDIO SESSION"
+                    },
+                    if (cardioState.saveInProgress) {
+                        "Verifying Data Vault write"
+                    } else {
+                        "Store this session in Exercise history"
+                    },
                     CardioAccent
-                ) { saveForm() }
+                ) {
+                    if (!cardioState.saveInProgress) saveForm()
+                }
             }
 
             CardioScreen.HISTORY -> {
                 CardioHeroStrip("HISTORY", "Cardio sessions", "Tap a session for full details, editing or deletion.", Color(0xFF7B61C9))
                 CardioSection("RECENT CARDIO", "Newest first") {
                     if (sessions.isEmpty()) CardioEmpty("No cardio sessions yet", "Saved sessions will appear here.")
-                    sessions.take(100).forEach { session ->
+                    sessions.forEach { session ->
                         CardioSessionRow(session) {
                             selectedSessionId = session.id
                             pendingDeleteSessionId = null
                             screen = CardioScreen.DETAIL
                         }
+                    }
+                    if (cardioState.canLoadMoreHistory) {
+                        Spacer(Modifier.height(8.dp))
+                        CardioActionCompact(
+                            "Load more",
+                            "Fetch the next 250 Cardio sessions",
+                            CardioBlue
+                        ) { cardioViewModel.loadMoreHistory() }
                     }
                 }
             }
@@ -881,19 +677,18 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             if (!confirmDelete) {
                                 pendingDeleteSessionId = session.id
                             } else {
-                                rows.firstOrNull { it.metadata["sessionId"] == session.id }?.let { row ->
-                                    scope.launch {
-                                        NativeDataHub.deleteValue(row)
-                                        refresh()
+                                cardioViewModel.deleteSession(session.id) { deleted ->
+                                    if (deleted) {
                                         selectedSessionId = null
                                         pendingDeleteSessionId = null
-                                        feedback = "Cardio session deleted"
                                         screen = CardioScreen.HISTORY
                                     }
                                 }
-                            }
-                        }
                     }
+                }
+            }
+
+            CardioScreen.PROGRESS -> {                    }
                 }
             }
 
@@ -1010,6 +805,7 @@ private fun CardioHero(
     activeWorkoutType: CardioWorkoutType?,
     activeElapsedSeconds: Int,
     activeRunning: Boolean,
+    saveInProgress: Boolean,
     onPrimary: () -> Unit,
     onToggleActive: () -> Unit,
     onSaveActive: () -> Unit
@@ -1100,8 +896,9 @@ private fun CardioHero(
                     )
                     CardioHeroControlButton(
                         icon = CardioUiIcon.STOP,
-                        label = "Save",
+                        label = if (saveInProgress) "Saving…" else "Stop & Save",
                         accent = Color(0xFFFFA3A7),
+                        enabled = !saveInProgress,
                         onClick = onSaveActive
                     )
                 }
@@ -1181,12 +978,13 @@ private fun CardioHeroControlButton(
     icon: CardioUiIcon,
     label: String,
     accent: Color,
+    enabled: Boolean = true,
     onClick: () -> Unit
 ) {
     Column(
         Modifier.width(58.dp).heightIn(min = 50.dp)
             .background(Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp))
-            .clickable { onClick() }
+            .clickable(enabled = enabled) { onClick() }
             .padding(horizontal = 6.dp, vertical = 7.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -2118,6 +1916,32 @@ private fun CardioAction(title: String, subtitle: String, accent: Color, onClick
             Text(subtitle, color = CardioMuted, fontSize = 10.sp)
         }
         Text("→", color = accent, fontSize = 22.sp)
+    }
+}
+
+@Composable
+private fun CardioUndoBanner(onUndo: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(
+                CardioBlue.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .10f),
+                RoundedCornerShape(14.dp)
+            )
+            .border(1.dp, CardioBlue.copy(alpha = .28f), RoundedCornerShape(14.dp))
+            .clickable { onUndo() }
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Saved", color = CardioBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.width(9.dp))
+        Text(
+            "Undo Stop & Save",
+            color = CardioInk,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f)
+        )
+        Text("UNDO", color = CardioBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
     }
 }
 
