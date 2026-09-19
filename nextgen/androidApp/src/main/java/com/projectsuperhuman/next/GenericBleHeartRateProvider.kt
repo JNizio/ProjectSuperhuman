@@ -157,7 +157,15 @@ internal class AndroidBleHeartRateClient(
         )
         scope.launch {
             delay(SCAN_TIMEOUT_MS)
+            val wasScanning = scanCallback != null
+            val foundAny = _scannedDevices.value.isNotEmpty()
             stopScan()
+            if (wasScanning) {
+                _events.emit(
+                    if (foundAny) BleHeartRateClientEvent.Disconnected("Scan complete · select a heart-rate sensor")
+                    else BleHeartRateClientEvent.Error("No standard BLE heart-rate sensor found")
+                )
+            }
         }
     }
 
@@ -289,6 +297,17 @@ internal class AndroidBleHeartRateClient(
             descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
             if (!gatt.writeDescriptor(descriptor)) {
                 _events.tryEmit(BleHeartRateClientEvent.Error("Couldn’t subscribe to heart-rate notifications"))
+                closeGatt(gatt)
+                scheduleReconnect()
+                return
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        override fun onDescriptorWrite(gatt: BluetoothGatt, descriptor: BluetoothGattDescriptor, status: Int) {
+            if (descriptor.characteristic.uuid != HEART_RATE_MEASUREMENT) return
+            if (status != BluetoothGatt.GATT_SUCCESS) {
+                _events.tryEmit(BleHeartRateClientEvent.Error("Heart-rate notification subscription failed ($status)"))
                 closeGatt(gatt)
                 scheduleReconnect()
                 return
