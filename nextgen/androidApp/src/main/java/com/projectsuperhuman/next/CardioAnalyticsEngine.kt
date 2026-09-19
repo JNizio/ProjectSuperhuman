@@ -77,6 +77,12 @@ internal object CardioAnalyticsEngine {
             recentScores.isNotEmpty()
         ) recentLoad / previousWeekly else null
 
+        val scoredBaseline = baseline.filter { loadDetail(it).score != null }.sortedBy { it.endedAt }
+        val baselineSpanDays = if (scoredBaseline.size >= 2) {
+            ((scoredBaseline.last().endedAt - scoredBaseline.first().endedAt).coerceAtLeast(0L) / day).toInt()
+        } else 0
+        val baselineActiveWeeks = scoredBaseline.map { it.endedAt / (7L * day) }.distinct().size
+
         val totalSeconds = recent.sumOf { it.durationSeconds.coerceAtLeast(0) }
         val measuredSeconds = recentDetails.sumOf { it.measuredZoneSeconds }
         return CardioLoadAnalytics(
@@ -84,6 +90,9 @@ internal object CardioAnalyticsEngine {
             previous21DayWeeklyAverage = previousWeekly,
             loadRatio = ratio,
             baselineQuality = baselineQuality,
+            baselineScoredSessions = scoredBaseline.size,
+            baselineActiveWeeks = baselineActiveWeeks,
+            baselineSpanDays = baselineSpanDays,
             scoredSessions = recentScores.size,
             totalSessions = recent.size,
             measuredZoneCoveragePercent = if (totalSeconds > 0) measuredSeconds * 100.0 / totalSeconds else 0.0,
