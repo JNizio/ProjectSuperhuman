@@ -45,6 +45,7 @@ class NextShellActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         SuperhumanAppearance.initialize(this)
         NativeDataHub.initialize(this)
+        SmartDeviceRuntime.initialize(this)
         EnvironmentalUiRuntime.installSource(AndroidEnvironmentalSource(this))
         MiniMetricsBackgroundSync.ensureScheduled(this)
         val trudyRuntime = TrudyRuntimeFactory.create(appContext = applicationContext)
