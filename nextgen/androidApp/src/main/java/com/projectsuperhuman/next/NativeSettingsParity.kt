@@ -349,8 +349,6 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
             Text(syntheticStatus, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
         }
 
-        ThemedH19cWearableCard()
-        SettingsSection("Health integrations", "Health Connect and direct BLE wearable data share the same native Data Vault.")
         SettingsSection("Permissions", "Camera, barcode/OCR, Bluetooth and health permissions are requested only when the related feature needs them.")
         SettingsSection("Scientific engine", "Health scores and statuses use stored native metrics and explicit reference ranges; missing clinical ranges are not invented.")
         SettingsSection("11.0 compatibility", "Core workflows are native-first. Selected advanced legacy tools remain available from their module as a safety fallback during the 11.0 validation cycle.")
