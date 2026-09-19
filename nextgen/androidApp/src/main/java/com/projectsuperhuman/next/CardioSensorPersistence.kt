@@ -20,3 +20,31 @@ internal fun HealthValue.withCardioHeartRateSummary(summary: CardioHeartRateSumm
     }
     return copy(metadata = merged)
 }
+
+
+/**
+ * Core-architecture adapter: merge real measured HR evidence into a CardioSession before the
+ * repository writes it. Explicit user-entered summary fields win, while quality/provenance and
+ * timeline evidence are retained in versioned extension metadata.
+ */
+internal fun CardioSession.withCardioHeartRateSummary(
+    summary: CardioHeartRateSummary
+): CardioSession {
+    if (summary.sampleCount <= 0) return this
+
+    val sensorExtensions = summary.toMetadata()
+        .filterKeys { key ->
+            key != "avgHeartRate" &&
+                key != "minHeartRate" &&
+                key != "maxHeartRate" &&
+                !(key.startsWith("zone") && key.endsWith("Seconds"))
+        }
+
+    return copy(
+        avgHeartRate = avgHeartRate ?: summary.averageBpm,
+        minHeartRate = minHeartRate ?: summary.minBpm,
+        maxHeartRate = maxHeartRate ?: summary.maxBpm,
+        zoneSeconds = if (zoneSeconds.isNotEmpty()) zoneSeconds else summary.zoneSeconds,
+        extensions = extensions + sensorExtensions
+    )
+}
