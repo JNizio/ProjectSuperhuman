@@ -116,7 +116,7 @@ internal fun CardioUnitSelector(
                         RoundedCornerShape(13.dp)
                     )
                     .semantics {
-                        selected = active
+                        this.selected = active
                         role = Role.Button
                     }
                     .clickable { onSelected(units) }
