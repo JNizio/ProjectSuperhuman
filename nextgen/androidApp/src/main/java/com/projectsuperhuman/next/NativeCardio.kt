@@ -717,6 +717,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             { formDurationMin = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
                             Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = cardioDecimalKeyboardOptions,
                             label = { Text("Duration (min)") }
                         )
                         if (formActivity.supportsDistance) {
@@ -725,6 +726,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                                 { formDistanceKm = CardioUnits.sanitizeDecimalInput(it, maxLength = 8) },
                                 Modifier.weight(1f),
                                 singleLine = true,
+                                keyboardOptions = cardioDecimalKeyboardOptions,
                                 label = { Text("Distance (km)") }
                             )
                         }
@@ -736,6 +738,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             { formAvgHr = it.filter(Char::isDigit).take(3) },
                             Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = cardioIntegerKeyboardOptions,
                             label = { Text("Avg HR") }
                         )
                         OutlinedTextField(
@@ -743,6 +746,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             { formMaxHr = it.filter(Char::isDigit).take(3) },
                             Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = cardioIntegerKeyboardOptions,
                             label = { Text("Max HR") }
                         )
                     }
@@ -753,6 +757,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             { formCalories = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
                             Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = cardioDecimalKeyboardOptions,
                             label = { Text("Calories (optional)") }
                         )
                         OutlinedTextField(
@@ -760,6 +765,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             { formRpe = CardioUnits.sanitizeDecimalInput(it, maxLength = 4) },
                             Modifier.weight(1f),
                             singleLine = true,
+                            keyboardOptions = cardioDecimalKeyboardOptions,
                             label = { Text("RPE 0-10") }
                         )
                     }
@@ -772,6 +778,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                                     { formCadence = it.filter(Char::isDigit).take(4) },
                                     Modifier.weight(1f),
                                     singleLine = true,
+                                    keyboardOptions = cardioIntegerKeyboardOptions,
                                     label = { Text("Cadence") }
                                 )
                             }
@@ -781,6 +788,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                                     { formElevation = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
                                     Modifier.weight(1f),
                                     singleLine = true,
+                                    keyboardOptions = cardioDecimalKeyboardOptions,
                                     label = { Text("Elevation gain (m)") }
                                 )
                             }
@@ -813,6 +821,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                                         { value -> zoneMinutes[index] = CardioUnits.sanitizeDecimalInput(value, maxLength = 6) },
                                         Modifier.weight(1f),
                                         singleLine = true,
+                                        keyboardOptions = cardioDecimalKeyboardOptions,
                                         label = { Text("Z${index + 1} min") }
                                     )
                                 }
