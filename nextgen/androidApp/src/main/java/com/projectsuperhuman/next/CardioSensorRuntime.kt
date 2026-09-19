@@ -111,6 +111,8 @@ internal object CardioSensorRuntime {
 
     fun hasSavedBleDevice(): Boolean = bleProvider?.hasSavedDevice() == true
     fun savedBleDeviceName(): String? = bleProvider?.savedDeviceName()
+    fun bleRequiredPermissions(): Array<String> = bleProvider?.requiredPermissions() ?: emptyArray()
+    fun hasBlePermissions(): Boolean = bleProvider?.hasPermissions() == true
 
     fun requiredPermissions(): Array<String> = when (selectedType) {
         CardioSensorProviderType.H19C -> H19cWearableRuntime.requiredPermissions()
