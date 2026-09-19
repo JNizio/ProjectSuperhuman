@@ -399,6 +399,7 @@ private fun HeartRateDeviceSourcesCard() {
 
     val h19c by H19cWearableRuntime.state.collectAsState()
     val ble by CardioSensorRuntime.bleSensorState.collectAsState()
+    val liveReadings by SmartDeviceRuntime.liveHeartRateReadings.collectAsState()
     var historical by remember { mutableStateOf<HealthValue?>(null) }
     var enabledH19cForPage by remember { mutableStateOf(false) }
 
@@ -436,8 +437,12 @@ private fun HeartRateDeviceSourcesCard() {
         }
     }
 
-    val h19cReading = SmartDeviceObservationMapper.h19cHeartRate(h19c)
-    val bleReading = SmartDeviceObservationMapper.bleHeartRate(ble)
+    val h19cReading = liveReadings.firstOrNull {
+        it.provenance.sourceLabel == H19cWearableRuntime.SOURCE
+    }
+    val bleReading = liveReadings.firstOrNull {
+        it.provenance.transport == com.projectsuperhuman.next.core.ObservationTransport.STANDARD_BLE
+    }
     val historicalReading = historical?.let(SmartDeviceObservationMapper::historicalHeartRate)
     val hasAnyDirect = h19c.deviceAddress != null || CardioSensorRuntime.hasSavedBleDevice()
 
