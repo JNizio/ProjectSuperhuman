@@ -126,7 +126,6 @@ internal class AndroidBleHeartRateClient(
             _events.emit(BleHeartRateClientEvent.Error("Bluetooth permission is required"))
             return
         }
-        prefs.edit().putBoolean(PREF_AUTO_RECONNECT, true).apply()
         val adapter = appContext.getSystemService(BluetoothManager::class.java)?.adapter
         if (adapter == null || !adapter.isEnabled) {
             _events.emit(BleHeartRateClientEvent.Error("Turn Bluetooth on, then try again"))
@@ -217,6 +216,7 @@ internal class AndroidBleHeartRateClient(
             _events.emit(BleHeartRateClientEvent.Error("No saved heart-rate sensor · add one in Smart Devices"))
             return
         }
+        prefs.edit().putBoolean(PREF_AUTO_RECONNECT, true).apply()
         val adapter = appContext.getSystemService(BluetoothManager::class.java)?.adapter
         if (adapter == null || !adapter.isEnabled) {
             _events.emit(BleHeartRateClientEvent.Error("Turn Bluetooth on, then try again"))
