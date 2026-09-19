@@ -1,5 +1,7 @@
 package com.projectsuperhuman.next
 
+import com.projectsuperhuman.next.core.HealthDomain
+import com.projectsuperhuman.next.core.HealthValue
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
@@ -382,6 +384,39 @@ class CardioCoreReliabilityTest {
         val repository: FakeRepository,
         val coordinator: CardioSessionCoordinator
     )
+
+
+    @Test
+    fun importedStorageIdentitySurvivesDecodeEditEncode() {
+        val row = HealthValue(
+            domain = HealthDomain.EXERCISE,
+            metric = "cardio_session",
+            value = 30.0,
+            unit = "min",
+            timestampEpochMs = 1_800_000_000_000L,
+            source = "health-connect-cardio",
+            metadata = mapOf(
+                "sessionId" to "hc-cardio-example",
+                "sourceRecordId" to "hc-cardio:com.example.health:record-1",
+                "activityType" to CardioActivityType.RUNNING.name,
+                "startedAt" to "1799998200000",
+                "endedAt" to "1800000000000",
+                "durationSeconds" to "1800",
+                "cardioSource" to "health-connect-cardio",
+                "healthConnectRecordId" to "record-1"
+            )
+        )
+
+        val edited = cardioSessionFromValue(row).copy(notes = "edited")
+        val remapped = edited.toHealthValue()
+
+        assertEquals("health-connect-cardio", remapped.source)
+        assertEquals(
+            "hc-cardio:com.example.health:record-1",
+            remapped.metadata["sourceRecordId"]
+        )
+        assertEquals("record-1", remapped.metadata["ext.healthConnectRecordId"])
+    }
 
     private class FakeClock(
         var epochMs: Long = 1_800_000_000_000L,
