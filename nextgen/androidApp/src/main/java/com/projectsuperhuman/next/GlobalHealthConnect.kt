@@ -16,6 +16,7 @@ internal object GlobalHealthConnect {
     fun corePermissions(): Set<String> =
         MiniMetricsHealthConnect.permissions +
             SleepHealthConnect.permission +
+            CardioHealthConnect.permissions +
             CalorieAccuracyEngine.basalCaloriesPermission
 
     fun requestPermissions(context: Context): Set<String> {
@@ -55,11 +56,15 @@ internal object GlobalHealthConnect {
         }
         val sleep = SleepHealthConnect.sync(context)
         val calories = CalorieAccuracyEngine.sync(context)
+        val cardio = CardioHealthConnect.sync(context)
         return GlobalHealthSyncResult(
-            success = sleep.success || calories.success || hasAnyCorePermission(context),
+            success = sleep.success || calories.success || cardio.success || hasAnyCorePermission(context),
             message = when {
+                cardio.success && (cardio.imported + cardio.updated) > 0 ->
+                    "Health Connect synced · ${cardio.imported + cardio.updated} cardio workout(s) updated"
                 calories.success && sleep.success -> "Samsung Health data synced · calorie burn calibrated"
                 calories.success -> calories.message
+                cardio.success -> cardio.message
                 else -> sleep.message
             }
         )
