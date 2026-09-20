@@ -478,18 +478,35 @@ private fun ExerciseModuleCard(
             modifier = Modifier.fillMaxSize()
         )
 
+        val tintOverlay = if (strength) {
+            Brush.horizontalGradient(
+                listOf(
+                    Color(0xFF081C33).copy(alpha = .82f),
+                    Color(0xFF0C3C63).copy(alpha = .62f),
+                    Color(0xFF1E5C8E).copy(alpha = .38f),
+                    Color.Black.copy(alpha = .20f)
+                )
+            )
+        } else {
+            Brush.horizontalGradient(
+                listOf(
+                    Color(0xFF082124).copy(alpha = .84f),
+                    Color(0xFF0C4A4C).copy(alpha = .62f),
+                    Color(0xFF1D7B75).copy(alpha = .38f),
+                    Color.Black.copy(alpha = .20f)
+                )
+            )
+        }
+
         Box(
             Modifier
                 .fillMaxSize()
-                .background(
-                    Brush.horizontalGradient(
-                        listOf(
-                            Color.Black.copy(alpha = .38f),
-                            Color.Black.copy(alpha = .16f),
-                            Color.Transparent
-                        )
-                    )
-                )
+                .background(tintOverlay)
+        )
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = .10f))
         )
 
         Row(
