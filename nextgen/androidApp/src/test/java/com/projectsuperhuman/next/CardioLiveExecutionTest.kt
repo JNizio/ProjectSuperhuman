@@ -209,7 +209,9 @@ internal class CardioLiveExecutionTest {
 
         val manual = assertNotNull(tracker.manualLap(360_000, 1_205.0))
         assertFalse(manual.exactDistance)
-        assertEquals(200.0, manual.distanceMeters, 0.01)
+        // The auto lap closes at the exact 1,000 m boundary, so the 5 m overshoot
+        // remains part of the next lap instead of being discarded.
+        assertEquals(205.0, manual.distanceMeters, 0.01)
         assertEquals(2, manual.index)
     }
 
