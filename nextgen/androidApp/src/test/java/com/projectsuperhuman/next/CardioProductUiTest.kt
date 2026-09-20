@@ -41,6 +41,19 @@ class CardioProductUiTest {
     }
 
     @Test
+    fun availableRecoveryContextIsUsedWithoutFillingMissingSignals() {
+        val model = buildCardioProductOverviewModel(
+            sessions = emptyList(),
+            recoveryContext = CardioRecoveryContext(sleepScore = 82.0),
+            nowEpochMs = now
+        )
+
+        assertEquals(1, model.readiness.availableSignals)
+        assertEquals(CardioConfidence.LOW, model.readiness.confidence)
+        assertTrue(model.readiness.explanation.contains("sleep score"))
+    }
+
+    @Test
     fun connectedSensorStatusIncludesSourceHeartRateAndFreshness() {
         val metrics = CardioLiveSensorMetrics(
             providerType = CardioSensorProviderType.BLE_HEART_RATE,
