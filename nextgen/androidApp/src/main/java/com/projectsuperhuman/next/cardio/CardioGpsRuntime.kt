@@ -57,6 +57,7 @@ internal object CardioGpsRuntime {
     private var recording = false
     private var manuallyPaused = false
     private val rawFixes = mutableListOf<CardioGpsFix>()
+    private val activeFixes = mutableListOf<CardioGpsFix>()
     private var lapTracker: CardioLiveLapTracker? = null
     private var autoPauseConfig = CardioAutoPauseConfig.forActivity(CardioActivityType.GENERAL_CARDIO, false)
     private var autoPauseEngine = CardioAutoPauseEngine(autoPauseConfig)
@@ -113,6 +114,7 @@ internal object CardioGpsRuntime {
         recording = true
         manuallyPaused = false
         rawFixes.clear()
+        activeFixes.clear()
         pauseEvents.clear()
         openAutoPauseIndex = null
         autoPauseConfig = CardioAutoPauseConfig.forActivity(activity, autoPauseEnabled)
@@ -168,7 +170,7 @@ internal object CardioGpsRuntime {
         }
         recording = false
         stopLocationUpdates()
-        val route = CardioGpsProcessor.summarise(rawFixes, activity, endedAtEpochMs)
+        val route = CardioGpsProcessor.summarise(activeFixes, activity, endedAtEpochMs).copy(rawFixes = rawFixes.toList())
         val snapshot = CardioLiveTelemetrySnapshot(
             sessionId = id,
             route = route,
@@ -191,7 +193,7 @@ internal object CardioGpsRuntime {
 
     fun snapshot(nowEpochMs: Long = System.currentTimeMillis()): CardioLiveTelemetrySnapshot? {
         val id = activeSessionId ?: return null
-        val route = CardioGpsProcessor.summarise(rawFixes, activity, nowEpochMs)
+        val route = CardioGpsProcessor.summarise(activeFixes, activity, nowEpochMs).copy(rawFixes = rawFixes.toList())
         return CardioLiveTelemetrySnapshot(
             sessionId = id,
             route = route,
@@ -217,14 +219,14 @@ internal object CardioGpsRuntime {
 
     fun setStructuredWorkout(workout: CardioStructuredWorkout?) {
         structuredState = if (workout == null || activeSessionId == null) null else {
-            val route = CardioGpsProcessor.summarise(rawFixes, activity)
+            val route = CardioGpsProcessor.summarise(activeFixes, activity).copy(rawFixes = rawFixes.toList())
             CardioStructuredWorkoutEngine.start(workout, System.currentTimeMillis(), route.distanceMeters)
         }
         refresh()
     }
 
     fun manualLap(nowEpochMs: Long = System.currentTimeMillis()): CardioLap? {
-        val route = CardioGpsProcessor.summarise(rawFixes, activity, nowEpochMs)
+        val route = CardioGpsProcessor.summarise(activeFixes, activity, nowEpochMs).copy(rawFixes = rawFixes.toList())
         val hr = CardioSensorRuntime.liveMetrics.value
         val lap = lapTracker?.manualLap(
             nowEpochMs = nowEpochMs,
@@ -278,6 +280,7 @@ internal object CardioGpsRuntime {
         // analytics only append distance during recording, preventing stopped time from becoming
         // movement distance while still retaining the underlying evidence.
         rawFixes += fix
+        if (recording) activeFixes += fix
         val route = activeRouteSummary(fix.receivedAtEpochMs)
         if (recording) {
             val speed = fix.speedMetersPerSecond ?: route.currentSpeedMetersPerSecond
@@ -307,16 +310,9 @@ internal object CardioGpsRuntime {
         refresh(route = route)
     }
 
-    private fun activeRouteSummary(nowEpochMs: Long): CardioRouteSummary {
-        if (recording) return CardioGpsProcessor.summarise(rawFixes, activity, nowEpochMs)
-        // When paused, prevent additional paused fixes from adding route distance by truncating to
-        // the most recent accepted fix at/before the pause transition as represented by the route
-        // already shown. For simplicity the processor receives only fixes up to the latest
-        // recording transition; manual/auto pause keeps the live distance frozen.
-        val frozenCount = _metrics.value.rawFixCount
-        val activeFixes = if (frozenCount in 1 until rawFixes.size) rawFixes.take(frozenCount) else rawFixes
-        return CardioGpsProcessor.summarise(activeFixes, activity, nowEpochMs)
-    }
+    private fun activeRouteSummary(nowEpochMs: Long): CardioRouteSummary =
+        CardioGpsProcessor.summarise(activeFixes, activity, nowEpochMs)
+            .copy(rawFixes = rawFixes.toList())
 
     private fun refresh(
         route: CardioRouteSummary = activeRouteSummary(System.currentTimeMillis()),
