@@ -187,7 +187,9 @@ internal class CardioSessionService : Service() {
                 draft.sessionId,
                 draft.activity,
                 draft.startedAtEpochMs,
-                paused = draft.phase != CardioLivePhase.RECORDING
+                paused = draft.phase != CardioLivePhase.RECORDING,
+                pausedSinceEpochMs = draft.phaseStartedEpochMs
+                    .takeIf { draft.phase != CardioLivePhase.RECORDING }
             )
         }
     }
