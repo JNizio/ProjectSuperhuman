@@ -230,7 +230,7 @@ internal fun CardioVisualHub(
                     week = model.week,
                     onOpen = {
                         sheet = null
-                        onTrends()
+                        onSessions()
                     }
                 )
                 CardioHubSheet.QUICK_STARTS -> CardioHubQuickStartEditor(
@@ -1144,7 +1144,7 @@ private fun CardioHubWeekSheet(week: CardioWeekIntentSnapshot, onOpen: () -> Uni
             }
         }
         Spacer(Modifier.height(16.dp))
-        CardioHubSheetAction("Open training trends", Color(0xFF8E72D8), onOpen)
+        CardioHubSheetAction("View recent workouts", Color(0xFF8E72D8), onOpen)
         Spacer(Modifier.height(24.dp))
     }
 }
