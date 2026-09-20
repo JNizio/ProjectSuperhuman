@@ -83,7 +83,6 @@ private enum class HomeTile(val storageKey: String) {
     HYDRATION("hydration"),
     CLINICAL("clinical"),
     EXERCISE("exercise"),
-    BODY("body"),
     MINDFULNESS("mindfulness"),
     SLEEP("sleep"),
     NUTRITION("nutrition"),
@@ -105,7 +104,6 @@ private val defaultHomeTileOrder = listOf(
     HomeTile.HYDRATION,
     HomeTile.CLINICAL,
     HomeTile.EXERCISE,
-    HomeTile.BODY,
     HomeTile.MINDFULNESS,
     HomeTile.SLEEP,
     HomeTile.NUTRITION,
@@ -328,7 +326,6 @@ internal fun NativeLiveHome(
                             HomeTile.HYDRATION -> PremiumHomeHydrationTile(snapshot, openHydration)
                             HomeTile.CLINICAL -> LegacyClinicalCard(snapshot, openClinical)
                             HomeTile.EXERCISE -> LegacyTrainingCard(snapshot, openExercise)
-                            HomeTile.BODY -> LegacyBodyCard(snapshot, Modifier.fillMaxWidth(), openBody)
                             HomeTile.MINDFULNESS -> HomeMindfulnessBreathworkRow(snapshot, openMindfulness)
                             HomeTile.SLEEP -> HomeSleepInsightTile(snapshot, openSleep)
                             HomeTile.NUTRITION -> LegacyNutritionCard(snapshot, openNutrition)
