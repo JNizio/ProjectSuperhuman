@@ -25,7 +25,8 @@ import com.projectsuperhuman.next.core.ScientificInsight
 class TrudyHealthContextService(
     private val parity: ModuleParityService,
     private val scientificEngine: ScientificEngine? = null,
-    private val registry: MetricRegistry = CoreMetricRegistry
+    private val registry: MetricRegistry = CoreMetricRegistry,
+    private val temporalBoundaries: TrudyTemporalBoundaryProvider = UtcTrudyTemporalBoundaryProvider()
 ) {
     suspend fun currentState(domain: HealthDomain): List<TrudyMetricEvidence> {
         val quality = dataQuality(domain)
@@ -106,13 +107,14 @@ class TrudyHealthContextService(
         val parityInsights = if (hasSynthetic) emptyList() else {
             parity.insights(domain).map { it.toTrudyEvidence(quality) }
         }
-        val science = scientificEngine ?: return parityInsights
+        val cardioSummaries = cardioSummaryInsights(domain, quality)
+        val science = scientificEngine ?: return parityInsights + cardioSummaries
         val boundedValues = realDomainHistory(domain, INTERPRETATION_HISTORY_LIMIT, 0)
-        if (boundedValues.isEmpty()) return parityInsights
+        if (boundedValues.isEmpty()) return parityInsights + cardioSummaries
         val interpreted = science.interpret(boundedValues)
             .filter { it.domain == domain }
             .map { it.toTrudyEvidence(quality) }
-        return parityInsights + interpreted
+        return parityInsights + cardioSummaries + interpreted
     }
 
     suspend fun dataQuality(domain: HealthDomain): TrudyDataQualityEvidence {
@@ -187,10 +189,11 @@ class TrudyHealthContextService(
         val parityInsights = if (hasSynthetic) emptyList() else {
             parity.insights(domain).map { it.toTrudyEvidence(quality) }
         }
-        val science = scientificEngine ?: return parityInsights
+        val cardioSummaries = cardioSummaryInsights(domain, quality)
+        val science = scientificEngine ?: return parityInsights + cardioSummaries
         val boundedValues = realDomainHistory(domain, INTERPRETATION_HISTORY_LIMIT, 0)
-        if (boundedValues.isEmpty()) return parityInsights
-        return parityInsights + science.interpret(boundedValues)
+        if (boundedValues.isEmpty()) return parityInsights + cardioSummaries
+        return parityInsights + cardioSummaries + science.interpret(boundedValues)
             .filter { it.domain == domain }
             .map { it.toTrudyEvidence(quality) }
     }
@@ -286,16 +289,83 @@ class TrudyHealthContextService(
     private fun canonicalMetric(domain: HealthDomain, metricId: String): String =
         registry.definition(domain, metricId)?.id ?: metricId.trim()
 
-    private fun HealthValue.toMetricEvidence(quality: TrudyDataQualityEvidence?) = TrudyMetricEvidence(
-        domain = domain,
-        metricId = metric,
-        value = value,
-        unit = unit,
-        timestampEpochMs = timestampEpochMs,
-        source = source,
-        dataQuality = quality,
-        metadata = metadata + trudyCaptureMetadata()
-    )
+    private fun HealthValue.toMetricEvidence(quality: TrudyDataQualityEvidence?): TrudyMetricEvidence {
+        val valueClass = trudyValueClass()
+        val coverage = metadata["coverageFraction"]?.toDoubleOrNull()
+            ?: metadata["coverage"]?.toDoubleOrNull()
+            ?: metadata["heartRateCoveragePct"]?.toDoubleOrNull()?.div(100.0)
+            ?: metadata["ext.heartRateCoveragePct"]?.toDoubleOrNull()?.div(100.0)
+        val sampleCount = metadata["sampleCount"]?.toIntOrNull()
+            ?: metadata["heartRateSampleCount"]?.toIntOrNull()
+            ?: metadata["ext.heartRateSampleCount"]?.toIntOrNull()
+            ?: 1
+        val numericConfidence = metadata["confidenceScore"]?.toDoubleOrNull()
+            ?: metadata["confidenceFraction"]?.toDoubleOrNull()
+        return TrudyMetricEvidence(
+            domain = domain,
+            metricId = metric,
+            value = value,
+            unit = unit,
+            timestampEpochMs = timestampEpochMs,
+            sampleCount = sampleCount.coerceAtLeast(0),
+            source = source,
+            confidence = numericConfidence,
+            dataQuality = quality,
+            evidenceKind = when (valueClass) {
+                TrudyValueClass.MEASURED -> TrudyEvidenceKind.DIRECT_PERSONAL_OBSERVATION
+                TrudyValueClass.DERIVED -> TrudyEvidenceKind.DERIVED_PERSONAL_TREND
+                TrudyValueClass.ESTIMATED,
+                TrudyValueClass.INFERRED -> TrudyEvidenceKind.INTERPRETATION
+                TrudyValueClass.UNKNOWN -> TrudyEvidenceKind.UNCERTAINTY_OR_DATA_GAP
+            },
+            metadata = metadata + trudyCaptureMetadata(),
+            valueClass = valueClass,
+            confidenceLabel = metadata["confidence"],
+            algorithmVersion = metadata["algorithmVersion"] ?: metadata["ext.algorithmVersion"],
+            sessionId = metadata["sessionId"],
+            deviceId = metadata["sensorId"] ?: metadata["ext.sensorId"] ?: metadata["deviceId"],
+            deviceName = metadata["sensorDeviceName"] ?: metadata["ext.sensorDeviceName"] ?: metadata["deviceName"],
+            coverageFraction = coverage?.takeIf { it.isFinite() }?.coerceIn(0.0, 1.0),
+            caveat = metadata["caveat"]
+        )
+    }
+
+    private fun HealthValue.trudyValueClass(): TrudyValueClass {
+        metadata["valueClass"]?.trim()?.uppercase()?.let { raw ->
+            TrudyValueClass.entries.firstOrNull { it.name == raw }?.let { return it }
+        }
+        return if (registry.definition(domain, metric)?.derived == true) {
+            TrudyValueClass.DERIVED
+        } else {
+            TrudyValueClass.MEASURED
+        }
+    }
+
+    private suspend fun cardioSummaryInsights(
+        domain: HealthDomain,
+        quality: TrudyDataQualityEvidence?
+    ): List<TrudyInsightEvidence> {
+        if (domain != HealthDomain.EXERCISE) return emptyList()
+        val rows = CARDIO_SUMMARY_METRICS.flatMap { metric ->
+            realMetricHistory(domain, metric, CARDIO_SUMMARY_METRIC_LIMIT, 0)
+        }
+        if (rows.isEmpty()) return emptyList()
+        val now = temporalBoundaries.nowEpochMs()
+        val windows = listOf(
+            "cardio-weekly-summary" to ("Cardio · this week" to TrudyTimeRange(temporalBoundaries.startOfWeekEpochMs(), now)),
+            "cardio-monthly-summary" to ("Cardio · this month" to TrudyTimeRange(temporalBoundaries.startOfMonthEpochMs(), now))
+        )
+        return windows.mapNotNull { (id, titleAndRange) ->
+            val (title, range) = titleAndRange
+            TrudyCardioEvidenceAssembler.summarise(
+                id = id,
+                title = title,
+                range = range,
+                rows = rows,
+                dataQuality = quality
+            )?.toInsightEvidence()
+        }
+    }
 
     /** Normalize provenance classes without replacing the original source string. */
     private fun HealthValue.trudyCaptureMetadata(): Map<String, String> {
@@ -389,6 +459,15 @@ class TrudyHealthContextService(
         const val MAX_QUALITY_NOTES = 12
         const val HOUR_MS = 3_600_000.0
         const val REAL_DATA_STALE_HOURS = 24.0 * 14.0
+        const val CARDIO_SUMMARY_METRIC_LIMIT = 1_000
+        val CARDIO_SUMMARY_METRICS = listOf(
+            "cardio_session",
+            "cardio_fitness_efficiency_delta_pct",
+            "cardio_training_readiness_score",
+            "cardio_chronic_training_load",
+            "cardio_acute_training_load",
+            "cardio_training_stress_balance"
+        )
         const val MODULE_PARITY_SOURCE = "module-parity"
         const val REAL_DERIVED_SOURCE = "trudy-real-derived-v1"
     }
