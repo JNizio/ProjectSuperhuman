@@ -94,6 +94,9 @@ internal object CardioGpsRuntime {
 
     fun requiredPermissions(): Array<String> = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
 
+    fun hasActiveSession(sessionId: String? = null): Boolean =
+        activeSessionId != null && (sessionId == null || activeSessionId == sessionId)
+
     fun hasPermission(): Boolean {
         val context = appContext ?: return false
         return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
