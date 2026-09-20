@@ -94,6 +94,37 @@ internal object CardioComparableSessionEngine {
         return CardioComparabilityResult(verdict, score, reasons, warnings)
     }
 
+    /**
+     * Returns the largest anchor-relative comparable cluster. This intentionally avoids
+     * cross-session averaging solely because activities share the same enum value.
+     */
+    fun selectComparableCluster(
+        evidence: List<CardioSessionEvidence>,
+        allowPartial: Boolean = true
+    ): List<CardioSessionEvidence> {
+        if (evidence.size <= 1) return evidence
+        val candidates = evidence.map { anchor ->
+            val cluster = evidence.filter { other ->
+                if (anchor.session.id == other.session.id) {
+                    true
+                } else {
+                    val verdict = compare(anchor, other).verdict
+                    verdict == CardioComparability.COMPARABLE ||
+                        (allowPartial && verdict == CardioComparability.PARTIALLY_COMPARABLE)
+                }
+            }
+            anchor to cluster
+        }
+        return candidates
+            .maxWithOrNull(
+                compareBy<Pair<CardioSessionEvidence, List<CardioSessionEvidence>>> { it.second.size }
+                    .thenBy { it.first.session.endedAt }
+            )
+            ?.second
+            ?.sortedBy { it.session.endedAt }
+            .orEmpty()
+    }
+
     private fun heartRateCoverage(samples: List<CardioTimeSeriesSample>): Double =
         if (samples.isEmpty()) 0.0 else samples.count { (it.heartRateBpm ?: 0.0) > 0.0 }.toDouble() / samples.size
 
