@@ -291,7 +291,7 @@ private fun ShellBottomNavigation(
             .border(
                 width = 1.dp,
                 color = superhumanBorder.copy(alpha = .8f),
-                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
+                shape = RoundedCornerShape(0.dp)
             )
             .padding(horizontal = 24.dp, vertical = 7.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
