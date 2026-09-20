@@ -310,7 +310,6 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             restEndsAt = draft.restEndsAt
             restSeconds = (((restEndsAt - System.currentTimeMillis()).coerceAtLeast(0L) + 999L) / 1000L).toInt()
             mode = "home"
-            feedbackMessage = "Active workout ready to resume"
         }
     }
 
