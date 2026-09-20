@@ -99,7 +99,6 @@ internal fun CardioVisualHub(
     onSessions: () -> Unit,
     onOpenSession: (CardioSession) -> Unit,
     onFitness: () -> Unit,
-    onTrends: () -> Unit,
     onTestsRecords: () -> Unit,
     onLog: () -> Unit
 ) {
@@ -224,7 +223,7 @@ internal fun CardioVisualHub(
                     context = recoveryContext,
                     onOpen = {
                         sheet = null
-                        onTrends()
+                        onFitness()
                     }
                 )
                 CardioHubSheet.WEEK -> CardioHubWeekSheet(
@@ -512,13 +511,17 @@ private fun CardioHubOverviewPanel(
             Spacer(Modifier.width(9.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    "Today",
+                    "Training capacity",
                     color = superhumanTextPrimary,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    "${readiness.availableSignals}/${readiness.totalSignals} recovery inputs",
+                    if (readiness.availableSignals > 0) {
+                        "${readiness.availableSignals}/${readiness.totalSignals} inputs available"
+                    } else {
+                        "Add recovery data to build your capacity view"
+                    },
                     color = superhumanTextMuted,
                     fontSize = 8.sp
                 )
@@ -690,9 +693,27 @@ private fun CardioHubProgressStat(
     modifier: Modifier,
     valueColor: Color = superhumanTextPrimary
 ) {
-    Column(modifier) {
-        Text(label, color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
-        Text(value, color = valueColor, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
+    Column(
+        modifier,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            label,
+            color = superhumanTextMuted,
+            fontSize = 7.sp,
+            fontWeight = FontWeight.Black,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            value,
+            color = valueColor,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Black,
+            maxLines = 1,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
