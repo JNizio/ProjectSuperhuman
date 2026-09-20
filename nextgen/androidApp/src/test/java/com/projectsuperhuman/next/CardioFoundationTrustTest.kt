@@ -257,6 +257,25 @@ class CardioFoundationTrustTest {
     }
 
     @Test
+    fun belowThresholdSampleBreaksHrmaxCandidateRun() {
+        val samples = listOf(
+            CardioHeartRateSample(0L, 191, ble),
+            CardioHeartRateSample(1_000L, 192, ble),
+            CardioHeartRateSample(2_000L, 180, ble),
+            CardioHeartRateSample(3_000L, 193, ble),
+            CardioHeartRateSample(4_000L, 194, ble)
+        )
+        assertNull(
+            CardioHrMaxCandidateEngine.detectCandidate(
+                configuredHrMax = 190,
+                samples = samples,
+                minConsecutiveSamples = 3,
+                minSustainedDurationMs = 0L
+            )
+        )
+    }
+
+    @Test
     fun filteredSamplesDoNotSupportHrmaxCandidate() {
         val samples = listOf(191, 192, 193, 194).mapIndexed { index, bpm ->
             CardioHeartRateSample(index * 2_000L, bpm, ble)

@@ -276,19 +276,25 @@ internal object CardioHrMaxCandidateEngine {
             }
         }
         val clean = ordered.filterIndexed { index, _ -> index !in artifactIndexes }
-        val above = clean.filter { it.bpm > configured }
-        if (above.size < minConsecutiveSamples) return null
-
         val runs = mutableListOf<MutableList<CardioHeartRateSample>>()
-        above.forEach { sample ->
-            val current = runs.lastOrNull()
+        var currentRun: MutableList<CardioHeartRateSample>? = null
+        clean.forEach { sample ->
+            if (sample.bpm <= configured) {
+                currentRun = null
+                return@forEach
+            }
+            val current = currentRun
             val last = current?.lastOrNull()
             if (last == null || sample.timestampEpochMs - last.timestampEpochMs > maxGapMs) {
-                runs += mutableListOf(sample)
+                mutableListOf(sample).also {
+                    runs += it
+                    currentRun = it
+                }
             } else {
                 current += sample
             }
         }
+        if (runs.sumOf { it.size } < minConsecutiveSamples) return null
 
         val credible = runs
             .filter { run ->
