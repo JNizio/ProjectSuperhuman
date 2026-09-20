@@ -72,6 +72,7 @@ internal data class CardioTrainingLoadSeries(
     val methodCounts: Map<CardioIntelligenceLoadMethod, Int>,
     val scoredSessionFraction: Double,
     val mixedScaleWarning: Boolean,
+    val modelledMethod: CardioIntelligenceLoadMethod? = null,
     val algorithmVersion: String = CARDIO_INTELLIGENCE_ALGORITHM_VERSION
 )
 
