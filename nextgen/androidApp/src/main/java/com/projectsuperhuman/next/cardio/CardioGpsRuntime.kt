@@ -133,11 +133,12 @@ internal object CardioGpsRuntime {
         sessionId: String,
         activity: CardioActivityType,
         startedAtEpochMs: Long,
-        paused: Boolean
+        paused: Boolean,
+        pausedSinceEpochMs: Long? = null
     ) {
         if (activeSessionId == sessionId) return
         startSession(sessionId, activity, startedAtEpochMs)
-        if (paused) pause(manual = true)
+        if (paused) pause(atEpochMs = pausedSinceEpochMs ?: System.currentTimeMillis(), manual = true)
     }
 
     fun pause(atEpochMs: Long = System.currentTimeMillis(), manual: Boolean = true) {
