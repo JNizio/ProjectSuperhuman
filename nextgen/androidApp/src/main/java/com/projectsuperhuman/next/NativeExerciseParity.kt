@@ -495,18 +495,57 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 PolishedSection("FIND AN EXERCISE", "") {
                     OutlinedTextField(query, { query = it; showCount = 12 }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search exercises") })
                     Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ChoiceChip(if (favoritesOnly) "★ Favorites" else "☆ Favorites", favoritesOnly) { favoritesOnly = !favoritesOnly; showCount = 12 }
-                        ChoiceChip("Muscle: ${muscleFilter ?: "All"}", muscleFilter != null) { muscleFilter = next(muscleFilter, muscles); showCount = 12 }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        LibraryFilterButton(
+                            label = "Favorites",
+                            value = if (favoritesOnly) "On" else null,
+                            active = favoritesOnly,
+                            modifier = Modifier.weight(1f)
+                        ) { favoritesOnly = !favoritesOnly; showCount = 12 }
+                        LibraryFilterButton(
+                            label = "Muscle",
+                            value = muscleFilter,
+                            active = muscleFilter != null,
+                            modifier = Modifier.weight(1f)
+                        ) { muscleFilter = next(muscleFilter, muscles); showCount = 12 }
+                        LibraryFilterButton(
+                            label = "Equipment",
+                            value = equipmentFilter,
+                            active = equipmentFilter != null,
+                            modifier = Modifier.weight(1f)
+                        ) { equipmentFilter = next(equipmentFilter, equipment); showCount = 12 }
                     }
-                    Spacer(Modifier.height(6.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ChoiceChip("Equipment: ${equipmentFilter ?: "All"}", equipmentFilter != null) { equipmentFilter = next(equipmentFilter, equipment); showCount = 12 }
-                        ChoiceChip("Difficulty: ${difficultyFilter ?: "All"}", difficultyFilter != null) { difficultyFilter = next(difficultyFilter, difficulties); showCount = 12 }
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        LibraryFilterButton(
+                            label = "Difficulty",
+                            value = difficultyFilter,
+                            active = difficultyFilter != null,
+                            modifier = Modifier.weight(1f)
+                        ) { difficultyFilter = next(difficultyFilter, difficulties); showCount = 12 }
+                        LibraryFilterButton(
+                            label = "Movement",
+                            value = mechanicFilter,
+                            active = mechanicFilter != null,
+                            modifier = Modifier.weight(1f)
+                        ) { mechanicFilter = next(mechanicFilter, mechanics); showCount = 12 }
+                        val hasFilters = favoritesOnly || muscleFilter != null || equipmentFilter != null || difficultyFilter != null || mechanicFilter != null
+                        LibraryFilterButton(
+                            label = "Clear",
+                            value = null,
+                            active = false,
+                            enabled = hasFilters,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            favoritesOnly = false
+                            muscleFilter = null
+                            equipmentFilter = null
+                            difficultyFilter = null
+                            mechanicFilter = null
+                            showCount = 12
+                        }
                     }
-                    Spacer(Modifier.height(6.dp))
-                    ChoiceChip("Movement: ${mechanicFilter ?: "All"}", mechanicFilter != null) { mechanicFilter = next(mechanicFilter, mechanics); showCount = 12 }
-                    Spacer(Modifier.height(9.dp))
+                    Spacer(Modifier.height(10.dp))
                     filtered.take(showCount).forEach { e ->
                         ExerciseResultRow(
                             e, startedAt > 0L, e.id in favorites,
@@ -518,7 +557,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             }
                         )
                     }
-                    if (filtered.isEmpty()) EmptyState("No matches", "Clear or cycle filters to widen the RepDB search.")
+                    if (filtered.isEmpty()) EmptyState("No matches", "Try clearing a filter.")
                     if (filtered.size > showCount) Text("LOAD 12 MORE", color = ExerciseBlue, fontSize = 10.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clickable { showCount += 12 }.padding(12.dp))
                 }
             }
@@ -894,6 +933,42 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 @Composable private fun SetTableHeader() { Row { Text("SET", Modifier.width(34.dp), color = ExerciseMuted, fontSize = 9.sp); Text("PREVIOUS", Modifier.weight(1f), color = ExerciseMuted, fontSize = 9.sp); Text("LOAD", Modifier.width(50.dp), color = ExerciseMuted, fontSize = 9.sp); Text("REPS", Modifier.width(42.dp), color = ExerciseMuted, fontSize = 9.sp); Text("", Modifier.width(54.dp)) } }
 @Composable private fun SetRow(i: Int, s: NativeWorkoutSet, old: HealthValue?, onDuplicate: () -> Unit, onEdit: () -> Unit, onDelete: () -> Unit, deletePending: Boolean) { Column(Modifier.fillMaxWidth().background(if (i % 2 == 0) ExerciseRowSurface else Color.Transparent, RoundedCornerShape(10.dp)).padding(vertical = 7.dp, horizontal = 4.dp)) { Row(verticalAlignment = Alignment.CenterVertically) { Text(i.toString(), Modifier.width(30.dp), color = ExerciseInk, fontSize = 11.sp); Text(old?.let { "${it.metadata["loadKg"] ?: "0"} × ${it.metadata["reps"] ?: "—"}" } ?: "—", Modifier.weight(1f), color = ExerciseMuted, fontSize = 10.sp); Text(exerciseNumber(s.loadKg), Modifier.width(50.dp), color = ExerciseInk, fontSize = 11.sp); Text(s.reps.toString(), Modifier.width(42.dp), color = ExerciseInk, fontSize = 11.sp) }; Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(start = 30.dp, top = 3.dp)) { Text("COPY", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable { onDuplicate() }.padding(vertical = 7.dp)); Text("EDIT", color = ExercisePurple, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable { onEdit() }.padding(vertical = 7.dp)); Text(if (deletePending) "CONFIRM DELETE" else "DELETE", color = if (SuperhumanAppearance.darkMode) superhumanRed else Color(0xFFAA4444), fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable { onDelete() }.padding(vertical = 7.dp)) } } }
 @Composable private fun DuplicateLastSetTile(set: NativeWorkoutSet, onDuplicate: () -> Unit) { Row(Modifier.fillMaxWidth().background(ExerciseSoft, RoundedCornerShape(14.dp)).clickable { onDuplicate() }.padding(11.dp), verticalAlignment = Alignment.CenterVertically) { Column(Modifier.weight(1f)) { Text("REPEAT LAST SET", color = ExerciseBlue, fontSize = 11.sp, fontWeight = FontWeight.Black); Text("${exerciseNumber(set.loadKg)} kg × ${set.reps}${set.rir?.let { " · RIR $it" } ?: ""}", color = ExerciseMuted, fontSize = 10.sp) }; Text("+1", color = ExerciseBlue, fontSize = 14.sp, fontWeight = FontWeight.Black) } }
+@Composable
+private fun LibraryFilterButton(
+    label: String,
+    value: String?,
+    active: Boolean,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier
+            .height(58.dp)
+            .background(
+                if (active) ExerciseBlue.copy(alpha = if (SuperhumanAppearance.darkMode) .22f else .12f) else ExerciseSoft,
+                RoundedCornerShape(14.dp)
+            )
+            .clickable(enabled = enabled) { onClick() }
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Text(
+            label,
+            color = if (enabled) ExerciseInk else ExerciseMuted.copy(alpha = .55f),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+        Text(
+            value ?: if (label == "Clear") "Reset" else "All",
+            color = if (active) ExerciseBlue else ExerciseMuted,
+            fontSize = 8.sp,
+            maxLines = 1
+        )
+    }
+}
+
 @Composable private fun ChoiceChip(label: String, active: Boolean, onClick: () -> Unit) { val displayLabel = if (label == "Warmup") "Warm-up" else label; Text(displayLabel, color = if (active) Color.White else ExerciseBlue, fontSize = 10.sp, fontWeight = if (active) FontWeight.Bold else FontWeight.Medium, modifier = Modifier.heightIn(min = 44.dp).background(if (active) ExerciseBlue else ExerciseSoft, RoundedCornerShape(11.dp)).clickable { onClick() }.padding(horizontal = 9.dp, vertical = 12.dp)) }
 @Composable private fun HistoryRow(v: HealthValue) { Row(Modifier.fillMaxWidth().background(ExerciseRowSurface, RoundedCornerShape(14.dp)).padding(10.dp)) { Column(Modifier.weight(1f)) { Text(v.metadata["exerciseName"] ?: "Exercise", color = ExerciseInk, fontSize = 11.sp, fontWeight = FontWeight.Bold); Text(v.metadata["setType"]?.replace("Warmup", "Warm-up") ?: "Working set", color = ExerciseMuted, fontSize = 10.sp) }; Text("${v.metadata["loadKg"] ?: "0"} kg × ${v.metadata["reps"] ?: "—"}", color = ExerciseNavy, fontSize = 11.sp) }; Spacer(Modifier.height(5.dp)) }
 @Composable private fun ProgressTile(name: String, sets: Int, maxLoad: Double) { Column(Modifier.fillMaxWidth().background(ExerciseRowSurface, RoundedCornerShape(16.dp)).padding(11.dp)) { Text(name, color = ExerciseInk, fontSize = 11.sp, fontWeight = FontWeight.Black); Text("$sets working sets · best load ${exerciseNumber(maxLoad)} kg", color = ExerciseMuted, fontSize = 10.sp) }; Spacer(Modifier.height(7.dp)) }
