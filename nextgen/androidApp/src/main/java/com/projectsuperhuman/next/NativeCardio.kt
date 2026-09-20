@@ -1,6 +1,9 @@
 package com.projectsuperhuman.next
 
+import android.Manifest
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -71,6 +74,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     val cardioViewModel: CardioViewModel = viewModel()
     val cardioState by cardioViewModel.state.collectAsState()
     val sensorMetrics by CardioSensorRuntime.liveMetrics.collectAsState()
+    val movementMetrics by CardioGpsRuntime.metrics.collectAsState()
     val sessions = cardioState.sessions
 
     var screen by remember { mutableStateOf(CardioScreen.HOME) }
@@ -78,6 +82,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var pendingDeleteSessionId by remember { mutableStateOf<String?>(null) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var liveAutoPauseEnabled by remember { mutableStateOf(false) }
 
     var liveActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
     var liveWorkoutType by remember { mutableStateOf(CardioWorkoutType.FREE) }
@@ -102,6 +107,18 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var formLivePausedSeconds by remember { mutableIntStateOf(0) }
     var showZones by remember { mutableStateOf(false) }
     val zoneMinutes = remember { mutableStateListOf("", "", "", "", "") }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            cardioViewModel.start(liveActivity, liveWorkoutType) {
+                screen = CardioScreen.LIVE
+            }
+        } else {
+            feedback = "Location permission was not granted. Outdoor GPS tracking stays unavailable."
+        }
+    }
 
     fun resetForm(activity: CardioActivityType = CardioActivityType.WALKING) {
         formActivity = activity
@@ -164,8 +181,11 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             formLiveEndedAt = session.endedAt
             formLiveSessionId = session.id
             formLivePausedSeconds = session.pausedDurationSeconds
+            formDistanceKm = session.distanceKm?.let(::cardioFormatNumber).orEmpty()
             formAvgHr = session.avgHeartRate?.toString().orEmpty()
             formMaxHr = session.maxHeartRate?.toString().orEmpty()
+            formElevation = session.elevationGainM?.let(::cardioFormatNumber).orEmpty()
+            formCadence = session.cadence?.toString().orEmpty()
             if (session.zoneSeconds.isNotEmpty()) {
                 showZones = true
                 for (i in zoneMinutes.indices) {
@@ -414,8 +434,12 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     "${liveWorkoutType.label} session · begin live timer",
                     CardioAccent
                 ) {
-                    cardioViewModel.start(liveActivity, liveWorkoutType) {
-                        screen = CardioScreen.LIVE
+                    if (CardioGpsProcessor.gpsEligible(liveActivity) && !CardioGpsRuntime.hasPermission()) {
+                        locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    } else {
+                        cardioViewModel.start(liveActivity, liveWorkoutType) {
+                            screen = CardioScreen.LIVE
+                        }
                     }
                 }
             }
@@ -434,11 +458,17 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                         cardioState.liveElapsedSeconds,
                         cardioState.isRecording
                     )
+                    CardioLivePrimaryMetrics(
+                        activity = draft.activity,
+                        movement = movementMetrics,
+                        sensor = sensorMetrics
+                    )
                     CardioLiveControls(
                         running = cardioState.isRecording,
                         onToggle = {
                             if (cardioState.isRecording) cardioViewModel.pause() else cardioViewModel.resume()
                         },
+                        onLap = { cardioViewModel.manualLap() },
                         onFinish = { prepareFinishedLive() }
                     )
                     CardioSection("WORKOUT STATE", "Recording and pause time are tracked independently") {
@@ -457,6 +487,17 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             color = CardioMuted,
                             fontSize = 10.sp
                         )
+                        if (CardioGpsProcessor.gpsEligible(draft.activity)) {
+                            Spacer(Modifier.height(9.dp))
+                            CardioActionCompact(
+                                if (liveAutoPauseEnabled) "Auto-pause: on" else "Auto-pause: off",
+                                "Optional speed hysteresis with debounce; stopped time remains preserved",
+                                CardioBlue
+                            ) {
+                                liveAutoPauseEnabled = !liveAutoPauseEnabled
+                                cardioViewModel.setAutoPauseEnabled(liveAutoPauseEnabled)
+                            }
+                        }
                         Spacer(Modifier.height(9.dp))
                         CardioActionCompact(
                             if (confirmDiscard) "Confirm discard" else "Discard workout",
@@ -1146,7 +1187,7 @@ private fun CardioMetric(label: String, value: String, detail: String, accent: C
 
 
 private enum class CardioUiIcon {
-    ADD, HISTORY, PROGRESS, TROPHY, PLAY, PAUSE, STOP
+    ADD, HISTORY, PROGRESS, TROPHY, PLAY, PAUSE, STOP, LAP
 }
 
 @Composable
@@ -1213,6 +1254,16 @@ private fun CardioVectorIcon(
             }
             CardioUiIcon.STOP -> {
                 drawRoundRect(tint, topLeft = androidx.compose.ui.geometry.Offset(w * .25f, h * .25f), size = androidx.compose.ui.geometry.Size(w * .50f, h * .50f), cornerRadius = androidx.compose.ui.geometry.CornerRadius(stroke, stroke))
+            }
+            CardioUiIcon.LAP -> {
+                drawLine(tint, androidx.compose.ui.geometry.Offset(w * .30f, h * .18f), androidx.compose.ui.geometry.Offset(w * .30f, h * .82f), strokeWidth = stroke, cap = StrokeCap.Round)
+                val flag = Path().apply {
+                    moveTo(w * .32f, h * .22f)
+                    lineTo(w * .76f, h * .32f)
+                    lineTo(w * .32f, h * .48f)
+                    close()
+                }
+                drawPath(flag, tint)
             }
         }
     }
@@ -1454,6 +1505,7 @@ private fun CardioMiniFact(label: String, value: String, modifier: Modifier) {
 private fun CardioLiveControls(
     running: Boolean,
     onToggle: () -> Unit,
+    onLap: () -> Unit,
     onFinish: () -> Unit
 ) {
     Row(
@@ -1468,6 +1520,13 @@ private fun CardioLiveControls(
             accent = if (running) Color(0xFF63CDB0) else Color(0xFF79D9B5),
             modifier = Modifier.weight(1f),
             onClick = onToggle
+        )
+        CardioControlButton(
+            icon = CardioUiIcon.LAP,
+            label = "Lap",
+            accent = Color(0xFF8DB5F2),
+            modifier = Modifier.weight(1f),
+            onClick = onLap
         )
         CardioControlButton(
             icon = CardioUiIcon.STOP,
@@ -1503,6 +1562,104 @@ private fun CardioControlButton(
         }
         Spacer(Modifier.width(9.dp))
         Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun CardioLivePrimaryMetrics(
+    activity: CardioActivityType,
+    movement: CardioLiveMovementMetrics,
+    sensor: CardioLiveSensorMetrics
+) {
+    val performanceLabel: String
+    val performanceValue: String
+    val performanceUnit: String?
+    when (activity.paceMode) {
+        CardioPaceMode.PER_KM -> {
+            performanceLabel = "PACE"
+            performanceValue = cardioFormatPace(movement.currentPaceSecondsPerKm)
+            performanceUnit = "/km"
+        }
+        CardioPaceMode.SPEED -> {
+            performanceLabel = "SPEED"
+            performanceValue = movement.currentSpeedMetersPerSecond
+                ?.let { cardioFormatNumber(it * 3.6) } ?: "—"
+            performanceUnit = "km/h"
+        }
+        else -> {
+            performanceLabel = "MOVING"
+            performanceValue = cardioFormatDuration((movement.movingTimeMs / 1000L).toInt())
+            performanceUnit = null
+        }
+    }
+    Column(
+        Modifier.fillMaxWidth()
+            .background(CardioSurface, RoundedCornerShape(21.dp))
+            .border(1.dp, CardioBorder.copy(alpha = .72f), RoundedCornerShape(21.dp))
+            .padding(14.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            CardioLiveMetricCell(
+                "HEART RATE",
+                sensor.currentHeartRateBpm?.toString() ?: "—",
+                "bpm",
+                Color(0xFFC85772),
+                Modifier.weight(1f)
+            )
+            CardioStatDivider()
+            CardioLiveMetricCell(
+                performanceLabel,
+                performanceValue,
+                performanceUnit,
+                CardioBlue,
+                Modifier.weight(1f)
+            )
+            CardioStatDivider()
+            CardioLiveMetricCell(
+                "DISTANCE",
+                if (movement.distanceMeters > 0.0) {
+                    cardioFormatNumber(movement.distanceMeters / 1000.0)
+                } else "—",
+                "km",
+                CardioAccent,
+                Modifier.weight(1f)
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        val gps = when (movement.gpsQuality) {
+            CardioGpsQualityLabel.GOOD -> "GPS good"
+            CardioGpsQualityLabel.WEAK -> "GPS weak"
+            CardioGpsQualityLabel.UNAVAILABLE -> movement.message
+        }
+        val hrState = when (sensor.connection) {
+            CardioSensorConnectionState.CONNECTED -> sensor.sourceLabel + " live"
+            CardioSensorConnectionState.STALE -> sensor.sourceLabel + " stale"
+            CardioSensorConnectionState.RECONNECTING -> sensor.sourceLabel + " reconnecting"
+            else -> sensor.connection.name.lowercase().replace('_', ' ')
+        }
+        Text(
+            gps + " · " + hrState,
+            color = CardioMuted,
+            fontSize = 9.sp
+        )
+        movement.structuredProgress?.let { progress ->
+            val step = progress.state.currentStep
+            if (step != null) {
+                Spacer(Modifier.height(8.dp))
+                val remaining = when {
+                    progress.remainingSeconds != null -> cardioFormatDuration(progress.remainingSeconds)
+                    progress.remainingMeters != null -> cardioFormatNumber(progress.remainingMeters) + " m"
+                    else -> "Open"
+                }
+                val upcoming = progress.state.upcomingStep?.label?.let { " · next " + it }.orEmpty()
+                Text(
+                    step.label + " · " + remaining + upcoming,
+                    color = CardioInk,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 
@@ -1583,10 +1740,23 @@ private fun CardioLiveMetricsPanel(metrics: CardioLiveSensorMetrics) {
             .orEmpty()
         val zone = metrics.currentZone?.let { "Z$it" } ?: "—"
         Text(
-            "Zone $zone · HR coverage ${String.format(Locale.US, "%.0f", metrics.heartRateCoveragePct)}%$freshness",
+            "Zone " + zone + " · HR coverage " +
+                String.format(Locale.US, "%.0f", metrics.heartRateCoveragePct) +
+                "% · accepted " + String.format(Locale.US, "%.0f", metrics.heartRateAcceptedPct) +
+                "%" + freshness,
             color = CardioMuted,
             fontSize = 10.sp
         )
+        if (metrics.rrValidBeatPct > 0.0) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "RR valid " + String.format(Locale.US, "%.0f", metrics.rrValidBeatPct) +
+                    "% · RR coverage " + String.format(Locale.US, "%.0f", metrics.rrCoveragePct) +
+                    "%" + (metrics.rmssdMs?.let { " · RMSSD " + String.format(Locale.US, "%.1f", it) + " ms derived" } ?: ""),
+                color = CardioMuted,
+                fontSize = 9.sp
+            )
+        }
         if (metrics.connection != CardioSensorConnectionState.CONNECTED) {
             Spacer(Modifier.height(4.dp))
             Text(metrics.message, color = CardioMuted, fontSize = 9.sp)
