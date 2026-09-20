@@ -36,32 +36,6 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         CardioGpsRuntime.initialize(application)
 
         viewModelScope.launch {
-            CardioGpsRuntime.autoPauseDecisions.collect { decision ->
-                val now = System.currentTimeMillis()
-                when (decision) {
-                    CardioAutoPauseDecision.PAUSE -> {
-                        val current = store.load().draft
-                        if (current?.phase == CardioLivePhase.RECORDING) {
-                            coordinator.pause()
-                            CardioSensorRuntime.pauseSession(now)
-                            CardioGpsRuntime.pause(now, manual = false)
-                        }
-                    }
-                    CardioAutoPauseDecision.RESUME -> {
-                        val current = store.load().draft
-                        if (current?.phase == CardioLivePhase.PAUSED) {
-                            coordinator.resume()
-                            CardioSensorRuntime.resumeSession(now)
-                            CardioGpsRuntime.resume(now, manual = false)
-                            CardioSessionForeground.start(getApplication())
-                        }
-                    }
-                    CardioAutoPauseDecision.NONE -> Unit
-                }
-            }
-        }
-
-        viewModelScope.launch {
             val restore = store.migrateLegacyIfNeeded()
             if (restore.draft != null) {
                 // Re-establish both the foreground owner and sensor collection around the same
