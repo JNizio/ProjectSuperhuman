@@ -309,8 +309,8 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             selected = draft.selectedExerciseId?.let { id -> catalog.find { it.id == id } } ?: workoutExercises.firstOrNull()
             restEndsAt = draft.restEndsAt
             restSeconds = (((restEndsAt - System.currentTimeMillis()).coerceAtLeast(0L) + 999L) / 1000L).toInt()
-            mode = "workout"
-            feedbackMessage = "Active workout resumed"
+            mode = "home"
+            feedbackMessage = "Active workout ready to resume"
         }
     }
 
