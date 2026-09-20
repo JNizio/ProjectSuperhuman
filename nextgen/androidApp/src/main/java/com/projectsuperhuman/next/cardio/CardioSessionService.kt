@@ -7,12 +7,16 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.IBinder
+import android.content.pm.ServiceInfo
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 internal object CardioSessionForeground {
@@ -32,10 +36,13 @@ internal class CardioSessionService : Service() {
     private lateinit var store: CardioSessionStore
     private lateinit var controller: CardioLiveSessionController
     private lateinit var coordinator: CardioSessionCoordinator
+    private val nof1Repository = CardioNof1Repository()
 
     override fun onCreate() {
         super.onCreate()
         NativeDataHub.initialize(applicationContext)
+        CardioSensorRuntime.initialize(applicationContext)
+        CardioGpsRuntime.initialize(applicationContext)
         store = DataStoreCardioSessionStore(applicationContext)
         controller = CardioLiveSessionController()
         coordinator = CardioSessionCoordinator(
@@ -44,18 +51,106 @@ internal class CardioSessionService : Service() {
             controller = controller
         )
         createNotificationChannel()
+        scope.launch {
+            var notificationTicks = 0
+            while (isActive) {
+                delay(1_000L)
+                val draft = store.load().draft
+                if (draft != null) {
+                    CardioGpsRuntime.tick()
+                    notificationTicks += 1
+                    if (notificationTicks >= 5) {
+                        refreshNotification()
+                        notificationTicks = 0
+                    }
+                } else {
+                    notificationTicks = 0
+                }
+            }
+        }
+
+        scope.launch {
+            CardioGpsRuntime.autoPauseDecisions.collect { decision ->
+                val now = System.currentTimeMillis()
+                when (decision) {
+                    CardioAutoPauseDecision.PAUSE -> {
+                        val draft = store.load().draft
+                        if (draft?.phase == CardioLivePhase.RECORDING) {
+                            coordinator.pause()
+                            CardioSensorRuntime.pauseSession(now)
+                            CardioGpsRuntime.pause(now, manual = false)
+                            refreshNotification()
+                        }
+                    }
+                    CardioAutoPauseDecision.RESUME -> {
+                        val draft = store.load().draft
+                        if (draft?.phase == CardioLivePhase.PAUSED) {
+                            coordinator.resume()
+                            CardioSensorRuntime.resumeSession(now)
+                            CardioGpsRuntime.resume(now, manual = false)
+                            refreshNotification()
+                        }
+                    }
+                    CardioAutoPauseDecision.NONE -> Unit
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, buildNotification(null, "Cardio session active"))
+        startCardioForeground(null, "Cardio session active")
 
         scope.launch {
+            store.load().draft?.let { draft ->
+                val timing = controller.timing(draft)
+                val label = when (draft.phase) {
+                    CardioLivePhase.RECORDING -> "Recording"
+                    CardioLivePhase.PAUSED -> "Paused"
+                    CardioLivePhase.FINISHING -> "Ready to save"
+                }
+                // Upgrade to the location FGS type before a restored outdoor runtime asks for
+                // GPS updates on Android 14+.
+                startCardioForeground(draft, label + " · " + formatElapsed(timing.activeSeconds))
+                ensureRuntimeOwnership(draft)
+            }
             when (intent?.action) {
-                ACTION_PAUSE -> coordinator.pause()
-                ACTION_RESUME -> coordinator.resume()
+                ACTION_PAUSE -> {
+                    coordinator.pause()
+                    val now = System.currentTimeMillis()
+                    CardioSensorRuntime.pauseSession(now)
+                    CardioGpsRuntime.pause(now, manual = true)
+                }
+                ACTION_RESUME -> {
+                    coordinator.resume()
+                    val now = System.currentTimeMillis()
+                    CardioSensorRuntime.resumeSession(now)
+                    CardioGpsRuntime.resume(now, manual = true)
+                }
                 ACTION_FINISH -> {
-                    val result = coordinator.quickSave()
-                    if (result.success) {
+                    var heartRateSamples: List<CardioHeartRateSample> = emptyList()
+                    var rrIntervals: List<CardioRrIntervalSample> = emptyList()
+                    var telemetry: CardioLiveTelemetrySnapshot? = null
+                    val result = coordinator.quickSave { session ->
+                        CardioSensorRuntime.pauseSession(session.endedAt)
+                        CardioGpsRuntime.pause(session.endedAt, manual = true)
+                        val summary = CardioSensorRuntime.snapshot(session.endedAt)
+                            .takeIf { it.sampleCount > 0 }
+                        telemetry = CardioGpsRuntime.snapshot(session.endedAt)
+                        heartRateSamples = CardioSensorRuntime.rawHeartRateSamples()
+                        rrIntervals = CardioSensorRuntime.rawRrIntervals()
+                        var enriched = summary?.let(session::withCardioHeartRateSummary) ?: session
+                        enriched = CardioGpsRuntime.enrichSession(enriched, telemetry)
+                        enriched
+                    }
+                    if (result.success && result.session != null) {
+                        nof1Repository.persistLiveTelemetry(
+                            result.session,
+                            heartRateSamples,
+                            rrIntervals,
+                            telemetry
+                        )
+                        CardioSensorRuntime.stopSession(result.session.endedAt)
+                        CardioGpsRuntime.stop(result.session.endedAt)
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         stopSelf()
                         return@launch
@@ -74,9 +169,9 @@ internal class CardioSessionService : Service() {
                     CardioLivePhase.PAUSED -> "Paused"
                     CardioLivePhase.FINISHING -> "Ready to save"
                 }
-                getSystemService(NotificationManager::class.java).notify(
-                    NOTIFICATION_ID,
-                    buildNotification(draft, label + " · " + formatElapsed(timing.activeSeconds))
+                startCardioForeground(
+                    draft,
+                    label + " · " + formatElapsed(timing.activeSeconds)
                 )
             }
         }
@@ -90,6 +185,64 @@ internal class CardioSessionService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun ensureRuntimeOwnership(draft: CardioLiveDraft) {
+        if (!CardioSensorRuntime.hasActiveSession()) {
+            CardioSensorRuntime.startSession(draft.sessionId, draft.startedAtEpochMs)
+            if (draft.phase != CardioLivePhase.RECORDING) {
+                CardioSensorRuntime.pauseSession(System.currentTimeMillis())
+            }
+        }
+        if (!CardioGpsRuntime.hasActiveSession(draft.sessionId)) {
+            CardioGpsRuntime.restoreSession(
+                draft.sessionId,
+                draft.activity,
+                draft.startedAtEpochMs,
+                paused = draft.phase != CardioLivePhase.RECORDING,
+                pausedSinceEpochMs = draft.phaseStartedEpochMs
+                    .takeIf { draft.phase != CardioLivePhase.RECORDING }
+            )
+        }
+    }
+
+    private suspend fun refreshNotification() {
+        val draft = store.load().draft ?: return
+        val timing = controller.timing(draft)
+        val label = when (draft.phase) {
+            CardioLivePhase.RECORDING -> "Recording"
+            CardioLivePhase.PAUSED -> if (CardioGpsRuntime.metrics.value.autoPaused) "Auto-paused" else "Paused"
+            CardioLivePhase.FINISHING -> "Ready to save"
+        }
+        startCardioForeground(draft, label + " · " + formatElapsed(timing.activeSeconds))
+    }
+
+    private fun startCardioForeground(draft: CardioLiveDraft?, status: String) {
+        val notification = buildNotification(draft, status)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            if (
+                draft != null &&
+                CardioGpsProcessor.gpsEligible(draft.activity) &&
+                CardioGpsRuntime.hasPermission()
+            ) {
+                types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            }
+            startForeground(NOTIFICATION_ID, notification, types)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val types = if (
+                draft != null &&
+                CardioGpsProcessor.gpsEligible(draft.activity) &&
+                CardioGpsRuntime.hasPermission()
+            ) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            } else {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE
+            }
+            startForeground(NOTIFICATION_ID, notification, types)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
+        }
+    }
 
     private fun buildNotification(draft: CardioLiveDraft?, status: String): Notification {
         val openIntent = PendingIntent.getActivity(
