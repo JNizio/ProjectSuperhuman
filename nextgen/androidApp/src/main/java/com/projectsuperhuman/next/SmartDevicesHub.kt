@@ -1,5 +1,6 @@
 package com.projectsuperhuman.next
 
+import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -337,6 +338,17 @@ internal fun SmartDevicesHub(onBack: () -> Unit, modifier: Modifier = Modifier) 
                     color = superhumanTextPrimary,
                     fontSize = 8.sp,
                     lineHeight = 12.sp
+                )
+                DeviceAction(
+                    label = "Open Health Connect",
+                    enabled = GlobalHealthConnect.availability(context) == HealthConnectClient.SDK_AVAILABLE,
+                    danger = false,
+                    modifier = Modifier.fillMaxWidth(),
+                    onClick = {
+                        runCatching {
+                            context.startActivity(Intent(HealthConnectClient.ACTION_HEALTH_CONNECT_SETTINGS))
+                        }
+                    }
                 )
             }
         }
