@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -302,21 +304,21 @@ private fun ShellBottomNavigation(
             selected = selectedPage == ShellPage.BODY,
             accent = superhumanBlue,
             onClick = onBody,
-            icon = { color -> PersonNavIcon(color) }
+            icon = { color -> ShellTablerIcon(R.drawable.tabler_user, color) }
         )
         ShellBottomItem(
             label = "Trudy",
             selected = selectedPage == ShellPage.TRUDY,
             accent = ShellTrudy,
             onClick = onTrudy,
-            icon = { color -> TrudyNavIcon(color) }
+            icon = { color -> ShellTablerIcon(R.drawable.tabler_message_circle, color) }
         )
         ShellBottomItem(
             label = "Settings",
             selected = selectedPage == ShellPage.SETTINGS || selectedPage == ShellPage.SMART_DEVICES,
             accent = ShellNavy,
             onClick = onSettings,
-            icon = { color -> SettingsNavIcon(color) }
+            icon = { color -> ShellTablerIcon(R.drawable.tabler_settings, color) }
         )
     }
 }
@@ -363,89 +365,11 @@ private fun ShellBottomItem(
 }
 
 @Composable
-private fun PersonNavIcon(color: Color) {
-    Canvas(Modifier.size(25.dp)) {
-        val stroke = 2.dp.toPx()
-        drawCircle(
-            color = color,
-            radius = size.minDimension * .16f,
-            center = Offset(size.width / 2f, size.height * .27f)
-        )
-        drawArc(
-            color = color,
-            startAngle = 205f,
-            sweepAngle = 130f,
-            useCenter = false,
-            topLeft = Offset(size.width * .23f, size.height * .43f),
-            size = androidx.compose.ui.geometry.Size(size.width * .54f, size.height * .42f),
-            style = Stroke(width = stroke, cap = StrokeCap.Round)
-        )
-        drawLine(
-            color = color,
-            start = Offset(size.width / 2f, size.height * .43f),
-            end = Offset(size.width / 2f, size.height * .78f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-
-@Composable
-private fun TrudyNavIcon(color: Color) {
-    Canvas(Modifier.size(25.dp)) {
-        val stroke = 2.dp.toPx()
-        val left = size.width * .16f
-        val top = size.height * .18f
-        val right = size.width * .84f
-        val bottom = size.height * .70f
-        drawRoundRect(
-            color = color,
-            topLeft = Offset(left, top),
-            size = androidx.compose.ui.geometry.Size(right - left, bottom - top),
-            cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx(), 6.dp.toPx()),
-            style = Stroke(width = stroke)
-        )
-        drawLine(
-            color = color,
-            start = Offset(size.width * .38f, bottom),
-            end = Offset(size.width * .30f, size.height * .84f),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = color,
-            start = Offset(size.width * .30f, size.height * .84f),
-            end = Offset(size.width * .50f, bottom),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        drawCircle(color, radius = 1.35.dp.toPx(), center = Offset(size.width * .38f, size.height * .44f))
-        drawCircle(color, radius = 1.35.dp.toPx(), center = Offset(size.width * .50f, size.height * .44f))
-        drawCircle(color, radius = 1.35.dp.toPx(), center = Offset(size.width * .62f, size.height * .44f))
-    }
-}
-
-@Composable
-private fun SettingsNavIcon(color: Color) {
-    Canvas(Modifier.size(25.dp)) {
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val outer = size.minDimension * .32f
-        val inner = size.minDimension * .12f
-        val stroke = 2.dp.toPx()
-        repeat(8) { index ->
-            val angle = Math.toRadians((index * 45.0) - 90.0)
-            val start = Offset(
-                center.x + kotlin.math.cos(angle).toFloat() * outer,
-                center.y + kotlin.math.sin(angle).toFloat() * outer
-            )
-            val end = Offset(
-                center.x + kotlin.math.cos(angle).toFloat() * (outer + size.minDimension * .12f),
-                center.y + kotlin.math.sin(angle).toFloat() * (outer + size.minDimension * .12f)
-            )
-            drawLine(color, start, end, strokeWidth = stroke, cap = StrokeCap.Round)
-        }
-        drawCircle(color = color, radius = outer, center = center, style = Stroke(width = stroke))
-        drawCircle(color = color, radius = inner, center = center, style = Stroke(width = stroke))
-    }
+private fun ShellTablerIcon(drawableRes: Int, color: Color) {
+    Icon(
+        painter = painterResource(id = drawableRes),
+        contentDescription = null,
+        tint = color,
+        modifier = Modifier.size(25.dp)
+    )
 }
