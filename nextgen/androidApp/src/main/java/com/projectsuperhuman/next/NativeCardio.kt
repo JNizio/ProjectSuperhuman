@@ -755,7 +755,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     CardioGold
                 )
                 CardioTestsAndRecordsProductScreen(sessions)
-            }}
+            }
         }
 
         Spacer(Modifier.height(18.dp))
