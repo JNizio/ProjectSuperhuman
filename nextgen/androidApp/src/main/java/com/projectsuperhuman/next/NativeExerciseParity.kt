@@ -117,7 +117,7 @@ internal fun isCardioOnlyRepDbExercise(id: String, name: String, equipment: Stri
         "walking",
         "swimming"
     )
-    return cardioOnlyTerms.any(key::contains)
+    return cardioOnlyTerms.any { term -> key.contains(term) }
 }
 
 private suspend fun loadRepDb(context: android.content.Context): List<NativeExercise> = withContext(Dispatchers.IO) {
