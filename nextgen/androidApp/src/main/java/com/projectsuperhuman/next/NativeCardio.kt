@@ -52,7 +52,7 @@ private val CardioDeep = Color(0xFF0A3440)
 private val cardioDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
 private enum class CardioScreen {
-    HOME, PICK_ACTIVITY, LIVE, MANUAL, HISTORY, DETAIL, FITNESS, PROGRESS, RECORDS
+    HOME, PICK_ACTIVITY, LIVE, MANUAL, HISTORY, DETAIL, FITNESS, RECORDS
 }
 
 private fun cardioFormatNumber(value: Double): String =
@@ -456,7 +456,6 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                         screen = CardioScreen.DETAIL
                     },
                     onFitness = { screen = CardioScreen.FITNESS },
-                    onTrends = { screen = CardioScreen.PROGRESS },
                     onTestsRecords = { screen = CardioScreen.RECORDS },
                     onLog = {
                         resetForm()
@@ -746,7 +745,6 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             }
 
             CardioScreen.HISTORY -> {
-                CardioHeroStrip("HISTORY", "Cardio sessions", "Filter, search and review completed sessions.", Color(0xFF7B61C9))
                 CardioAnalyticsHistoryPanel(
                     sessions = sessions,
                     onOpenSession = { session ->
@@ -823,9 +821,6 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 CardioFitnessHubScreen(sessions)
             }
 
-            CardioScreen.PROGRESS -> {
-                CardioTrendsHubScreen(sessions)
-            }
 
             CardioScreen.RECORDS -> {
                 CardioRecordsHubScreen(sessions)
@@ -852,7 +847,6 @@ private fun CardioHeader(screen: CardioScreen, onBack: () -> Unit) {
                 CardioScreen.HISTORY -> "Sessions"
                 CardioScreen.DETAIL -> "Session"
                 CardioScreen.FITNESS -> "Fitness"
-                CardioScreen.PROGRESS -> "Trends"
                 CardioScreen.RECORDS -> "Records"
             },
             color = CardioInk,
