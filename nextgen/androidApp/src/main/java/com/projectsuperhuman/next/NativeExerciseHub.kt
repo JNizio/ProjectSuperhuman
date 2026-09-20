@@ -1,13 +1,10 @@
 package com.projectsuperhuman.next
 
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.Image
-import android.graphics.BitmapFactory
+import androidx.compose.ui.geometry.Offset
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,6 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -437,53 +437,53 @@ private fun ExerciseModuleCard(
     muted: Color,
     onClick: () -> Unit
 ) {
-    val context = LocalContext.current
-    val trainingBitmap = remember {
-        runCatching {
-            context.assets.open("dashboard_training.png").use(BitmapFactory::decodeStream)?.asImageBitmap()
-        }.getOrNull()
-    }
     val shape = RoundedCornerShape(22.dp)
+    val strength = visualKind == "strength"
 
     Box(
         Modifier
             .fillMaxWidth()
             .height(118.dp)
             .clip(shape)
-            .background(surface)
-            .border(1.dp, accent.copy(alpha = .32f), shape)
+            .background(
+                Brush.horizontalGradient(
+                    if (strength) {
+                        listOf(
+                            Color(0xFF071B31),
+                            Color(0xFF0A2B4B),
+                            Color(0xFF0E426B)
+                        )
+                    } else {
+                        listOf(
+                            Color(0xFF08262B),
+                            Color(0xFF0A3A40),
+                            Color(0xFF0E625C)
+                        )
+                    }
+                )
+            )
+            .border(1.dp, accent.copy(alpha = .34f), shape)
             .superhumanClickable(onClick = onClick)
     ) {
-        trainingBitmap?.let { bitmap ->
-            Image(
-                bitmap = bitmap,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-            )
-        }
+        ExerciseCardArtwork(
+            strength = strength,
+            accent = accent,
+            modifier = Modifier.fillMaxSize()
+        )
 
-        val overlay = if (visualKind == "strength") {
-            Brush.horizontalGradient(
-                listOf(
-                    Color(0xFF071B31).copy(alpha = .98f),
-                    Color(0xFF0A2C4C).copy(alpha = .88f),
-                    Color(0xFF0D385B).copy(alpha = .58f),
-                    Color.Black.copy(alpha = .18f)
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.horizontalGradient(
+                        listOf(
+                            Color.Black.copy(alpha = .38f),
+                            Color.Black.copy(alpha = .16f),
+                            Color.Transparent
+                        )
+                    )
                 )
-            )
-        } else {
-            Brush.horizontalGradient(
-                listOf(
-                    Color(0xFF08262B).copy(alpha = .98f),
-                    Color(0xFF0B3A40).copy(alpha = .86f),
-                    Color(0xFF0D5752).copy(alpha = .56f),
-                    Color.Black.copy(alpha = .18f)
-                )
-            )
-        }
-        Box(Modifier.fillMaxSize().background(overlay))
+        )
 
         Row(
             Modifier
@@ -498,8 +498,11 @@ private fun ExerciseModuleCard(
                     .border(1.dp, Color.White.copy(alpha = .15f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                SuperhumanDomainIcon(
-                    glyph = if (visualKind == "strength") SuperhumanDomainGlyph.TROPHY else SuperhumanDomainGlyph.RUNNING,
+                Icon(
+                    painter = painterResource(
+                        id = if (strength) R.drawable.tabler_dumbbell else R.drawable.tabler_run
+                    ),
+                    contentDescription = null,
                     tint = Color.White,
                     modifier = Modifier.size(24.dp)
                 )
@@ -519,7 +522,7 @@ private fun ExerciseModuleCard(
                 Spacer(Modifier.height(5.dp))
                 Text(
                     primary,
-                    color = accent.copy(alpha = .98f),
+                    color = accent,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
@@ -527,7 +530,7 @@ private fun ExerciseModuleCard(
                 Spacer(Modifier.height(3.dp))
                 Text(
                     secondary,
-                    color = Color.White.copy(alpha = .70f),
+                    color = Color.White.copy(alpha = .72f),
                     fontSize = 9.sp,
                     lineHeight = 12.sp,
                     maxLines = 1
@@ -547,6 +550,137 @@ private fun ExerciseModuleCard(
                     fontWeight = FontWeight.Bold
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ExerciseCardArtwork(
+    strength: Boolean,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier) {
+        if (strength) {
+            val stroke = 5.dp.toPx()
+            val cx = size.width * .79f
+            val cy = size.height * .53f
+
+            drawCircle(
+                color = Color.White.copy(alpha = .035f),
+                radius = size.height * .62f,
+                center = Offset(size.width * .90f, size.height * .18f)
+            )
+            drawCircle(
+                color = accent.copy(alpha = .08f),
+                radius = size.height * .42f,
+                center = Offset(size.width * .78f, size.height * .95f)
+            )
+
+            fun dumbbell(x: Float, y: Float, scale: Float, alpha: Float) {
+                val halfBar = 34.dp.toPx() * scale
+                val plateGap = 7.dp.toPx() * scale
+                val plateH = 31.dp.toPx() * scale
+                val plateW = 8.dp.toPx() * scale
+                val color = Color.White.copy(alpha = alpha)
+
+                drawLine(
+                    color = color,
+                    start = Offset(x - halfBar, y),
+                    end = Offset(x + halfBar, y),
+                    strokeWidth = stroke * scale,
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(x - halfBar - plateGap - plateW, y - plateH / 2f),
+                    size = androidx.compose.ui.geometry.Size(plateW, plateH),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(plateW / 2f, plateW / 2f)
+                )
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(x - halfBar - plateGap, y - plateH * .38f),
+                    size = androidx.compose.ui.geometry.Size(plateW, plateH * .76f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(plateW / 2f, plateW / 2f)
+                )
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(x + halfBar + plateGap, y - plateH / 2f),
+                    size = androidx.compose.ui.geometry.Size(plateW, plateH),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(plateW / 2f, plateW / 2f)
+                )
+                drawRoundRect(
+                    color = color,
+                    topLeft = Offset(x + halfBar, y - plateH * .38f),
+                    size = androidx.compose.ui.geometry.Size(plateW, plateH * .76f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(plateW / 2f, plateW / 2f)
+                )
+            }
+
+            dumbbell(cx, cy, 1f, .15f)
+            dumbbell(size.width * .91f, size.height * .78f, .68f, .09f)
+        } else {
+            val line = 3.dp.toPx()
+            val trackColor = Color.White.copy(alpha = .11f)
+
+            repeat(3) { index ->
+                val inset = (index * 14).dp.toPx()
+                drawArc(
+                    color = trackColor,
+                    startAngle = 190f,
+                    sweepAngle = 145f,
+                    useCenter = false,
+                    topLeft = Offset(size.width * .56f + inset, size.height * .08f + inset * .35f),
+                    size = androidx.compose.ui.geometry.Size(
+                        size.width * .52f - inset,
+                        size.height * 1.28f - inset
+                    ),
+                    style = Stroke(width = line)
+                )
+            }
+
+            drawCircle(
+                color = accent.copy(alpha = .10f),
+                radius = size.height * .48f,
+                center = Offset(size.width * .86f, size.height * .50f)
+            )
+
+            val head = Offset(size.width * .80f, size.height * .30f)
+            val bodyTop = Offset(size.width * .79f, size.height * .39f)
+            val hip = Offset(size.width * .75f, size.height * .56f)
+            val stroke = 4.dp.toPx()
+            val runner = Color.White.copy(alpha = .18f)
+
+            drawCircle(runner, radius = 6.dp.toPx(), center = head)
+            drawLine(runner, bodyTop, hip, strokeWidth = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawLine(
+                runner,
+                Offset(size.width * .79f, size.height * .43f),
+                Offset(size.width * .88f, size.height * .48f),
+                strokeWidth = stroke,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
+            drawLine(
+                runner,
+                Offset(size.width * .78f, size.height * .44f),
+                Offset(size.width * .70f, size.height * .39f),
+                strokeWidth = stroke,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
+            drawLine(
+                runner,
+                hip,
+                Offset(size.width * .86f, size.height * .69f),
+                strokeWidth = stroke,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
+            drawLine(
+                runner,
+                hip,
+                Offset(size.width * .66f, size.height * .71f),
+                strokeWidth = stroke,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
         }
     }
 }
