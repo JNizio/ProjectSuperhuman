@@ -201,6 +201,9 @@ internal class CardioNof1Repository(
         val baselineStart = now - baselineDays * 86_400_000L
         val exercise = NativeDomainData.forDomain(HealthDomain.EXERCISE)
         val sleep = NativeDomainData.forDomain(HealthDomain.SLEEP)
+        val body = NativeDomainData.forDomain(HealthDomain.BODY)
+        val mindfulness = NativeDomainData.forDomain(HealthDomain.MINDFULNESS)
+        val environment = NativeDomainData.forDomain(HealthDomain.ENVIRONMENT)
 
         val resting = exercise.latest("resting_heart_rate_bpm")?.value
         val restingRows = exercise.between("resting_heart_rate_bpm", baselineStart, now)
@@ -210,15 +213,36 @@ internal class CardioNof1Repository(
         val hrvRows = exercise.between("heart_rate_variability_rmssd_ms", baselineStart, now)
             .map { it.value }
             .filter { it.isFinite() }
-        val sleepScore = sleep.latest("sleep_score")?.value
+        val sleepScoreRow = sleep.latest("sleep_score")
+        val sleepDurationRow = sleep.latest("sleep_total_minutes")
+        val weightRow = body.latest("body_weight_kg")
+        val stressRow = mindfulness.latest("stress_after")
+        val temperatureRow = environment.latest("environment_temperature_c")
+        val humidityRow = environment.latest("environment_relative_humidity_pct")
+        val environmentTimestamp = listOfNotNull(
+            temperatureRow?.timestampEpochMs,
+            humidityRow?.timestampEpochMs
+        ).maxOrNull()
 
         return CardioRecoveryContext(
             restingHeartRateBpm = resting,
             restingHeartRateBaselineBpm = restingRows.takeIf { it.size >= 5 }?.average(),
             hrvRmssdMs = hrv,
             hrvBaselineRmssdMs = hrvRows.takeIf { it.size >= 5 }?.average(),
-            sleepScore = sleepScore,
-            trainingStressBalance = latestLoad?.trainingStressBalance
+            sleepScore = sleepScoreRow?.value,
+            trainingStressBalance = latestLoad?.trainingStressBalance,
+            sleepDurationMinutes = sleepDurationRow?.value,
+            sleepObservedAtEpochMs = listOfNotNull(
+                sleepScoreRow?.timestampEpochMs,
+                sleepDurationRow?.timestampEpochMs
+            ).maxOrNull(),
+            bodyWeightKg = weightRow?.value,
+            bodyWeightObservedAtEpochMs = weightRow?.timestampEpochMs,
+            stressScore0To10 = stressRow?.value,
+            stressObservedAtEpochMs = stressRow?.timestampEpochMs,
+            environmentTemperatureC = temperatureRow?.value,
+            environmentRelativeHumidityPct = humidityRow?.value,
+            environmentObservedAtEpochMs = environmentTimestamp
         )
     }
 
