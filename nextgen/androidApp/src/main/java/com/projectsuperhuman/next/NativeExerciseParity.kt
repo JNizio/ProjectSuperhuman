@@ -448,7 +448,23 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     workingSets = strengthProgress.weeklyWorkingSets,
                     volumeKg = strengthProgress.weeklyVolumeKg.roundToInt(),
                     lastWorkout = lastSession?.name ?: "No completed workout yet",
-                    onAction = { if (startedAt > 0L) mode = "workout" else startWorkout() }
+                    onAction = { if (startedAt > 0L) mode = "workout" else startWorkout() },
+                    onDelete = {
+                        if (startedAt > 0L) {
+                            clearActiveWorkoutDraft(context)
+                            clearStrengthActiveMeta(context, startedAt)
+                        }
+                        session.clear()
+                        workoutExercises.clear()
+                        selected = null
+                        startedAt = 0L
+                        activeSessionId = ""
+                        workoutName = ""
+                        workoutNotes = ""
+                        sessionRpeText = ""
+                        restSeconds = 0
+                        restEndsAt = 0L
+                    }
                 )
 
                 StrengthQuickActions(
@@ -1013,7 +1029,8 @@ private fun StrengthSessionPanel(
     workingSets: Int,
     volumeKg: Int,
     lastWorkout: String,
-    onAction: () -> Unit
+    onAction: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val shape = RoundedCornerShape(22.dp)
     Column(
@@ -1028,26 +1045,8 @@ private fun StrengthSessionPanel(
             .padding(17.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(38.dp)
-                    .background(
-                        ExerciseBlue.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    if (activeWorkout) "▶" else "+",
-                    color = ExerciseBlue,
-                    fontSize = if (activeWorkout) 15.sp else 20.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
             Column(
-                Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
+                Modifier.weight(1f)
             ) {
                 Text(
                     if (activeWorkout) "WORKOUT IN PROGRESS" else "START STRENGTH WORKOUT",
@@ -1057,7 +1056,7 @@ private fun StrengthSessionPanel(
                 )
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    if (activeWorkout) "Your session is saved and ready to continue"
+                    if (activeWorkout) "Saved on this device"
                     else "Last: $lastWorkout",
                     color = ExerciseMuted,
                     fontSize = 9.sp,
@@ -1065,13 +1064,57 @@ private fun StrengthSessionPanel(
                     maxLines = 1
                 )
             }
-            Text(
-                if (activeWorkout) "RESUME  →" else "START  →",
-                color = ExerciseBlue,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                modifier = Modifier.superhumanClickable(onClick = onAction)
-            )
+
+            if (activeWorkout) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(
+                        Modifier
+                            .size(40.dp)
+                            .background(ExerciseBlue.copy(alpha = .16f), CircleShape)
+                            .superhumanClickable(onClick = onAction),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "▶",
+                            color = ExerciseBlue,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Black,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                    Box(
+                        Modifier
+                            .size(40.dp)
+                            .background(superhumanRed.copy(alpha = .12f), CircleShape)
+                            .superhumanClickable(onClick = onDelete),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "×",
+                            color = superhumanRed,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                Box(
+                    Modifier
+                        .size(40.dp)
+                        .background(ExerciseBlue.copy(alpha = .16f), CircleShape)
+                        .superhumanClickable(onClick = onAction),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "+",
+                        color = ExerciseBlue,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Black,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         }
 
         if (activeWorkout) {
