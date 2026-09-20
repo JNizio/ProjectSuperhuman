@@ -308,20 +308,15 @@ class SyntheticDataGenerator(
                     else -> 0
                 }
 
-                val zone2Share = when (workoutType) {
-                    "ZONE_2" -> 0.76
-                    "EASY" -> 0.58
-                    else -> 0.32
+                val zoneShares = when (workoutType) {
+                    "ZONE_2" -> listOf(0.12, 0.72, 0.13, 0.02)
+                    "TEMPO" -> listOf(0.10, 0.28, 0.46, 0.13)
+                    else -> listOf(0.15, 0.58, 0.20, 0.04)
                 }
-                val zone3Share = when (workoutType) {
-                    "TEMPO" -> 0.46
-                    else -> 0.19
-                }
-                val zone4Share = if (workoutType == "TEMPO") 0.13 else 0.04
-                val zone1Seconds = (durationSeconds * 0.12).roundToInt()
-                val zone2Seconds = (durationSeconds * zone2Share).roundToInt()
-                val zone3Seconds = (durationSeconds * zone3Share).roundToInt()
-                val zone4Seconds = (durationSeconds * zone4Share).roundToInt()
+                val zone1Seconds = (durationSeconds * zoneShares[0]).roundToInt()
+                val zone2Seconds = (durationSeconds * zoneShares[1]).roundToInt()
+                val zone3Seconds = (durationSeconds * zoneShares[2]).roundToInt()
+                val zone4Seconds = (durationSeconds * zoneShares[3]).roundToInt()
                 val allocated = zone1Seconds + zone2Seconds + zone3Seconds + zone4Seconds
                 val zone5Seconds = (durationSeconds - allocated).coerceAtLeast(0)
 
