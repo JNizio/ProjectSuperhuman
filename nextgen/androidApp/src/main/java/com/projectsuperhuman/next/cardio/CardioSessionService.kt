@@ -7,7 +7,9 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.IBinder
+import android.content.pm.ServiceInfo
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -50,7 +52,7 @@ internal class CardioSessionService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        startForeground(NOTIFICATION_ID, buildNotification(null, "Cardio session active"))
+        startCardioForeground(null, "Cardio session active")
 
         scope.launch {
             store.load().draft?.let(::ensureRuntimeOwnership)
@@ -110,9 +112,9 @@ internal class CardioSessionService : Service() {
                     CardioLivePhase.PAUSED -> "Paused"
                     CardioLivePhase.FINISHING -> "Ready to save"
                 }
-                getSystemService(NotificationManager::class.java).notify(
-                    NOTIFICATION_ID,
-                    buildNotification(draft, label + " · " + formatElapsed(timing.activeSeconds))
+                startCardioForeground(
+                    draft,
+                    label + " · " + formatElapsed(timing.activeSeconds)
                 )
             }
         }
@@ -141,6 +143,34 @@ internal class CardioSessionService : Service() {
                 draft.startedAtEpochMs,
                 paused = draft.phase != CardioLivePhase.RECORDING
             )
+        }
+    }
+
+    private fun startCardioForeground(draft: CardioLiveDraft?, status: String) {
+        val notification = buildNotification(draft, status)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            var types = ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+            if (
+                draft != null &&
+                CardioGpsProcessor.gpsEligible(draft.activity) &&
+                CardioGpsRuntime.hasPermission()
+            ) {
+                types = types or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            }
+            startForeground(NOTIFICATION_ID, notification, types)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val types = if (
+                draft != null &&
+                CardioGpsProcessor.gpsEligible(draft.activity) &&
+                CardioGpsRuntime.hasPermission()
+            ) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            } else {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_NONE
+            }
+            startForeground(NOTIFICATION_ID, notification, types)
+        } else {
+            startForeground(NOTIFICATION_ID, notification)
         }
     }
 
