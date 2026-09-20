@@ -183,6 +183,8 @@ object CoreMetricRegistry : MetricRegistry {
         MetricDefinition("cardio_chronic_training_load", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
         MetricDefinition("cardio_acute_training_load", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
         MetricDefinition("cardio_training_stress_balance", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true),
+        // Persisted experiment protocols are records, not physiological measurements.
+        MetricDefinition("cardio_experiment_protocol", HealthDomain.EXERCISE, "protocol", aggregation = MetricAggregation.NONE),
         MetricDefinition("cardio_daily_training_load", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
         MetricDefinition("cardio_pace_at_hr_sec_per_km", HealthDomain.EXERCISE, "sec/km", aggregation = MetricAggregation.AVERAGE, derived = true, minAccepted = 60.0),
         MetricDefinition("cardio_hr_at_pace_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.AVERAGE, derived = true, minAccepted = 20.0, maxAccepted = 260.0),
