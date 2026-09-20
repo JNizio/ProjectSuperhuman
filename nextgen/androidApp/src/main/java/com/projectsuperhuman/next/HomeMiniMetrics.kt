@@ -161,14 +161,40 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
-            Modifier.weight(1f).clickable { openMetric(HomeMiniMetric.HEART_RATE) }
+            Modifier
+                .weight(1f)
+                .height(36.dp)
+                .superhumanClickable { openMetric(HomeMiniMetric.HEART_RATE) },
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("HEART RATE", color = MiniMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(metrics.heartRateBpm?.toString() ?: "—", color = MiniNavy, fontSize = 15.sp, fontWeight = FontWeight.Black)
+            Text(
+                "HEART RATE",
+                color = MiniMuted,
+                fontSize = 7.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = .6.sp,
+                lineHeight = 8.sp
+            )
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                modifier = Modifier.height(20.dp)
+            ) {
+                Text(
+                    metrics.heartRateBpm?.toString() ?: "—",
+                    color = MiniNavy,
+                    fontSize = 15.sp,
+                    lineHeight = 17.sp,
+                    fontWeight = FontWeight.Black
+                )
                 if (metrics.heartRateBpm != null) {
                     Spacer(Modifier.width(3.dp))
-                    Text("bpm", color = MiniMuted, fontSize = 7.sp, modifier = Modifier.padding(bottom = 2.dp))
+                    Text(
+                        "bpm",
+                        color = MiniMuted,
+                        fontSize = 7.sp,
+                        lineHeight = 8.sp,
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    )
                 }
             }
         }
@@ -176,10 +202,33 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
         Box(Modifier.width(1.dp).height(28.dp).background(MiniBorder))
 
         Column(
-            Modifier.weight(1f).padding(start = 14.dp).clickable { openMetric(HomeMiniMetric.STEPS) }
+            Modifier
+                .weight(1f)
+                .height(36.dp)
+                .padding(start = 14.dp)
+                .superhumanClickable { openMetric(HomeMiniMetric.STEPS) },
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text("STEPS", color = MiniMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
-            Text(metrics.steps?.let(::compactCount) ?: "—", color = MiniNavy, fontSize = 15.sp, fontWeight = FontWeight.Black)
+            Text(
+                "STEPS",
+                color = MiniMuted,
+                fontSize = 7.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = .6.sp,
+                lineHeight = 8.sp
+            )
+            Box(
+                Modifier.height(20.dp),
+                contentAlignment = Alignment.BottomStart
+            ) {
+                Text(
+                    metrics.steps?.let(::compactCount) ?: "—",
+                    color = MiniNavy,
+                    fontSize = 15.sp,
+                    lineHeight = 17.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
         }
 
         Box(Modifier.width(1.dp).height(28.dp).background(MiniBorder))
