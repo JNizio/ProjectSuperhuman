@@ -62,7 +62,7 @@ internal object CardioGpsRuntime {
     private var autoPauseConfig = CardioAutoPauseConfig.forActivity(CardioActivityType.GENERAL_CARDIO, false)
     private var autoPauseEngine = CardioAutoPauseEngine(autoPauseConfig)
     private val pauseEvents = mutableListOf<CardioPauseEvent>()
-    private var openAutoPauseIndex: Int? = null
+    private var openPauseIndex: Int? = null
     private var structuredState: CardioStructuredExecutionState? = null
 
     private val listener = object : LocationListener {
@@ -119,7 +119,7 @@ internal object CardioGpsRuntime {
         rawFixes.clear()
         activeFixes.clear()
         pauseEvents.clear()
-        openAutoPauseIndex = null
+        openPauseIndex = null
         autoPauseConfig = CardioAutoPauseConfig.forActivity(activity, autoPauseEnabled)
         autoPauseEngine = CardioAutoPauseEngine(autoPauseConfig)
         lapTracker = CardioLiveLapTracker(sessionId).also { it.start(startedAtEpochMs, autoLapMeters) }
@@ -143,9 +143,13 @@ internal object CardioGpsRuntime {
         if (activeSessionId == null) return
         recording = false
         manuallyPaused = manual
-        if (!manual && openAutoPauseIndex == null) {
-            pauseEvents += CardioPauseEvent(atEpochMs, null, CardioPauseOrigin.AUTO)
-            openAutoPauseIndex = pauseEvents.lastIndex
+        if (openPauseIndex == null) {
+            pauseEvents += CardioPauseEvent(
+                atEpochMs,
+                null,
+                if (manual) CardioPauseOrigin.MANUAL else CardioPauseOrigin.AUTO
+            )
+            openPauseIndex = pauseEvents.lastIndex
         }
         refresh()
     }
@@ -154,22 +158,22 @@ internal object CardioGpsRuntime {
         if (activeSessionId == null) return
         recording = true
         manuallyPaused = false
-        val index = openAutoPauseIndex
+        val index = openPauseIndex
         if (index != null) {
             val existing = pauseEvents.getOrNull(index)
             if (existing != null) pauseEvents[index] = existing.copy(endedAtEpochMs = atEpochMs)
-            openAutoPauseIndex = null
+            openPauseIndex = null
         }
         refresh()
     }
 
     fun stop(endedAtEpochMs: Long = System.currentTimeMillis()): CardioLiveTelemetrySnapshot? {
         val id = activeSessionId ?: return null
-        val index = openAutoPauseIndex
+        val index = openPauseIndex
         if (index != null) {
             val existing = pauseEvents.getOrNull(index)
             if (existing != null) pauseEvents[index] = existing.copy(endedAtEpochMs = endedAtEpochMs)
-            openAutoPauseIndex = null
+            openPauseIndex = null
         }
         recording = false
         stopLocationUpdates()
@@ -228,6 +232,21 @@ internal object CardioGpsRuntime {
         refresh()
     }
 
+    fun tick(nowEpochMs: Long = System.currentTimeMillis()) {
+        if (activeSessionId == null) return
+        val route = activeRouteSummary(nowEpochMs)
+        structuredState?.let { state ->
+            structuredState = CardioStructuredWorkoutEngine.update(
+                state,
+                nowEpochMs,
+                route.distanceMeters,
+                CardioSensorRuntime.liveMetrics.value.currentZone,
+                route.currentPaceSecondsPerKm
+            ).state
+        }
+        refresh(route = route)
+    }
+
     fun manualLap(nowEpochMs: Long = System.currentTimeMillis()): CardioLap? {
         val route = CardioGpsProcessor.summarise(activeFixes, activity, nowEpochMs).copy(rawFixes = rawFixes.toList())
         val hr = CardioSensorRuntime.liveMetrics.value
@@ -270,7 +289,21 @@ internal object CardioGpsRuntime {
                 put("gpsQuality", route.gpsQuality.name)
                 snapshot?.laps?.size?.let { put("lapCount", it.toString()) }
                 if (snapshot?.pauseEvents?.isNotEmpty() == true) {
-                    put("autoPauseEventCount", snapshot.pauseEvents.size.toString())
+                    put("pauseEventCount", snapshot.pauseEvents.size.toString())
+                    put(
+                        "autoPauseEventCount",
+                        snapshot.pauseEvents.count { it.origin == CardioPauseOrigin.AUTO }.toString()
+                    )
+                    put(
+                        "manualPauseEventCount",
+                        snapshot.pauseEvents.count { it.origin == CardioPauseOrigin.MANUAL }.toString()
+                    )
+                }
+                snapshot?.structuredProgress?.state?.let { structured ->
+                    put("structuredWorkoutId", structured.workoutId)
+                    put("structuredStepIndex", structured.stepIndex.toString())
+                    put("structuredStepCount", structured.flattenedSteps.size.toString())
+                    put("structuredWorkoutCompleted", structured.completed.toString())
                 }
             }
         )
