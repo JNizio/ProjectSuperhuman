@@ -50,7 +50,7 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 private enum class CardioHubGlyph {
-    HEART, TREND, CALENDAR, TARGET, SENSOR, RUN, WALK, BIKE, MORE, HISTORY, TROPHY, LOAD, PLUS
+    HEART, TREND, CALENDAR, TARGET, SENSOR, RUN, WALK, BIKE, ROW, MORE, HISTORY, TROPHY, LOAD, PLUS
 }
 
 private enum class CardioHubSheet {
@@ -96,40 +96,40 @@ internal fun CardioVisualHub(
 
     Column(
         Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
-        CardioHubSectionHeader("CARDIO HUB", "Today at a glance")
-
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
-        ) {
-            CardioHubFitnessCard(
-                model = model,
-                sparkline = efficiencySeries,
-                modifier = Modifier.weight(1f),
-                onClick = { sheet = CardioHubSheet.FITNESS }
-            )
-            CardioHubReadinessCard(
-                model = model,
-                modifier = Modifier.weight(1f),
-                onClick = { sheet = CardioHubSheet.READINESS }
-            )
-        }
+        CardioHubStatusPanel(
+            model = model,
+            efficiencySeries = efficiencySeries,
+            onFitness = { sheet = CardioHubSheet.FITNESS },
+            onReadiness = { sheet = CardioHubSheet.READINESS }
+        )
 
         CardioHubWeekCard(model.week) { sheet = CardioHubSheet.WEEK }
 
-        CardioHubSensorStrip(sensorMetrics)
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            CardioHubSectionHeader("QUICK START", "One tap", Modifier.weight(1f))
+            Text(
+                "MORE ›",
+                color = superhumanBlue,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.clickable { onMoreActivities() }.padding(vertical = 8.dp)
+            )
+        }
+        CardioHubQuickStart(onQuickStart)
 
-        CardioHubSectionHeader("QUICK START", "One tap")
-        CardioHubQuickStart(onQuickStart, onMoreActivities)
+        CardioHubSensorStrip(sensorMetrics)
 
         if (sessions.isNotEmpty()) {
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CardioHubSectionHeader("RECENT", "Your latest sessions", Modifier.weight(1f))
+                CardioHubSectionHeader("RECENT", "Latest workouts", Modifier.weight(1f))
                 Text(
                     "VIEW ALL ›",
                     color = superhumanBlue,
@@ -141,59 +141,32 @@ internal fun CardioVisualHub(
             CardioHubRecentSessions(sessions.take(4), onOpenSession)
         }
 
-        CardioHubSectionHeader("DEEP DIVE", "Open the detail you need")
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            CardioHubPreviewTile(
-                glyph = CardioHubGlyph.HISTORY,
-                title = "Sessions",
-                value = model.week.sessions.toString(),
-                detail = "this week",
-                accent = superhumanBlue,
-                modifier = Modifier.weight(1f),
-                onClick = onSessions
-            )
-            CardioHubPreviewTile(
-                glyph = CardioHubGlyph.LOAD,
-                title = "Trends",
-                value = loadSeries.lastOrNull()?.roundToInt()?.toString() ?: "—",
-                detail = if (loadSeries.isEmpty()) "build load" else "chronic load",
-                accent = Color(0xFF8E72D8),
-                modifier = Modifier.weight(1f),
-                sparkline = loadSeries,
-                onClick = onTrends
-            )
-            CardioHubPreviewTile(
-                glyph = CardioHubGlyph.TROPHY,
-                title = "Records",
-                value = sessions.mapNotNull { it.distanceKm }.maxOrNull()
-                    ?.let { String.format(Locale.US, "%.1f", it) } ?: "—",
-                detail = "longest km",
-                accent = Color(0xFFD1A03D),
-                modifier = Modifier.weight(1f),
-                onClick = onTestsRecords
-            )
-        }
+        CardioHubDeepDiveBar(
+            sessionsThisWeek = model.week.sessions,
+            loadValue = loadSeries.lastOrNull()?.roundToInt(),
+            longestDistanceKm = sessions.mapNotNull { it.distanceKm }.maxOrNull(),
+            onSessions = onSessions,
+            onTrends = onTrends,
+            onRecords = onTestsRecords
+        )
 
         Row(
             Modifier.fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .heightIn(min = 46.dp)
                 .clickable { onLog() }
-                .padding(vertical = 6.dp),
+                .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            CardioHubIconBadge(CardioHubGlyph.PLUS, superhumanBlue)
-            Spacer(Modifier.width(10.dp))
+            CardioHubGlyphIcon(CardioHubGlyph.PLUS, superhumanBlue, Modifier.size(18.dp))
+            Spacer(Modifier.width(9.dp))
             Text(
                 "Log completed workout",
                 color = superhumanTextPrimary,
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.weight(1f)
             )
-            Text("›", color = superhumanBlue, fontSize = 22.sp)
+            Text("›", color = superhumanBlue, fontSize = 20.sp)
         }
     }
 
@@ -233,117 +206,112 @@ internal fun CardioVisualHub(
 }
 
 @Composable
-private fun CardioHubFitnessCard(
+private fun CardioHubStatusPanel(
     model: CardioProductOverviewModel,
-    sparkline: List<Double>,
-    modifier: Modifier,
-    onClick: () -> Unit
+    efficiencySeries: List<Double>,
+    onFitness: () -> Unit,
+    onReadiness: () -> Unit
 ) {
-    val fitness = model.fitness
     Column(
-        modifier
-            .heightIn(min = 150.dp)
-            .background(superhumanSurface, RoundedCornerShape(22.dp))
-            .clickable { onClick() }
-            .semantics {
-                role = Role.Button
-                contentDescription = "Fitness. ${fitness.trendLabel}. ${fitness.comparableSessionCount} comparable sessions."
-            }
-            .padding(14.dp)
+        Modifier.fillMaxWidth()
+            .background(superhumanSurface, RoundedCornerShape(20.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CardioHubIconBadge(CardioHubGlyph.TREND, superhumanGreen)
-            Spacer(Modifier.width(8.dp))
-            Text("FITNESS", color = superhumanTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.weight(1f))
-            Text("›", color = superhumanGreen, fontSize = 20.sp)
-        }
-        Spacer(Modifier.height(10.dp))
         Text(
-            fitness.trendLabel,
-            color = superhumanTextPrimary,
-            fontSize = 19.sp,
-            fontWeight = FontWeight.Black,
-            lineHeight = 21.sp
-        )
-        fitness.trendDeltaPercent?.let {
-            val sign = if (it > 0) "+" else ""
-            Text(
-                "$sign${String.format(Locale.US, "%.1f", it)}%",
-                color = superhumanGreen,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Black
-            )
-        }
-        Spacer(Modifier.weight(1f))
-        if (sparkline.size >= 2) {
-            CardioHubSparkline(sparkline, superhumanGreen, Modifier.fillMaxWidth().height(30.dp))
-        } else {
-            CardioHubDots(
-                filled = fitness.comparableSessionCount.coerceAtMost(4),
-                total = 4,
-                accent = superhumanGreen
-            )
-        }
-        Spacer(Modifier.height(5.dp))
-        Text(
-            if (fitness.trendDeltaPercent != null) "${fitness.confidence.label} confidence"
-            else "${fitness.comparableSessionCount}/4 comparable",
+            "CARDIO STATUS",
             color = superhumanTextMuted,
             fontSize = 8.sp,
-            fontWeight = FontWeight.SemiBold
+            fontWeight = FontWeight.Black,
+            letterSpacing = .7.sp
+        )
+        Spacer(Modifier.height(7.dp))
+        CardioHubStatusRow(
+            glyph = CardioHubGlyph.TREND,
+            label = "Fitness",
+            value = model.fitness.trendLabel,
+            meta = model.fitness.trendDeltaPercent?.let {
+                val sign = if (it > 0) "+" else ""
+                "$sign${String.format(Locale.US, "%.1f", it)}% pace / HR"
+            } ?: "${model.fitness.comparableSessionCount}/4 comparable sessions",
+            accent = superhumanGreen,
+            sparkline = efficiencySeries,
+            baselineProgress = if (model.fitness.trendDeltaPercent == null) {
+                model.fitness.comparableSessionCount.coerceIn(0, 4)
+            } else null,
+            onClick = onFitness
+        )
+        Box(Modifier.fillMaxWidth().height(1.dp).background(superhumanBorder.copy(alpha = .45f)))
+        CardioHubStatusRow(
+            glyph = CardioHubGlyph.HEART,
+            label = "Today",
+            value = cardioHubShortReadiness(model.readiness.status) + " signals",
+            meta = "${model.readiness.availableSignals}/${model.readiness.totalSignals} available · ${model.readiness.confidence.label} confidence",
+            accent = superhumanBlue,
+            signalAvailable = model.readiness.availableSignals,
+            signalTotal = model.readiness.totalSignals,
+            onClick = onReadiness
         )
     }
 }
 
 @Composable
-private fun CardioHubReadinessCard(
-    model: CardioProductOverviewModel,
-    modifier: Modifier,
+private fun CardioHubStatusRow(
+    glyph: CardioHubGlyph,
+    label: String,
+    value: String,
+    meta: String,
+    accent: Color,
+    sparkline: List<Double> = emptyList(),
+    baselineProgress: Int? = null,
+    signalAvailable: Int? = null,
+    signalTotal: Int? = null,
     onClick: () -> Unit
 ) {
-    val readiness = model.readiness
-    Column(
-        modifier
-            .heightIn(min = 150.dp)
-            .background(superhumanSurface, RoundedCornerShape(22.dp))
+    Row(
+        Modifier.fillMaxWidth()
+            .heightIn(min = 70.dp)
             .clickable { onClick() }
-            .semantics {
-                role = Role.Button
-                contentDescription = "Training capacity. ${readiness.status}. ${readiness.availableSignals} of ${readiness.totalSignals} signals."
-            }
-            .padding(14.dp)
+            .padding(vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CardioHubIconBadge(CardioHubGlyph.HEART, superhumanBlue)
-            Spacer(Modifier.width(8.dp))
-            Text("TODAY", color = superhumanTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.weight(1f))
-            Text("›", color = superhumanBlue, fontSize = 20.sp)
+        CardioHubIconBadge(glyph, accent)
+        Spacer(Modifier.width(11.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label.uppercase(), color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+            Text(value, color = superhumanTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Black, lineHeight = 17.sp)
+            Text(meta, color = superhumanTextMuted, fontSize = 8.sp, lineHeight = 11.sp)
         }
-        Spacer(Modifier.height(10.dp))
-        Text(
-            cardioHubShortReadiness(readiness.status),
-            color = superhumanTextPrimary,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Black
-        )
-        Spacer(Modifier.weight(1f))
-        CardioHubSignalRing(
-            available = readiness.availableSignals,
-            total = readiness.totalSignals,
-            accent = superhumanBlue,
-            label = readiness.availableSignals.toString()
-        )
-        Spacer(Modifier.height(5.dp))
-        Text(
-            "${readiness.availableSignals}/${readiness.totalSignals} signals · ${readiness.confidence.label}",
-            color = superhumanTextMuted,
-            fontSize = 8.sp,
-            fontWeight = FontWeight.SemiBold
-        )
+        when {
+            sparkline.size >= 2 -> {
+                CardioHubSparkline(sparkline, accent, Modifier.width(72.dp).height(30.dp))
+            }
+            baselineProgress != null -> {
+                CardioHubDots(baselineProgress, 4, accent)
+            }
+            signalAvailable != null && signalTotal != null -> {
+                CardioHubSignalDots(signalAvailable, signalTotal, accent)
+            }
+        }
+        Spacer(Modifier.width(7.dp))
+        Text("›", color = accent, fontSize = 20.sp)
     }
 }
+
+@Composable
+private fun CardioHubSignalDots(available: Int, total: Int, accent: Color) {
+    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        repeat(total.coerceAtLeast(0)) { index ->
+            Box(
+                Modifier.size(7.dp)
+                    .background(
+                        if (index < available) accent else superhumanBorder,
+                        CircleShape
+                    )
+            )
+        }
+    }
+}
+
 
 @Composable
 private fun CardioHubWeekCard(week: CardioWeekIntentSnapshot, onClick: () -> Unit) {
