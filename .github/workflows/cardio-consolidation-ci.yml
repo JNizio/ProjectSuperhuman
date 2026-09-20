@@ -1,0 +1,47 @@
+name: Cardio n-of-1 consolidation verification
+
+on:
+  push:
+    branches:
+      - cardio-nof1-consolidation
+    paths:
+      - 'nextgen/**'
+      - '.github/workflows/cardio-consolidation-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: cardio-nof1-consolidation-ci
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Enforce Data Vault read boundaries
+        run: python3 nextgen/scripts/check_data_boundaries.py
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Run shared tests
+        run: gradle --no-daemon --stacktrace -p nextgen :shared:testDebugUnitTest
+
+      - name: Run all Cardio Android unit tests
+        run: gradle --no-daemon --stacktrace -p nextgen :androidApp:testDebugUnitTest --tests 'com.projectsuperhuman.next.Cardio*'
+
+      - name: Compile Android debug Kotlin
+        run: gradle --no-daemon --stacktrace -p nextgen :androidApp:compileDebugKotlin
