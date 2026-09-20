@@ -1748,6 +1748,128 @@ private fun RoutineEditorCard(
     }
 }
 
+@Composable
+private fun StrengthHistoryCalendar(
+    month: java.time.YearMonth,
+    selectedDate: java.time.LocalDate,
+    workoutDates: Set<java.time.LocalDate>,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
+    onSelectDate: (java.time.LocalDate) -> Unit
+) {
+    val first = month.atDay(1)
+    val daysInMonth = month.lengthOfMonth()
+    val leading = (first.dayOfWeek.value - 1).coerceAtLeast(0)
+    val totalCells = leading + daysInMonth
+    val rows = (totalCells + 6) / 7
+    val monthTitle = month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy"))
+
+    Column(
+        Modifier.fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(22.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(22.dp))
+            .padding(15.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("‹", color = ExerciseBlue, fontSize = 24.sp, modifier = Modifier.superhumanClickable(onClick = onPreviousMonth).padding(6.dp))
+            Text(monthTitle, color = ExerciseInk, fontSize = 15.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+            Text("›", color = ExerciseBlue, fontSize = 24.sp, modifier = Modifier.superhumanClickable(onClick = onNextMonth).padding(6.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth()) {
+            listOf("M","T","W","T","F","S","S").forEach { label ->
+                Text(label, color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
+            }
+        }
+        Spacer(Modifier.height(6.dp))
+        repeat(rows) { row ->
+            Row(Modifier.fillMaxWidth()) {
+                repeat(7) { column ->
+                    val cell = row * 7 + column
+                    val dayNumber = cell - leading + 1
+                    if (dayNumber in 1..daysInMonth) {
+                        val date = month.atDay(dayNumber)
+                        val selected = date == selectedDate
+                        val hasWorkout = date in workoutDates
+                        Column(
+                            Modifier.weight(1f).height(48.dp).superhumanClickable { onSelectDate(date) },
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Box(
+                                Modifier.size(32.dp).background(if (selected) ExerciseBlue.copy(alpha = .18f) else Color.Transparent, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(dayNumber.toString(), color = if (selected) ExerciseBlue else ExerciseInk, fontSize = 10.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium)
+                            }
+                            if (hasWorkout) Box(Modifier.padding(top = 2.dp).size(4.dp).background(ExerciseGreen, CircleShape)) else Spacer(Modifier.height(6.dp))
+                        }
+                    } else {
+                        Spacer(Modifier.weight(1f).height(48.dp))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StrengthHistoryEmptyDay() {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(18.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(34.dp).background(ExerciseSoft, CircleShape), contentAlignment = Alignment.Center) {
+            Text("—", color = ExerciseMuted, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.width(11.dp))
+        Text("No strength workout", color = ExerciseMuted, fontSize = 10.sp)
+    }
+}
+
+@Composable
+private fun StrengthHistoryDayCard(session: StrengthWorkoutSession, onOpen: () -> Unit) {
+    val exercises = session.sets.mapNotNull { it.metadata["exerciseName"] }.distinct().take(4)
+    Column(
+        Modifier.fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(20.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
+            .superhumanClickable(onClick = onOpen)
+            .padding(15.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(session.name, color = ExerciseInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                Text(session.durationMin.toString() + " min", color = ExerciseMuted, fontSize = 9.sp)
+            }
+            Text("→", color = ExercisePurple, fontSize = 19.sp)
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth().background(ExerciseSoft, RoundedCornerShape(15.dp)).padding(vertical = 11.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            StrengthInlineMetric(session.workingSets.toString(), "SETS")
+            Box(Modifier.width(1.dp).height(28.dp).background(ExerciseCardBorder))
+            StrengthInlineMetric(session.totalVolumeKg.roundToInt().toString(), "VOLUME KG")
+            Box(Modifier.width(1.dp).height(28.dp).background(ExerciseCardBorder))
+            StrengthInlineMetric(session.exerciseCount.toString(), "EXERCISES")
+        }
+        if (exercises.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                exercises.forEach { name ->
+                    Text(name, color = ExerciseInk, fontSize = 8.sp, maxLines = 1, modifier = Modifier.background(ExerciseRowSurface, RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 6.dp))
+                }
+            }
+        }
+    }
+    Spacer(Modifier.height(9.dp))
+}
+
 @Composable private fun PolishedSection(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) { Column(Modifier.fillMaxWidth().background(ExerciseSurface, RoundedCornerShape(23.dp)).border(1.dp, ExerciseCardBorder, RoundedCornerShape(23.dp)).padding(16.dp)) { Text(title, color = ExerciseInk, fontSize = 16.sp, fontWeight = FontWeight.Black); if (subtitle.isNotBlank()) { Text(subtitle, color = ExerciseMuted, fontSize = 11.sp); Spacer(Modifier.height(11.dp)) } else { Spacer(Modifier.height(8.dp)) }; content() } }
 @Composable private fun MetricTile(label: String, value: String, detail: String, accent: Color, modifier: Modifier) { Column(modifier.background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .13f else .07f), RoundedCornerShape(16.dp)).padding(11.dp)) { Text(label, color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(value, color = ExerciseNavy, fontSize = 16.sp, fontWeight = FontWeight.Black); Text(detail, color = ExerciseMuted, fontSize = 10.sp) } }
 @Composable private fun WideActionTile(title: String, subtitle: String, accent: Color, onClick: () -> Unit) { Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .14f else .09f), RoundedCornerShape(17.dp)).clickable { onClick() }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).background(accent, CircleShape)); Spacer(Modifier.width(10.dp)); Column(Modifier.weight(1f)) { Text(title, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black); Text(subtitle, color = ExerciseMuted, fontSize = 10.sp) }; Text("→", color = accent, fontSize = 18.sp) } }
