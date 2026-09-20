@@ -63,6 +63,7 @@ internal object CardioZoneEngine {
             val max = requireNotNull(hrMaxBpm) { "%HRmax zones require HRmax" }
             fiveZonesFromBoundaries(
                 maxBpm = max,
+                calculationMethod = "%HRmax",
                 boundaries = listOf(
                     (max * 0.60).roundToInt(),
                     (max * 0.70).roundToInt(),
@@ -78,6 +79,7 @@ internal object CardioZoneEngine {
             val reserve = max - resting
             fiveZonesFromBoundaries(
                 maxBpm = max,
+                calculationMethod = "%HRR",
                 boundaries = listOf(0.60, 0.70, 0.80, 0.90).map {
                     (resting + reserve * it).roundToInt()
                 }
@@ -88,6 +90,7 @@ internal object CardioZoneEngine {
             val top = (hrMaxBpm ?: (threshold * 1.15).roundToInt()).coerceAtMost(CARDIO_HR_MAX_BPM)
             fiveZonesFromBoundaries(
                 maxBpm = maxOf(top, threshold + 1),
+                calculationMethod = "%LTHR",
                 boundaries = listOf(0.85, 0.90, 0.95, 1.00).map {
                     (threshold * it).roundToInt()
                 }
@@ -99,6 +102,7 @@ internal object CardioZoneEngine {
                 val top = (hrMaxBpm ?: (threshold * 1.15).roundToInt()).coerceAtMost(CARDIO_HR_MAX_BPM)
                 threeZonesFromBoundaries(
                     maxBpm = maxOf(top, threshold + 1),
+                    calculationMethod = "three-zone LTHR",
                     firstCut = (threshold * 0.90).roundToInt(),
                     secondCut = threshold
                 )
@@ -106,6 +110,7 @@ internal object CardioZoneEngine {
                 val max = requireNotNull(hrMaxBpm) { "Three-zone model requires LTHR or HRmax" }
                 threeZonesFromBoundaries(
                     maxBpm = max,
+                    calculationMethod = "three-zone %HRmax",
                     firstCut = (max * 0.70).roundToInt(),
                     secondCut = (max * 0.85).roundToInt()
                 )
@@ -116,6 +121,7 @@ internal object CardioZoneEngine {
 
     private fun fiveZonesFromBoundaries(
         maxBpm: Int,
+        calculationMethod: String,
         boundaries: List<Int>
     ): List<CardioZoneBoundary> {
         require(boundaries.size == 4)
@@ -132,21 +138,22 @@ internal object CardioZoneEngine {
         val mins = listOf(CARDIO_HR_MIN_BPM, cuts[0], cuts[1], cuts[2], cuts[3])
         val maxes = listOf(cuts[0] - 1, cuts[1] - 1, cuts[2] - 1, cuts[3] - 1, maxBpm)
         return names.indices.map { index ->
-            CardioZoneBoundary(index + 1, names[index], mins[index], maxes[index], purposes[index])
+            CardioZoneBoundary(index + 1, names[index], mins[index], maxes[index], purposes[index], calculationMethod)
         }
     }
 
     private fun threeZonesFromBoundaries(
         maxBpm: Int,
+        calculationMethod: String,
         firstCut: Int,
         secondCut: Int
     ): List<CardioZoneBoundary> {
         val first = firstCut.coerceIn(CARDIO_HR_MIN_BPM + 1, maxBpm - 2)
         val second = secondCut.coerceIn(first + 1, maxBpm - 1)
         return listOf(
-            CardioZoneBoundary(1, "Zone 1", CARDIO_HR_MIN_BPM, first - 1, "Below first configured threshold"),
-            CardioZoneBoundary(2, "Zone 2", first, second - 1, "Between configured thresholds"),
-            CardioZoneBoundary(3, "Zone 3", second, maxBpm, "Above second configured threshold")
+            CardioZoneBoundary(1, "Zone 1", CARDIO_HR_MIN_BPM, first - 1, "Below first configured threshold", calculationMethod),
+            CardioZoneBoundary(2, "Zone 2", first, second - 1, "Between configured thresholds", calculationMethod),
+            CardioZoneBoundary(3, "Zone 3", second, maxBpm, "Above second configured threshold", calculationMethod)
         )
     }
 
@@ -192,6 +199,7 @@ internal object CardioPhysiologyCodec {
                 put(prefix + "minBpm", zone.minBpmInclusive.toString())
                 put(prefix + "maxBpm", zone.maxBpmInclusive.toString())
                 put(prefix + "purpose", zone.purpose)
+                put(prefix + "calculationMethod", zone.calculationMethod)
             }
             profile.sportSpecificSettings.forEach { (key, value) ->
                 put("sportSetting." + key, value)
@@ -231,7 +239,8 @@ internal object CardioPhysiologyCodec {
                 name = metadata[prefix + "name"].orEmpty().ifBlank { "Zone " + number },
                 minBpmInclusive = min,
                 maxBpmInclusive = max,
-                purpose = metadata[prefix + "purpose"].orEmpty()
+                purpose = metadata[prefix + "purpose"].orEmpty(),
+                calculationMethod = metadata[prefix + "calculationMethod"].orEmpty()
             )
         }
         if (zones.size != zoneCount) return null

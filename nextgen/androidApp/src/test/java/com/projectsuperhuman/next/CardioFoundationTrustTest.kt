@@ -108,6 +108,35 @@ class CardioFoundationTrustTest {
     }
 
     @Test
+    fun eligibleUserSourceOverrideIsExplicitAndSafe() {
+        val direct = candidate(
+            "direct",
+            CardioAnalysisMetric.WORKOUT_HEART_RATE,
+            CardioSourceKind.GENERIC_BLE,
+            CardioValueClass.MEASURED
+        )
+        val imported = candidate(
+            "imported",
+            CardioAnalysisMetric.WORKOUT_HEART_RATE,
+            CardioSourceKind.HEALTH_CONNECT,
+            CardioValueClass.MEASURED
+        )
+        val selection = assertNotNull(
+            CardioSourceArbitrator.select(
+                CardioAnalysisMetric.WORKOUT_HEART_RATE,
+                listOf(direct, imported),
+                userOverrideCandidateId = "imported"
+            )
+        )
+        assertEquals("imported", selection.selected.candidateId)
+        assertTrue(selection.reason.startsWith("Eligible user override selected."))
+        assertEquals(
+            CARDIO_SOURCE_POLICY_VERSION,
+            CardioSourceArbitrator.selectionMetadata(selection)["analysisSourcePolicyVersion"]
+        )
+    }
+
+    @Test
     fun invalidSourceIsNeverSelected() {
         val invalid = candidate(
             "bad",
@@ -146,9 +175,23 @@ class CardioFoundationTrustTest {
             sportSpecificSettings = mapOf("note" to "running")
         )
         assertEquals(5, profile.zones.size)
+        assertEquals("%HRR", profile.zones.first().calculationMethod)
         assertEquals(CardioHrMaxSource.FORMULA_ESTIMATE, profile.hrMaxSource)
         val restored = assertNotNull(CardioPhysiologyCodec.fromHealthValue(CardioPhysiologyCodec.toHealthValue(profile)))
         assertEquals(profile, restored)
+    }
+
+    @Test
+    fun hrmaxSourceHierarchyPrefersValidatedThenManualThenFormula() {
+        val selected = CardioHrMaxPolicy.select(
+            listOf(
+                CardioHrMaxEvidence(188, CardioHrMaxSource.FORMULA_ESTIMATE, 300L),
+                CardioHrMaxEvidence(191, CardioHrMaxSource.MANUAL_CONFIRMED, 200L),
+                CardioHrMaxEvidence(193, CardioHrMaxSource.VALIDATED_OBSERVED, 100L)
+            )
+        )
+        assertEquals(193, selected?.bpm)
+        assertEquals(CardioHrMaxSource.VALIDATED_OBSERVED, selected?.source)
     }
 
     @Test
@@ -203,12 +246,30 @@ class CardioFoundationTrustTest {
             CardioHrMaxCandidateEngine.detectCandidate(
                 configuredHrMax = 190,
                 samples = samples,
-                minSustainedDurationMs = 5_000L
+                minSustainedDurationMs = 5_000L,
+                coveragePct = 96.0
             )
         )
         assertEquals(194, candidate.candidateBpm)
         assertTrue(candidate.requiresConfirmation)
+        assertEquals(96.0, candidate.coveragePct)
         assertTrue(candidate.sustainedDurationMs >= 5_000L)
+    }
+
+    @Test
+    fun filteredSamplesDoNotSupportHrmaxCandidate() {
+        val samples = listOf(191, 192, 193, 194).mapIndexed { index, bpm ->
+            CardioHeartRateSample(index * 2_000L, bpm, ble)
+        }
+        val quality = samples.associate { it.timestampEpochMs to CardioObservationQuality.FILTERED }
+        assertNull(
+            CardioHrMaxCandidateEngine.detectCandidate(
+                190,
+                samples,
+                minSustainedDurationMs = 0L,
+                qualityByTimestampEpochMs = quality
+            )
+        )
     }
 
     @Test

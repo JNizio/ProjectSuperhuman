@@ -295,7 +295,8 @@ internal data class CardioSourceSelection(
 internal object CardioSourceArbitrator {
     fun select(
         metric: CardioAnalysisMetric,
-        candidates: List<CardioSourceCandidate>
+        candidates: List<CardioSourceCandidate>,
+        userOverrideCandidateId: String? = null
     ): CardioSourceSelection? {
         val eligible = candidates
             .filter { it.metric == metric }
@@ -308,8 +309,13 @@ internal object CardioSourceArbitrator {
                 .thenByDescending { it.sampleCount ?: -1 }
                 .thenBy { it.candidateId }
         )
-        val selected = ranked.first()
+        val override = userOverrideCandidateId
+            ?.let { requested -> ranked.firstOrNull { it.candidateId == requested } }
+        val selected = override ?: ranked.first()
         val reason = buildString {
+            if (override != null) {
+                append("Eligible user override selected. ")
+            }
             append("Selected ")
             append(CardioProvenanceCodec.displayLabel(selected.provenance))
             append(" for ")
@@ -325,6 +331,17 @@ internal object CardioSourceArbitrator {
             append(". Overlapping sources remain retained.")
         }
         return CardioSourceSelection(selected, ranked, reason)
+    }
+
+    fun selectionMetadata(
+        selection: CardioSourceSelection,
+        prefix: String = "analysisSource"
+    ): Map<String, String> = buildMap {
+        put(prefix + "PolicyVersion", selection.policyVersion)
+        put(prefix + "CandidateId", selection.selected.candidateId)
+        put(prefix + "Reason", selection.reason)
+        put(prefix + "ConsideredCount", selection.considered.size.toString())
+        putAll(CardioProvenanceCodec.toMetadata(selection.selected.provenance, prefix + ".provenance"))
     }
 
     private fun score(metric: CardioAnalysisMetric, candidate: CardioSourceCandidate): Int {

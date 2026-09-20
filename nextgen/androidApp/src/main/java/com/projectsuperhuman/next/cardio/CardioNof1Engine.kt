@@ -247,7 +247,9 @@ internal object CardioHrMaxCandidateEngine {
         samples: List<CardioHeartRateSample>,
         minConsecutiveSamples: Int = 3,
         minSustainedDurationMs: Long = DEFAULT_MIN_SUSTAINED_MS,
-        maxGapMs: Long = DEFAULT_MAX_GAP_MS
+        maxGapMs: Long = DEFAULT_MAX_GAP_MS,
+        coveragePct: Double? = null,
+        qualityByTimestampEpochMs: Map<Long, CardioObservationQuality> = emptyMap()
     ): CardioHrMaxCandidate? {
         val configured = configuredHrMax?.takeIf { it in CARDIO_HR_MIN_BPM..CARDIO_HR_MAX_BPM }
             ?: return null
@@ -255,6 +257,14 @@ internal object CardioHrMaxCandidateEngine {
 
         val ordered = samples
             .filter { it.isPhysiologicallyStorable }
+            .filter { sample ->
+                when (qualityByTimestampEpochMs[sample.timestampEpochMs]) {
+                    CardioObservationQuality.INVALID,
+                    CardioObservationQuality.FILTERED,
+                    CardioObservationQuality.SUSPECT_OUTLIER -> false
+                    else -> true
+                }
+            }
             .sortedBy { it.timestampEpochMs }
         if (ordered.size < minConsecutiveSamples) return null
 
@@ -304,9 +314,20 @@ internal object CardioHrMaxCandidateEngine {
                 it.source.providerType == CardioSensorProviderType.H19C ||
                 it.source.providerType == CardioSensorProviderType.BLE_HEART_RATE
         }
+        val qualityLimited = credible.any {
+            qualityByTimestampEpochMs[it.timestampEpochMs] in setOf(
+                CardioObservationQuality.STALE,
+                CardioObservationQuality.GAP_ADJACENT,
+                CardioObservationQuality.INTERPOLATED
+            )
+        }
+        val normalizedCoverage = coveragePct?.coerceIn(0.0, 100.0)
         val confidence = when {
-            artifactIndexes.isNotEmpty() -> CardioConfidence.LOW
-            directCount == credible.size && credible.size >= 6 && duration >= 10_000L -> CardioConfidence.HIGH
+            artifactIndexes.isNotEmpty() || qualityLimited -> CardioConfidence.LOW
+            normalizedCoverage != null && normalizedCoverage < 70.0 -> CardioConfidence.LOW
+            normalizedCoverage == null -> CardioConfidence.MODERATE
+            directCount == credible.size && credible.size >= 6 && duration >= 10_000L &&
+                normalizedCoverage >= 90.0 -> CardioConfidence.HIGH
             directCount == credible.size -> CardioConfidence.MODERATE
             else -> CardioConfidence.LOW
         }
@@ -316,6 +337,8 @@ internal object CardioHrMaxCandidateEngine {
             add("Sustained for " + duration + " ms with gaps <= " + maxGapMs + " ms")
             add("Source: " + sourceSummary)
             if (kinds.size > 1) add("Candidate contains more than one provider type")
+            normalizedCoverage?.let { add("Heart-rate coverage: " + "%.1f".format(java.util.Locale.US, it) + "%") }
+            if (qualityLimited) add("Candidate contains samples with reduced observation quality")
             if (artifactIndexes.isNotEmpty()) add("Potential abrupt signal jump detected elsewhere in the stream")
             add("Profile change requires explicit confirmation")
         }
@@ -327,7 +350,8 @@ internal object CardioHrMaxCandidateEngine {
             sampleCount = credible.size,
             confidence = confidence,
             sourceSummary = sourceSummary,
-            reasons = reasons
+            reasons = reasons,
+            coveragePct = normalizedCoverage
         )
     }
 }

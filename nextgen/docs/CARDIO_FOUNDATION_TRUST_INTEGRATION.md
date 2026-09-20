@@ -14,7 +14,7 @@ Raw observations are retained as evidence. `CardioRawObservation` stores origina
 
 Use `CardioSourceArbitrator.select(metric, candidates)`. The policy is deterministic and metric-specific. It never deletes overlapping evidence. The returned `CardioSourceSelection` includes the selected source, all considered sources, the policy version and a human-readable reason suitable for later UI/Trudy explanation.
 
-No device is globally designated “best”. For example, direct BLE is strongly preferred for live heart rate, while phone/device GPS can outrank inferred distance. Measured cycling power receives a strong priority over estimated power.
+`select()` also accepts an optional eligible user override ID; invalid or wrong-metric sources cannot be forced through the override. `selectionMetadata()` makes the policy version, chosen candidate, reason and provenance persistable. No device is globally designated “best”. For example, direct BLE is strongly preferred for live heart rate, while phone/device GPS can outrank inferred distance. Measured cycling power receives a strong priority over estimated power.
 
 ## Capability API
 
@@ -38,7 +38,7 @@ For historical analysis use `CardioZoneAnalysisResolver` with `ORIGINAL` or `CUR
 
 ## HRmax candidates
 
-`CardioHrMaxCandidateEngine.detectCandidate()` checks multiple samples, sustained duration, gaps, plausible storage range, abrupt signal jumps and provenance. It returns a review candidate only; it never changes the physiology profile.
+`CardioHrMaxCandidateEngine.detectCandidate()` checks multiple samples, sustained duration, gaps, plausible storage range, observation-quality exclusions, optional sample coverage, abrupt signal jumps and provenance. It returns a review candidate only; it never changes the physiology profile.
 
 ## Versioned derived evidence and recomputation
 

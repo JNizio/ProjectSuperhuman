@@ -82,10 +82,10 @@ internal enum class CardioZoneModel {
     MANUAL
 }
 
-internal enum class CardioHrMaxSource {
-    VALIDATED_OBSERVED,
-    MANUAL_CONFIRMED,
-    FORMULA_ESTIMATE
+internal enum class CardioHrMaxSource(val priority: Int) {
+    VALIDATED_OBSERVED(3),
+    MANUAL_CONFIRMED(2),
+    FORMULA_ESTIMATE(1)
 }
 
 internal data class CardioZoneBoundary(
@@ -93,7 +93,8 @@ internal data class CardioZoneBoundary(
     val name: String,
     val minBpmInclusive: Int,
     val maxBpmInclusive: Int,
-    val purpose: String
+    val purpose: String,
+    val calculationMethod: String = ""
 )
 
 internal data class CardioPhysiologyProfile(
@@ -139,8 +140,27 @@ internal data class CardioHrMaxCandidate(
     val confidence: CardioConfidence,
     val sourceSummary: String,
     val reasons: List<String>,
+    val coveragePct: Double? = null,
     val requiresConfirmation: Boolean = true
 )
+
+internal data class CardioHrMaxEvidence(
+    val bpm: Int,
+    val source: CardioHrMaxSource,
+    val observedAtEpochMs: Long = 0L,
+    val note: String? = null
+)
+
+internal object CardioHrMaxPolicy {
+    fun select(evidence: List<CardioHrMaxEvidence>): CardioHrMaxEvidence? =
+        evidence
+            .filter { it.bpm in CARDIO_HR_MIN_BPM..CARDIO_HR_MAX_BPM }
+            .sortedWith(
+                compareByDescending<CardioHrMaxEvidence> { it.source.priority }
+                    .thenByDescending { it.observedAtEpochMs }
+            )
+            .firstOrNull()
+}
 
 internal data class CardioTrainingLoadPoint(
     val epochDay: Long,
