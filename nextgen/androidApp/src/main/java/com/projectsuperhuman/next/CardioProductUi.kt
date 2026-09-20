@@ -46,8 +46,12 @@ internal fun buildCardioProductOverviewModel(
 ): CardioProductOverviewModel {
     val fitness = CardioPersonalBaselineEngine.fitnessSnapshot(sessions, nowEpochMs)
     val load = CardioTrainingLoadEngine.latest(sessions, nowEpochMs)
+    val loadAnalytics = CardioAnalyticsEngine.loadAnalytics(sessions, nowEpochMs)
     val readiness = CardioPersonalBaselineEngine.readiness(
-        CardioRecoveryContext(trainingStressBalance = load?.trainingStressBalance)
+        CardioRecoveryContext(
+            trainingStressBalance = load?.trainingStressBalance
+                ?.takeIf { loadAnalytics.scoredSessions > 0 }
+        )
     )
     val week = CardioPersonalBaselineEngine.weekIntent(
         sessions = sessions,
