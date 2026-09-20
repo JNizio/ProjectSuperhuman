@@ -215,6 +215,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var routineQuery by remember { mutableStateOf("") }
     var editingRoutineIndex by remember { mutableStateOf<Int?>(null) }
     var pendingRoutineDelete by remember { mutableStateOf<Int?>(null) }
+    var showRoutineEditor by remember { mutableStateOf(false) }
     var summarySets by remember { mutableIntStateOf(0) }
     var summaryWorkingSets by remember { mutableIntStateOf(0) }
     var summaryExercises by remember { mutableIntStateOf(0) }
@@ -646,131 +647,137 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 }
             }
             "routines" -> {
-                HeroStrip("ROUTINES", "Your repeatable training plans", "Start, edit, reorder, duplicate or delete", ExerciseBlue)
-                PolishedSection("SAVED ROUTINES", "START launches the routine immediately") {
-                    if (routines.isEmpty()) EmptyState("No routines yet", "Create a reusable workout below.")
-                    routines.forEachIndexed { i, r ->
-                        Column(Modifier.fillMaxWidth().background(ExerciseRowSurface, RoundedCornerShape(16.dp)).padding(11.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Column(Modifier.weight(1f)) {
-                                    Text(r.name, color = ExerciseNavy, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                                    Text("${r.exerciseIds.size} exercises", color = ExerciseMuted, fontSize = 10.sp)
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("ROUTINES", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+                    Text(
+                        "+ NEW",
+                        color = ExerciseBlue,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.superhumanClickable {
+                            editingRoutineIndex = null
+                            routineName = ""
+                            routineSelection = emptyList()
+                            routineQuery = ""
+                            pendingRoutineDelete = null
+                            showRoutineEditor = true
+                        }.padding(horizontal = 8.dp, vertical = 6.dp)
+                    )
+                }
+
+                if (routines.isEmpty() && !showRoutineEditor) {
+                    RoutineEmptyCard {
+                        editingRoutineIndex = null
+                        routineName = ""
+                        routineSelection = emptyList()
+                        routineQuery = ""
+                        showRoutineEditor = true
+                    }
+                } else {
+                    routines.forEachIndexed { index, routine ->
+                        RoutineVisualCard(
+                            routine = routine,
+                            catalog = catalog,
+                            onStart = {
+                                startWorkout(routine.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } })
+                                workoutName = routine.name
+                            },
+                            onEdit = {
+                                editingRoutineIndex = index
+                                routineName = routine.name
+                                routineSelection = routine.exerciseIds
+                                routineQuery = ""
+                                pendingRoutineDelete = null
+                                showRoutineEditor = true
+                            },
+                            onDuplicate = {
+                                val base = routine.name + " Copy"
+                                val existing = routines.map { it.name }.toSet()
+                                var candidate = base
+                                var suffix = 2
+                                while (candidate in existing) {
+                                    candidate = "$base $suffix"
+                                    suffix++
                                 }
-                                Text("START", color = ExerciseGreen, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable {
-                                    startWorkout(r.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } })
-                                    workoutName = r.name
-                                }.padding(10.dp))
-                            }
-                            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                                Text("EDIT", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable {
-                                    editingRoutineIndex = i
-                                    routineName = r.name
-                                    routineSelection = r.exerciseIds
-                                    routineQuery = ""
-                                    pendingRoutineDelete = null
-                                }.padding(vertical = 8.dp))
-                                Text("DUPLICATE", color = ExercisePurple, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable {
-                                    val base = r.name + " Copy"
-                                    val existing = routines.map { it.name }.toSet()
-                                    var candidate = base
-                                    var suffix = 2
-                                    while (candidate in existing) { candidate = "$base $suffix"; suffix++ }
-                                    routines = routines + WorkoutRoutine(candidate, r.exerciseIds.toList())
+                                routines = routines + WorkoutRoutine(candidate, routine.exerciseIds.toList())
+                                saveRoutines(context, routines)
+                                feedbackMessage = "Routine duplicated"
+                            },
+                            deleteArmed = pendingRoutineDelete == index,
+                            onDelete = {
+                                if (pendingRoutineDelete != index) {
+                                    pendingRoutineDelete = index
+                                } else {
+                                    routines = routines.filterIndexed { idx, _ -> idx != index }
                                     saveRoutines(context, routines)
-                                    feedbackMessage = "Routine duplicated"
-                                }.padding(vertical = 8.dp))
-                                val confirm = pendingRoutineDelete == i
-                                Text(if (confirm) "CONFIRM DELETE" else "DELETE", color = if (SuperhumanAppearance.darkMode) superhumanRed else Color(0xFFAA4444), fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable {
-                                    if (!confirm) pendingRoutineDelete = i
-                                    else {
-                                        routines = routines.filterIndexed { idx, _ -> idx != i }
-                                        saveRoutines(context, routines)
-                                        pendingRoutineDelete = null
-                                        if (editingRoutineIndex == i) {
-                                            editingRoutineIndex = null
-                                            routineName = ""
-                                            routineSelection = emptyList()
-                                        }
-                                        feedbackMessage = "Routine deleted"
+                                    pendingRoutineDelete = null
+                                    if (editingRoutineIndex == index) {
+                                        editingRoutineIndex = null
+                                        routineName = ""
+                                        routineSelection = emptyList()
+                                        routineQuery = ""
+                                        showRoutineEditor = false
                                     }
-                                }.padding(vertical = 8.dp))
+                                    feedbackMessage = "Routine deleted"
+                                }
                             }
-                        }
-                        Spacer(Modifier.height(7.dp))
+                        )
                     }
                 }
-                PolishedSection(if (editingRoutineIndex == null) "CREATE ROUTINE" else "EDIT ROUTINE", "Add/remove movements and drag order with UP/DOWN") {
-                    OutlinedTextField(routineName, { routineName = it.take(60) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Routine name") })
-                    if (routineSelection.isNotEmpty()) {
-                        Spacer(Modifier.height(9.dp))
-                        Text("EXERCISE ORDER", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
-                        routineSelection.forEachIndexed { index, id ->
-                            val exercise = catalog.find { it.id == id }
-                            if (exercise != null) {
-                                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Text("${index + 1}. ${exercise.name}", color = ExerciseInk, fontSize = 10.sp, modifier = Modifier.weight(1f))
-                                    if (index > 0) Text("↑", color = ExerciseBlue, fontSize = 16.sp, modifier = Modifier.clickable {
-                                        val mutable = routineSelection.toMutableList()
-                                        val item = mutable.removeAt(index)
-                                        mutable.add(index - 1, item)
-                                        routineSelection = mutable
-                                    }.padding(8.dp))
-                                    if (index < routineSelection.lastIndex) Text("↓", color = ExerciseBlue, fontSize = 16.sp, modifier = Modifier.clickable {
-                                        val mutable = routineSelection.toMutableList()
-                                        val item = mutable.removeAt(index)
-                                        mutable.add(index + 1, item)
-                                        routineSelection = mutable
-                                    }.padding(8.dp))
-                                    Text("×", color = if (SuperhumanAppearance.darkMode) superhumanRed else Color(0xFFAA4444), fontSize = 16.sp, modifier = Modifier.clickable {
-                                        routineSelection = routineSelection.filterIndexed { idx, _ -> idx != index }
-                                    }.padding(8.dp))
-                                }
+
+                if (showRoutineEditor) {
+                    RoutineEditorCard(
+                        title = if (editingRoutineIndex == null) "New routine" else "Edit routine",
+                        routineName = routineName,
+                        onRoutineNameChange = { routineName = it.take(60) },
+                        selectedIds = routineSelection,
+                        catalog = catalog,
+                        query = routineQuery,
+                        onQueryChange = { routineQuery = it.take(50) },
+                        onToggleExercise = { id ->
+                            routineSelection = if (id in routineSelection) routineSelection - id else routineSelection + id
+                        },
+                        onMoveUp = { index ->
+                            if (index > 0) {
+                                val mutable = routineSelection.toMutableList()
+                                val item = mutable.removeAt(index)
+                                mutable.add(index - 1, item)
+                                routineSelection = mutable
                             }
-                        }
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(routineQuery, { routineQuery = it.take(50) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Find exercise to add") })
-                    val routineMatches = catalog.filter { e ->
-                        val q = routineQuery.trim()
-                        q.isBlank() || e.name.contains(q, true) || e.group.contains(q, true) || e.primaryMuscles.any { it.contains(q, true) }
-                    }.take(20)
-                    Spacer(Modifier.height(6.dp))
-                    routineMatches.forEach { e ->
-                        val picked = routineSelection.contains(e.id)
-                        Row(Modifier.fillMaxWidth().clickable {
-                            routineSelection = if (picked) routineSelection - e.id else routineSelection + e.id
-                        }.padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(25.dp).background(if (picked) ExerciseGreen else ExerciseSelectionOff, CircleShape), contentAlignment = Alignment.Center) { Text(if (picked) "✓" else "+", color = if (picked) Color.White else ExerciseBlue, fontSize = 10.sp) }
-                            Spacer(Modifier.width(9.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(e.name, color = ExerciseInk, fontSize = 11.sp)
-                                Text("${e.group} · ${e.equipment}", color = ExerciseMuted, fontSize = 9.sp)
+                        },
+                        onMoveDown = { index ->
+                            if (index < routineSelection.lastIndex) {
+                                val mutable = routineSelection.toMutableList()
+                                val item = mutable.removeAt(index)
+                                mutable.add(index + 1, item)
+                                routineSelection = mutable
                             }
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    WideActionTile(if (editingRoutineIndex == null) "SAVE ROUTINE" else "SAVE CHANGES", "${routineSelection.size} exercises selected", ExerciseNavy) {
-                        if (routineName.isNotBlank() && routineSelection.isNotEmpty()) {
-                            val newRoutine = WorkoutRoutine(routineName.trim(), routineSelection)
-                            val editIndex = editingRoutineIndex
-                            routines = if (editIndex == null) routines + newRoutine else routines.mapIndexed { idx, old -> if (idx == editIndex) newRoutine else old }
-                            saveRoutines(context, routines)
-                            feedbackMessage = if (editIndex == null) "Routine saved" else "Routine updated"
+                        },
+                        onRemove = { index -> routineSelection = routineSelection.filterIndexed { idx, _ -> idx != index } },
+                        onSave = {
+                            if (routineName.isNotBlank() && routineSelection.isNotEmpty()) {
+                                val newRoutine = WorkoutRoutine(routineName.trim(), routineSelection)
+                                val editIndex = editingRoutineIndex
+                                routines = if (editIndex == null) routines + newRoutine else routines.mapIndexed { idx, old -> if (idx == editIndex) newRoutine else old }
+                                saveRoutines(context, routines)
+                                feedbackMessage = if (editIndex == null) "Routine saved" else "Routine updated"
+                                editingRoutineIndex = null
+                                routineName = ""
+                                routineSelection = emptyList()
+                                routineQuery = ""
+                                showRoutineEditor = false
+                            } else {
+                                feedbackMessage = "Add a name and at least one exercise"
+                            }
+                        },
+                        onCancel = {
                             editingRoutineIndex = null
                             routineName = ""
                             routineSelection = emptyList()
                             routineQuery = ""
-                        } else feedbackMessage = "Add a routine name and at least one exercise"
-                    }
-                    if (editingRoutineIndex != null) {
-                        Spacer(Modifier.height(7.dp))
-                        WideActionTile("CANCEL EDIT", "Leave the saved routine unchanged", ExerciseMuted) {
-                            editingRoutineIndex = null
-                            routineName = ""
-                            routineSelection = emptyList()
-                            routineQuery = ""
+                            showRoutineEditor = false
                         }
-                    }
+                    )
                 }
             }
             "workout" -> {
@@ -1401,6 +1408,183 @@ private fun StrengthRoutineShortcut(routine: WorkoutRoutine, catalog: List<Nativ
             Text(routine.exerciseIds.size.toString() + " exercises", color = ExerciseMuted, fontSize = 9.sp)
         }
         Text("START  →", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun RoutineVisualCard(
+    routine: WorkoutRoutine,
+    catalog: List<NativeExercise>,
+    onStart: () -> Unit,
+    onEdit: () -> Unit,
+    onDuplicate: () -> Unit,
+    deleteArmed: Boolean,
+    onDelete: () -> Unit
+) {
+    val exercises = routine.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } }
+    Column(
+        Modifier.fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(20.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
+            .padding(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(routine.name, color = ExerciseInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                Text(routine.exerciseIds.size.toString() + " exercises", color = ExerciseMuted, fontSize = 9.sp)
+            }
+            Box(
+                Modifier.background(ExerciseGreen.copy(alpha = .14f), RoundedCornerShape(12.dp))
+                    .superhumanClickable(onClick = onStart)
+                    .padding(horizontal = 13.dp, vertical = 9.dp)
+            ) {
+                Text("START", color = ExerciseGreen, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        if (exercises.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                exercises.take(4).forEach { exercise ->
+                    Column(Modifier.weight(1f)) {
+                        RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.fillMaxWidth().height(62.dp))
+                        Spacer(Modifier.height(4.dp))
+                        Text(exercise.name, color = ExerciseInk, fontSize = 8.sp, maxLines = 1)
+                    }
+                }
+            }
+            if (exercises.size > 4) {
+                Spacer(Modifier.height(6.dp))
+                Text("+" + (exercises.size - 4) + " more", color = ExerciseMuted, fontSize = 8.sp)
+            }
+        }
+        Spacer(Modifier.height(11.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            Text("EDIT", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onEdit))
+            Text("DUPLICATE", color = ExercisePurple, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onDuplicate))
+            Text(
+                if (deleteArmed) "CONFIRM DELETE" else "DELETE",
+                color = if (SuperhumanAppearance.darkMode) superhumanRed else Color(0xFFAA4444),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.superhumanClickable(onClick = onDelete)
+            )
+        }
+    }
+    Spacer(Modifier.height(9.dp))
+}
+
+@Composable
+private fun RoutineEmptyCard(onCreate: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(20.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
+            .padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Box(Modifier.size(46.dp).background(ExerciseBlue.copy(alpha = .14f), CircleShape), contentAlignment = Alignment.Center) {
+            Text("+", color = ExerciseBlue, fontSize = 22.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.height(9.dp))
+        Text("No routines yet", color = ExerciseInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(10.dp))
+        Box(
+            Modifier.background(ExerciseBlue.copy(alpha = .14f), RoundedCornerShape(12.dp))
+                .superhumanClickable(onClick = onCreate)
+                .padding(horizontal = 14.dp, vertical = 9.dp)
+        ) {
+            Text("CREATE ROUTINE", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
+
+@Composable
+private fun RoutineEditorCard(
+    title: String,
+    routineName: String,
+    onRoutineNameChange: (String) -> Unit,
+    selectedIds: List<String>,
+    catalog: List<NativeExercise>,
+    query: String,
+    onQueryChange: (String) -> Unit,
+    onToggleExercise: (String) -> Unit,
+    onMoveUp: (Int) -> Unit,
+    onMoveDown: (Int) -> Unit,
+    onRemove: (Int) -> Unit,
+    onSave: () -> Unit,
+    onCancel: () -> Unit
+) {
+    val matches = if (query.isBlank()) emptyList() else catalog.filter { exercise ->
+        exercise.name.contains(query, true) ||
+            exercise.group.contains(query, true) ||
+            exercise.equipment.contains(query, true) ||
+            exercise.primaryMuscles.any { it.contains(query, true) }
+    }.take(8)
+
+    Column(
+        Modifier.fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(20.dp))
+            .border(1.dp, ExerciseBlue.copy(alpha = .28f), RoundedCornerShape(20.dp))
+            .padding(15.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, color = ExerciseInk, fontSize = 15.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+            Text("CANCEL", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onCancel))
+        }
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(routineName, onRoutineNameChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Routine name") })
+
+        if (selectedIds.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Text("EXERCISES", color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(7.dp))
+            selectedIds.forEachIndexed { index, id ->
+                val exercise = catalog.find { it.id == id } ?: return@forEachIndexed
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.size(48.dp))
+                    Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                        Text(exercise.name, color = ExerciseInk, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(exercise.group, color = ExerciseMuted, fontSize = 8.sp, maxLines = 1)
+                    }
+                    if (index > 0) Text("↑", color = ExerciseBlue, fontSize = 15.sp, modifier = Modifier.superhumanClickable { onMoveUp(index) }.padding(6.dp))
+                    if (index < selectedIds.lastIndex) Text("↓", color = ExerciseBlue, fontSize = 15.sp, modifier = Modifier.superhumanClickable { onMoveDown(index) }.padding(6.dp))
+                    Text("×", color = superhumanRed, fontSize = 16.sp, modifier = Modifier.superhumanClickable { onRemove(index) }.padding(6.dp))
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Add exercise") })
+
+        if (query.isNotBlank()) {
+            Spacer(Modifier.height(7.dp))
+            matches.forEach { exercise ->
+                val picked = exercise.id in selectedIds
+                Row(
+                    Modifier.fillMaxWidth().superhumanClickable { onToggleExercise(exercise.id) }.padding(vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.size(44.dp))
+                    Column(Modifier.weight(1f).padding(horizontal = 9.dp)) {
+                        Text(exercise.name, color = ExerciseInk, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(exercise.group + " · " + exercise.equipment, color = ExerciseMuted, fontSize = 8.sp, maxLines = 1)
+                    }
+                    Box(Modifier.size(28.dp).background(if (picked) ExerciseGreen else ExerciseSelectionOff, CircleShape), contentAlignment = Alignment.Center) {
+                        Text(if (picked) "✓" else "+", color = if (picked) Color.White else ExerciseBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+            }
+            if (matches.isEmpty()) Text("No matches", color = ExerciseMuted, fontSize = 9.sp, modifier = Modifier.padding(vertical = 9.dp))
+        }
+
+        Spacer(Modifier.height(14.dp))
+        Box(
+            Modifier.fillMaxWidth().background(ExerciseBlue.copy(alpha = .16f), RoundedCornerShape(14.dp))
+                .superhumanClickable(onClick = onSave).padding(vertical = 13.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("SAVE ROUTINE", color = ExerciseBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
+        }
     }
 }
 
