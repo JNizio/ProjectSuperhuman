@@ -1,0 +1,44 @@
+name: Cardio progress UI verification
+
+on:
+  push:
+    branches:
+      - cardio-progress-ui-validation
+    paths:
+      - 'nextgen/**'
+      - '.github/workflows/cardio-progress-ui-validation.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: cardio-progress-ui-validation
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Enforce Data Vault boundaries
+        run: python3 nextgen/scripts/check_data_boundaries.py
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile Android debug Kotlin
+        run: gradle --no-daemon --stacktrace -p nextgen :androidApp:compileDebugKotlin
+      - name: Run Cardio Android unit tests
+        run: gradle --no-daemon --stacktrace -p nextgen :androidApp:testDebugUnitTest --tests 'com.projectsuperhuman.next.Cardio*'
+      - name: Run Cardio shared contracts
+        run: >
+          gradle --no-daemon --stacktrace -p nextgen :shared:testDebugUnitTest
+          --tests 'com.projectsuperhuman.next.core.CardioMetricRegistryTest'
+          --tests 'com.projectsuperhuman.next.trudy.TrudyCardioEvidenceTest'
