@@ -598,14 +598,14 @@ private fun CardioHubProgressChart(
                 )
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    "Log cardio sessions to see your progress",
+                    "Log cardio sessions to see results",
                     color = superhumanTextPrimary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Black
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    "Your ${metric.shortLabel.lowercase(Locale.US)} trend will appear here.",
+                    "Your ${metric.shortLabel.lowercase(Locale.US)} trend will appear after you record sessions.",
                     color = superhumanTextMuted,
                     fontSize = 8.sp
                 )
@@ -618,7 +618,7 @@ private fun CardioHubProgressChart(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Log a workout",
+                        "Log cardio",
                         color = metric.accent,
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Black
