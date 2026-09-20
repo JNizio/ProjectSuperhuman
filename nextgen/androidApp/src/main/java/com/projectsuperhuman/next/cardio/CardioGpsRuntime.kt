@@ -56,6 +56,7 @@ internal object CardioGpsRuntime {
     private var startedAtEpochMs: Long = 0L
     private var recording = false
     private var manuallyPaused = false
+    private var locationUpdatesActive = false
     private val rawFixes = mutableListOf<CardioGpsFix>()
     private val activeFixes = mutableListOf<CardioGpsFix>()
     private var lapTracker: CardioLiveLapTracker? = null
@@ -234,6 +235,13 @@ internal object CardioGpsRuntime {
 
     fun tick(nowEpochMs: Long = System.currentTimeMillis()) {
         if (activeSessionId == null) return
+        if (
+            CardioGpsProcessor.gpsEligible(activity) &&
+            hasPermission() &&
+            !locationUpdatesActive
+        ) {
+            startLocationUpdates()
+        }
         val route = activeRouteSummary(nowEpochMs)
         structuredState?.let { state ->
             structuredState = CardioStructuredWorkoutEngine.update(
@@ -389,6 +397,7 @@ internal object CardioGpsRuntime {
 
     @Suppress("MissingPermission")
     private fun startLocationUpdates() {
+        if (locationUpdatesActive) return
         if (!CardioGpsProcessor.gpsEligible(activity) || !hasPermission()) {
             refresh()
             return
@@ -402,11 +411,16 @@ internal object CardioGpsRuntime {
                 listener,
                 Looper.getMainLooper()
             )
-        }.onFailure { refresh(messageOverride = "Location unavailable") }
+            locationUpdatesActive = true
+        }.onFailure {
+            locationUpdatesActive = false
+            refresh(messageOverride = "Location unavailable")
+        }
     }
 
     private fun stopLocationUpdates() {
         runCatching { locationManager?.removeUpdates(listener) }
+        locationUpdatesActive = false
     }
 
     private fun defaultAutoLapMeters(activity: CardioActivityType): Double? = when (activity) {
