@@ -226,6 +226,12 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var summaryPrs by remember { mutableStateOf<List<String>>(emptyList()) }
     var summaryProgression by remember { mutableStateOf<List<String>>(emptyList()) }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
+    var workoutPaused by remember { mutableStateOf(false) }
+    var workoutPausedAt by remember { mutableLongStateOf(0L) }
+    var workoutPausedTotalMs by remember { mutableLongStateOf(0L) }
+    var workoutNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    var showWorkoutExercisePicker by remember { mutableStateOf(false) }
+    var workoutExerciseQuery by remember { mutableStateOf("") }
 
     suspend fun refresh() {
         val now = System.currentTimeMillis()
@@ -364,6 +370,12 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             if (restSeconds <= 0) restEndsAt = 0L
         }
     }
+    LaunchedEffect(workoutPaused, startedAt) {
+        while (startedAt > 0L) {
+            workoutNow = System.currentTimeMillis()
+            delay(1000)
+        }
+    }
 
     fun resumeWorkout() {
         if (startedAt <= 0L) return
@@ -417,6 +429,11 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         sessionRpeText = ""
         restSeconds = 0
         restEndsAt = 0L
+        workoutPaused = false
+        workoutPausedAt = 0L
+        workoutPausedTotalMs = 0L
+        showWorkoutExercisePicker = false
+        workoutExerciseQuery = ""
         mode = "workout"
         writeActiveDraft()
     }
@@ -862,78 +879,152 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 }
             }
             "workout" -> {
-                LiveWorkoutHero(session.size, workoutExercises.distinctBy { it.id }.size, startedAt) { finishWorkout() }
-                PolishedSection("SESSION DETAILS", "Name is optional; blank uses an automatic workout name") {
-                    val automaticName = inferStrengthWorkoutNameFromExercises(workoutExercises)
-                    OutlinedTextField(workoutName, { workoutName = it.take(60) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Workout name · auto: $automaticName") })
-                    Spacer(Modifier.height(7.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        OutlinedTextField(sessionRpeText, { sessionRpeText = it.filter { ch -> ch.isDigit() || ch == '.' }.take(4) }, Modifier.weight(.7f), singleLine = true, label = { Text("Session RPE") })
-                        OutlinedTextField(workoutNotes, { workoutNotes = it.take(240) }, Modifier.weight(1.3f), singleLine = true, label = { Text("Notes optional") })
-                    }
-                }
-                if (restSeconds > 0) RestTimerTile(
-                    restSeconds,
-                    {
-                        restSeconds = max(0, restSeconds - 15)
-                        restEndsAt = if (restSeconds > 0) System.currentTimeMillis() + restSeconds * 1000L else 0L
-                        writeActiveDraft()
+                val effectiveNow = if (workoutPaused && workoutPausedAt > 0L) workoutPausedAt else workoutNow
+                val elapsedMs = (effectiveNow - startedAt - workoutPausedTotalMs).coerceAtLeast(0L)
+                val elapsedSeconds = elapsedMs / 1000L
+                val elapsedText = String.format(java.util.Locale.US, "%02d:%02d:%02d", elapsedSeconds / 3600L, (elapsedSeconds % 3600L) / 60L, elapsedSeconds % 60L)
+
+                StrengthLiveControlBar(
+                    elapsed = elapsedText,
+                    paused = workoutPaused,
+                    setCount = session.size,
+                    exerciseCount = workoutExercises.distinctBy { it.id }.size,
+                    onPlayPause = {
+                        if (workoutPaused) {
+                            if (workoutPausedAt > 0L) workoutPausedTotalMs += System.currentTimeMillis() - workoutPausedAt
+                            workoutPausedAt = 0L
+                            workoutPaused = false
+                        } else {
+                            workoutPausedAt = System.currentTimeMillis()
+                            workoutPaused = true
+                        }
                     },
-                    {
-                        restSeconds += 15
-                        restEndsAt = System.currentTimeMillis() + restSeconds * 1000L
-                        writeActiveDraft()
-                    },
-                    {
+                    onDelete = {
+                        if (startedAt > 0L) {
+                            clearActiveWorkoutDraft(context)
+                            clearStrengthActiveMeta(context, startedAt)
+                        }
+                        session.clear()
+                        workoutExercises.clear()
+                        selected = null
+                        startedAt = 0L
+                        activeSessionId = ""
+                        workoutName = ""
+                        workoutNotes = ""
+                        sessionRpeText = ""
                         restSeconds = 0
                         restEndsAt = 0L
-                        writeActiveDraft()
-                    }
+                        workoutPaused = false
+                        workoutPausedAt = 0L
+                        workoutPausedTotalMs = 0L
+                        showWorkoutExercisePicker = false
+                        workoutExerciseQuery = ""
+                        mode = "home"
+                    },
+                    onFinish = { finishWorkout() }
                 )
-                if (workoutExercises.isEmpty()) PolishedSection("BUILD YOUR SESSION", "Choose your first movement") { EmptyState("No exercises yet", "Open the library and add a movement."); Spacer(Modifier.height(8.dp)); WideActionTile("ADD EXERCISE", "Browse the RepDB library", ExerciseBlue) { mode = "library" } }
-                else selected?.let { e ->
-                    PolishedSection("ACTIVE EXERCISE", e.name) {
-                        Row(verticalAlignment = Alignment.CenterVertically) { RepDbImage(e.imageMain ?: e.imageStart, Modifier.size(72.dp)); Spacer(Modifier.width(11.dp)); Column(Modifier.weight(1f)) { Text(e.name, color = ExerciseInk, fontSize = 15.sp, fontWeight = FontWeight.Black); Text("${e.group} · ${e.equipment}", color = ExerciseMuted, fontSize = 11.sp) }; StatusPill(if (supersetTag == null) "SUPERSET" else "LINKED", supersetTag != null) { supersetTag = if (supersetTag == null) "A" else null } }
-                        Spacer(Modifier.height(12.dp)); SetTableHeader()
-                        val old = recent.filter { it.metadata["exerciseId"] == e.id }
-                        val completed = session.filter { it.exercise.id == e.id }
-                        completed.forEachIndexed { i, s ->
-                            SetRow(
-                                i + 1, s, old.firstOrNull { it.timestampEpochMs < startedAt } ?: old.getOrNull(i),
-                                {
-                                    val duplicate = s.copy(timestamp = System.currentTimeMillis())
-                                    addSet(duplicate)
-                                    loadText = exerciseNumber(duplicate.loadKg)
-                                    repsText = duplicate.reps.toString()
-                                    rirText = duplicate.rir?.toString() ?: rirText
-                                    rpeText = duplicate.rpe?.toString() ?: ""
-                                    setType = duplicate.type
-                                },
-                                { editLoggedSet(s) },
-                                {
-                                    if (pendingSetDeleteTimestamp == s.timestamp) {
-                                        pendingSetDeleteTimestamp = null
-                                        removeLoggedSet(s)
-                                    } else pendingSetDeleteTimestamp = s.timestamp
-                                },
-                                pendingSetDeleteTimestamp == s.timestamp
-                            )
+
+                if (restSeconds > 0) {
+                    StrengthCompactRestTimer(
+                        seconds = restSeconds,
+                        onMinus = {
+                            restSeconds = max(0, restSeconds - 15)
+                            restEndsAt = if (restSeconds > 0) System.currentTimeMillis() + restSeconds * 1000L else 0L
+                            writeActiveDraft()
+                        },
+                        onPlus = {
+                            restSeconds += 15
+                            restEndsAt = System.currentTimeMillis() + restSeconds * 1000L
+                            writeActiveDraft()
+                        },
+                        onSkip = {
+                            restSeconds = 0
+                            restEndsAt = 0L
+                            writeActiveDraft()
                         }
-                        completed.lastOrNull()?.let { last ->
-                            Spacer(Modifier.height(9.dp))
-                            DuplicateLastSetTile(last) {
-                                val duplicate = last.copy(timestamp = System.currentTimeMillis())
-                                addSet(duplicate)
+                    )
+                }
+
+                Text("EXERCISES", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+
+                if (workoutExercises.isEmpty()) {
+                    StrengthWorkoutEmptyState {
+                        showWorkoutExercisePicker = true
+                        workoutExerciseQuery = ""
+                    }
+                } else {
+                    workoutExercises.distinctBy { it.id }.forEachIndexed { index, exercise ->
+                        val completedSets = session.filter { it.exercise.id == exercise.id }
+                        StrengthWorkoutExerciseCard(
+                            exercise = exercise,
+                            setCount = completedSets.size,
+                            selected = selected?.id == exercise.id,
+                            onSelect = {
+                                selected = exercise
+                                showWorkoutExercisePicker = false
+                            },
+                            onRemove = {
+                                workoutExercises.removeAll { it.id == exercise.id }
+                                if (selected?.id == exercise.id) selected = workoutExercises.firstOrNull()
+                                writeActiveDraft()
                             }
+                            order = index + 1
+                        )
+                    }
+                }
+
+                StrengthAddExerciseButton {
+                    showWorkoutExercisePicker = !showWorkoutExercisePicker
+                    workoutExerciseQuery = ""
+                }
+
+                if (showWorkoutExercisePicker) {
+                    StrengthWorkoutExercisePicker(
+                        query = workoutExerciseQuery,
+                        onQueryChange = { workoutExerciseQuery = it.take(50) },
+                        catalog = catalog,
+                        selectedIds = workoutExercises.map { it.id }.toSet(),
+                        onAdd = { exercise ->
+                            if (workoutExercises.none { it.id == exercise.id }) workoutExercises.add(exercise)
+                            selected = exercise
+                            workoutExerciseQuery = ""
+                            showWorkoutExercisePicker = false
+                            writeActiveDraft()
                         }
-                    }
-                    PolishedSection("LOG NEXT SET", "Load and reps first · effort fields are optional") {
-                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { listOf("Warmup", "Work", "Drop", "Failure").forEach { t -> ChoiceChip(t, setType == t) { setType = t } } }
-                        Spacer(Modifier.height(9.dp)); Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) { OutlinedTextField(loadText, { loadText = it.filter { c -> c.isDigit() || c == '.' }.take(6) }, Modifier.weight(1f), singleLine = true, label = { Text("Load (kg)") }); OutlinedTextField(repsText, { repsText = it.filter(Char::isDigit).take(3) }, Modifier.weight(1f), singleLine = true, label = { Text("Reps") }); OutlinedTextField(rirText, { rirText = it.filter(Char::isDigit).take(1) }, Modifier.weight(.8f), singleLine = true, label = { Text("RIR") }) }
-                        Spacer(Modifier.height(7.dp)); Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) { OutlinedTextField(rpeText, { rpeText = it.filter { c -> c.isDigit() || c == '.' }.take(4) }, Modifier.weight(1f), singleLine = true, label = { Text("RPE (optional)") }); OutlinedTextField(restTarget.toString(), { text -> text.toIntOrNull()?.let { restTarget = it.coerceIn(15, 600) } }, Modifier.weight(1f), singleLine = true, label = { Text("Rest (seconds)") }) }
-                        Spacer(Modifier.height(10.dp)); WideActionTile("COMPLETE SET", "Save set and start a ${restTarget}s rest timer", ExerciseGreen) { val reps = repsText.toIntOrNull() ?: 0; val load = loadText.toDoubleOrNull() ?: 0.0; if (reps > 0) addSet(NativeWorkoutSet(e, reps, load, System.currentTimeMillis(), setType, rirText.toIntOrNull(), rpeText.toDoubleOrNull(), supersetTag)) else feedbackMessage = "Enter at least 1 rep to save this set" }
-                    }
-                    WideActionTile("+ ADD EXERCISE", "Keep building this session", ExerciseBlue) { mode = "library" }
+                    )
+                }
+
+                selected?.let { exercise ->
+                    val completed = session.filter { it.exercise.id == exercise.id }
+                    StrengthActiveExercisePanel(
+                        exercise = exercise,
+                        completed = completed,
+                        recent = recent,
+                        startedAt = startedAt,
+                        loadText = loadText,
+                        repsText = repsText,
+                        onLoadChange = { loadText = it.filter { ch -> ch.isDigit() || ch == '.' }.take(6) },
+                        onRepsChange = { repsText = it.filter(Char::isDigit).take(3) },
+                        onCompleteSet = {
+                            val reps = repsText.toIntOrNull() ?: 0
+                            val load = loadText.toDoubleOrNull() ?: 0.0
+                            if (reps > 0) {
+                                addSet(NativeWorkoutSet(exercise, reps, load, System.currentTimeMillis(), "Work", rirText.toIntOrNull(), rpeText.toDoubleOrNull(), supersetTag))
+                            } else feedbackMessage = "Enter reps"
+                        },
+                        onDuplicate = { last ->
+                            addSet(last.copy(timestamp = System.currentTimeMillis()))
+                            loadText = exerciseNumber(last.loadKg)
+                            repsText = last.reps.toString()
+                        },
+                        onDeleteSet = { set ->
+                            if (pendingSetDeleteTimestamp == set.timestamp) {
+                                pendingSetDeleteTimestamp = null
+                                removeLoggedSet(set)
+                            } else pendingSetDeleteTimestamp = set.timestamp
+                        },
+                        deletePendingTimestamp = pendingSetDeleteTimestamp
+                    )
                 }
             }
             "history" -> {
@@ -1082,6 +1173,228 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             }
         }
         Spacer(Modifier.height(18.dp))
+    }
+}
+
+@Composable
+private fun StrengthLiveControlBar(
+    elapsed: String,
+    paused: Boolean,
+    setCount: Int,
+    exerciseCount: Int,
+    onPlayPause: () -> Unit,
+    onDelete: () -> Unit,
+    onFinish: () -> Unit
+) {
+    Column(
+        Modifier.fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(22.dp))
+            .border(1.dp, ExerciseBlue.copy(alpha = .36f), RoundedCornerShape(22.dp))
+            .padding(15.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(elapsed, color = ExerciseInk, fontSize = 26.sp, fontWeight = FontWeight.Black)
+                Text(setCount.toString() + " sets · " + exerciseCount + " exercises", color = ExerciseMuted, fontSize = 9.sp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                StrengthRoundControl(if (paused) "▶" else "Ⅱ", ExerciseBlue, onPlayPause)
+                StrengthRoundControl("×", superhumanRed, onDelete)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Box(
+            Modifier.fillMaxWidth().background(ExerciseBlue.copy(alpha = .14f), RoundedCornerShape(13.dp))
+                .superhumanClickable(onClick = onFinish).padding(vertical = 11.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("FINISH WORKOUT", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        }
+    }
+}
+
+@Composable
+private fun StrengthRoundControl(symbol: String, tint: Color, onClick: () -> Unit) {
+    Box(
+        Modifier.size(42.dp).background(tint.copy(alpha = .13f), CircleShape).superhumanClickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(symbol, color = tint, fontSize = if (symbol == "×") 23.sp else 15.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+    }
+}
+
+@Composable
+private fun StrengthCompactRestTimer(seconds: Int, onMinus: () -> Unit, onPlus: () -> Unit, onSkip: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(ExerciseSoft, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("REST", color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.width(9.dp))
+        Text((seconds / 60).toString() + ":" + (seconds % 60).toString().padStart(2, '0'), color = ExerciseInk, fontSize = 16.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+        Text("-15", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onMinus).padding(8.dp))
+        Text("+15", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onPlus).padding(8.dp))
+        Text("SKIP", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onSkip).padding(8.dp))
+    }
+}
+
+@Composable
+private fun StrengthWorkoutEmptyState(onAdd: () -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().background(ExerciseSurface, RoundedCornerShape(18.dp)).border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp)).padding(18.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text("+", color = ExerciseBlue, fontSize = 25.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(5.dp))
+        Text("Add your first exercise", color = ExerciseInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(9.dp))
+        Text("ADD EXERCISE", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onAdd).padding(8.dp))
+    }
+}
+
+@Composable
+private fun StrengthWorkoutExerciseCard(
+    exercise: NativeExercise,
+    setCount: Int,
+    selected: Boolean,
+    order: Int,
+    onSelect: () -> Unit,
+    onRemove: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(if (selected) ExerciseBlue.copy(alpha = .09f) else ExerciseSurface, RoundedCornerShape(17.dp))
+            .border(1.dp, if (selected) ExerciseBlue.copy(alpha = .4f) else ExerciseCardBorder, RoundedCornerShape(17.dp))
+            .superhumanClickable(onClick = onSelect)
+            .padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.size(58.dp))
+        Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+            Text(order.toString() + ". " + exercise.name, color = ExerciseInk, fontSize = 11.sp, fontWeight = FontWeight.Black, maxLines = 1)
+            Text(setCount.toString() + " sets", color = if (selected) ExerciseBlue else ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        }
+        Text("×", color = ExerciseMuted, fontSize = 18.sp, modifier = Modifier.superhumanClickable(onClick = onRemove).padding(8.dp))
+    }
+    Spacer(Modifier.height(7.dp))
+}
+
+@Composable
+private fun StrengthAddExerciseButton(onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(ExerciseBlue.copy(alpha = .12f), RoundedCornerShape(16.dp)).superhumanClickable(onClick = onClick).padding(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("+", color = ExerciseBlue, fontSize = 20.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.width(10.dp))
+        Text("Add exercise", color = ExerciseBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun StrengthWorkoutExercisePicker(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    catalog: List<NativeExercise>,
+    selectedIds: Set<String>,
+    onAdd: (NativeExercise) -> Unit
+) {
+    val common = catalog.filter { e ->
+        listOf("bench", "squat", "deadlift", "pull up", "row", "shoulder press", "overhead press").any { term -> e.name.contains(term, true) }
+    }.distinctBy { it.id }.take(6)
+    val matches = if (query.isBlank()) common else catalog.filter { e ->
+        e.name.contains(query, true) || e.group.contains(query, true) || e.equipment.contains(query, true) || e.primaryMuscles.any { it.contains(query, true) }
+    }.take(8)
+
+    Column(
+        Modifier.fillMaxWidth().background(ExerciseSurface, RoundedCornerShape(18.dp)).border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp)).padding(13.dp)
+    ) {
+        OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search exercises") })
+        Spacer(Modifier.height(9.dp))
+        if (query.isBlank()) Text("COMMON", color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        matches.forEach { exercise ->
+            val added = exercise.id in selectedIds
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.size(46.dp))
+                Column(Modifier.weight(1f).padding(horizontal = 9.dp)) {
+                    Text(exercise.name, color = ExerciseInk, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text(exercise.group, color = ExerciseMuted, fontSize = 8.sp, maxLines = 1)
+                }
+                Box(
+                    Modifier.size(30.dp).background(if (added) ExerciseGreen.copy(alpha = .18f) else ExerciseBlue.copy(alpha = .14f), CircleShape)
+                        .superhumanClickable { if (!added) onAdd(exercise) },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(if (added) "✓" else "+", color = if (added) ExerciseGreen else ExerciseBlue, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StrengthActiveExercisePanel(
+    exercise: NativeExercise,
+    completed: List<NativeWorkoutSet>,
+    recent: List<HealthValue>,
+    startedAt: Long,
+    loadText: String,
+    repsText: String,
+    onLoadChange: (String) -> Unit,
+    onRepsChange: (String) -> Unit,
+    onCompleteSet: () -> Unit,
+    onDuplicate: (NativeWorkoutSet) -> Unit,
+    onDeleteSet: (NativeWorkoutSet) -> Unit,
+    deletePendingTimestamp: Long?
+) {
+    Column(
+        Modifier.fillMaxWidth().background(ExerciseSurface, RoundedCornerShape(20.dp)).border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp)).padding(14.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.size(62.dp))
+            Column(Modifier.weight(1f).padding(start = 10.dp)) {
+                Text(exercise.name, color = ExerciseInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text(exercise.group + " · " + exercise.equipment, color = ExerciseMuted, fontSize = 9.sp)
+            }
+        }
+
+        if (completed.isNotEmpty()) {
+            Spacer(Modifier.height(11.dp))
+            completed.forEachIndexed { index, set ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text((index + 1).toString(), color = ExerciseMuted, fontSize = 9.sp, modifier = Modifier.width(22.dp))
+                    Text(exerciseNumber(set.loadKg) + " kg", color = ExerciseInk, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Text(set.reps.toString() + " reps", color = ExerciseInk, fontSize = 10.sp, modifier = Modifier.weight(1f))
+                    Text(if (deletePendingTimestamp == set.timestamp) "CONFIRM" else "×", color = if (deletePendingTimestamp == set.timestamp) superhumanRed else ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.superhumanClickable { onDeleteSet(set) }.padding(6.dp))
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(loadText, onLoadChange, Modifier.weight(1f), singleLine = true, label = { Text("kg") })
+            OutlinedTextField(repsText, onRepsChange, Modifier.weight(1f), singleLine = true, label = { Text("Reps") })
+        }
+        Spacer(Modifier.height(9.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            Box(
+                Modifier.weight(1f).background(ExerciseGreen.copy(alpha = .15f), RoundedCornerShape(13.dp)).superhumanClickable(onClick = onCompleteSet).padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("SAVE SET", color = ExerciseGreen, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+            completed.lastOrNull()?.let { last ->
+                Box(
+                    Modifier.background(ExerciseBlue.copy(alpha = .12f), RoundedCornerShape(13.dp)).superhumanClickable { onDuplicate(last) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("REPEAT", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
     }
 }
 
