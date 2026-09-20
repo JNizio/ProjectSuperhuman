@@ -181,6 +181,16 @@ object CoreMetricRegistry : MetricRegistry {
         MetricDefinition("cardio_chronic_training_load", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
         MetricDefinition("cardio_acute_training_load", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
         MetricDefinition("cardio_training_stress_balance", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true),
+        MetricDefinition("cardio_daily_training_load", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
+        MetricDefinition("cardio_pace_at_hr_sec_per_km", HealthDomain.EXERCISE, "sec/km", aggregation = MetricAggregation.AVERAGE, derived = true, minAccepted = 60.0),
+        MetricDefinition("cardio_hr_at_pace_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.AVERAGE, derived = true, minAccepted = 20.0, maxAccepted = 260.0),
+        MetricDefinition("cardio_aerobic_efficiency", HealthDomain.EXERCISE, "ratio", aggregation = MetricAggregation.AVERAGE, derived = true, minAccepted = 0.0),
+        MetricDefinition("cardio_aerobic_decoupling_pct", HealthDomain.EXERCISE, "%", aggregation = MetricAggregation.AVERAGE, derived = true),
+        MetricDefinition("cardio_hrr_1min_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.AVERAGE, derived = true),
+        MetricDefinition("cardio_hrr_2min_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.AVERAGE, derived = true),
+        MetricDefinition("cardio_vo2_estimate_ml_kg_min", HealthDomain.EXERCISE, "ml/kg/min", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 5.0, maxAccepted = 100.0),
+        MetricDefinition("cardio_critical_speed_mps", HealthDomain.EXERCISE, "m/s", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
+        MetricDefinition("cardio_d_prime_m", HealthDomain.EXERCISE, "m", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
 
         // Hydration. Intake events are signed because corrections subtract from a day.
         MetricDefinition("water_intake_ml", HealthDomain.HYDRATION, "ml", aliases = setOf("hydration_intake_ml"), aggregation = MetricAggregation.SUM, minAccepted = -10_000.0, maxAccepted = 10_000.0),
