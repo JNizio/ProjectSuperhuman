@@ -64,6 +64,7 @@ internal fun CardioVisualHub(
     sensorMetrics: CardioLiveSensorMetrics,
     onQuickStart: (CardioActivityType) -> Unit,
     onSessions: () -> Unit,
+    onOpenSession: (CardioSession) -> Unit,
     onFitness: () -> Unit,
     onTrends: () -> Unit,
     onTestsRecords: () -> Unit,
@@ -136,7 +137,7 @@ internal fun CardioVisualHub(
                     modifier = Modifier.clickable { onSessions() }.padding(vertical = 8.dp)
                 )
             }
-            CardioHubRecentSessions(sessions.take(4), onSessions)
+            CardioHubRecentSessions(sessions.take(4), onOpenSession)
         }
 
         CardioHubSectionHeader("DEEP DIVE", "Open the detail you need")
@@ -477,13 +478,13 @@ private fun CardioHubQuickStart(onQuickStart: (CardioActivityType) -> Unit) {
 }
 
 @Composable
-private fun CardioHubRecentSessions(sessions: List<CardioSession>, onOpenAll: () -> Unit) {
+private fun CardioHubRecentSessions(sessions: List<CardioSession>, onOpen: (CardioSession) -> Unit) {
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
         horizontalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         sessions.forEach { session ->
-            CardioHubRecentSessionCard(session, onOpenAll)
+            CardioHubRecentSessionCard(session) { onOpen(session) }
         }
     }
 }
