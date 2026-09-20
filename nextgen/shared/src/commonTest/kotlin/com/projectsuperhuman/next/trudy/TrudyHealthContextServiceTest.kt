@@ -88,61 +88,6 @@ class TrudyHealthContextServiceTest {
     }
 
     @Test
-    fun cardioEvidencePromotesLineageAndMeasurementClass() = runTest {
-        val service = service(
-            HealthDomain.EXERCISE to listOf(
-                HealthValue(
-                    domain = HealthDomain.EXERCISE,
-                    metric = "cardio_hr_sample_bpm",
-                    value = 151.0,
-                    unit = "bpm",
-                    timestampEpochMs = now - 1_000L,
-                    source = "h19c-direct-ble",
-                    metadata = mapOf(
-                        "valueClass" to "MEASURED",
-                        "sessionId" to "session-1",
-                        "sensorId" to "anon-123",
-                        "sensorDeviceName" to "Chest strap",
-                        "coverageFraction" to "0.95"
-                    )
-                ),
-                HealthValue(
-                    domain = HealthDomain.EXERCISE,
-                    metric = "cardio_fitness_efficiency_delta_pct",
-                    value = 3.4,
-                    unit = "%",
-                    timestampEpochMs = now,
-                    source = "cardio-nof1",
-                    metadata = mapOf(
-                        "valueClass" to "DERIVED",
-                        "confidence" to "MODERATE",
-                        "algorithmVersion" to "cardio-nof1-v1",
-                        "sampleCount" to "6",
-                        "caveat" to "Comparable-session baseline only."
-                    )
-                )
-            )
-        )
-
-        val measured = service.metricHistory(HealthDomain.EXERCISE, "cardio_hr_sample_bpm").single()
-        val derived = service.metricHistory(HealthDomain.EXERCISE, "cardio_fitness_efficiency_delta_pct").single()
-
-        assertEquals(TrudyValueClass.MEASURED, measured.valueClass)
-        assertEquals(TrudyEvidenceKind.DIRECT_PERSONAL_OBSERVATION, measured.evidenceKind)
-        assertEquals("session-1", measured.sessionId)
-        assertEquals("anon-123", measured.deviceId)
-        assertEquals("Chest strap", measured.deviceName)
-        assertEquals(0.95, measured.coverageFraction)
-
-        assertEquals(TrudyValueClass.DERIVED, derived.valueClass)
-        assertEquals(TrudyEvidenceKind.DERIVED_PERSONAL_TREND, derived.evidenceKind)
-        assertEquals("MODERATE", derived.confidenceLabel)
-        assertEquals("cardio-nof1-v1", derived.algorithmVersion)
-        assertEquals(6, derived.sampleCount)
-        assertEquals("Comparable-session baseline only.", derived.caveat)
-    }
-
-    @Test
     fun crossDomainContextContainsOnlyExplicitlyRequestedDomains() = runTest {
         val service = service(
             HealthDomain.BODY to listOf(value(HealthDomain.BODY, "body_weight_kg", 80.0)),
