@@ -1553,11 +1553,18 @@ private fun CardioHubGoalEditor(
 
 private fun cardioHubWeekZoneMinutes(
     sessions: List<CardioSession>,
-    zone: Int
+    zone: Int,
+    nowEpochMs: Long = System.currentTimeMillis()
 ): Int {
-    val weekStart = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
+    val zoneId = ZoneId.systemDefault()
+    val now = Instant.ofEpochMilli(nowEpochMs).atZone(zoneId)
+    val weekStart = now.toLocalDate()
+        .minusDays((now.dayOfWeek.value - 1).toLong())
+        .atStartOfDay(zoneId)
+        .toInstant()
+        .toEpochMilli()
     return sessions.asSequence()
-        .filter { it.endedAt >= weekStart }
+        .filter { it.endedAt in weekStart..nowEpochMs }
         .sumOf { it.zoneSeconds[zone] ?: 0 } / 60
 }
 
