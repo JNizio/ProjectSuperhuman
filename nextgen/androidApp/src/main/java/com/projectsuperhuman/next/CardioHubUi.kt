@@ -232,47 +232,51 @@ internal fun CardioVisualHub(
 
 @Composable
 private fun CardioHubStartBar(
+    activities: List<CardioActivityType>,
     onQuickStart: (CardioActivityType) -> Unit,
+    onEdit: () -> Unit,
     onMoreActivities: () -> Unit
 ) {
     Column(
         Modifier.fillMaxWidth()
             .background(superhumanSurface, RoundedCornerShape(19.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .padding(horizontal = 12.dp, vertical = 9.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("START CARDIO", color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.weight(1f))
-            Text("Choose activity", color = superhumanTextMuted, fontSize = 8.sp)
+            Text(
+                "EDIT",
+                color = superhumanBlue,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.clickable { onEdit() }.padding(horizontal = 8.dp, vertical = 6.dp)
+            )
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(6.dp))
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
-            CardioHubStartAction("Run", CardioHubGlyph.RUN, superhumanGreen, Modifier.weight(1f)) {
-                onQuickStart(CardioActivityType.RUNNING)
+            activities.take(CardioHubPreferences.QUICK_SLOT_COUNT).forEachIndexed { index, activity ->
+                val accent = cardioHubQuickAccent(index)
+                CardioHubStartActivityAction(
+                    activity = activity,
+                    accent = accent,
+                    modifier = Modifier.weight(1f)
+                ) { onQuickStart(activity) }
             }
-            CardioHubStartAction("Walk", CardioHubGlyph.WALK, superhumanBlue, Modifier.weight(1f)) {
-                onQuickStart(CardioActivityType.WALKING)
-            }
-            CardioHubStartAction("Cycle", CardioHubGlyph.BIKE, Color(0xFF8E72D8), Modifier.weight(1f)) {
-                onQuickStart(CardioActivityType.CYCLING)
-            }
-            CardioHubStartAction("Row", CardioHubGlyph.ROW, Color(0xFFD1A03D), Modifier.weight(1f)) {
-                onQuickStart(CardioActivityType.ROWING)
-            }
-            CardioHubStartAction("More", CardioHubGlyph.MORE, superhumanTextMuted, Modifier.weight(.82f)) {
-                onMoreActivities()
-            }
+            CardioHubStartMoreAction(
+                modifier = Modifier.weight(.78f),
+                onClick = onMoreActivities
+            )
         }
     }
 }
 
 @Composable
-private fun CardioHubStartAction(
-    label: String,
-    glyph: CardioHubGlyph,
+private fun CardioHubStartActivityAction(
+    activity: CardioActivityType,
     accent: Color,
     modifier: Modifier,
     onClick: () -> Unit
@@ -281,7 +285,7 @@ private fun CardioHubStartAction(
         modifier
             .heightIn(min = 58.dp)
             .clickable { onClick() }
-            .padding(vertical = 6.dp),
+            .padding(horizontal = 2.dp, vertical = 5.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -290,10 +294,49 @@ private fun CardioHubStartAction(
                 .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .15f else .08f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            CardioHubGlyphIcon(glyph, accent, Modifier.size(19.dp))
+            SuperhumanDomainIcon(
+                glyph = cardioDomainGlyph(activity),
+                tint = accent,
+                modifier = Modifier.size(19.dp)
+            )
         }
         Spacer(Modifier.height(4.dp))
-        Text(label, color = superhumanTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        Text(
+            cardioHubQuickLabel(activity),
+            color = superhumanTextPrimary,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun CardioHubStartMoreAction(
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier
+            .heightIn(min = 58.dp)
+            .clickable { onClick() }
+            .padding(horizontal = 2.dp, vertical = 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Box(
+            Modifier.size(34.dp)
+                .background(superhumanSurfaceSoft, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            SuperhumanDomainIcon(
+                glyph = SuperhumanDomainGlyph.MORE,
+                tint = superhumanTextMuted,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text("More", color = superhumanTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
     }
 }
 
