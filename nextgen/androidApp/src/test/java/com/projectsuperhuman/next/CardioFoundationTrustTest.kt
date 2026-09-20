@@ -137,6 +137,17 @@ class CardioFoundationTrustTest {
     }
 
     @Test
+    fun unavailableSourceIsNeverSelected() {
+        val unavailable = candidate(
+            "missing",
+            CardioAnalysisMetric.WORKOUT_HEART_RATE,
+            CardioSourceKind.H19C,
+            CardioValueClass.UNAVAILABLE
+        )
+        assertNull(CardioSourceArbitrator.select(CardioAnalysisMetric.WORKOUT_HEART_RATE, listOf(unavailable)))
+    }
+
+    @Test
     fun invalidSourceIsNeverSelected() {
         val invalid = candidate(
             "bad",
@@ -341,10 +352,12 @@ class CardioFoundationTrustTest {
         val context = CardioRecomputeContext(
             session = session(),
             capabilities = CardioCapabilities(setOf(CardioCapability.WORKOUT_SUMMARY)),
-            sourceIds = listOf("sensor:1")
+            sourceIds = listOf("sensor:1"),
+            generatedAtEpochMs = 1_800_000_123_456L
         )
         val first = CardioRecomputationEngine(listOf(v1)).plan(context)
         val output = first.outputs.single()
+        assertEquals(1_800_000_123_456L, output.metric.generatedAtEpochMs)
         val second = CardioRecomputationEngine(listOf(v1)).plan(context, setOf(output.stableKey))
         assertTrue(second.outputs.isEmpty())
         assertEquals(setOf(output.stableKey), second.alreadyPresentKeys)

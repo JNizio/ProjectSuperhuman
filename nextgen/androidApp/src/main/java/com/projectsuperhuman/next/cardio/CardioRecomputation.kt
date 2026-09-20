@@ -8,7 +8,8 @@ internal data class CardioRecomputeContext(
     val capabilities: CardioCapabilities,
     val originalProfile: CardioPhysiologyProfile? = null,
     val currentProfile: CardioPhysiologyProfile? = null,
-    val sourceIds: List<String> = emptyList()
+    val sourceIds: List<String> = emptyList(),
+    val generatedAtEpochMs: Long = System.currentTimeMillis()
 )
 
 internal interface CardioMetricRecomputer {
@@ -58,8 +59,10 @@ internal class CardioRecomputationEngine(
             }
 
             val metric = calculator.compute(context)?.copy(
+                metricId = calculator.metricId,
+                algorithmVersion = calculator.algorithmVersion,
                 sourceIds = calculatorResultSources(context, calculator),
-                generatedAtEpochMs = context.session.endedAt
+                generatedAtEpochMs = context.generatedAtEpochMs
             ) ?: run {
                 unavailable[calculator.metricId] = emptySet()
                 return@forEach

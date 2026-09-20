@@ -301,6 +301,7 @@ internal object CardioSourceArbitrator {
         val eligible = candidates
             .filter { it.metric == metric }
             .filter { it.quality != CardioObservationQuality.INVALID }
+            .filter { it.valueClass != CardioValueClass.UNAVAILABLE }
         if (eligible.isEmpty()) return null
 
         val ranked = eligible.sortedWith(
