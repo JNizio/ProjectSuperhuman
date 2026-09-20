@@ -30,18 +30,63 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
+internal data class BleHeartRateMeasurement(
+    val bpm: Int?,
+    val rrIntervalsMs: List<Double>
+)
+
 internal object BleHeartRateMeasurementParser {
-    fun parse(bytes: ByteArray): Int? {
+    fun parse(bytes: ByteArray): Int? = parseMeasurement(bytes)?.bpm
+
+    /**
+     * Bluetooth SIG Heart Rate Measurement parser. RR values are true beat-to-beat intervals
+     * supplied by the sensor in 1/1024-second units; they are never reconstructed from BPM.
+     */
+    fun parseMeasurement(bytes: ByteArray): BleHeartRateMeasurement? {
         if (bytes.size < 2) return null
         val flags = bytes[0].toInt() and 0xFF
-        val bpm = if ((flags and 0x01) == 0) {
-            bytes[1].toInt() and 0xFF
+        val isUInt16 = (flags and 0x01) != 0
+        val energyPresent = (flags and 0x08) != 0
+        val rrPresent = (flags and 0x10) != 0
+
+        var offset = 1
+        val rawBpm = if (isUInt16) {
+            if (bytes.size < offset + 2) return null
+            val value = u16le(bytes, offset)
+            offset += 2
+            value
         } else {
-            if (bytes.size < 3) return null
-            (bytes[1].toInt() and 0xFF) or ((bytes[2].toInt() and 0xFF) shl 8)
+            if (bytes.size < offset + 1) return null
+            val value = bytes[offset].toInt() and 0xFF
+            offset += 1
+            value
         }
-        return bpm.takeIf { it in CARDIO_HR_MIN_BPM..CARDIO_HR_MAX_BPM }
+
+        if (energyPresent) {
+            if (bytes.size < offset + 2) return BleHeartRateMeasurement(
+                rawBpm.takeIf { it in CARDIO_HR_MIN_BPM..CARDIO_HR_MAX_BPM },
+                emptyList()
+            )
+            offset += 2
+        }
+
+        val rr = mutableListOf<Double>()
+        if (rrPresent) {
+            while (offset + 1 < bytes.size) {
+                val raw = u16le(bytes, offset)
+                if (raw > 0) rr += raw * 1000.0 / 1024.0
+                offset += 2
+            }
+        }
+
+        return BleHeartRateMeasurement(
+            bpm = rawBpm.takeIf { it in CARDIO_HR_MIN_BPM..CARDIO_HR_MAX_BPM },
+            rrIntervalsMs = rr
+        )
     }
+
+    private fun u16le(bytes: ByteArray, offset: Int): Int =
+        (bytes[offset].toInt() and 0xFF) or ((bytes[offset + 1].toInt() and 0xFF) shl 8)
 }
 
 internal data class BleHeartRateDevice(
@@ -418,6 +463,9 @@ internal class GenericBleHeartRateProvider(
     private val _samples = MutableSharedFlow<CardioHeartRateSample>(extraBufferCapacity = 128)
     override val heartRateSamples: SharedFlow<CardioHeartRateSample> = _samples.asSharedFlow()
 
+    private val _rrSamples = MutableSharedFlow<CardioRrIntervalSample>(extraBufferCapacity = 256)
+    val rrIntervalSamples: SharedFlow<CardioRrIntervalSample> = _rrSamples.asSharedFlow()
+
     val scannedDevices: StateFlow<List<BleHeartRateDevice>> = client.scannedDevices
     fun requiredPermissions(): Array<String> = client.requiredPermissions()
     fun hasPermissions(): Boolean = client.hasPermissions()
@@ -505,8 +553,29 @@ internal class GenericBleHeartRateProvider(
     }
 
     private fun handlePacket(event: BleHeartRateClientEvent.HeartRatePacket) {
-        val bpm = BleHeartRateMeasurementParser.parse(event.bytes) ?: return
+        val measurement = BleHeartRateMeasurementParser.parseMeasurement(event.bytes) ?: return
         val provenance = provenance()
+
+        if (sessionActive && measurement.rrIntervalsMs.isNotEmpty()) {
+            var suffixMs = 0.0
+            val beatTimestamps = DoubleArray(measurement.rrIntervalsMs.size)
+            for (index in measurement.rrIntervalsMs.indices.reversed()) {
+                beatTimestamps[index] = event.timestampEpochMs - suffixMs
+                suffixMs += measurement.rrIntervalsMs[index]
+            }
+            measurement.rrIntervalsMs.forEachIndexed { index, rrMs ->
+                _rrSamples.tryEmit(
+                    CardioRrIntervalSample(
+                        timestampEpochMs = beatTimestamps[index].toLong(),
+                        rrMs = rrMs,
+                        source = provenance,
+                        receivedAtEpochMs = event.timestampEpochMs
+                    )
+                )
+            }
+        }
+
+        val bpm = measurement.bpm ?: return
         _state.value = _state.value.copy(
             connection = CardioSensorConnectionState.CONNECTED,
             currentHeartRateBpm = bpm,
