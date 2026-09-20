@@ -112,7 +112,7 @@ private fun SuperhumanShell(
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
-    val bottomBarHeight = 84.dp
+    val bottomBarHeight = 72.dp
     val trudyState = remember { TrudyConversationState() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
@@ -288,14 +288,14 @@ private fun ShellBottomNavigation(
     Row(
         modifier
             .fillMaxWidth()
-            .height(84.dp)
+            .height(72.dp)
             .background(ShellBg.copy(alpha = .98f))
             .border(
                 width = 1.dp,
                 color = superhumanBorder.copy(alpha = .8f),
                 shape = RoundedCornerShape(0.dp)
             )
-            .padding(horizontal = 24.dp, vertical = 7.dp),
+            .padding(horizontal = 24.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -337,10 +337,10 @@ private fun ShellBottomItem(
             .superhumanClickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 3.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Box(
-            Modifier.height(30.dp),
+            Modifier.height(26.dp),
             contentAlignment = Alignment.Center
         ) {
             icon(color)
@@ -349,7 +349,7 @@ private fun ShellBottomItem(
             label,
             color = color,
             fontSize = 8.sp,
-            lineHeight = 9.sp,
+            lineHeight = 8.sp,
             fontWeight = if (selected) FontWeight.Black else FontWeight.Bold
         )
         Box(
