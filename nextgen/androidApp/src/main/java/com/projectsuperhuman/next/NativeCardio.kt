@@ -1532,27 +1532,30 @@ private fun CardioControlButton(
     onClick: () -> Unit
 ) {
     Column(
-        modifier.heightIn(min = 72.dp)
+        modifier
+            .height(72.dp)
             .background(Color.White.copy(alpha = .075f), RoundedCornerShape(16.dp))
             .clickable { onClick() }
-            .padding(horizontal = 6.dp, vertical = 9.dp),
+            .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Box(
-            Modifier.size(34.dp).background(accent.copy(alpha = .16f), CircleShape),
+            Modifier.size(32.dp).background(accent.copy(alpha = .16f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            CardioVectorIcon(icon, accent, Modifier.size(18.dp))
+            CardioVectorIcon(icon, accent, Modifier.size(17.dp))
         }
         Spacer(Modifier.height(5.dp))
         Text(
             label,
             color = Color.White,
-            fontSize = 9.sp,
+            fontSize = 8.sp,
+            lineHeight = 10.sp,
             fontWeight = FontWeight.Black,
             maxLines = 1,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
@@ -1764,15 +1767,41 @@ private fun CardioLiveMetricCell(
     accent: Color,
     modifier: Modifier
 ) {
-    Column(modifier.padding(horizontal = 8.dp)) {
+    Column(
+        modifier.padding(horizontal = 6.dp),
+        horizontalAlignment = Alignment.Start
+    ) {
         Box(Modifier.width(16.dp).height(3.dp).background(accent, RoundedCornerShape(3.dp)))
         Spacer(Modifier.height(7.dp))
-        Text(label, color = CardioMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, color = CardioInk, fontSize = 22.sp, fontWeight = FontWeight.Black)
+        Text(
+            label,
+            color = CardioMuted,
+            fontSize = 7.sp,
+            lineHeight = 9.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
+        )
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                value,
+                color = CardioInk,
+                fontSize = 20.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 1
+            )
             if (unit != null) {
                 Spacer(Modifier.width(3.dp))
-                Text(unit, color = CardioMuted, fontSize = 8.sp, modifier = Modifier.padding(bottom = 4.dp))
+                Text(
+                    unit,
+                    color = CardioMuted,
+                    fontSize = 8.sp,
+                    maxLines = 1,
+                    modifier = Modifier.padding(bottom = 3.dp)
+                )
             }
         }
     }
