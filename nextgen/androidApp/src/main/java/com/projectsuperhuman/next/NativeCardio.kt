@@ -2179,12 +2179,20 @@ private fun CardioActivityPicker(selected: CardioActivityType, onSelect: (Cardio
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
             pair.forEach { activity ->
                 val active = activity == selected
-                Box(
-                    Modifier.weight(1f).heightIn(min = 48.dp)
+                Row(
+                    Modifier.weight(1f).heightIn(min = 52.dp)
                         .background(if (active) CardioAccent else CardioSoft, RoundedCornerShape(13.dp))
-                        .clickable { onSelect(activity) }.padding(horizontal = 10.dp, vertical = 12.dp),
-                    contentAlignment = Alignment.Center
+                        .clickable { onSelect(activity) }
+                        .padding(horizontal = 10.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center
                 ) {
+                    SuperhumanDomainIcon(
+                        glyph = cardioDomainGlyph(activity),
+                        tint = if (active) Color.White else CardioAccent,
+                        modifier = Modifier.size(19.dp)
+                    )
+                    Spacer(Modifier.width(7.dp))
                     Text(
                         activity.displayName,
                         color = if (active) Color.White else CardioInk,
@@ -2246,6 +2254,18 @@ private fun CardioSessionRow(session: CardioSession, onOpen: () -> Unit) {
             .clickable { onOpen() }.padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        Box(
+            Modifier.size(34.dp)
+                .background(CardioAccent.copy(alpha = if (SuperhumanAppearance.darkMode) .15f else .08f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            SuperhumanDomainIcon(
+                glyph = cardioDomainGlyph(session.activity),
+                tint = CardioAccent,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(session.activity.displayName, color = CardioInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
             Row(verticalAlignment = Alignment.CenterVertically) {
