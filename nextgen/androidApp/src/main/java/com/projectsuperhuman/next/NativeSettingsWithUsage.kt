@@ -69,11 +69,6 @@ internal fun NativeSettingsWithUsage(openLegacy: () -> Unit, openSmartDevices: (
                     SuperhumanAppearance.setThemeMode(context, SuperhumanThemeMode.DARK)
                 }
             }
-            Text(
-                if (themeMode == SuperhumanThemeMode.SYSTEM) "Appearance follows your Android device automatically." else "Appearance override is active. Choose SYSTEM to follow Android again.",
-                color = SettingsUsageMuted,
-                fontSize = 8.sp
-            )
         }
 
         if (showUsage) {
@@ -83,7 +78,6 @@ internal fun NativeSettingsWithUsage(openLegacy: () -> Unit, openSmartDevices: (
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text("Storage", color = SettingsUsageNavy, fontSize = 25.sp, fontWeight = FontWeight.Black)
-                Text("Local storage, Data Vault footprint and category mix.", color = SettingsUsageMuted, fontSize = 11.sp)
                 SettingsDataUsageCard()
                 Spacer(Modifier.height(24.dp))
             }
