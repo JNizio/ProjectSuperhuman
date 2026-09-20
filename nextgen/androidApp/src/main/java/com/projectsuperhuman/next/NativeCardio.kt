@@ -1681,6 +1681,7 @@ private fun CardioSessionOverview(session: CardioSession) {
         session.maxHeartRate?.let { add("MAX HR" to "$it bpm") }
         session.caloriesKcal?.let { add("CALORIES" to "${cardioFormatNumber(it)} kcal") }
         session.rpe?.let { add("RPE" to "${cardioFormatNumber(it)}/10") }
+        cardioSessionLoad(session)?.let { add("LOAD" to formatCardioLoad(it)) }
         session.elevationGainM?.let { add("ELEVATION" to "${cardioFormatNumber(it)} m") }
         session.cadence?.let { add("CADENCE" to it.toString()) }
         cardioPerformanceSummary(session)?.let { add("PERFORMANCE" to it) }
