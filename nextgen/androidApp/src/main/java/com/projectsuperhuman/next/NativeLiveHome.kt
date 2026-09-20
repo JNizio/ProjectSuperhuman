@@ -116,7 +116,6 @@ private const val HOME_TILE_ORDER_KEY = "tile_order_v1"
 @Composable
 internal fun NativeLiveHome(
     openClinical: () -> Unit,
-    openBody: () -> Unit,
     openSleep: () -> Unit,
     openVitals: () -> Unit,
     openHydration: () -> Unit,
