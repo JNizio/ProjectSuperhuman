@@ -6,7 +6,7 @@ import kotlin.math.sin
 import kotlin.random.Random
 
 const val SYNTHETIC_DATA_SOURCE = "project-superhuman-synthetic-v1"
-const val SYNTHETIC_DATA_SCENARIO = "correlated-lifestyle-meals-v2"
+const val SYNTHETIC_DATA_SCENARIO = "correlated-lifestyle-cardio-v3"
 
 data class SyntheticGenerationConfig(
     val days: Int = 90,
@@ -106,7 +106,7 @@ class SyntheticDataGenerator(
                 source = SYNTHETIC_DATA_SOURCE,
                 metadata = mapOf(
                     "synthetic" to "true",
-                    "syntheticGenerator" to "app-wide-v2",
+                    "syntheticGenerator" to "app-wide-v3",
                     "syntheticScenario" to SYNTHETIC_DATA_SCENARIO,
                     "syntheticSeed" to config.seed.toString(),
                     "syntheticDayIndex" to dayIndex.toString(),
