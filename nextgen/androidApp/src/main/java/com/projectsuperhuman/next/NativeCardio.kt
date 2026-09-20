@@ -414,22 +414,34 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                         }
                     }
                 )
-                CardioProductOverview(
+                CardioVisualHub(
                     sessions = sessions,
                     sensorMetrics = sensorMetrics,
+                    onQuickStart = { activity ->
+                        liveActivity = activity
+                        liveWorkoutType = CardioWorkoutType.FREE
+                        if (CardioGpsProcessor.gpsEligible(activity) && !CardioGpsRuntime.hasPermission()) {
+                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                        } else {
+                            cardioViewModel.start(activity, CardioWorkoutType.FREE) {
+                                screen = CardioScreen.LIVE
+                            }
+                        }
+                    },
                     onSessions = { screen = CardioScreen.HISTORY },
+                    onOpenSession = { session ->
+                        selectedSessionId = session.id
+                        pendingDeleteSessionId = null
+                        screen = CardioScreen.DETAIL
+                    },
                     onFitness = { screen = CardioScreen.FITNESS },
                     onTrends = { screen = CardioScreen.PROGRESS },
-                    onTestsRecords = { screen = CardioScreen.RECORDS }
+                    onTestsRecords = { screen = CardioScreen.RECORDS },
+                    onLog = {
+                        resetForm()
+                        screen = CardioScreen.MANUAL
+                    }
                 )
-                CardioActionCompact(
-                    "Log completed session",
-                    "Add a workout you already completed",
-                    CardioBlue
-                ) {
-                    resetForm()
-                    screen = CardioScreen.MANUAL
-                }
             }
 
             CardioScreen.PICK_ACTIVITY -> {
@@ -777,7 +789,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     "Personal baselines first; unavailable metrics stay unavailable.",
                     CardioAccent
                 )
-                CardioFitnessProductScreen(sessions)
+                CardioFitnessHubScreen(sessions)
             }
 
             CardioScreen.PROGRESS -> {
@@ -787,7 +799,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     "One chart, one question. Change range when you need more context.",
                     Color(0xFF7B61C9)
                 )
-                CardioTrendsProductScreen(sessions)
+                CardioTrendsHubScreen(sessions)
             }
 
             CardioScreen.RECORDS -> {
@@ -797,7 +809,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     "Records require evidence; tests unlock only when their protocol exists.",
                     CardioGold
                 )
-                CardioTestsAndRecordsProductScreen(sessions)
+                CardioRecordsHubScreen(sessions)
             }
         }
 
@@ -812,42 +824,24 @@ private fun CardioHeader(screen: CardioScreen, onBack: () -> Unit) {
             Text("←", color = CardioAccent, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.width(12.dp))
-        Column {
-            Text(
-                when (screen) {
-                    CardioScreen.HOME -> "Cardio"
-                    CardioScreen.PICK_ACTIVITY -> "Start cardio"
-                    CardioScreen.LIVE -> "Live cardio"
-                    CardioScreen.MANUAL -> "Log cardio"
-                    CardioScreen.HISTORY -> "Cardio history"
-                    CardioScreen.DETAIL -> "Session detail"
-                    CardioScreen.FITNESS -> "Fitness"
-                    CardioScreen.PROGRESS -> "Trends"
-                    CardioScreen.RECORDS -> "Tests & records"
-                },
-                color = CardioInk,
-                fontSize = 25.sp,
-                fontWeight = FontWeight.Black
-            )
-            Text(
-                when (screen) {
-                    CardioScreen.HOME -> "Train smarter · see the week at a glance"
-                    CardioScreen.PICK_ACTIVITY -> "Choose your activity and training purpose"
-                    CardioScreen.LIVE -> "Stay focused · only the metrics that matter"
-                    CardioScreen.MANUAL -> "Log what you actually measured"
-                    CardioScreen.HISTORY -> "Review every completed session"
-                    CardioScreen.DETAIL -> "See what this session actually did"
-                    CardioScreen.FITNESS -> "Personal baselines and supported fitness signals"
-                    CardioScreen.PROGRESS -> "Understand what is changing over time"
-                    CardioScreen.RECORDS -> "Verified bests and evidence-gated tests"
-                },
-                color = CardioMuted,
-                fontSize = 11.sp
-            )
-        }
+        Text(
+            when (screen) {
+                CardioScreen.HOME -> "Cardio"
+                CardioScreen.PICK_ACTIVITY -> "Start cardio"
+                CardioScreen.LIVE -> "Live cardio"
+                CardioScreen.MANUAL -> "Log cardio"
+                CardioScreen.HISTORY -> "Sessions"
+                CardioScreen.DETAIL -> "Session"
+                CardioScreen.FITNESS -> "Fitness"
+                CardioScreen.PROGRESS -> "Trends"
+                CardioScreen.RECORDS -> "Tests & records"
+            },
+            color = CardioInk,
+            fontSize = 25.sp,
+            fontWeight = FontWeight.Black
+        )
     }
 }
-
 @Composable
 private fun CardioHero(
     active: Boolean,
@@ -1035,12 +1029,6 @@ private fun CardioHero(
                 Text("Train with intent.", color = Color.White, fontSize = 27.sp, fontWeight = FontWeight.Black)
                 Text("Track the work. Watch the engine improve.", color = Color.White.copy(alpha = .72f), fontSize = 10.sp)
                 Spacer(Modifier.height(13.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                    CardioHeroStat("7D MIN", weekMinutes.toString(), Modifier.weight(1f))
-                    Box(Modifier.width(1.dp).height(34.dp).background(Color.White.copy(alpha = .18f)))
-                    CardioHeroStat("SESSIONS", weekSessions.toString(), Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(13.dp))
                 Row(
                     Modifier.fillMaxWidth().heightIn(min = 50.dp)
                         .background(Color.White, RoundedCornerShape(16.dp))
@@ -1213,16 +1201,15 @@ private fun CardioGlassMetric(label: String, value: String, modifier: Modifier) 
 private fun CardioSection(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) {
     Column(
         Modifier.fillMaxWidth()
-            .background(CardioSurface, RoundedCornerShape(21.dp))
-            .border(1.dp, CardioBorder.copy(alpha = .72f), RoundedCornerShape(21.dp))
-            .padding(horizontal = 16.dp, vertical = 15.dp)
+            .background(CardioSurface, RoundedCornerShape(19.dp))
+            .padding(horizontal = 15.dp, vertical = 13.dp)
     ) {
-        Text(title, color = CardioInk, fontSize = 15.sp, fontWeight = FontWeight.Black, letterSpacing = .2.sp)
+        Text(title, color = CardioInk, fontSize = 14.sp, fontWeight = FontWeight.Black, letterSpacing = .1.sp)
         if (subtitle.isNotBlank()) {
             Spacer(Modifier.height(2.dp))
-            Text(subtitle, color = CardioMuted, fontSize = 10.sp, lineHeight = 14.sp)
+            Text(subtitle, color = CardioMuted, fontSize = 9.sp, lineHeight = 12.sp)
         }
-        Spacer(Modifier.height(11.dp))
+        Spacer(Modifier.height(9.dp))
         content()
     }
 }
