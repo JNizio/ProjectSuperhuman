@@ -81,8 +81,8 @@ internal fun cardioProductSensorStatus(metrics: CardioLiveSensorMetrics): String
 
 private fun cardioProductFreshness(ageMs: Long): String = when {
     ageMs < 1_000L -> "live"
-    ageMs < 60_000L -> "updated \${ageMs / 1_000L}s ago"
-    else -> "updated \${ageMs / 60_000L}m ago"
+    ageMs < 60_000L -> "updated ${ageMs / 1_000L}s ago"
+    else -> "updated ${ageMs / 60_000L}m ago"
 }
 
 @Composable
@@ -113,12 +113,12 @@ internal fun CardioProductOverview(
             value = model.fitness.trendLabel,
             detail = model.fitness.trendDeltaPercent?.let {
                 val sign = if (it > 0) "+" else ""
-                "\$sign\${String.format(Locale.US, "%.1f", it)}% pace/HR efficiency vs prior baseline"
+                "$sign${String.format(Locale.US, "%.1f", it)}% pace/HR efficiency vs prior baseline"
             } ?: model.fitness.basis,
             meta = when (model.fitness.confidence) {
                 CardioConfidence.INSUFFICIENT ->
-                    "Building baseline · \${model.fitness.comparableSessionCount} comparable sessions"
-                else -> "\${model.fitness.confidence.label} confidence · \${model.fitness.comparableSessionCount} comparable sessions"
+                    "Building baseline · ${model.fitness.comparableSessionCount} comparable sessions"
+                else -> "${model.fitness.confidence.label} confidence · ${model.fitness.comparableSessionCount} comparable sessions"
             },
             accent = superhumanGreen,
             onClick = onFitness
@@ -130,7 +130,7 @@ internal fun CardioProductOverview(
             detail = model.readiness.explanation,
             meta = when {
                 model.readiness.availableSignals == 0 -> "Building baseline"
-                else -> "\${model.readiness.availableSignals}/\${model.readiness.totalSignals} signals · \${model.readiness.confidence.label} confidence"
+                else -> "${model.readiness.availableSignals}/${model.readiness.totalSignals} signals · ${model.readiness.confidence.label} confidence"
             },
             accent = superhumanBlue,
             onClick = onTrends
@@ -173,7 +173,7 @@ private fun CardioGlanceCard(
             .border(1.dp, superhumanBorder, RoundedCornerShape(20.dp))
             .semantics {
                 role = Role.Button
-                contentDescription = "\$eyebrow. \$value. \$detail. \$meta"
+                contentDescription = "$eyebrow. $value. $detail. $meta"
             }
             .clickable { onClick() }
             .padding(15.dp),
@@ -198,7 +198,7 @@ private fun CardioWeekGlance(week: CardioWeekIntentSnapshot, onClick: () -> Unit
             .border(1.dp, superhumanBorder, RoundedCornerShape(20.dp))
             .semantics {
                 role = Role.Button
-                contentDescription = "This week. \${week.minutes} minutes, \${week.sessions} sessions, \${week.zone2Minutes} Zone 2 minutes."
+                contentDescription = "This week. ${week.minutes} minutes, ${week.sessions} sessions, ${week.zone2Minutes} Zone 2 minutes."
             }
             .clickable { onClick() }
             .padding(15.dp)
@@ -250,7 +250,7 @@ private fun CardioSensorSourceCard(metrics: CardioLiveSensorMetrics) {
             .background(superhumanSurfaceSoft, RoundedCornerShape(16.dp))
             .semantics {
                 role = Role.Button
-                contentDescription = "\$status. Manage devices."
+                contentDescription = "$status. Manage devices."
             }
             .clickable { SmartDevicesNavigationBridge.open?.invoke() }
             .padding(13.dp),
@@ -285,7 +285,7 @@ private fun CardioProductNavButton(
             .border(1.dp, superhumanBorder, RoundedCornerShape(17.dp))
             .semantics {
                 role = Role.Button
-                contentDescription = "\$title. \$subtitle"
+                contentDescription = "$title. $subtitle"
             }
             .clickable { onClick() }
             .padding(12.dp)
@@ -317,7 +317,7 @@ internal fun CardioFitnessProductScreen(sessions: List<CardioSession>) {
         fitness.trendDeltaPercent?.let {
             val sign = if (it > 0) "+" else ""
             Text(
-                "\$sign\${String.format(Locale.US, "%.1f", it)}% pace/HR efficiency vs prior baseline",
+                "$sign${String.format(Locale.US, "%.1f", it)}% pace/HR efficiency vs prior baseline",
                 color = superhumanGreen,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
@@ -326,8 +326,8 @@ internal fun CardioFitnessProductScreen(sessions: List<CardioSession>) {
         Text(fitness.basis, color = superhumanTextMuted, fontSize = 10.sp, lineHeight = 15.sp)
         Text(
             when (fitness.confidence) {
-                CardioConfidence.INSUFFICIENT -> "Building baseline — \${fitness.comparableSessionCount}/4 minimum comparable sessions"
-                else -> "\${fitness.confidence.label} confidence · \${fitness.comparableSessionCount} comparable sessions"
+                CardioConfidence.INSUFFICIENT -> "Building baseline — ${fitness.comparableSessionCount}/4 minimum comparable sessions"
+                else -> "${fitness.confidence.label} confidence · ${fitness.comparableSessionCount} comparable sessions"
             },
             color = superhumanBlue,
             fontSize = 9.sp,
@@ -364,7 +364,7 @@ internal fun CardioFitnessProductScreen(sessions: List<CardioSession>) {
     }
 
     comparableActivities.firstOrNull()?.let { activity ->
-        CardioProductSection("\${activity.displayName.uppercase()} DETAIL", "Progressive detail for recorded metrics") {
+        CardioProductSection("${activity.displayName.uppercase()} DETAIL", "Progressive detail for recorded metrics") {
             CardioActivityProgressPanel(
                 activity = activity,
                 sessions = sessions,
@@ -388,7 +388,7 @@ internal fun CardioTrendsProductScreen(sessions: List<CardioSession>) {
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                "\${load.scoredSessionCount} scored session\${if (load.scoredSessionCount == 1) "" else "s"} contributed on the latest day.",
+                "${load.scoredSessionCount} scored session${if (load.scoredSessionCount == 1) "" else "s"} contributed on the latest day.",
                 color = superhumanTextMuted,
                 fontSize = 9.sp
             )
@@ -447,7 +447,7 @@ internal fun CardioSessionDataAndCalculationPanel(session: CardioSession) {
             .border(1.dp, superhumanBorder, RoundedCornerShape(19.dp))
             .semantics {
                 role = Role.Button
-                contentDescription = "Data and calculation. \${if (expanded) "Expanded" else "Collapsed"}."
+                contentDescription = "Data and calculation. ${if (expanded) "Expanded" else "Collapsed"}."
             }
             .clickable { expanded = !expanded }
             .padding(14.dp)
@@ -464,20 +464,20 @@ internal fun CardioSessionDataAndCalculationPanel(session: CardioSession) {
             Spacer(Modifier.height(12.dp))
             CardioEvidenceRow("Session source", sensorSource)
             provider?.let { CardioEvidenceRow("Provider", it.replace('_', ' ')) }
-            coverage?.let { CardioEvidenceRow("HR coverage", "\${String.format(Locale.US, "%.1f", it)}%") }
+            coverage?.let { CardioEvidenceRow("HR coverage", "${String.format(Locale.US, "%.1f", it)}%") }
             CardioEvidenceRow(
                 "Heart rate",
                 if (session.avgHeartRate != null) "Measured / recorded" else "Unavailable"
             )
             CardioEvidenceRow(
                 "Distance",
-                if (session.distanceKm != null) "Recorded · \${session.source}" else "Unavailable"
+                if (session.distanceKm != null) "Recorded · ${session.source}" else "Unavailable"
             )
             CardioEvidenceRow(
                 "Training load",
-                load.score?.let { "\${load.source.label} · \${it.roundToInt()}" } ?: "Unavailable"
+                load.score?.let { "${load.source.label} · ${it.roundToInt()}" } ?: "Unavailable"
             )
-            CardioEvidenceRow("Session schema", "v\${session.schemaVersion}")
+            CardioEvidenceRow("Session schema", "v${session.schemaVersion}")
             session.extensions["processingVersion"]?.let { CardioEvidenceRow("Processing", it) }
             Text(
                 "Derived values depend on stored session evidence. Missing inputs remain unavailable rather than being back-filled with invented values.",
