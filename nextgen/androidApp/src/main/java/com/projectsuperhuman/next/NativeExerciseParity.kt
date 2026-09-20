@@ -1238,4 +1238,29 @@ private fun LibraryFilterButton(
 @Composable private fun MuscleVolumeRow(volume: StrengthMuscleVolume) { Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Text(volume.muscle, color = ExerciseInk, fontSize = 10.sp, modifier = Modifier.weight(1f)); Text("${formatStrengthNumber(volume.estimatedWorkingSets)} est. sets", color = ExerciseBlue, fontSize = 10.sp, fontWeight = FontWeight.Bold) } }
 @Composable private fun TrendSummaryRow(label: String, values: List<Double>) { val first = values.firstOrNull(); val last = values.lastOrNull(); val delta = if (first != null && last != null) last - first else 0.0; Row(Modifier.fillMaxWidth().padding(vertical = 4.dp)) { Text(label, color = ExerciseInk, fontSize = 10.sp, modifier = Modifier.weight(1f)); Text(if (values.isEmpty()) "No trend yet" else "${formatStrengthNumber(last ?: 0.0)} · ${if (delta >= 0) "+" else ""}${formatStrengthNumber(delta)}", color = if (delta >= 0) ExerciseGreen else ExerciseMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold) } }
 
+@Composable
+private fun GlassMetric(
+    label: String,
+    value: String,
+    modifier: Modifier
+) {
+    Column(
+        modifier
+            .background(Color.White.copy(alpha = .13f), RoundedCornerShape(14.dp))
+            .padding(10.dp)
+    ) {
+        Text(
+            label,
+            color = Color.White.copy(alpha = .62f),
+            fontSize = 10.sp
+        )
+        Text(
+            value,
+            color = Color.White,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Black
+        )
+    }
+}
+
 @Composable private fun SummaryHero(sets: Int, volume: Double, duration: Int) { Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF103A70), Color(0xFF166E9F), Color(0xFF1D9B85))), RoundedCornerShape(28.dp)).padding(21.dp)) { Text("WORKOUT SAVED", color = Color.White.copy(alpha = .74f), fontSize = 10.sp, fontWeight = FontWeight.Bold); Text("Workout complete", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Black); Spacer(Modifier.height(13.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { GlassMetric("WORKING SETS", sets.toString(), Modifier.weight(1f)); GlassMetric("TRAINING VOLUME", "${volume.roundToInt()} kg", Modifier.weight(1f)); GlassMetric("DURATION", "${duration}m", Modifier.weight(1f)) } } }
