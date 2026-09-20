@@ -101,6 +101,49 @@ class TrudySystemIntegrationTest {
     }
 
     @Test
+    fun cardioSummaryRequestUsesStructuredExerciseInsights() {
+        val operation = planner.plan(TrudyAskRequest("Give me a weekly cardio summary")).single()
+
+        val insights = assertIs<TrudyToolOperation.GetInsights>(operation)
+        assertEquals(HealthDomain.EXERCISE, insights.domain)
+    }
+
+    @Test
+    fun cardioLanguageMapsToCanonicalNof1Metrics() {
+        val metrics = TrudySystemCatalog.metricsMentioned("Am I getting fitter and how has my training load changed?")
+
+        assertTrue(metrics.any { it.domain == HealthDomain.EXERCISE && it.metricId == "cardio_fitness_efficiency_delta_pct" })
+        assertTrue(metrics.any { it.domain == HealthDomain.EXERCISE && it.metricId == "cardio_chronic_training_load" })
+    }
+
+    @Test
+    fun sleepAndRunningPerformanceUsesCardioEfficiencyAssociation() {
+        val operation = planner.plan(
+            TrudyAskRequest("Does sleep appear related to my running performance this month?")
+        ).single()
+
+        val association = assertIs<GetAssociation>(operation)
+        assertEquals(HealthDomain.SLEEP, association.leftDomain)
+        assertEquals("sleep_score", association.leftMetricId)
+        assertEquals(HealthDomain.EXERCISE, association.rightDomain)
+        assertEquals("cardio_fitness_efficiency_delta_pct", association.rightMetricId)
+        assertTrue(association.window != null)
+    }
+
+    @Test
+    fun runningHeartRateWeatherQuestionUsesEnvironmentalTemperature() {
+        val operation = planner.plan(
+            TrudyAskRequest("Does temperature affect my heart rate during runs this month?")
+        ).single()
+
+        val association = assertIs<GetAssociation>(operation)
+        assertEquals(HealthDomain.ENVIRONMENT, association.leftDomain)
+        assertEquals("environment_temperature_c", association.leftMetricId)
+        assertEquals(HealthDomain.EXERCISE, association.rightDomain)
+        assertEquals("heart_rate_avg_bpm", association.rightMetricId)
+    }
+
+    @Test
     fun improvedRecordedSleepDoesNotConfirmWorsePremise() = runTest {
         val baseline = TrudyTimeRange(0L, 9L)
         val observation = TrudyTimeRange(10L, 19L)
