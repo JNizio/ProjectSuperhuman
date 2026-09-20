@@ -432,23 +432,67 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         feedbackMessage?.let { ExerciseFeedbackBanner(it) }
         when (mode) {
             "home" -> {
-                val lastName = recent.firstOrNull()?.metadata?.get("exerciseName") ?: "No workout logged yet"
-                TrainingHero(lastName, weekRecent.size, weekRecent.sumOf { it.value }.roundToInt(), startedAt > 0L) {
-                    if (startedAt > 0L) mode = "workout" else startWorkout()
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp), modifier = Modifier.fillMaxWidth()) {
-                    TrainingNavTile("R", "ROUTINES", "Reusable workouts", ExerciseBlue, Modifier.weight(1f)) { mode = "routines" }
-                    TrainingNavTile("H", "HISTORY", "Completed workouts", ExercisePurple, Modifier.weight(1f)) { mode = "history" }
-                    TrainingNavTile("P", "PROGRESS", "Trends & records", ExerciseGreen, Modifier.weight(1f)) { mode = "progress" }
-                }
-                if (routines.isNotEmpty()) PolishedSection("QUICK ROUTINES", "Jump straight into a saved plan") { routines.take(3).forEach { r -> RoutineRow(r, catalog) { startWorkout(it) } } }
-                PolishedSection("TRAINING OVERVIEW", "Your last 7 days") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        MetricTile("WORKING SETS", weekRecent.size.toString(), "this week", ExerciseBlue, Modifier.weight(1f))
-                        MetricTile("TRAINING VOLUME", weekRecent.sumOf { it.value }.roundToInt().toString(), "kg this week", ExerciseGreen, Modifier.weight(1f))
-                        MetricTile("EXERCISES", catalog.size.toString(), "in library", ExercisePurple, Modifier.weight(1f))
+                val weekVolume = weekRecent.sumOf { it.value }.roundToInt()
+                val weekStart = System.currentTimeMillis() - 7L * 86400000L
+                val weekSessions = sessionRows.count { it.timestampEpochMs >= weekStart }
+                val lastWorkoutName = sessionRows.firstOrNull()?.metadata?.get("workoutName")
+                    ?.takeIf { it.isNotBlank() }
+                    ?: recent.firstOrNull()?.metadata?.get("exerciseName")
+                    ?: "No completed workout yet"
+
+                StrengthSessionPanel(
+                    activeWorkout = startedAt > 0L,
+                    workingSets = weekRecent.size,
+                    volumeKg = weekVolume,
+                    lastWorkout = lastWorkoutName,
+                    onAction = {
+                        if (startedAt > 0L) mode = "workout" else startWorkout()
                     }
-                    Spacer(Modifier.height(12.dp)); WideActionTile("EXERCISE LIBRARY", "Browse exercises", ExerciseBlue) { mode = "library" }
+                )
+
+                StrengthQuickActions(
+                    onRoutines = { mode = "routines" },
+                    onHistory = { mode = "history" },
+                    onProgress = { mode = "progress" }
+                )
+
+                Text(
+                    "THIS WEEK",
+                    color = ExerciseMuted,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+                StrengthMetricStrip(
+                    workingSets = weekRecent.size,
+                    volumeKg = weekVolume,
+                    sessions = weekSessions
+                )
+
+                StrengthLibraryEntry(
+                    exerciseCount = catalog.size,
+                    onClick = { mode = "library" }
+                )
+
+                if (routines.isNotEmpty()) {
+                    Text(
+                        "QUICK ROUTINES",
+                        color = ExerciseMuted,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .background(ExerciseSurface, RoundedCornerShape(18.dp))
+                            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        routines.take(3).forEach { routine ->
+                            RoutineRow(routine, catalog) { startWorkout(it) }
+                        }
+                    }
                 }
             }
             "library" -> {
@@ -912,9 +956,226 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 }
 
 @Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back" }, contentAlignment = Alignment.Center) { Text("←", color = ExerciseBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "session_detail" -> "Workout detail"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Strength" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); if (mode == "workout") Text("Saved automatically", color = ExerciseMuted, fontSize = 12.sp) } } }
-@Composable private fun TrainingHero(lastName: String, sets: Int, volume: Int, activeWorkout: Boolean, onStart: () -> Unit) { Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF0A3168), Color(0xFF0D6CB4), Color(0xFF5BA9DB))), RoundedCornerShape(28.dp)).padding(21.dp)) { Text(if (activeWorkout) "WORKOUT IN PROGRESS" else "STRENGTH TRAINING", color = Color.White.copy(alpha = .78f), fontSize = 11.sp, fontWeight = FontWeight.Black); Text(if (activeWorkout) "Continue your workout" else "Ready to train?", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Black); Text(if (activeWorkout) "Your active workout is saved on this device" else "Last activity · $lastName", color = Color.White.copy(alpha = .78f), fontSize = 12.sp); Spacer(Modifier.height(14.dp)); Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { GlassMetric("WORKING SETS", sets.toString(), Modifier.weight(1f)); GlassMetric("TRAINING VOLUME", "$volume kg", Modifier.weight(1f)) }; Spacer(Modifier.height(15.dp)); Box(Modifier.fillMaxWidth().heightIn(min = 52.dp).background(Color.White, RoundedCornerShape(16.dp)).clickable { onStart() }.padding(15.dp), contentAlignment = Alignment.Center) { Text(if (activeWorkout) "RESUME WORKOUT" else "START WORKOUT", color = ExerciseHeroButtonText, fontSize = 14.sp, fontWeight = FontWeight.Black) } } }
-@Composable private fun GlassMetric(label: String, value: String, modifier: Modifier) { Column(modifier.background(Color.White.copy(alpha = .13f), RoundedCornerShape(14.dp)).padding(10.dp)) { Text(label, color = Color.White.copy(alpha = .62f), fontSize = 10.sp); Text(value, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black) } }
-@Composable private fun TrainingNavTile(mark: String, title: String, subtitle: String, accent: Color, modifier: Modifier, onClick: () -> Unit) { Column(modifier.heightIn(min = 96.dp).background(ExerciseSurface, RoundedCornerShape(20.dp)).clickable { onClick() }.padding(12.dp)) { Box(Modifier.size(32.dp).background(accent.copy(alpha = .12f), CircleShape), contentAlignment = Alignment.Center) { Text(mark, color = accent, fontWeight = FontWeight.Black) }; Spacer(Modifier.height(9.dp)); Text(title, color = ExerciseNavy, fontSize = 11.sp, fontWeight = FontWeight.Black); Text(subtitle, color = ExerciseMuted, fontSize = 10.sp) } }
+@Composable
+private fun StrengthSessionPanel(
+    activeWorkout: Boolean,
+    workingSets: Int,
+    volumeKg: Int,
+    lastWorkout: String,
+    onAction: () -> Unit
+) {
+    val shape = RoundedCornerShape(22.dp)
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(ExerciseSurface, shape)
+            .border(
+                1.dp,
+                if (activeWorkout) ExerciseBlue.copy(alpha = .42f) else ExerciseCardBorder,
+                shape
+            )
+            .padding(17.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(38.dp)
+                    .background(
+                        ExerciseBlue.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (activeWorkout) "▶" else "+",
+                    color = ExerciseBlue,
+                    fontSize = if (activeWorkout) 15.sp else 20.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp)
+            ) {
+                Text(
+                    if (activeWorkout) "WORKOUT IN PROGRESS" else "START STRENGTH WORKOUT",
+                    color = ExerciseInk,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    if (activeWorkout) "Your session is saved and ready to continue"
+                    else "Last: $lastWorkout",
+                    color = ExerciseMuted,
+                    fontSize = 9.sp,
+                    lineHeight = 12.sp,
+                    maxLines = 1
+                )
+            }
+            Text(
+                if (activeWorkout) "RESUME  →" else "START  →",
+                color = ExerciseBlue,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.superhumanClickable(onClick = onAction)
+            )
+        }
+
+        if (activeWorkout) {
+            Spacer(Modifier.height(14.dp))
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .background(ExerciseSoft, RoundedCornerShape(15.dp))
+                    .padding(vertical = 11.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                StrengthInlineMetric(workingSets.toString(), "WORK SETS")
+                Box(Modifier.width(1.dp).height(28.dp).background(ExerciseCardBorder))
+                StrengthInlineMetric("$volumeKg kg", "VOLUME")
+            }
+        }
+    }
+}
+
+@Composable
+private fun StrengthQuickActions(
+    onRoutines: () -> Unit,
+    onHistory: () -> Unit,
+    onProgress: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(18.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        StrengthQuickAction("Routines", ExerciseBlue, Modifier.weight(1f), onRoutines)
+        StrengthQuickDivider()
+        StrengthQuickAction("History", ExercisePurple, Modifier.weight(1f), onHistory)
+        StrengthQuickDivider()
+        StrengthQuickAction("Progress", ExerciseGreen, Modifier.weight(1f), onProgress)
+    }
+}
+
+@Composable
+private fun StrengthQuickAction(
+    title: String,
+    accent: Color,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier
+            .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Box(Modifier.size(7.dp).background(accent, CircleShape))
+        Spacer(Modifier.width(7.dp))
+        Text(
+            title,
+            color = ExerciseInk,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun StrengthQuickDivider() {
+    Box(Modifier.width(1.dp).height(24.dp).background(ExerciseCardBorder))
+}
+
+@Composable
+private fun StrengthMetricStrip(
+    workingSets: Int,
+    volumeKg: Int,
+    sessions: Int
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(18.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
+            .padding(vertical = 13.dp, horizontal = 8.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly
+    ) {
+        StrengthInlineMetric(workingSets.toString(), "WORKING SETS")
+        Box(Modifier.width(1.dp).height(34.dp).background(ExerciseCardBorder))
+        StrengthInlineMetric(volumeKg.toString(), "VOLUME KG")
+        Box(Modifier.width(1.dp).height(34.dp).background(ExerciseCardBorder))
+        StrengthInlineMetric(sessions.toString(), "SESSIONS")
+    }
+}
+
+@Composable
+private fun StrengthInlineMetric(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            value,
+            color = ExerciseInk,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            label,
+            color = ExerciseMuted,
+            fontSize = 7.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun StrengthLibraryEntry(
+    exerciseCount: Int,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(18.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
+            .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 15.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(38.dp)
+                .background(ExerciseBlue.copy(alpha = .14f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("DB", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        }
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(horizontal = 12.dp)
+        ) {
+            Text(
+                "Exercise library",
+                color = ExerciseInk,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                "$exerciseCount exercises · photos, instructions and muscle data",
+                color = ExerciseMuted,
+                fontSize = 9.sp,
+                maxLines = 1
+            )
+        }
+        Text("→", color = ExerciseBlue, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
 @Composable private fun PolishedSection(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) { Column(Modifier.fillMaxWidth().background(ExerciseSurface, RoundedCornerShape(23.dp)).border(1.dp, ExerciseCardBorder, RoundedCornerShape(23.dp)).padding(16.dp)) { Text(title, color = ExerciseInk, fontSize = 16.sp, fontWeight = FontWeight.Black); if (subtitle.isNotBlank()) { Text(subtitle, color = ExerciseMuted, fontSize = 11.sp); Spacer(Modifier.height(11.dp)) } else { Spacer(Modifier.height(8.dp)) }; content() } }
 @Composable private fun MetricTile(label: String, value: String, detail: String, accent: Color, modifier: Modifier) { Column(modifier.background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .13f else .07f), RoundedCornerShape(16.dp)).padding(11.dp)) { Text(label, color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold); Text(value, color = ExerciseNavy, fontSize = 16.sp, fontWeight = FontWeight.Black); Text(detail, color = ExerciseMuted, fontSize = 10.sp) } }
 @Composable private fun WideActionTile(title: String, subtitle: String, accent: Color, onClick: () -> Unit) { Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .14f else .09f), RoundedCornerShape(17.dp)).clickable { onClick() }.padding(13.dp), verticalAlignment = Alignment.CenterVertically) { Box(Modifier.size(8.dp).background(accent, CircleShape)); Spacer(Modifier.width(10.dp)); Column(Modifier.weight(1f)) { Text(title, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Black); Text(subtitle, color = ExerciseMuted, fontSize = 10.sp) }; Text("→", color = accent, fontSize = 18.sp) } }
