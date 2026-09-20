@@ -346,6 +346,9 @@ private fun CardioHubOverviewPanel(
     model: CardioProductOverviewModel,
     efficiencySeries: List<Double>,
     loadSeries: List<Double>,
+    zone3Minutes: Int,
+    goals: CardioHubGoals,
+    onEditGoals: () -> Unit,
     onFitness: () -> Unit,
     onReadiness: () -> Unit,
     onTrends: () -> Unit
@@ -374,7 +377,7 @@ private fun CardioHubOverviewPanel(
             .background(superhumanSurface, RoundedCornerShape(21.dp))
             .padding(horizontal = 14.dp, vertical = 13.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.Top) {
             CardioHubIconBadge(CardioHubGlyph.TREND, superhumanGreen)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
@@ -382,45 +385,53 @@ private fun CardioHubOverviewPanel(
                 Text(headline, color = superhumanTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black, lineHeight = 19.sp)
                 Text(explanation, color = superhumanTextMuted, fontSize = 8.sp, lineHeight = 11.sp)
             }
-            if (efficiencySeries.size >= 2) {
-                CardioHubSparkline(efficiencySeries, superhumanGreen, Modifier.width(78.dp).height(38.dp))
-            } else {
-                CardioHubDots(fitness.comparableSessionCount.coerceIn(0, 4), 4, superhumanGreen)
+            Box(
+                Modifier.size(34.dp)
+                    .background(superhumanSurfaceSoft, CircleShape)
+                    .clickable { onEditGoals() },
+                contentAlignment = Alignment.Center
+            ) {
+                SuperhumanDomainIcon(
+                    glyph = SuperhumanDomainGlyph.MORE,
+                    tint = superhumanTextMuted,
+                    modifier = Modifier.size(19.dp),
+                    contentDescription = "Set cardio goals"
+                )
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-        Box(Modifier.fillMaxWidth().height(1.dp).background(superhumanBorder.copy(alpha = .45f)))
-        Spacer(Modifier.height(10.dp))
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            CardioHubDashboardMetric(
-                label = "THIS WEEK",
-                value = "${model.week.minutes} min",
-                detail = "${model.week.sessions} sessions",
+        Spacer(Modifier.height(13.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            CardioHubGoalRing(
+                label = "TOTAL",
+                currentMinutes = model.week.minutes,
+                goalMinutes = goals.totalMinutes,
                 accent = Color(0xFF8E72D8),
                 modifier = Modifier.weight(1f),
-                onClick = onTrends
+                onClick = onEditGoals
             )
-            CardioHubDashboardMetric(
+            CardioHubGoalRing(
                 label = "ZONE 2",
-                value = "${model.week.zone2Minutes} min",
-                detail = model.week.targetMinutes?.let { "${model.week.minutes}/$it goal" } ?: "No weekly goal",
+                currentMinutes = model.week.zone2Minutes,
+                goalMinutes = goals.zone2Minutes,
                 accent = superhumanGreen,
                 modifier = Modifier.weight(1f),
-                onClick = onTrends
+                onClick = onEditGoals
             )
-            CardioHubDashboardMetric(
-                label = "LOAD",
-                value = load?.let { "CTL $it" } ?: "Building",
-                detail = if (load == null) "Needs scored sessions" else "Chronic load",
+            CardioHubGoalRing(
+                label = "ZONE 3",
+                currentMinutes = zone3Minutes,
+                goalMinutes = goals.zone3Minutes,
                 accent = Color(0xFFD1A03D),
                 modifier = Modifier.weight(1f),
-                onClick = onTrends
+                onClick = onEditGoals
             )
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(11.dp))
         Row(
             Modifier.fillMaxWidth()
                 .background(superhumanSurfaceSoft, RoundedCornerShape(15.dp))
@@ -428,7 +439,11 @@ private fun CardioHubOverviewPanel(
                 .padding(horizontal = 11.dp, vertical = 9.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            CardioHubGlyphIcon(CardioHubGlyph.HEART, superhumanBlue, Modifier.size(18.dp))
+            SuperhumanDomainIcon(
+                glyph = SuperhumanDomainGlyph.HEARTBEAT,
+                tint = superhumanBlue,
+                modifier = Modifier.size(18.dp)
+            )
             Spacer(Modifier.width(9.dp))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -438,7 +453,7 @@ private fun CardioHubOverviewPanel(
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    "${readiness.availableSignals}/${readiness.totalSignals} inputs available · ${readiness.confidence.label} confidence",
+                    "${readiness.availableSignals}/${readiness.totalSignals} inputs · ${readiness.confidence.label} confidence",
                     color = superhumanTextMuted,
                     fontSize = 8.sp
                 )
@@ -448,48 +463,116 @@ private fun CardioHubOverviewPanel(
             Text("›", color = superhumanBlue, fontSize = 18.sp)
         }
 
-        Spacer(Modifier.height(4.dp))
-        Row(
-            Modifier.fillMaxWidth()
-                .clickable { onFitness() }
-                .padding(horizontal = 2.dp, vertical = 7.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                fitness.trendDeltaPercent?.let {
-                    val sign = if (it > 0) "+" else ""
-                    "Fitness efficiency $sign${String.format(Locale.US, "%.1f", it)}%"
-                } ?: "Fitness baseline ${fitness.comparableSessionCount}/4",
-                color = superhumanGreen,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f)
-            )
-            Text("FITNESS ›", color = superhumanGreen, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.weight(1f)
+                    .clickable { onFitness() }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SuperhumanDomainIcon(
+                    glyph = SuperhumanDomainGlyph.TREND,
+                    tint = superhumanGreen,
+                    modifier = Modifier.size(17.dp)
+                )
+                Spacer(Modifier.width(7.dp))
+                Column {
+                    Text("FITNESS", color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        fitness.trendDeltaPercent?.let {
+                            val sign = if (it > 0) "+" else ""
+                            "$sign${String.format(Locale.US, "%.1f", it)}% efficiency"
+                        } ?: "Baseline ${fitness.comparableSessionCount}/4",
+                        color = superhumanTextPrimary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            Row(
+                Modifier.weight(1f)
+                    .clickable { onTrends() }
+                    .padding(vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SuperhumanDomainIcon(
+                    glyph = SuperhumanDomainGlyph.TREND,
+                    tint = Color(0xFFD1A03D),
+                    modifier = Modifier.size(17.dp)
+                )
+                Spacer(Modifier.width(7.dp))
+                Column {
+                    Text("LOAD", color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        load?.let { "CTL $it" } ?: "Building",
+                        color = superhumanTextPrimary,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun CardioHubDashboardMetric(
+private fun CardioHubGoalRing(
     label: String,
-    value: String,
-    detail: String,
+    currentMinutes: Int,
+    goalMinutes: Int?,
     accent: Color,
     modifier: Modifier,
     onClick: () -> Unit
 ) {
+    val progress = goalMinutes?.takeIf { it > 0 }?.let {
+        currentMinutes.toFloat() / it.toFloat()
+    }
     Column(
-        modifier
-            .heightIn(min = 66.dp)
-            .clickable { onClick() }
-            .padding(horizontal = 5.dp, vertical = 5.dp)
+        modifier.clickable { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(label, color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
-        Text(value, color = superhumanTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Black, lineHeight = 15.sp)
-        Text(detail, color = accent.copy(alpha = .86f), fontSize = 7.sp, lineHeight = 9.sp)
+        Box(Modifier.size(72.dp), contentAlignment = Alignment.Center) {
+            Canvas(Modifier.size(72.dp)) {
+                val stroke = 6.dp.toPx()
+                drawArc(
+                    color = superhumanBorder.copy(alpha = .5f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    style = Stroke(stroke, cap = StrokeCap.Round)
+                )
+                progress?.let { raw ->
+                    drawArc(
+                        color = accent,
+                        startAngle = -90f,
+                        sweepAngle = 360f * raw.coerceIn(0f, 1f),
+                        useCenter = false,
+                        style = Stroke(stroke, cap = StrokeCap.Round)
+                    )
+                }
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    currentMinutes.toString(),
+                    color = superhumanTextPrimary,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text("MIN", color = superhumanTextMuted, fontSize = 6.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(label, color = superhumanTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Text(
+            goalMinutes?.let { "of $it min" } ?: "Set goal",
+            color = if (goalMinutes == null) accent else superhumanTextMuted,
+            fontSize = 7.sp,
+            fontWeight = if (goalMinutes == null) FontWeight.Bold else FontWeight.Normal
+        )
     }
 }
+
 
 @Composable
 private fun CardioHubSignalDots(available: Int, total: Int, accent: Color) {
