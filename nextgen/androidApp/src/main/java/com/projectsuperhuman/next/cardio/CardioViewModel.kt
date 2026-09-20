@@ -11,19 +11,55 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+private data class CardioPendingLiveEvidence(
+    val session: CardioSession,
+    val heartRateSamples: List<CardioHeartRateSample>,
+    val rrIntervals: List<CardioRrIntervalSample>,
+    val telemetry: CardioLiveTelemetrySnapshot?
+)
+
 internal class CardioViewModel(application: Application) : AndroidViewModel(application) {
     private val store = DataStoreCardioSessionStore(application)
     private val repository: CardioRepository = DataVaultCardioRepository()
     private val controller = CardioLiveSessionController()
     private val coordinator = CardioSessionCoordinator(store, repository, controller)
+    private val nof1Repository = CardioNof1Repository()
 
     private val _state = MutableStateFlow(CardioUiState())
     val state: StateFlow<CardioUiState> = _state.asStateFlow()
     private var pendingLiveSensorSummary: CardioHeartRateSummary? = null
+    private var pendingLiveEvidence: CardioPendingLiveEvidence? = null
 
     init {
         NativeDataHub.initialize(application)
         CardioSensorRuntime.initialize(application)
+        CardioGpsRuntime.initialize(application)
+
+        viewModelScope.launch {
+            CardioGpsRuntime.autoPauseDecisions.collect { decision ->
+                val now = System.currentTimeMillis()
+                when (decision) {
+                    CardioAutoPauseDecision.PAUSE -> {
+                        val current = store.load().draft
+                        if (current?.phase == CardioLivePhase.RECORDING) {
+                            coordinator.pause()
+                            CardioSensorRuntime.pauseSession(now)
+                            CardioGpsRuntime.pause(now, manual = false)
+                        }
+                    }
+                    CardioAutoPauseDecision.RESUME -> {
+                        val current = store.load().draft
+                        if (current?.phase == CardioLivePhase.PAUSED) {
+                            coordinator.resume()
+                            CardioSensorRuntime.resumeSession(now)
+                            CardioGpsRuntime.resume(now, manual = false)
+                            CardioSessionForeground.start(getApplication())
+                        }
+                    }
+                    CardioAutoPauseDecision.NONE -> Unit
+                }
+            }
+        }
 
         viewModelScope.launch {
             val restore = store.migrateLegacyIfNeeded()
@@ -34,6 +70,12 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
                 CardioSensorRuntime.startSession(
                     restore.draft.sessionId,
                     restore.draft.startedAtEpochMs
+                )
+                CardioGpsRuntime.restoreSession(
+                    restore.draft.sessionId,
+                    restore.draft.activity,
+                    restore.draft.startedAtEpochMs,
+                    paused = restore.draft.phase != CardioLivePhase.RECORDING
                 )
                 if (restore.draft.phase != CardioLivePhase.RECORDING) {
                     CardioSensorRuntime.pauseSession(System.currentTimeMillis())
@@ -111,7 +153,9 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
             runCatching { coordinator.start(activity, workoutType) }
                 .onSuccess { draft ->
                     CardioSensorRuntime.startSession(draft.sessionId, draft.startedAtEpochMs)
+                    CardioGpsRuntime.startSession(draft.sessionId, draft.activity, draft.startedAtEpochMs)
                     pendingLiveSensorSummary = null
+                    pendingLiveEvidence = null
                     CardioSessionForeground.start(getApplication())
                     setFeedback("Recording started")
                     onStarted()
@@ -124,7 +168,9 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         viewModelScope.launch {
             runCatching { coordinator.pause() }
                 .onSuccess {
-                    CardioSensorRuntime.pauseSession(System.currentTimeMillis())
+                    val now = System.currentTimeMillis()
+                    CardioSensorRuntime.pauseSession(now)
+                    CardioGpsRuntime.pause(now, manual = true)
                     setFeedback("Cardio timer paused")
                 }
                 .onFailure { setFailure(it.message ?: "Could not pause cardio session") }
@@ -135,7 +181,9 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         viewModelScope.launch {
             runCatching { coordinator.resume() }
                 .onSuccess {
-                    CardioSensorRuntime.resumeSession(System.currentTimeMillis())
+                    val now = System.currentTimeMillis()
+                    CardioSensorRuntime.resumeSession(now)
+                    CardioGpsRuntime.resume(now, manual = true)
                     CardioSessionForeground.start(getApplication())
                     setFeedback("Cardio timer resumed")
                 }
@@ -151,14 +199,11 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
                     if (prepared == null) {
                         setFailure("No active cardio session")
                     } else {
-                        CardioSensorRuntime.pauseSession(prepared.session.endedAt)
-                        val summary = CardioSensorRuntime.snapshot(prepared.session.endedAt)
+                        val evidence = captureLiveEvidence(prepared.session)
+                        pendingLiveSensorSummary = CardioSensorRuntime.snapshot(prepared.session.endedAt)
                             .takeIf { it.sampleCount > 0 }
-                        pendingLiveSensorSummary = summary
-                        onReady(
-                            summary?.let(prepared.session::withCardioHeartRateSummary)
-                                ?: prepared.session
-                        )
+                        pendingLiveEvidence = evidence
+                        onReady(evidence.session)
                     }
                 }
                 .onFailure { setFailure(it.message ?: "Could not prepare cardio finish") }
@@ -172,11 +217,10 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         }
 
         viewModelScope.launch {
+            var evidence: CardioPendingLiveEvidence? = null
             val result = runCatching {
                 coordinator.quickSave { session ->
-                    CardioSensorRuntime.pauseSession(session.endedAt)
-                    val summary = CardioSensorRuntime.snapshot(session.endedAt)
-                    if (summary.sampleCount > 0) session.withCardioHeartRateSummary(summary) else session
+                    captureLiveEvidence(session).also { evidence = it }.session
                 }
             }
                 .getOrElse {
@@ -186,14 +230,28 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
                 }
 
             if (result.success && result.session != null) {
+                val telemetryResult = evidence?.let {
+                    nof1Repository.persistLiveTelemetry(
+                        result.session,
+                        it.heartRateSamples,
+                        it.rrIntervals,
+                        it.telemetry
+                    )
+                }
                 CardioSensorRuntime.stopSession(result.session.endedAt)
+                CardioGpsRuntime.stop(result.session.endedAt)
                 pendingLiveSensorSummary = null
+                pendingLiveEvidence = null
                 CardioSessionForeground.stop(getApplication())
                 refreshRecent()
                 _state.update {
                     it.copy(
                         saveState = CardioSaveState.SAVED,
-                        feedback = "Cardio session saved",
+                        feedback = if (telemetryResult?.success == false) {
+                            "Workout saved; " + telemetryResult.failedCount + " telemetry write(s) need recovery"
+                        } else {
+                            "Cardio session saved"
+                        },
                         undo = CardioUndoState(
                             session = result.session,
                             expiresAtEpochMs = System.currentTimeMillis() + UNDO_WINDOW_MS
@@ -220,10 +278,23 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         }
 
         viewModelScope.launch {
+            val evidence = if (finishingLive) {
+                pendingLiveEvidence ?: captureLiveEvidence(session)
+            } else null
             val finalSession = if (finishingLive) {
-                val summary = pendingLiveSensorSummary
-                    ?: CardioSensorRuntime.snapshot(session.endedAt).takeIf { it.sampleCount > 0 }
-                summary?.let(session::withCardioHeartRateSummary) ?: session
+                val enriched = evidence?.session ?: session
+                session.copy(
+                    distanceKm = session.distanceKm ?: enriched.distanceKm,
+                    avgHeartRate = session.avgHeartRate ?: enriched.avgHeartRate,
+                    minHeartRate = session.minHeartRate ?: enriched.minHeartRate,
+                    maxHeartRate = session.maxHeartRate ?: enriched.maxHeartRate,
+                    avgPaceSecPerKm = session.avgPaceSecPerKm ?: enriched.avgPaceSecPerKm,
+                    avgSpeedKmh = session.avgSpeedKmh ?: enriched.avgSpeedKmh,
+                    elevationGainM = session.elevationGainM ?: enriched.elevationGainM,
+                    zoneSeconds = if (session.zoneSeconds.isNotEmpty()) session.zoneSeconds else enriched.zoneSeconds,
+                    zoneSchemeId = session.zoneSchemeId ?: enriched.zoneSchemeId,
+                    extensions = enriched.extensions + session.extensions
+                )
             } else {
                 session
             }
@@ -240,16 +311,31 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
             }
 
             if (result.success) {
+                val telemetryResult = if (finishingLive && evidence != null) {
+                    nof1Repository.persistLiveTelemetry(
+                        finalSession,
+                        evidence.heartRateSamples,
+                        evidence.rrIntervals,
+                        evidence.telemetry
+                    )
+                } else null
                 if (finishingLive) {
                     CardioSensorRuntime.stopSession(finalSession.endedAt)
+                    CardioGpsRuntime.stop(finalSession.endedAt)
                     pendingLiveSensorSummary = null
+                    pendingLiveEvidence = null
                     CardioSessionForeground.stop(getApplication())
                 }
                 refreshRecent()
                 _state.update {
                     it.copy(
                         saveState = CardioSaveState.SAVED,
-                        feedback = if (editing) "Cardio session updated" else "Cardio session saved"
+                        feedback = when {
+                            telemetryResult?.success == false ->
+                                "Workout saved; " + telemetryResult.failedCount + " telemetry write(s) need recovery"
+                            editing -> "Cardio session updated"
+                            else -> "Cardio session saved"
+                        }
                     )
                 }
                 onComplete(true)
@@ -266,8 +352,11 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
         viewModelScope.launch {
             val ok = runCatching { coordinator.discard() }.getOrDefault(false)
             if (ok) {
-                CardioSensorRuntime.stopSession(System.currentTimeMillis())
+                val now = System.currentTimeMillis()
+                CardioSensorRuntime.stopSession(now)
+                CardioGpsRuntime.stop(now)
                 pendingLiveSensorSummary = null
+                pendingLiveEvidence = null
                 CardioSessionForeground.stop(getApplication())
                 _state.update {
                     it.copy(
@@ -299,7 +388,10 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
 
             if (result.restored) {
                 CardioSensorRuntime.startSession(token.session.id, token.session.startedAt)
-                CardioSensorRuntime.pauseSession(System.currentTimeMillis())
+                CardioGpsRuntime.startSession(token.session.id, token.session.activity, token.session.startedAt)
+                val now = System.currentTimeMillis()
+                CardioSensorRuntime.pauseSession(now)
+                CardioGpsRuntime.pause(now, manual = true)
                 CardioSessionForeground.start(getApplication())
                 refreshRecent()
                 _state.update {
@@ -315,6 +407,17 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
                 }
             }
         }
+    }
+
+    fun manualLap(): CardioLap? = CardioGpsRuntime.manualLap()
+
+    fun setAutoPauseEnabled(enabled: Boolean) {
+        CardioGpsRuntime.setAutoPauseEnabled(enabled)
+        setFeedback(if (enabled) "Auto-pause enabled" else "Auto-pause disabled")
+    }
+
+    fun setStructuredWorkout(workout: CardioStructuredWorkout?) {
+        CardioGpsRuntime.setStructuredWorkout(workout)
     }
 
     fun deleteSession(sessionId: String, onComplete: (Boolean) -> Unit = {}) {
@@ -346,6 +449,21 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
 
     fun clearFeedback() {
         _state.update { it.copy(feedback = null, restoredSession = false) }
+    }
+
+    private fun captureLiveEvidence(session: CardioSession): CardioPendingLiveEvidence {
+        CardioSensorRuntime.pauseSession(session.endedAt)
+        CardioGpsRuntime.pause(session.endedAt, manual = true)
+        val summary = CardioSensorRuntime.snapshot(session.endedAt).takeIf { it.sampleCount > 0 }
+        val telemetry = CardioGpsRuntime.snapshot(session.endedAt)
+        var enriched = summary?.let(session::withCardioHeartRateSummary) ?: session
+        enriched = CardioGpsRuntime.enrichSession(enriched, telemetry)
+        return CardioPendingLiveEvidence(
+            session = enriched,
+            heartRateSamples = CardioSensorRuntime.rawHeartRateSamples(),
+            rrIntervals = CardioSensorRuntime.rawRrIntervals(),
+            telemetry = telemetry
+        )
     }
 
     private suspend fun refreshRecent() {
