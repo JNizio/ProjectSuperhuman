@@ -282,13 +282,15 @@ internal object CardioGpsRuntime {
         rawFixes += fix
         if (recording) activeFixes += fix
         val route = activeRouteSummary(fix.receivedAtEpochMs)
+        val decisionSpeed = fix.speedMetersPerSecond
+            ?: CardioGpsProcessor.summarise(rawFixes.takeLast(3), activity, fix.receivedAtEpochMs)
+                .currentSpeedMetersPerSecond
+        when (autoPauseEngine.observe(decisionSpeed, fix.receivedAtEpochMs, manuallyPaused)) {
+            CardioAutoPauseDecision.PAUSE -> _autoPauseDecisions.tryEmit(CardioAutoPauseDecision.PAUSE)
+            CardioAutoPauseDecision.RESUME -> _autoPauseDecisions.tryEmit(CardioAutoPauseDecision.RESUME)
+            CardioAutoPauseDecision.NONE -> Unit
+        }
         if (recording) {
-            val speed = fix.speedMetersPerSecond ?: route.currentSpeedMetersPerSecond
-            when (autoPauseEngine.observe(speed, fix.receivedAtEpochMs, manuallyPaused)) {
-                CardioAutoPauseDecision.PAUSE -> _autoPauseDecisions.tryEmit(CardioAutoPauseDecision.PAUSE)
-                CardioAutoPauseDecision.RESUME -> _autoPauseDecisions.tryEmit(CardioAutoPauseDecision.RESUME)
-                CardioAutoPauseDecision.NONE -> Unit
-            }
             val hr = CardioSensorRuntime.liveMetrics.value
             lapTracker?.onDistance(
                 nowEpochMs = fix.timestampEpochMs,
