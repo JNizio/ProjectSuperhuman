@@ -160,12 +160,12 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
             .padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
+        Row(
             Modifier
                 .weight(1f)
                 .height(36.dp)
                 .superhumanClickable { openMetric(HomeMiniMetric.HEART_RATE) },
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 "HEART RATE",
@@ -175,10 +175,8 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
                 letterSpacing = .6.sp,
                 lineHeight = 8.sp
             )
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                modifier = Modifier.height(20.dp)
-            ) {
+            Spacer(Modifier.width(10.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     metrics.heartRateBpm?.toString() ?: "—",
                     color = MiniNavy,
@@ -201,13 +199,13 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
 
         Box(Modifier.width(1.dp).height(28.dp).background(MiniBorder))
 
-        Column(
+        Row(
             Modifier
                 .weight(1f)
                 .height(36.dp)
                 .padding(start = 14.dp)
                 .superhumanClickable { openMetric(HomeMiniMetric.STEPS) },
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 "STEPS",
@@ -217,18 +215,14 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
                 letterSpacing = .6.sp,
                 lineHeight = 8.sp
             )
-            Box(
-                Modifier.height(20.dp),
-                contentAlignment = Alignment.BottomStart
-            ) {
-                Text(
-                    metrics.steps?.let(::compactCount) ?: "—",
-                    color = MiniNavy,
-                    fontSize = 15.sp,
-                    lineHeight = 17.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
+            Spacer(Modifier.width(10.dp))
+            Text(
+                metrics.steps?.let(::compactCount) ?: "—",
+                color = MiniNavy,
+                fontSize = 15.sp,
+                lineHeight = 17.sp,
+                fontWeight = FontWeight.Black
+            )
         }
 
         Box(Modifier.width(1.dp).height(28.dp).background(MiniBorder))
