@@ -1623,6 +1623,7 @@ private fun StrengthQuickActions(
             .background(ExerciseSurface, RoundedCornerShape(18.dp))
             .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
             .padding(horizontal = 6.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
         StrengthQuickAction("Routines", ExerciseBlue, Modifier.weight(1f), onRoutines)
@@ -1660,7 +1661,12 @@ private fun StrengthQuickAction(
 
 @Composable
 private fun StrengthQuickDivider() {
-    Box(Modifier.width(1.dp).height(24.dp).background(ExerciseCardBorder))
+    Box(
+        Modifier
+            .width(1.dp)
+            .height(22.dp)
+            .background(ExerciseCardBorder)
+    )
 }
 
 @Composable
