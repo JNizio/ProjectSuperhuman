@@ -738,7 +738,7 @@ private fun CardioHubDeepDiveBar(
         Spacer(Modifier.height(6.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             CardioHubDeepDiveItem(
-                glyph = CardioHubGlyph.HISTORY,
+                glyph = SuperhumanDomainGlyph.ROUTE,
                 title = "Sessions",
                 value = "$sessionsThisWeek this wk",
                 accent = superhumanBlue,
@@ -747,7 +747,7 @@ private fun CardioHubDeepDiveBar(
             )
             CardioHubMiniDivider()
             CardioHubDeepDiveItem(
-                glyph = CardioHubGlyph.LOAD,
+                glyph = SuperhumanDomainGlyph.TREND,
                 title = "Trends",
                 value = loadValue?.let { "CTL $it" } ?: "Building",
                 accent = Color(0xFF8E72D8),
@@ -756,7 +756,7 @@ private fun CardioHubDeepDiveBar(
             )
             CardioHubMiniDivider()
             CardioHubDeepDiveItem(
-                glyph = CardioHubGlyph.TROPHY,
+                glyph = SuperhumanDomainGlyph.TROPHY,
                 title = "Records",
                 value = "Verified only",
                 accent = Color(0xFFD1A03D),
@@ -769,7 +769,7 @@ private fun CardioHubDeepDiveBar(
 
 @Composable
 private fun CardioHubDeepDiveItem(
-    glyph: CardioHubGlyph,
+    glyph: SuperhumanDomainGlyph,
     title: String,
     value: String,
     accent: Color,
@@ -782,7 +782,7 @@ private fun CardioHubDeepDiveItem(
             .padding(horizontal = 6.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        CardioHubGlyphIcon(glyph, accent, Modifier.size(17.dp))
+        SuperhumanDomainIcon(glyph, accent, Modifier.size(17.dp))
         Spacer(Modifier.width(7.dp))
         Column(Modifier.weight(1f)) {
             Text(title, color = superhumanTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Black)
