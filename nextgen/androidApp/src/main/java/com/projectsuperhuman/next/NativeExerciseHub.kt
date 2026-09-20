@@ -1,10 +1,10 @@
 package com.projectsuperhuman.next
 
+import android.graphics.BitmapFactory
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,7 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,9 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.net.URL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 internal enum class ExerciseDestination {
     HUB,
@@ -465,9 +469,12 @@ private fun ExerciseModuleCard(
             .border(1.dp, accent.copy(alpha = .34f), shape)
             .superhumanClickable(onClick = onClick)
     ) {
-        ExerciseCardArtwork(
-            strength = strength,
-            accent = accent,
+        ExerciseRemoteBackground(
+            imageUrl = if (strength) {
+                "https://images.pexels.com/photos/16080056/pexels-photo-16080056.jpeg?auto=compress&cs=tinysrgb&w=1200&h=400&fit=crop"
+            } else {
+                "https://images.pexels.com/photos/15875672/pexels-photo-15875672.jpeg?auto=compress&cs=tinysrgb&w=1200&h=400&fit=crop"
+            },
             modifier = Modifier.fillMaxSize()
         )
 
@@ -555,133 +562,29 @@ private fun ExerciseModuleCard(
 }
 
 @Composable
-private fun ExerciseCardArtwork(
-    strength: Boolean,
-    accent: Color,
+private fun ExerciseRemoteBackground(
+    imageUrl: String,
     modifier: Modifier = Modifier
 ) {
-    Canvas(modifier) {
-        if (strength) {
-            val stroke = 5.dp.toPx()
-            val cx = size.width * .79f
-            val cy = size.height * .53f
+    var bitmap by remember(imageUrl) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
 
-            drawCircle(
-                color = Color.White.copy(alpha = .035f),
-                radius = size.height * .62f,
-                center = Offset(size.width * .90f, size.height * .18f)
-            )
-            drawCircle(
-                color = accent.copy(alpha = .08f),
-                radius = size.height * .42f,
-                center = Offset(size.width * .78f, size.height * .95f)
-            )
-
-            fun dumbbell(x: Float, y: Float, scale: Float, alpha: Float) {
-                val halfBar = 34.dp.toPx() * scale
-                val plateGap = 7.dp.toPx() * scale
-                val plateH = 31.dp.toPx() * scale
-                val plateW = 8.dp.toPx() * scale
-                val color = Color.White.copy(alpha = alpha)
-
-                drawLine(
-                    color = color,
-                    start = Offset(x - halfBar, y),
-                    end = Offset(x + halfBar, y),
-                    strokeWidth = stroke * scale,
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round
-                )
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset(x - halfBar - plateGap - plateW, y - plateH / 2f),
-                    size = androidx.compose.ui.geometry.Size(plateW, plateH),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(plateW / 2f, plateW / 2f)
-                )
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset(x - halfBar - plateGap, y - plateH * .38f),
-                    size = androidx.compose.ui.geometry.Size(plateW, plateH * .76f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(plateW / 2f, plateW / 2f)
-                )
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset(x + halfBar + plateGap, y - plateH / 2f),
-                    size = androidx.compose.ui.geometry.Size(plateW, plateH),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(plateW / 2f, plateW / 2f)
-                )
-                drawRoundRect(
-                    color = color,
-                    topLeft = Offset(x + halfBar, y - plateH * .38f),
-                    size = androidx.compose.ui.geometry.Size(plateW, plateH * .76f),
-                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(plateW / 2f, plateW / 2f)
-                )
-            }
-
-            dumbbell(cx, cy, 1f, .15f)
-            dumbbell(size.width * .91f, size.height * .78f, .68f, .09f)
-        } else {
-            val line = 3.dp.toPx()
-            val trackColor = Color.White.copy(alpha = .11f)
-
-            repeat(3) { index ->
-                val inset = (index * 14).dp.toPx()
-                drawArc(
-                    color = trackColor,
-                    startAngle = 190f,
-                    sweepAngle = 145f,
-                    useCenter = false,
-                    topLeft = Offset(size.width * .56f + inset, size.height * .08f + inset * .35f),
-                    size = androidx.compose.ui.geometry.Size(
-                        size.width * .52f - inset,
-                        size.height * 1.28f - inset
-                    ),
-                    style = Stroke(width = line)
-                )
-            }
-
-            drawCircle(
-                color = accent.copy(alpha = .10f),
-                radius = size.height * .48f,
-                center = Offset(size.width * .86f, size.height * .50f)
-            )
-
-            val head = Offset(size.width * .80f, size.height * .30f)
-            val bodyTop = Offset(size.width * .79f, size.height * .39f)
-            val hip = Offset(size.width * .75f, size.height * .56f)
-            val stroke = 4.dp.toPx()
-            val runner = Color.White.copy(alpha = .18f)
-
-            drawCircle(runner, radius = 6.dp.toPx(), center = head)
-            drawLine(runner, bodyTop, hip, strokeWidth = stroke, cap = androidx.compose.ui.graphics.StrokeCap.Round)
-            drawLine(
-                runner,
-                Offset(size.width * .79f, size.height * .43f),
-                Offset(size.width * .88f, size.height * .48f),
-                strokeWidth = stroke,
-                cap = androidx.compose.ui.graphics.StrokeCap.Round
-            )
-            drawLine(
-                runner,
-                Offset(size.width * .78f, size.height * .44f),
-                Offset(size.width * .70f, size.height * .39f),
-                strokeWidth = stroke,
-                cap = androidx.compose.ui.graphics.StrokeCap.Round
-            )
-            drawLine(
-                runner,
-                hip,
-                Offset(size.width * .86f, size.height * .69f),
-                strokeWidth = stroke,
-                cap = androidx.compose.ui.graphics.StrokeCap.Round
-            )
-            drawLine(
-                runner,
-                hip,
-                Offset(size.width * .66f, size.height * .71f),
-                strokeWidth = stroke,
-                cap = androidx.compose.ui.graphics.StrokeCap.Round
-            )
+    LaunchedEffect(imageUrl) {
+        bitmap = withContext(Dispatchers.IO) {
+            runCatching {
+                URL(imageUrl).openStream().use { stream ->
+                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
+                }
+            }.getOrNull()
         }
+    }
+
+    bitmap?.let { image ->
+        Image(
+            bitmap = image,
+            contentDescription = null,
+            modifier = modifier,
+            contentScale = ContentScale.Crop
+        )
     }
 }
 
