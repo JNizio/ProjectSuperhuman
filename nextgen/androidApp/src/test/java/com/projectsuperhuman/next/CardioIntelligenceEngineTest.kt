@@ -66,7 +66,9 @@ class CardioIntelligenceEngineTest {
         val result = CardioTrainingLoadIntelligenceEngine.longitudinal(listOf(a, b), now, utc)
         assertTrue(result.mixedScaleWarning)
         assertEquals(2, result.methodCounts.size)
+        assertNotNull(result.modelledMethod)
         assertTrue(result.points.all { it.methods.size <= 1 })
+        assertTrue(result.points.flatMap { it.methods }.all { it == result.modelledMethod })
     }
 
     @Test
@@ -112,6 +114,29 @@ class CardioIntelligenceEngineTest {
         val result = CardioBandAnalytics.heartRateAtPace(samples, 333.333333)
         assertEquals(CardioAnalyticState.AVAILABLE, result.state)
         assertEquals(148.0, result.value)
+    }
+
+    @Test
+    fun paceAndHeartRateBandTrendsOnlyIncludeSupportedSessions() {
+        val evidence = listOf(
+            CardioSessionEvidence(
+                session("old", endedAt = now - day),
+                samples = samples(speed = 3.0, hr = 150.0)
+            ),
+            CardioSessionEvidence(
+                session("new", endedAt = now),
+                samples = samples(speed = 3.2, hr = 150.0)
+            ),
+            CardioSessionEvidence(session("missing", endedAt = now - 2 * day), samples = emptyList())
+        )
+        val paceTrend = CardioBandAnalytics.paceAtHeartRateTrend(evidence, 150.0)
+        assertEquals(listOf("old", "new").size, paceTrend.size)
+        assertTrue(paceTrend.first().value > paceTrend.last().value)
+
+        val targetPace = 1000.0 / 3.0
+        val hrTrend = CardioBandAnalytics.heartRateAtPaceTrend(evidence, targetPace)
+        assertEquals(1, hrTrend.size)
+        assertEquals(150.0, hrTrend.single().value)
     }
 
     @Test
@@ -176,6 +201,21 @@ class CardioIntelligenceEngineTest {
     fun rmssdRejectsSparseRrData() {
         val samples = List(5) { index -> rr(index * 1000L, 800.0) }
         assertNull(CardioHrvEngine.rmssd(samples).rmssdMs)
+    }
+
+    @Test
+    fun hrvBaselineDeviationRequiresUsableFreshBaseline() {
+        val history = (0 until 8).map {
+            CardioTimedValue(now - (8L - it) * day, 40.0 + it)
+        }
+        val baseline = CardioHrvBaselineEngine.baseline(history, now)
+        assertEquals(CardioAnalyticState.AVAILABLE, baseline.state)
+        val deviation = CardioHrvBaselineEngine.deviationPercent(50.0, baseline)
+        assertNotNull(deviation)
+        assertTrue(deviation > 0.0)
+
+        val building = CardioHrvBaselineEngine.baseline(history.take(2), now)
+        assertNull(CardioHrvBaselineEngine.deviationPercent(50.0, building))
     }
 
     @Test
