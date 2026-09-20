@@ -228,24 +228,106 @@ internal object CardioPersonalBaselineEngine {
 }
 
 internal object CardioHrMaxCandidateEngine {
+    private const val DEFAULT_MAX_GAP_MS = 5_000L
+    private const val DEFAULT_MIN_SUSTAINED_MS = 5_000L
+    private const val ARTIFACT_JUMP_BPM = 45
+
     fun candidate(
         configuredHrMax: Int?,
         samples: List<CardioHeartRateSample>,
         minConsecutiveSamples: Int = 3
-    ): Int? {
-        if (configuredHrMax == null || minConsecutiveSamples < 2) return null
-        val clean = samples.filter { it.isPhysiologicallyStorable }.sortedBy { it.timestampEpochMs }
-        if (clean.size < minConsecutiveSamples) return null
-        val threshold = configuredHrMax + 1
-        for (index in 0..clean.size - minConsecutiveSamples) {
-            val window = clean.subList(index, index + minConsecutiveSamples)
-            if (
-                window.all { it.bpm >= threshold } &&
-                window.zipWithNext().all { (a, b) -> b.timestampEpochMs - a.timestampEpochMs <= 10_000L }
-            ) {
-                return window.maxOf { it.bpm }
+    ): Int? = detectCandidate(
+        configuredHrMax = configuredHrMax,
+        samples = samples,
+        minConsecutiveSamples = minConsecutiveSamples
+    )?.candidateBpm
+
+    fun detectCandidate(
+        configuredHrMax: Int?,
+        samples: List<CardioHeartRateSample>,
+        minConsecutiveSamples: Int = 3,
+        minSustainedDurationMs: Long = DEFAULT_MIN_SUSTAINED_MS,
+        maxGapMs: Long = DEFAULT_MAX_GAP_MS
+    ): CardioHrMaxCandidate? {
+        val configured = configuredHrMax?.takeIf { it in CARDIO_HR_MIN_BPM..CARDIO_HR_MAX_BPM }
+            ?: return null
+        if (minConsecutiveSamples < 2 || minSustainedDurationMs < 0L || maxGapMs <= 0L) return null
+
+        val ordered = samples
+            .filter { it.isPhysiologicallyStorable }
+            .sortedBy { it.timestampEpochMs }
+        if (ordered.size < minConsecutiveSamples) return null
+
+        val artifactIndexes = mutableSetOf<Int>()
+        ordered.zipWithNext().forEachIndexed { index, (a, b) ->
+            val gap = b.timestampEpochMs - a.timestampEpochMs
+            if (gap in 1..2_000L && kotlin.math.abs(b.bpm - a.bpm) >= ARTIFACT_JUMP_BPM) {
+                artifactIndexes += index + 1
             }
         }
-        return null
+        val clean = ordered.filterIndexed { index, _ -> index !in artifactIndexes }
+        val above = clean.filter { it.bpm > configured }
+        if (above.size < minConsecutiveSamples) return null
+
+        val runs = mutableListOf<MutableList<CardioHeartRateSample>>()
+        above.forEach { sample ->
+            val current = runs.lastOrNull()
+            val last = current?.lastOrNull()
+            if (last == null || sample.timestampEpochMs - last.timestampEpochMs > maxGapMs) {
+                runs += mutableListOf(sample)
+            } else {
+                current += sample
+            }
+        }
+
+        val credible = runs
+            .filter { run ->
+                run.size >= minConsecutiveSamples &&
+                    (run.last().timestampEpochMs - run.first().timestampEpochMs) >= minSustainedDurationMs
+            }
+            .maxWithOrNull(
+                compareBy<List<CardioHeartRateSample>> { it.maxOf { sample -> sample.bpm } }
+                    .thenBy { it.size }
+            ) ?: return null
+
+        val duration = credible.last().timestampEpochMs - credible.first().timestampEpochMs
+        val kinds = credible.map { it.source.providerType }.distinct()
+        val sourceSummary = credible
+            .groupingBy { it.source.deviceName ?: it.source.sourceName }
+            .eachCount()
+            .maxByOrNull { it.value }
+            ?.key
+            ?: "Unknown source"
+
+        val directCount = credible.count {
+            it.source.transport == CardioSensorTransport.LIVE_BLE ||
+                it.source.providerType == CardioSensorProviderType.H19C ||
+                it.source.providerType == CardioSensorProviderType.BLE_HEART_RATE
+        }
+        val confidence = when {
+            artifactIndexes.isNotEmpty() -> CardioConfidence.LOW
+            directCount == credible.size && credible.size >= 6 && duration >= 10_000L -> CardioConfidence.HIGH
+            directCount == credible.size -> CardioConfidence.MODERATE
+            else -> CardioConfidence.LOW
+        }
+
+        val reasons = buildList {
+            add(credible.size.toString() + " consecutive samples exceeded configured HRmax")
+            add("Sustained for " + duration + " ms with gaps <= " + maxGapMs + " ms")
+            add("Source: " + sourceSummary)
+            if (kinds.size > 1) add("Candidate contains more than one provider type")
+            if (artifactIndexes.isNotEmpty()) add("Potential abrupt signal jump detected elsewhere in the stream")
+            add("Profile change requires explicit confirmation")
+        }
+
+        return CardioHrMaxCandidate(
+            candidateBpm = credible.maxOf { it.bpm },
+            configuredBpm = configured,
+            sustainedDurationMs = duration,
+            sampleCount = credible.size,
+            confidence = confidence,
+            sourceSummary = sourceSummary,
+            reasons = reasons
+        )
     }
 }
