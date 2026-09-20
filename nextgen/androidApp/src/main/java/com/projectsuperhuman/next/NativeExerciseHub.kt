@@ -18,6 +18,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -29,6 +30,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -229,7 +231,7 @@ private fun NativeExerciseLandingPage(
         }
 
         ExerciseModuleCard(
-            mark = "S",
+            iconRes = R.drawable.tabler_barbell,
             title = "STRENGTH",
             primary = if (strengthWeek.isEmpty()) "No strength sessions this week"
             else "${strengthWeek.size} session${if (strengthWeek.size == 1) "" else "s"} this week",
@@ -246,7 +248,7 @@ private fun NativeExerciseLandingPage(
         )
 
         ExerciseModuleCard(
-            mark = "C",
+            iconRes = R.drawable.tabler_run,
             title = "CARDIO",
             primary = if (cardioWeek.isEmpty()) "No cardio sessions this week"
             else buildString {
@@ -419,7 +421,7 @@ private fun ExerciseActiveCardioCard(
 
 @Composable
 private fun ExerciseModuleCard(
-    mark: String,
+    iconRes: Int,
     title: String,
     primary: String,
     secondary: String,
@@ -448,11 +450,11 @@ private fun ExerciseModuleCard(
                 ),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                mark,
-                color = accent,
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Black
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(22.dp)
             )
         }
 
