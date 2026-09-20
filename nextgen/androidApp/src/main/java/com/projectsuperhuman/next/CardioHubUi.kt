@@ -63,6 +63,7 @@ internal fun CardioVisualHub(
     sessions: List<CardioSession>,
     sensorMetrics: CardioLiveSensorMetrics,
     onQuickStart: (CardioActivityType) -> Unit,
+    onMoreActivities: () -> Unit,
     onSessions: () -> Unit,
     onOpenSession: (CardioSession) -> Unit,
     onFitness: () -> Unit,
@@ -121,7 +122,7 @@ internal fun CardioVisualHub(
         CardioHubSensorStrip(sensorMetrics)
 
         CardioHubSectionHeader("QUICK START", "One tap")
-        CardioHubQuickStart(onQuickStart)
+        CardioHubQuickStart(onQuickStart, onMoreActivities)
 
         if (sessions.isNotEmpty()) {
             Row(
@@ -148,8 +149,8 @@ internal fun CardioVisualHub(
             CardioHubPreviewTile(
                 glyph = CardioHubGlyph.HISTORY,
                 title = "Sessions",
-                value = sessions.size.toString(),
-                detail = "history",
+                value = model.week.sessions.toString(),
+                detail = "this week",
                 accent = superhumanBlue,
                 modifier = Modifier.weight(1f),
                 onClick = onSessions
@@ -167,8 +168,9 @@ internal fun CardioVisualHub(
             CardioHubPreviewTile(
                 glyph = CardioHubGlyph.TROPHY,
                 title = "Records",
-                value = sessions.count { it.distanceKm != null }.toString(),
-                detail = "distance efforts",
+                value = sessions.mapNotNull { it.distanceKm }.maxOrNull()
+                    ?.let { String.format(Locale.US, "%.1f", it) } ?: "—",
+                detail = "longest km",
                 accent = Color(0xFFD1A03D),
                 modifier = Modifier.weight(1f),
                 onClick = onTestsRecords
@@ -442,12 +444,16 @@ private fun CardioHubSensorStrip(metrics: CardioLiveSensorMetrics) {
 }
 
 @Composable
-private fun CardioHubQuickStart(onQuickStart: (CardioActivityType) -> Unit) {
+private fun CardioHubQuickStart(
+    onQuickStart: (CardioActivityType) -> Unit,
+    onMoreActivities: () -> Unit
+) {
     val actions = listOf(
         Triple(CardioActivityType.RUNNING, "Run", CardioHubGlyph.RUN),
         Triple(CardioActivityType.WALKING, "Walk", CardioHubGlyph.WALK),
         Triple(CardioActivityType.CYCLING, "Cycle", CardioHubGlyph.BIKE),
-        Triple(CardioActivityType.ROWING, "Row", CardioHubGlyph.MORE)
+        Triple(CardioActivityType.ROWING, "Row", CardioHubGlyph.MORE),
+        Triple(CardioActivityType.HIIT, "HIIT", CardioHubGlyph.TARGET)
     )
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -458,7 +464,8 @@ private fun CardioHubQuickStart(onQuickStart: (CardioActivityType) -> Unit) {
                 0 -> superhumanGreen
                 1 -> superhumanBlue
                 2 -> Color(0xFF8E72D8)
-                else -> Color(0xFFD1A03D)
+                3 -> Color(0xFFD1A03D)
+                else -> Color(0xFFE36E75)
             }
             Column(
                 Modifier.width(76.dp)
@@ -473,6 +480,19 @@ private fun CardioHubQuickStart(onQuickStart: (CardioActivityType) -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 Text(label, color = superhumanTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black)
             }
+        }
+        Column(
+            Modifier.width(76.dp)
+                .heightIn(min = 72.dp)
+                .background(superhumanSurfaceSoft, RoundedCornerShape(18.dp))
+                .clickable { onMoreActivities() }
+                .padding(10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            CardioHubGlyphIcon(CardioHubGlyph.MORE, superhumanTextMuted, Modifier.size(24.dp))
+            Spacer(Modifier.height(6.dp))
+            Text("More", color = superhumanTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
     }
 }
