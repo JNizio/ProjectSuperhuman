@@ -15,25 +15,30 @@ internal class CardioNof1Repository(
         val ordered = samples.sortedBy { it.timestampEpochMs }
         val rows = ordered.mapIndexed { index, sample ->
             val quality = classifyHeartRate(sample, ordered.getOrNull(index - 1))
-            HealthValue(
-                domain = HealthDomain.EXERCISE,
-                metric = "cardio_hr_sample_bpm",
-                value = sample.bpm.toDouble(),
+            val provenance = CardioProvenanceCodec.fromSensor(sample.source)
+            val raw = CardioRawObservation(
+                sessionId = sessionId,
+                metricId = "cardio_hr_sample_bpm",
+                originalTimestampEpochMs = sample.timestampEpochMs,
+                originalValue = sample.bpm.toDouble(),
+                canonicalValue = sample.bpm.toDouble(),
                 unit = "bpm",
-                timestampEpochMs = sample.timestampEpochMs,
-                source = sample.source.sourceName.ifBlank { "cardio-sensor" },
-                metadata = buildMap {
-                    put(
-                        "sourceRecordId",
-                        "cardio-hr:" + sessionId + ":" + sample.timestampEpochMs + ":" + index
-                    )
-                    put("sessionId", sessionId)
-                    put("valueClass", CardioValueClass.MEASURED.name)
-                    put("quality", quality.name)
+                ingestionTimestampEpochMs = sample.importedAtEpochMs ?: sample.receivedAtEpochMs,
+                provenance = provenance,
+                quality = quality,
+                exclusionReason = when (quality) {
+                    CardioObservationQuality.INVALID -> "Outside physiologically storable HR range"
+                    CardioObservationQuality.STALE -> "Observation arrived after freshness window"
+                    CardioObservationQuality.SUSPECT_OUTLIER -> "Abrupt adjacent heart-rate jump"
+                    else -> null
+                }
+            )
+            raw.toHealthValue().copy(
+                metadata = raw.toHealthValue().metadata + buildMap {
                     put("receivedAtEpochMs", sample.receivedAtEpochMs.toString())
                     sample.importedAtEpochMs?.let { put("importedAtEpochMs", it.toString()) }
                     put("timeBasis", sample.timeBasis.name)
-                    put("algorithmVersion", CARDIO_NOF1_ALGORITHM_VERSION)
+                    put("sampleOrdinal", index.toString())
                     putAll(sample.source.toMetadata("sensor"))
                 }
             )
@@ -52,24 +57,26 @@ internal class CardioNof1Repository(
             } else {
                 CardioObservationQuality.INVALID
             }
-            HealthValue(
-                domain = HealthDomain.EXERCISE,
-                metric = "cardio_rr_interval_ms",
-                value = sample.rrMs,
+            val provenance = CardioProvenanceCodec.fromSensor(sample.source)
+            val raw = CardioRawObservation(
+                sessionId = sessionId,
+                metricId = "cardio_rr_interval_ms",
+                originalTimestampEpochMs = sample.timestampEpochMs,
+                originalValue = sample.rrMs,
+                canonicalValue = sample.rrMs,
                 unit = "ms",
-                timestampEpochMs = sample.timestampEpochMs,
-                source = sample.source.sourceName.ifBlank { "cardio-sensor" },
-                metadata = buildMap {
-                    put(
-                        "sourceRecordId",
-                        "cardio-rr:" + sessionId + ":" + sample.timestampEpochMs + ":" + index
-                    )
-                    put("sessionId", sessionId)
-                    put("valueClass", CardioValueClass.MEASURED.name)
-                    put("quality", quality.name)
+                ingestionTimestampEpochMs = sample.receivedAtEpochMs,
+                provenance = provenance,
+                quality = quality,
+                exclusionReason = if (quality == CardioObservationQuality.INVALID) {
+                    "Outside physiologically storable RR interval range"
+                } else null
+            )
+            raw.toHealthValue().copy(
+                metadata = raw.toHealthValue().metadata + buildMap {
                     put("receivedAtEpochMs", sample.receivedAtEpochMs.toString())
                     put("correctionApplied", sample.correctionApplied.toString())
-                    put("algorithmVersion", CARDIO_NOF1_ALGORITHM_VERSION)
+                    put("sampleOrdinal", index.toString())
                     putAll(sample.source.toMetadata("sensor"))
                 }
             )
@@ -82,28 +89,24 @@ internal class CardioNof1Repository(
         metric: CardioDerivedMetric,
         timestampEpochMs: Long = nowEpochMs()
     ): CardioWriteResult {
-        val value = metric.value ?: return CardioWriteResult(false, "Derived metric is unavailable")
-        val sourceRecordId = "cardio-derived:" + metric.metricId + ":" +
-            (sessionId ?: "global") + ":" + timestampEpochMs
-        val row = HealthValue(
-            domain = HealthDomain.EXERCISE,
-            metric = metric.metricId,
-            value = value,
-            unit = metric.unit,
-            timestampEpochMs = timestampEpochMs,
-            source = "cardio-derived",
-            metadata = buildMap {
-                put("sourceRecordId", sourceRecordId)
-                sessionId?.let { put("sessionId", it) }
-                put("valueClass", metric.valueClass.name)
-                put("confidence", metric.confidence.name)
-                put("algorithmVersion", metric.algorithmVersion)
-                put("requiredInputs", metric.requiredInputs.joinToString(","))
-                metric.caveat?.let { put("caveat", it) }
-                put("trudyEvidence", "true")
-            }
-        )
+        val row = CardioDerivedEvidenceCodec.toHealthValue(
+            sessionId = sessionId,
+            metric = metric.copy(generatedAtEpochMs = metric.generatedAtEpochMs ?: timestampEpochMs),
+            effectiveTimestampEpochMs = timestampEpochMs
+        ) ?: return CardioWriteResult(false, "Derived metric is unavailable")
         return ingest(listOf(row), metric.metricId)
+    }
+
+    suspend fun publishRecomputed(report: CardioRecomputeReport): CardioWriteResult {
+        val rows = report.outputs.mapNotNull { output ->
+            CardioDerivedEvidenceCodec.toHealthValue(
+                sessionId = output.sessionId,
+                metric = output.metric,
+                effectiveTimestampEpochMs = output.effectiveTimestampEpochMs
+            )
+        }
+        if (rows.isEmpty()) return CardioWriteResult(true, "No recomputed metrics to persist")
+        return ingest(rows, "recomputed cardio metrics")
     }
 
     suspend fun publishOverview(

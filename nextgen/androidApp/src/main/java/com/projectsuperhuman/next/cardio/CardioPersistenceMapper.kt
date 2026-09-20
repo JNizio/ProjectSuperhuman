@@ -42,7 +42,7 @@ internal fun cardioSessionFromValue(row: HealthValue): CardioSession {
         }
     }
 
-    return CardioSession(
+    val decoded = CardioSession(
         id = meta["sessionId"].orEmpty().ifBlank { "legacy-cardio-" + row.timestampEpochMs },
         activity = CardioActivityType.fromStored(meta["activityType"]),
         startedAt = started,
@@ -72,6 +72,7 @@ internal fun cardioSessionFromValue(row: HealthValue): CardioSession {
         schemaVersion = i("cardioSchemaVersion") ?: 1,
         extensions = extensions
     )
+    return CardioSessionSchemaMigration.migrate(decoded).session
 }
 
 internal fun CardioSession.toHealthValue(): HealthValue {
