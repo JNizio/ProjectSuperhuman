@@ -317,24 +317,28 @@ private fun CardioHubSignalDots(available: Int, total: Int, accent: Color) {
 private fun CardioHubWeekCard(week: CardioWeekIntentSnapshot, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
-            .background(superhumanSurface, RoundedCornerShape(22.dp))
+            .background(superhumanSurface, RoundedCornerShape(18.dp))
             .clickable { onClick() }
             .semantics {
                 role = Role.Button
                 contentDescription = "This week. ${week.minutes} minutes, ${week.sessions} sessions, ${week.zone2Minutes} Zone 2 minutes."
             }
-            .padding(14.dp),
+            .padding(horizontal = 13.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         CardioHubWeekRing(week)
-        Spacer(Modifier.width(14.dp))
-        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.SpaceBetween) {
-            CardioHubCompactStat("SESSIONS", week.sessions.toString())
-            CardioHubCompactStat("ZONE 2", "${week.zone2Minutes}m")
-            CardioHubCompactStat(
-                "GOAL",
-                week.targetMinutes?.let { "${week.minutes}/$it" } ?: "SET ›",
-                accent = if (week.targetMinutes == null) Color(0xFF8E72D8) else superhumanTextPrimary
+        Spacer(Modifier.width(12.dp))
+        CardioHubCompactStat("SESSIONS", week.sessions.toString())
+        Spacer(Modifier.weight(1f))
+        CardioHubCompactStat("ZONE 2", "${week.zone2Minutes}m")
+        Spacer(Modifier.weight(1f))
+        Column(horizontalAlignment = Alignment.End) {
+            Text("THIS WEEK", color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+            Text(
+                week.targetMinutes?.let { "${week.minutes}/$it min" } ?: "SET GOAL ›",
+                color = if (week.targetMinutes == null) Color(0xFF8E72D8) else superhumanTextPrimary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black
             )
         }
     }
@@ -342,9 +346,9 @@ private fun CardioHubWeekCard(week: CardioWeekIntentSnapshot, onClick: () -> Uni
 
 @Composable
 private fun CardioHubWeekRing(week: CardioWeekIntentSnapshot) {
-    Box(Modifier.size(72.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(72.dp)) {
-            val stroke = 7.dp.toPx()
+    Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.size(56.dp)) {
+            val stroke = 5.dp.toPx()
             drawArc(
                 color = superhumanBorder.copy(alpha = .55f),
                 startAngle = -90f,
@@ -363,8 +367,8 @@ private fun CardioHubWeekRing(week: CardioWeekIntentSnapshot) {
             }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(week.minutes.toString(), color = superhumanTextPrimary, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            Text("MIN", color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+            Text(week.minutes.toString(), color = superhumanTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Black)
+            Text("MIN", color = superhumanTextMuted, fontSize = 6.sp, fontWeight = FontWeight.Black)
         }
     }
 }
@@ -375,94 +379,147 @@ private fun CardioHubSensorStrip(metrics: CardioLiveSensorMetrics) {
     val accent = if (connected) superhumanGreen else superhumanBlue
     Row(
         Modifier.fillMaxWidth()
-            .heightIn(min = 50.dp)
-            .background(superhumanSurfaceSoft, RoundedCornerShape(16.dp))
+            .heightIn(min = 44.dp)
             .clickable { SmartDevicesNavigationBridge.open?.invoke() }
             .semantics {
                 role = Role.Button
                 contentDescription = cardioProductSensorStatus(metrics) + ". Manage devices."
             }
-            .padding(horizontal = 12.dp, vertical = 9.dp),
+            .padding(horizontal = 2.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        CardioHubIconBadge(CardioHubGlyph.SENSOR, accent)
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(
-                if (connected) metrics.sourceLabel.ifBlank { "Live HR sensor" } else "No live HR sensor",
-                color = superhumanTextPrimary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                if (connected) {
-                    listOfNotNull(
-                        metrics.currentHeartRateBpm?.let { "$it bpm" },
-                        metrics.currentZone?.let { "Zone $it" }
-                    ).joinToString(" · ").ifBlank { "Connected" }
-                } else {
-                    "Smart Devices"
-                },
-                color = superhumanTextMuted,
-                fontSize = 8.sp
-            )
-        }
+        CardioHubGlyphIcon(CardioHubGlyph.SENSOR, accent, Modifier.size(18.dp))
+        Spacer(Modifier.width(9.dp))
+        Text(
+            if (connected) {
+                buildList {
+                    add(metrics.sourceLabel.ifBlank { "Live HR sensor" })
+                    metrics.currentHeartRateBpm?.let { add("$it bpm") }
+                    metrics.currentZone?.let { add("Z$it") }
+                }.joinToString(" · ")
+            } else {
+                "No live HR sensor"
+            },
+            color = superhumanTextPrimary,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f)
+        )
         Text("MANAGE ›", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black)
     }
 }
 
 @Composable
-private fun CardioHubQuickStart(
-    onQuickStart: (CardioActivityType) -> Unit,
-    onMoreActivities: () -> Unit
-) {
+private fun CardioHubQuickStart(onQuickStart: (CardioActivityType) -> Unit) {
     val actions = listOf(
         Triple(CardioActivityType.RUNNING, "Run", CardioHubGlyph.RUN),
         Triple(CardioActivityType.WALKING, "Walk", CardioHubGlyph.WALK),
         Triple(CardioActivityType.CYCLING, "Cycle", CardioHubGlyph.BIKE),
-        Triple(CardioActivityType.ROWING, "Row", CardioHubGlyph.MORE),
-        Triple(CardioActivityType.HIIT, "HIIT", CardioHubGlyph.TARGET)
+        Triple(CardioActivityType.ROWING, "Row", CardioHubGlyph.ROW)
     )
     Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(9.dp)
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         actions.forEachIndexed { index, (activity, label, glyph) ->
             val accent = when (index) {
                 0 -> superhumanGreen
                 1 -> superhumanBlue
                 2 -> Color(0xFF8E72D8)
-                3 -> Color(0xFFD1A03D)
-                else -> Color(0xFFE36E75)
+                else -> Color(0xFFD1A03D)
             }
             Column(
-                Modifier.width(76.dp)
-                    .heightIn(min = 72.dp)
-                    .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .14f else .08f), RoundedCornerShape(18.dp))
+                Modifier.weight(1f)
+                    .heightIn(min = 70.dp)
+                    .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .12f else .07f), RoundedCornerShape(17.dp))
                     .clickable { onQuickStart(activity) }
-                    .padding(10.dp),
+                    .padding(horizontal = 6.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
-                CardioHubGlyphIcon(glyph, accent, Modifier.size(24.dp))
-                Spacer(Modifier.height(6.dp))
-                Text(label, color = superhumanTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                CardioHubGlyphIcon(glyph, accent, Modifier.size(23.dp))
+                Spacer(Modifier.height(5.dp))
+                Text(label, color = superhumanTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Black)
             }
         }
-        Column(
-            Modifier.width(76.dp)
-                .heightIn(min = 72.dp)
-                .background(superhumanSurfaceSoft, RoundedCornerShape(18.dp))
-                .clickable { onMoreActivities() }
-                .padding(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            CardioHubGlyphIcon(CardioHubGlyph.MORE, superhumanTextMuted, Modifier.size(24.dp))
-            Spacer(Modifier.height(6.dp))
-            Text("More", color = superhumanTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun CardioHubDeepDiveBar(
+    sessionsThisWeek: Int,
+    loadValue: Int?,
+    longestDistanceKm: Double?,
+    onSessions: () -> Unit,
+    onTrends: () -> Unit,
+    onRecords: () -> Unit
+) {
+    Column(
+        Modifier.fillMaxWidth()
+            .background(superhumanSurface, RoundedCornerShape(18.dp))
+            .padding(horizontal = 10.dp, vertical = 9.dp)
+    ) {
+        Text("EXPLORE", color = superhumanTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+        Spacer(Modifier.height(6.dp))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            CardioHubDeepDiveItem(
+                glyph = CardioHubGlyph.HISTORY,
+                title = "Sessions",
+                value = "$sessionsThisWeek wk",
+                accent = superhumanBlue,
+                modifier = Modifier.weight(1f),
+                onClick = onSessions
+            )
+            CardioHubMiniDivider()
+            CardioHubDeepDiveItem(
+                glyph = CardioHubGlyph.LOAD,
+                title = "Trends",
+                value = loadValue?.toString() ?: "—",
+                accent = Color(0xFF8E72D8),
+                modifier = Modifier.weight(1f),
+                onClick = onTrends
+            )
+            CardioHubMiniDivider()
+            CardioHubDeepDiveItem(
+                glyph = CardioHubGlyph.TROPHY,
+                title = "Records",
+                value = longestDistanceKm?.let { String.format(Locale.US, "%.1f km", it) } ?: "—",
+                accent = Color(0xFFD1A03D),
+                modifier = Modifier.weight(1f),
+                onClick = onRecords
+            )
         }
     }
+}
+
+@Composable
+private fun CardioHubDeepDiveItem(
+    glyph: CardioHubGlyph,
+    title: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier.heightIn(min = 50.dp)
+            .clickable { onClick() }
+            .padding(horizontal = 6.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CardioHubGlyphIcon(glyph, accent, Modifier.size(17.dp))
+        Spacer(Modifier.width(7.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = superhumanTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            Text(value, color = superhumanTextMuted, fontSize = 7.sp)
+        }
+        Text("›", color = accent, fontSize = 16.sp)
+    }
+}
+
+@Composable
+private fun CardioHubMiniDivider() {
+    Box(Modifier.width(1.dp).height(34.dp).background(superhumanBorder.copy(alpha = .5f)))
 }
 
 @Composable
@@ -892,6 +949,15 @@ private fun CardioHubGlyphIcon(glyph: CardioHubGlyph, tint: Color, modifier: Mod
                 drawLine(tint, Offset(w * .58f, h * .68f), Offset(w * .25f, h * .68f), s)
                 drawLine(tint, Offset(w * .58f, h * .68f), Offset(w * .75f, h * .68f), s)
                 drawLine(tint, Offset(w * .45f, h * .43f), Offset(w * .41f, h * .31f), s)
+            }
+            CardioHubGlyph.ROW -> {
+                drawLine(tint, Offset(w * .18f, h * .72f), Offset(w * .82f, h * .72f), s, StrokeCap.Round)
+                drawLine(tint, Offset(w * .34f, h * .55f), Offset(w * .64f, h * .55f), s, StrokeCap.Round)
+                drawCircle(tint, w * .07f, Offset(w * .43f, h * .28f))
+                drawLine(tint, Offset(w * .43f, h * .36f), Offset(w * .52f, h * .55f), s, StrokeCap.Round)
+                drawLine(tint, Offset(w * .49f, h * .43f), Offset(w * .70f, h * .32f), s, StrokeCap.Round)
+                drawLine(tint, Offset(w * .70f, h * .32f), Offset(w * .84f, h * .76f), s * .75f, StrokeCap.Round)
+                drawLine(tint, Offset(w * .52f, h * .55f), Offset(w * .67f, h * .72f), s, StrokeCap.Round)
             }
             CardioHubGlyph.HISTORY -> {
                 drawCircle(tint, w * .33f, center, style = Stroke(s))
