@@ -146,7 +146,8 @@ internal fun CardioVisualHub(
             model = model,
             goals = goals,
             onEditGoals = { sheet = CardioHubSheet.GOALS },
-            onReadiness = { sheet = CardioHubSheet.READINESS }
+            onReadiness = { sheet = CardioHubSheet.READINESS },
+            onLog = onLog
         )
 
         CardioHubSensorStrip(sensorMetrics)
@@ -362,7 +363,8 @@ private fun CardioHubOverviewPanel(
     model: CardioProductOverviewModel,
     goals: CardioHubGoals,
     onEditGoals: () -> Unit,
-    onReadiness: () -> Unit
+    onReadiness: () -> Unit,
+    onLog: () -> Unit
 ) {
     var metric by remember { mutableStateOf(CardioHubProgressMetric.DISTANCE) }
     var range by remember { mutableStateOf(CardioHubProgressRange.WEEKS_8) }
@@ -424,7 +426,8 @@ private fun CardioHubOverviewPanel(
         CardioHubProgressChart(
             points = points,
             metric = metric,
-            modifier = Modifier.fillMaxWidth().height(150.dp)
+            modifier = Modifier.fillMaxWidth().height(150.dp),
+            onLog = onLog
         )
 
         Row(
@@ -575,17 +578,52 @@ private fun CardioHubRangeChip(
 private fun CardioHubProgressChart(
     points: List<CardioHubProgressPoint>,
     metric: CardioHubProgressMetric,
-    modifier: Modifier
+    modifier: Modifier,
+    onLog: () -> Unit
 ) {
     val values = points.mapNotNull { it.value }
     Column(Modifier.fillMaxWidth()) {
         if (values.isEmpty()) {
-            Box(
+            Column(
                 modifier
-                    .background(superhumanSurfaceSoft, RoundedCornerShape(14.dp)),
-                contentAlignment = Alignment.Center
+                    .background(superhumanSurfaceSoft, RoundedCornerShape(14.dp))
+                    .padding(horizontal = 18.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Text("No data yet", color = superhumanTextMuted, fontSize = 10.sp)
+                CardioHubGlyphIcon(
+                    CardioHubGlyph.TREND,
+                    metric.accent,
+                    Modifier.size(24.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Log cardio sessions to see your progress",
+                    color = superhumanTextPrimary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Your ${metric.shortLabel.lowercase(Locale.US)} trend will appear here.",
+                    color = superhumanTextMuted,
+                    fontSize = 8.sp
+                )
+                Spacer(Modifier.height(12.dp))
+                Box(
+                    Modifier
+                        .background(metric.accent.copy(alpha = .16f), RoundedCornerShape(12.dp))
+                        .clickable { onLog() }
+                        .padding(horizontal = 18.dp, vertical = 9.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        "Log a workout",
+                        color = metric.accent,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
             }
             return@Column
         }
