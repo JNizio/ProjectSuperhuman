@@ -967,7 +967,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                 workoutExercises.removeAll { it.id == exercise.id }
                                 if (selected?.id == exercise.id) selected = workoutExercises.firstOrNull()
                                 writeActiveDraft()
-                            }
+                            },
                             order = index + 1
                         )
                     }
