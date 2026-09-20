@@ -1150,7 +1150,7 @@ private fun CardioMetric(label: String, value: String, detail: String, accent: C
 
 
 private enum class CardioUiIcon {
-    ADD, HISTORY, PROGRESS, TROPHY, PLAY, PAUSE, STOP, LAP
+    ADD, HISTORY, PROGRESS, TROPHY, PLAY, PAUSE, STOP, LAP, DELETE
 }
 
 @Composable
@@ -1227,6 +1227,17 @@ private fun CardioVectorIcon(
                     close()
                 }
                 drawPath(flag, tint)
+            }
+            CardioUiIcon.DELETE -> {
+                drawRoundRect(
+                    tint,
+                    topLeft = androidx.compose.ui.geometry.Offset(w * .31f, h * .31f),
+                    size = androidx.compose.ui.geometry.Size(w * .38f, h * .48f),
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(stroke * .55f, stroke * .55f),
+                    style = Stroke(stroke * .78f)
+                )
+                drawLine(tint, androidx.compose.ui.geometry.Offset(w * .25f, h * .25f), androidx.compose.ui.geometry.Offset(w * .75f, h * .25f), strokeWidth = stroke, cap = StrokeCap.Round)
+                drawLine(tint, androidx.compose.ui.geometry.Offset(w * .40f, h * .16f), androidx.compose.ui.geometry.Offset(w * .60f, h * .16f), strokeWidth = stroke, cap = StrokeCap.Round)
             }
         }
     }
