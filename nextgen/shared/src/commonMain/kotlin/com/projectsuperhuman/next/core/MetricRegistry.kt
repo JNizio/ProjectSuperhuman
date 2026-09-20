@@ -181,6 +181,8 @@ object CoreMetricRegistry : MetricRegistry {
         MetricDefinition("cardio_chronic_training_load", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
         MetricDefinition("cardio_acute_training_load", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
         MetricDefinition("cardio_training_stress_balance", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true),
+        // Persisted experiment protocols are records, not physiological measurements.
+        MetricDefinition("cardio_experiment_protocol", HealthDomain.EXERCISE, "protocol", aggregation = MetricAggregation.NONE),
 
         // Hydration. Intake events are signed because corrections subtract from a day.
         MetricDefinition("water_intake_ml", HealthDomain.HYDRATION, "ml", aliases = setOf("hydration_intake_ml"), aggregation = MetricAggregation.SUM, minAccepted = -10_000.0, maxAccepted = 10_000.0),

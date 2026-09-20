@@ -144,7 +144,16 @@ internal data class CardioRecoveryContext(
     val hrvRmssdMs: Double? = null,
     val hrvBaselineRmssdMs: Double? = null,
     val sleepScore: Double? = null,
-    val trainingStressBalance: Double? = null
+    val trainingStressBalance: Double? = null,
+    val sleepDurationMinutes: Double? = null,
+    val sleepObservedAtEpochMs: Long? = null,
+    val bodyWeightKg: Double? = null,
+    val bodyWeightObservedAtEpochMs: Long? = null,
+    val stressScore0To10: Double? = null,
+    val stressObservedAtEpochMs: Long? = null,
+    val environmentTemperatureC: Double? = null,
+    val environmentRelativeHumidityPct: Double? = null,
+    val environmentObservedAtEpochMs: Long? = null
 )
 
 internal data class CardioReadinessSnapshot(
