@@ -61,6 +61,7 @@ internal object CardioSensorRuntime {
     private var selectedType: CardioSensorProviderType = CardioSensorProviderType.NONE
     private var providerStateJob: Job? = null
     private var providerSamplesJob: Job? = null
+    private var providerRrSamplesJob: Job? = null
     private var freshnessJob: Job? = null
     private var bleDevicesJob: Job? = null
     private var bleStateJob: Job? = null
@@ -243,6 +244,10 @@ internal object CardioSensorRuntime {
     fun snapshot(nowEpochMs: Long = System.currentTimeMillis()): CardioHeartRateSummary =
         if (activeSessionId != null) collector.snapshot(nowEpochMs) else lastStoppedSummary
 
+    fun rawHeartRateSamples(): List<CardioHeartRateSample> = collector.rawHeartRateSamples()
+
+    fun rawRrIntervals(): List<CardioRrIntervalSample> = collector.rawRrIntervals()
+
     fun setZoneScheme(zoneScheme: CardioHrZoneScheme) {
         collector.setZoneScheme(zoneScheme)
         refreshLiveMetrics(System.currentTimeMillis())
@@ -251,6 +256,7 @@ internal object CardioSensorRuntime {
     private fun bindProvider(type: CardioSensorProviderType, persist: Boolean) {
         providerStateJob?.cancel()
         providerSamplesJob?.cancel()
+        providerRrSamplesJob?.cancel()
 
         selectedType = when (type) {
             CardioSensorProviderType.HEALTH_CONNECT -> CardioSensorProviderType.NONE
@@ -285,6 +291,13 @@ internal object CardioSensorRuntime {
             provider.heartRateSamples.collect { sample ->
                 collector.accept(sample)
                 refreshLiveMetrics(sample.timestampEpochMs)
+            }
+        }
+        if (provider is GenericBleHeartRateProvider) {
+            providerRrSamplesJob = scope.launch {
+                provider.rrIntervalSamples.collect { sample ->
+                    collector.acceptRr(sample)
+                }
             }
         }
 
