@@ -191,6 +191,7 @@ private fun SuperhumanShell(
 
             ShellBottomNavigation(
                 selectedPage = page,
+                onHome = { page = ShellPage.HOME },
                 onBody = { page = ShellPage.BODY },
                 onTrudy = { page = ShellPage.TRUDY },
                 onSettings = { page = ShellPage.SETTINGS },
@@ -280,6 +281,7 @@ private fun NativeHomeTitle() {
 @Composable
 private fun ShellBottomNavigation(
     selectedPage: ShellPage,
+    onHome: () -> Unit,
     onBody: () -> Unit,
     onTrudy: () -> Unit,
     onSettings: () -> Unit,
@@ -299,6 +301,13 @@ private fun ShellBottomNavigation(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        ShellBottomItem(
+            label = "Home",
+            selected = selectedPage == ShellPage.HOME,
+            accent = superhumanBlue,
+            onClick = onHome,
+            icon = { color -> ShellTablerIcon(R.drawable.tabler_home, color) }
+        )
         ShellBottomItem(
             label = "Body",
             selected = selectedPage == ShellPage.BODY,
