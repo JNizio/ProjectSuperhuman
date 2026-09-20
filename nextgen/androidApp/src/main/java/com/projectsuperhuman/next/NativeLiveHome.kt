@@ -278,8 +278,7 @@ internal fun NativeLiveHome(
             Modifier.fillMaxWidth().padding(horizontal = 17.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            HomeDateStrip()
-            HomeMiniMetricsGrid(openMiniMetric)
+            HomeSummaryBar(openMiniMetric)
 
             tileOrder.forEach { tile ->
                 key(tile) {
