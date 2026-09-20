@@ -181,8 +181,11 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             formLiveEndedAt = session.endedAt
             formLiveSessionId = session.id
             formLivePausedSeconds = session.pausedDurationSeconds
+            formDistanceKm = session.distanceKm?.let(::cardioFormatNumber).orEmpty()
             formAvgHr = session.avgHeartRate?.toString().orEmpty()
             formMaxHr = session.maxHeartRate?.toString().orEmpty()
+            formElevation = session.elevationGainM?.let(::cardioFormatNumber).orEmpty()
+            formCadence = session.cadence?.toString().orEmpty()
             if (session.zoneSeconds.isNotEmpty()) {
                 showZones = true
                 for (i in zoneMinutes.indices) {
