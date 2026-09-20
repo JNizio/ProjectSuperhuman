@@ -585,18 +585,36 @@ internal object CardioStructuredWorkoutEngine {
             CardioStructuredTargetType.DISTANCE -> target.distanceMeters?.let { coveredMeters >= it } == true
             else -> false
         }
-        val nextState = if (stepComplete) {
+        if (stepComplete) {
             if (state.stepIndex + 1 >= state.flattenedSteps.size) {
-                state.copy(completed = true)
-            } else {
-                state.copy(
-                    stepIndex = state.stepIndex + 1,
-                    stepStartedAtEpochMs = nowEpochMs,
-                    stepStartedDistanceMeters = totalDistanceMeters
-                )
+                return CardioStructuredProgress(state.copy(completed = true))
             }
-        } else state
-        return CardioStructuredProgress(nextState, remainingSeconds, remainingMeters, targetMet)
+            val nextStartedAt = when (target.type) {
+                CardioStructuredTargetType.TIME ->
+                    state.stepStartedAtEpochMs + (target.durationSeconds ?: 0).coerceAtLeast(0) * 1000L
+                else -> nowEpochMs
+            }
+            val nextStartedDistance = when (target.type) {
+                CardioStructuredTargetType.DISTANCE ->
+                    state.stepStartedDistanceMeters + (target.distanceMeters ?: 0.0).coerceAtLeast(0.0)
+                else -> totalDistanceMeters
+            }
+            val nextState = state.copy(
+                stepIndex = state.stepIndex + 1,
+                stepStartedAtEpochMs = nextStartedAt,
+                stepStartedDistanceMeters = nextStartedDistance
+            )
+            // Re-evaluate immediately so long background gaps can advance across more than one
+            // completed time/distance step without discarding the elapsed evidence.
+            return update(
+                nextState,
+                nowEpochMs,
+                totalDistanceMeters,
+                currentHrZone,
+                currentPaceSecondsPerKm
+            )
+        }
+        return CardioStructuredProgress(state, remainingSeconds, remainingMeters, targetMet)
     }
 
     private fun flatten(nodes: List<CardioStructuredNode>): List<CardioStructuredNode.Step> =
