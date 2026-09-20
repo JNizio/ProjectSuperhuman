@@ -84,6 +84,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var confirmDiscard by remember { mutableStateOf(false) }
     var confirmHomeFinish by remember { mutableStateOf(false) }
     var liveAutoPauseEnabled by remember { mutableStateOf(false) }
+    var showLiveOptions by remember { mutableStateOf(false) }
 
     var liveActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
     var liveWorkoutType by remember { mutableStateOf(CardioWorkoutType.FREE) }
@@ -428,6 +429,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             }
                         }
                     },
+                    onMoreActivities = { screen = CardioScreen.PICK_ACTIVITY },
                     onSessions = { screen = CardioScreen.HISTORY },
                     onOpenSession = { session ->
                         selectedSessionId = session.id
@@ -497,50 +499,40 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                         onLap = { cardioViewModel.manualLap() },
                         onFinish = { prepareFinishedLive() }
                     )
-                    CardioSection("WORKOUT STATE", "Recording and pause time are tracked independently") {
-                        Text(
-                            "Started " + Instant.ofEpochMilli(draft.startedAtEpochMs)
-                                .atZone(ZoneId.systemDefault()).toLocalDateTime()
-                                .format(cardioDateTimeFormatter),
-                            color = CardioInk,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            "Active " + cardioFormatDuration(cardioState.liveElapsedSeconds) +
-                                " · paused " + cardioFormatDuration(cardioState.pausedElapsedSeconds),
-                            color = CardioMuted,
-                            fontSize = 10.sp
-                        )
-                        if (CardioGpsProcessor.gpsEligible(draft.activity)) {
-                            Spacer(Modifier.height(9.dp))
-                            CardioActionCompact(
-                                if (liveAutoPauseEnabled) "Auto-pause: on" else "Auto-pause: off",
-                                "Optional speed hysteresis with debounce; stopped time remains preserved",
-                                CardioBlue
-                            ) {
-                                liveAutoPauseEnabled = !liveAutoPauseEnabled
-                                cardioViewModel.setAutoPauseEnabled(liveAutoPauseEnabled)
-                            }
-                        }
-                        Spacer(Modifier.height(9.dp))
-                        CardioActionCompact(
-                            if (confirmDiscard) "Confirm discard" else "Discard workout",
-                            if (confirmDiscard) {
-                                "This permanently removes the recoverable live draft"
-                            } else {
-                                "Stop without saving this workout"
-                            },
-                            CardioCoral
-                        ) {
-                            if (confirmDiscard) {
-                                cardioViewModel.discardLive {
-                                    confirmDiscard = false
-                                    screen = CardioScreen.HOME
+                    CardioActionCompact(
+                        if (showLiveOptions) "Hide workout options" else "Workout options",
+                        "Paused " + cardioFormatDuration(cardioState.pausedElapsedSeconds) +
+                            if (liveAutoPauseEnabled) " · auto-pause on" else "",
+                        CardioBlue
+                    ) {
+                        showLiveOptions = !showLiveOptions
+                    }
+                    if (showLiveOptions) {
+                        CardioSection("OPTIONS", "") {
+                            if (CardioGpsProcessor.gpsEligible(draft.activity)) {
+                                CardioActionCompact(
+                                    if (liveAutoPauseEnabled) "Auto-pause: on" else "Auto-pause: off",
+                                    "Speed-based pause with stopped time preserved",
+                                    CardioBlue
+                                ) {
+                                    liveAutoPauseEnabled = !liveAutoPauseEnabled
+                                    cardioViewModel.setAutoPauseEnabled(liveAutoPauseEnabled)
                                 }
-                            } else {
-                                confirmDiscard = true
+                            }
+                            CardioActionCompact(
+                                if (confirmDiscard) "Confirm discard" else "Discard workout",
+                                if (confirmDiscard) "Tap again to discard the recoverable draft" else "Stop without saving",
+                                CardioCoral
+                            ) {
+                                if (confirmDiscard) {
+                                    cardioViewModel.discardLive {
+                                        confirmDiscard = false
+                                        showLiveOptions = false
+                                        screen = CardioScreen.HOME
+                                    }
+                                } else {
+                                    confirmDiscard = true
+                                }
                             }
                         }
                     }
