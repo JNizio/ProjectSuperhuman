@@ -32,10 +32,13 @@ internal class CardioSessionService : Service() {
     private lateinit var store: CardioSessionStore
     private lateinit var controller: CardioLiveSessionController
     private lateinit var coordinator: CardioSessionCoordinator
+    private val nof1Repository = CardioNof1Repository()
 
     override fun onCreate() {
         super.onCreate()
         NativeDataHub.initialize(applicationContext)
+        CardioSensorRuntime.initialize(applicationContext)
+        CardioGpsRuntime.initialize(applicationContext)
         store = DataStoreCardioSessionStore(applicationContext)
         controller = CardioLiveSessionController()
         coordinator = CardioSessionCoordinator(
@@ -50,12 +53,45 @@ internal class CardioSessionService : Service() {
         startForeground(NOTIFICATION_ID, buildNotification(null, "Cardio session active"))
 
         scope.launch {
+            store.load().draft?.let(::ensureRuntimeOwnership)
             when (intent?.action) {
-                ACTION_PAUSE -> coordinator.pause()
-                ACTION_RESUME -> coordinator.resume()
+                ACTION_PAUSE -> {
+                    coordinator.pause()
+                    val now = System.currentTimeMillis()
+                    CardioSensorRuntime.pauseSession(now)
+                    CardioGpsRuntime.pause(now, manual = true)
+                }
+                ACTION_RESUME -> {
+                    coordinator.resume()
+                    val now = System.currentTimeMillis()
+                    CardioSensorRuntime.resumeSession(now)
+                    CardioGpsRuntime.resume(now, manual = true)
+                }
                 ACTION_FINISH -> {
-                    val result = coordinator.quickSave()
-                    if (result.success) {
+                    var heartRateSamples: List<CardioHeartRateSample> = emptyList()
+                    var rrIntervals: List<CardioRrIntervalSample> = emptyList()
+                    var telemetry: CardioLiveTelemetrySnapshot? = null
+                    val result = coordinator.quickSave { session ->
+                        CardioSensorRuntime.pauseSession(session.endedAt)
+                        CardioGpsRuntime.pause(session.endedAt, manual = true)
+                        val summary = CardioSensorRuntime.snapshot(session.endedAt)
+                            .takeIf { it.sampleCount > 0 }
+                        telemetry = CardioGpsRuntime.snapshot(session.endedAt)
+                        heartRateSamples = CardioSensorRuntime.rawHeartRateSamples()
+                        rrIntervals = CardioSensorRuntime.rawRrIntervals()
+                        var enriched = summary?.let(session::withCardioHeartRateSummary) ?: session
+                        enriched = CardioGpsRuntime.enrichSession(enriched, telemetry)
+                        enriched
+                    }
+                    if (result.success && result.session != null) {
+                        nof1Repository.persistLiveTelemetry(
+                            result.session,
+                            heartRateSamples,
+                            rrIntervals,
+                            telemetry
+                        )
+                        CardioSensorRuntime.stopSession(result.session.endedAt)
+                        CardioGpsRuntime.stop(result.session.endedAt)
                         stopForeground(STOP_FOREGROUND_REMOVE)
                         stopSelf()
                         return@launch
@@ -90,6 +126,23 @@ internal class CardioSessionService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun ensureRuntimeOwnership(draft: CardioLiveDraft) {
+        if (!CardioSensorRuntime.hasActiveSession()) {
+            CardioSensorRuntime.startSession(draft.sessionId, draft.startedAtEpochMs)
+            if (draft.phase != CardioLivePhase.RECORDING) {
+                CardioSensorRuntime.pauseSession(System.currentTimeMillis())
+            }
+        }
+        if (!CardioGpsRuntime.hasActiveSession(draft.sessionId)) {
+            CardioGpsRuntime.restoreSession(
+                draft.sessionId,
+                draft.activity,
+                draft.startedAtEpochMs,
+                paused = draft.phase != CardioLivePhase.RECORDING
+            )
+        }
+    }
 
     private fun buildNotification(draft: CardioLiveDraft?, status: String): Notification {
         val openIntent = PendingIntent.getActivity(
