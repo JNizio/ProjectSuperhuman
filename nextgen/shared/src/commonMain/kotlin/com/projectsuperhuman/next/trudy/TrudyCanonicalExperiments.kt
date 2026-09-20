@@ -18,11 +18,21 @@ data class TrudyCanonicalExperiment(
     val interventionWindow: TrudyTimeRange,
     val adherenceFraction: Double? = null,
     val source: String,
-    val updatedEpochMs: Long
+    val updatedEpochMs: Long,
+    val comparator: String? = null,
+    val inclusionRules: List<String> = emptyList(),
+    val confounders: List<String> = emptyList(),
+    val observations: List<String> = emptyList(),
+    val analysisMethod: String = "before_after_personal_comparison",
+    val confidence: TrudyConfidence? = null,
+    val result: String? = null,
+    val caveats: List<String> = emptyList(),
+    val evidenceReferences: List<TrudyEvidenceReference> = emptyList()
 ) {
     init {
         require(id.isNotBlank() && title.isNotBlank() && source.isNotBlank())
         require(targetMetricId.isNotBlank())
+        require(analysisMethod.isNotBlank())
         require(adherenceFraction == null || adherenceFraction.isFinite() && adherenceFraction in 0.0..1.0)
     }
 }
@@ -99,7 +109,7 @@ class TrudyCanonicalExperimentToolService(
             interventionWindowDays = daysIn(record.interventionWindow),
             expectedDirection = TrudyEffectDirection.UNKNOWN,
             suggestedDurationDays = daysIn(record.interventionWindow),
-            confounders = emptyList(),
+            confounders = record.confounders,
             safetyNotes = emptyList(),
             evidenceBasis = emptyList(),
             expectedGain = TrudyExpectedGain(
