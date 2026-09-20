@@ -1540,6 +1540,24 @@ private fun RoutineEditorCard(
     onSave: () -> Unit,
     onCancel: () -> Unit
 ) {
+    val commonNames = listOf(
+        "Barbell Bench Press",
+        "Back Squat",
+        "Deadlift",
+        "Pull Up",
+        "Overhead Press",
+        "Barbell Row"
+    )
+    val commonExercises = commonNames.mapNotNull { target ->
+        catalog.minByOrNull { exercise ->
+            if (exercise.name.equals(target, true)) 0
+            else if (exercise.name.contains(target, true) || target.contains(exercise.name, true)) 1
+            else 10
+        }?.takeIf { exercise ->
+            exercise.name.equals(target, true) || exercise.name.contains(target, true) || target.contains(exercise.name, true)
+        }
+    }.distinctBy { it.id }.take(6)
+
     val matches = if (query.isBlank()) emptyList() else catalog.filter { exercise ->
         exercise.name.contains(query, true) ||
             exercise.group.contains(query, true) ||
@@ -1557,17 +1575,27 @@ private fun RoutineEditorCard(
             Text(title, color = ExerciseInk, fontSize = 15.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
             Text("CANCEL", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onCancel))
         }
+
         Spacer(Modifier.height(12.dp))
-        OutlinedTextField(routineName, onRoutineNameChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Routine name") })
+        OutlinedTextField(
+            value = routineName,
+            onValueChange = onRoutineNameChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Routine name") }
+        )
 
         if (selectedIds.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
-            Text("EXERCISES", color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(7.dp))
+            Text("SELECTED", color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(8.dp))
             selectedIds.forEachIndexed { index, id ->
                 val exercise = catalog.find { it.id == id } ?: return@forEachIndexed
-                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                    RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.size(48.dp))
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.size(52.dp))
                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
                         Text(exercise.name, color = ExerciseInk, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
                         Text(exercise.group, color = ExerciseMuted, fontSize = 8.sp, maxLines = 1)
@@ -1579,8 +1607,69 @@ private fun RoutineEditorCard(
             }
         }
 
-        Spacer(Modifier.height(12.dp))
-        OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Add exercise") })
+        if (commonExercises.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            Text("COMMON", color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                commonExercises.take(3).forEach { exercise ->
+                    val picked = exercise.id in selectedIds
+                    Column(
+                        Modifier.weight(1f)
+                            .background(ExerciseRowSurface, RoundedCornerShape(14.dp))
+                            .superhumanClickable { onToggleExercise(exercise.id) }
+                            .padding(8.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.fillMaxWidth().height(58.dp))
+                        Spacer(Modifier.height(5.dp))
+                        Text(exercise.name, color = ExerciseInk, fontSize = 8.sp, maxLines = 1, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(4.dp))
+                        Box(
+                            Modifier.size(24.dp).background(if (picked) ExerciseGreen else ExerciseSelectionOff, CircleShape),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(if (picked) "✓" else "+", color = if (picked) Color.White else ExerciseBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                        }
+                    }
+                }
+            }
+            if (commonExercises.size > 3) {
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    commonExercises.drop(3).take(3).forEach { exercise ->
+                        val picked = exercise.id in selectedIds
+                        Column(
+                            Modifier.weight(1f)
+                                .background(ExerciseRowSurface, RoundedCornerShape(14.dp))
+                                .superhumanClickable { onToggleExercise(exercise.id) }
+                                .padding(8.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.fillMaxWidth().height(58.dp))
+                            Spacer(Modifier.height(5.dp))
+                            Text(exercise.name, color = ExerciseInk, fontSize = 8.sp, maxLines = 1, textAlign = TextAlign.Center)
+                            Spacer(Modifier.height(4.dp))
+                            Box(
+                                Modifier.size(24.dp).background(if (picked) ExerciseGreen else ExerciseSelectionOff, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(if (picked) "✓" else "+", color = if (picked) Color.White else ExerciseBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
+        OutlinedTextField(
+            value = query,
+            onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Search exercises") }
+        )
 
         if (query.isNotBlank()) {
             Spacer(Modifier.height(7.dp))
@@ -1605,139 +1694,15 @@ private fun RoutineEditorCard(
 
         Spacer(Modifier.height(14.dp))
         Box(
-            Modifier.fillMaxWidth().background(ExerciseBlue.copy(alpha = .16f), RoundedCornerShape(14.dp))
-                .superhumanClickable(onClick = onSave).padding(vertical = 13.dp),
+            Modifier.fillMaxWidth()
+                .background(ExerciseBlue.copy(alpha = .16f), RoundedCornerShape(14.dp))
+                .superhumanClickable(onClick = onSave)
+                .padding(vertical = 13.dp),
             contentAlignment = Alignment.Center
         ) {
             Text("SAVE ROUTINE", color = ExerciseBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
     }
-}
-
-@Composable
-private fun StrengthHistoryCalendar(
-    month: java.time.YearMonth,
-    selectedDate: java.time.LocalDate,
-    workoutDates: Set<java.time.LocalDate>,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
-    onSelectDate: (java.time.LocalDate) -> Unit
-) {
-    val first = month.atDay(1)
-    val daysInMonth = month.lengthOfMonth()
-    val leading = (first.dayOfWeek.value - 1).coerceAtLeast(0)
-    val totalCells = leading + daysInMonth
-    val rows = (totalCells + 6) / 7
-    val monthTitle = month.format(java.time.format.DateTimeFormatter.ofPattern("MMMM yyyy"))
-
-    Column(
-        Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(22.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(22.dp))
-            .padding(15.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("‹", color = ExerciseBlue, fontSize = 24.sp, modifier = Modifier.superhumanClickable(onClick = onPreviousMonth).padding(6.dp))
-            Text(monthTitle, color = ExerciseInk, fontSize = 15.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-            Text("›", color = ExerciseBlue, fontSize = 24.sp, modifier = Modifier.superhumanClickable(onClick = onNextMonth).padding(6.dp))
-        }
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth()) {
-            listOf("M","T","W","T","F","S","S").forEach { label ->
-                Text(label, color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        repeat(rows) { row ->
-            Row(Modifier.fillMaxWidth()) {
-                repeat(7) { column ->
-                    val cell = row * 7 + column
-                    val dayNumber = cell - leading + 1
-                    if (dayNumber in 1..daysInMonth) {
-                        val date = month.atDay(dayNumber)
-                        val selected = date == selectedDate
-                        val hasWorkout = date in workoutDates
-                        Column(
-                            Modifier.weight(1f).height(48.dp).superhumanClickable { onSelectDate(date) },
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Box(
-                                Modifier.size(32.dp).background(if (selected) ExerciseBlue.copy(alpha = .18f) else Color.Transparent, CircleShape),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(dayNumber.toString(), color = if (selected) ExerciseBlue else ExerciseInk, fontSize = 10.sp, fontWeight = if (selected) FontWeight.Black else FontWeight.Medium)
-                            }
-                            if (hasWorkout) {
-                                Box(Modifier.padding(top = 2.dp).size(4.dp).background(ExerciseGreen, CircleShape))
-                            } else {
-                                Spacer(Modifier.height(6.dp))
-                            }
-                        }
-                    } else {
-                        Spacer(Modifier.weight(1f).height(48.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun StrengthHistoryEmptyDay() {
-    Row(
-        Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(18.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(Modifier.size(34.dp).background(ExerciseSoft, CircleShape), contentAlignment = Alignment.Center) {
-            Text("—", color = ExerciseMuted, fontWeight = FontWeight.Black)
-        }
-        Spacer(Modifier.width(11.dp))
-        Text("No strength workout", color = ExerciseMuted, fontSize = 10.sp)
-    }
-}
-
-@Composable
-private fun StrengthHistoryDayCard(session: StrengthWorkoutSession, onOpen: () -> Unit) {
-    val exercises = session.sets.mapNotNull { it.metadata["exerciseName"] }.distinct().take(4)
-    Column(
-        Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(20.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
-            .superhumanClickable(onClick = onOpen)
-            .padding(15.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(session.name, color = ExerciseInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
-                Text(session.durationMin.toString() + " min", color = ExerciseMuted, fontSize = 9.sp)
-            }
-            Text("→", color = ExercisePurple, fontSize = 19.sp)
-        }
-        Spacer(Modifier.height(12.dp))
-        Row(
-            Modifier.fillMaxWidth().background(ExerciseSoft, RoundedCornerShape(15.dp)).padding(vertical = 11.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            StrengthInlineMetric(session.workingSets.toString(), "SETS")
-            Box(Modifier.width(1.dp).height(28.dp).background(ExerciseCardBorder))
-            StrengthInlineMetric(session.totalVolumeKg.roundToInt().toString(), "VOLUME KG")
-            Box(Modifier.width(1.dp).height(28.dp).background(ExerciseCardBorder))
-            StrengthInlineMetric(session.exerciseCount.toString(), "EXERCISES")
-        }
-        if (exercises.isNotEmpty()) {
-            Spacer(Modifier.height(12.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                exercises.forEach { name ->
-                    Text(name, color = ExerciseInk, fontSize = 8.sp, maxLines = 1, modifier = Modifier.background(ExerciseRowSurface, RoundedCornerShape(10.dp)).padding(horizontal = 8.dp, vertical = 6.dp))
-                }
-            }
-        }
-    }
-    Spacer(Modifier.height(9.dp))
 }
 
 @Composable private fun PolishedSection(title: String, subtitle: String, content: @Composable ColumnScope.() -> Unit) { Column(Modifier.fillMaxWidth().background(ExerciseSurface, RoundedCornerShape(23.dp)).border(1.dp, ExerciseCardBorder, RoundedCornerShape(23.dp)).padding(16.dp)) { Text(title, color = ExerciseInk, fontSize = 16.sp, fontWeight = FontWeight.Black); if (subtitle.isNotBlank()) { Text(subtitle, color = ExerciseMuted, fontSize = 11.sp); Spacer(Modifier.height(11.dp)) } else { Spacer(Modifier.height(8.dp)) }; content() } }
