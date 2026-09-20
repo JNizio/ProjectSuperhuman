@@ -15,6 +15,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 internal object CardioSessionForeground {
@@ -49,6 +51,24 @@ internal class CardioSessionService : Service() {
             controller = controller
         )
         createNotificationChannel()
+        scope.launch {
+            var notificationTicks = 0
+            while (isActive) {
+                delay(1_000L)
+                val draft = store.load().draft
+                if (draft != null) {
+                    CardioGpsRuntime.tick()
+                    notificationTicks += 1
+                    if (notificationTicks >= 5) {
+                        refreshNotification()
+                        notificationTicks = 0
+                    }
+                } else {
+                    notificationTicks = 0
+                }
+            }
+        }
+
         scope.launch {
             CardioGpsRuntime.autoPauseDecisions.collect { decision ->
                 val now = System.currentTimeMillis()
