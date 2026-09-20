@@ -175,6 +175,8 @@ object CoreMetricRegistry : MetricRegistry {
         // analytic range; quality metadata determines whether a sample is included in derivations.
         MetricDefinition("cardio_hr_sample_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.MIN_MAX_AVG),
         MetricDefinition("cardio_rr_interval_ms", HealthDomain.EXERCISE, "ms", aggregation = MetricAggregation.MIN_MAX_AVG),
+        MetricDefinition("cardio_physiology_profile_revision", HealthDomain.EXERCISE, "revision", aggregation = MetricAggregation.NONE),
+        MetricDefinition("cardio_hrmax_candidate_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 20.0, maxAccepted = 260.0),
         MetricDefinition("heart_rate_variability_rmssd_ms", HealthDomain.EXERCISE, "ms", aliases = setOf("hrv_rmssd_ms"), aggregation = MetricAggregation.AVERAGE, derived = true, minAccepted = 1.0, maxAccepted = 500.0),
         MetricDefinition("cardio_fitness_efficiency_delta_pct", HealthDomain.EXERCISE, "%", aggregation = MetricAggregation.LAST, derived = true),
         MetricDefinition("cardio_training_readiness_score", HealthDomain.EXERCISE, "score", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0, maxAccepted = 100.0),

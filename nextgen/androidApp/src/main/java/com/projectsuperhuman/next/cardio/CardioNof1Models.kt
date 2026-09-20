@@ -22,6 +22,9 @@ internal enum class CardioObservationQuality {
 
 internal enum class CardioSourceKind {
     DIRECT_BLE,
+    GENERIC_BLE,
+    H19C,
+    DIRECT_WEARABLE,
     HEALTH_CONNECT,
     FIT_IMPORT,
     TCX_IMPORT,
@@ -38,7 +41,10 @@ internal data class CardioObservationProvenance(
     val deviceId: String? = null,
     val deviceName: String? = null,
     val providerPackage: String? = null,
-    val externalRecordId: String? = null
+    val externalRecordId: String? = null,
+    val sourceProvider: String? = null,
+    val sourceTransport: String? = null,
+    val stableSourceId: String? = null
 )
 
 internal data class CardioRawObservation(
@@ -53,6 +59,7 @@ internal data class CardioRawObservation(
     val quality: CardioObservationQuality = CardioObservationQuality.ACCEPTED,
     val exclusionReason: String? = null,
     val interpolated: Boolean = false,
+    val resampled: Boolean = false,
     val processingVersion: String = CARDIO_NOF1_ALGORITHM_VERSION
 )
 
@@ -75,10 +82,10 @@ internal enum class CardioZoneModel {
     MANUAL
 }
 
-internal enum class CardioHrMaxSource {
-    VALIDATED_OBSERVED,
-    MANUAL_CONFIRMED,
-    FORMULA_ESTIMATE
+internal enum class CardioHrMaxSource(val priority: Int) {
+    VALIDATED_OBSERVED(3),
+    MANUAL_CONFIRMED(2),
+    FORMULA_ESTIMATE(1)
 }
 
 internal data class CardioZoneBoundary(
@@ -86,7 +93,8 @@ internal data class CardioZoneBoundary(
     val name: String,
     val minBpmInclusive: Int,
     val maxBpmInclusive: Int,
-    val purpose: String
+    val purpose: String,
+    val calculationMethod: String = ""
 )
 
 internal data class CardioPhysiologyProfile(
@@ -99,6 +107,7 @@ internal data class CardioPhysiologyProfile(
     val zoneModel: CardioZoneModel,
     val zones: List<CardioZoneBoundary>,
     val sport: CardioActivityType? = null,
+    val sportSpecificSettings: Map<String, String> = emptyMap(),
     val createdAtEpochMs: Long,
     val algorithmVersion: String = CARDIO_NOF1_ALGORITHM_VERSION
 )
@@ -118,8 +127,40 @@ internal data class CardioDerivedMetric(
     val confidence: CardioConfidence,
     val algorithmVersion: String,
     val requiredInputs: List<String>,
-    val caveat: String? = null
+    val caveat: String? = null,
+    val sourceIds: List<String> = emptyList(),
+    val generatedAtEpochMs: Long? = null
 )
+
+internal data class CardioHrMaxCandidate(
+    val candidateBpm: Int,
+    val configuredBpm: Int,
+    val sustainedDurationMs: Long,
+    val sampleCount: Int,
+    val confidence: CardioConfidence,
+    val sourceSummary: String,
+    val reasons: List<String>,
+    val coveragePct: Double? = null,
+    val requiresConfirmation: Boolean = true
+)
+
+internal data class CardioHrMaxEvidence(
+    val bpm: Int,
+    val source: CardioHrMaxSource,
+    val observedAtEpochMs: Long = 0L,
+    val note: String? = null
+)
+
+internal object CardioHrMaxPolicy {
+    fun select(evidence: List<CardioHrMaxEvidence>): CardioHrMaxEvidence? =
+        evidence
+            .filter { it.bpm in CARDIO_HR_MIN_BPM..CARDIO_HR_MAX_BPM }
+            .sortedWith(
+                compareByDescending<CardioHrMaxEvidence> { it.source.priority }
+                    .thenByDescending { it.observedAtEpochMs }
+            )
+            .firstOrNull()
+}
 
 internal data class CardioTrainingLoadPoint(
     val epochDay: Long,
