@@ -1,5 +1,12 @@
 package com.projectsuperhuman.next
 
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.Image
+import android.graphics.BitmapFactory
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -18,7 +25,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -231,7 +236,7 @@ private fun NativeExerciseLandingPage(
         }
 
         ExerciseModuleCard(
-            iconRes = R.drawable.tabler_barbell,
+            visualKind = "strength",
             title = "STRENGTH",
             primary = if (strengthWeek.isEmpty()) "No strength sessions this week"
             else "${strengthWeek.size} session${if (strengthWeek.size == 1) "" else "s"} this week",
@@ -248,7 +253,7 @@ private fun NativeExerciseLandingPage(
         )
 
         ExerciseModuleCard(
-            iconRes = R.drawable.tabler_run,
+            visualKind = "cardio",
             title = "CARDIO",
             primary = if (cardioWeek.isEmpty()) "No cardio sessions this week"
             else buildString {
@@ -421,7 +426,7 @@ private fun ExerciseActiveCardioCard(
 
 @Composable
 private fun ExerciseModuleCard(
-    iconRes: Int,
+    visualKind: String,
     title: String,
     primary: String,
     secondary: String,
@@ -432,69 +437,117 @@ private fun ExerciseModuleCard(
     muted: Color,
     onClick: () -> Unit
 ) {
-    Row(
+    val context = LocalContext.current
+    val trainingBitmap = remember {
+        runCatching {
+            context.assets.open("dashboard_training.png").use(BitmapFactory::decodeStream)?.asImageBitmap()
+        }.getOrNull()
+    }
+    val shape = RoundedCornerShape(22.dp)
+
+    Box(
         Modifier
             .fillMaxWidth()
-            .background(surface, RoundedCornerShape(18.dp))
-            .border(1.dp, border, RoundedCornerShape(18.dp))
+            .height(118.dp)
+            .clip(shape)
+            .background(surface)
+            .border(1.dp, accent.copy(alpha = .32f), shape)
             .superhumanClickable(onClick = onClick)
-            .padding(horizontal = 15.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            Modifier
-                .size(40.dp)
-                .background(
-                    accent.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f),
-                    CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(id = iconRes),
+        trainingBitmap?.let { bitmap ->
+            Image(
+                bitmap = bitmap,
                 contentDescription = null,
-                tint = accent,
-                modifier = Modifier.size(22.dp)
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
             )
         }
 
-        Column(
+        val overlay = if (visualKind == "strength") {
+            Brush.horizontalGradient(
+                listOf(
+                    Color(0xFF071B31).copy(alpha = .98f),
+                    Color(0xFF0A2C4C).copy(alpha = .88f),
+                    Color(0xFF0D385B).copy(alpha = .58f),
+                    Color.Black.copy(alpha = .18f)
+                )
+            )
+        } else {
+            Brush.horizontalGradient(
+                listOf(
+                    Color(0xFF08262B).copy(alpha = .98f),
+                    Color(0xFF0B3A40).copy(alpha = .86f),
+                    Color(0xFF0D5752).copy(alpha = .56f),
+                    Color.Black.copy(alpha = .18f)
+                )
+            )
+        }
+        Box(Modifier.fillMaxSize().background(overlay))
+
+        Row(
             Modifier
-                .weight(1f)
-                .padding(horizontal = 13.dp)
+                .fillMaxSize()
+                .padding(horizontal = 17.dp, vertical = 15.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(46.dp)
+                    .background(Color.White.copy(alpha = .10f), CircleShape)
+                    .border(1.dp, Color.White.copy(alpha = .15f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                SuperhumanDomainIcon(
+                    glyph = if (visualKind == "strength") SuperhumanDomainGlyph.TROPHY else SuperhumanDomainGlyph.RUNNING,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(start = 14.dp)
+            ) {
                 Text(
                     title,
-                    color = ink,
-                    fontSize = 15.sp,
+                    color = Color.White,
+                    fontSize = 18.sp,
                     fontWeight = FontWeight.Black
                 )
-                Spacer(Modifier.weight(1f))
+                Spacer(Modifier.height(5.dp))
                 Text(
                     primary,
-                    color = accent,
-                    fontSize = 9.sp,
+                    color = accent.copy(alpha = .98f),
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1
                 )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    secondary,
+                    color = Color.White.copy(alpha = .70f),
+                    fontSize = 9.sp,
+                    lineHeight = 12.sp,
+                    maxLines = 1
+                )
             }
-            Spacer(Modifier.height(4.dp))
-            Text(
-                secondary,
-                color = muted,
-                fontSize = 9.sp,
-                lineHeight = 12.sp,
-                maxLines = 1
-            )
-        }
 
-        Text(
-            "›",
-            color = accent,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
+            Box(
+                Modifier
+                    .size(34.dp)
+                    .background(Color.White.copy(alpha = .10f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "→",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 
