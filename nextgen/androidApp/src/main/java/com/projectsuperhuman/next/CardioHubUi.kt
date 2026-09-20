@@ -287,7 +287,7 @@ private fun CardioHubOverviewPanel(
     }
     val explanation = when {
         fitness.trendDeltaPercent == null && remainingBaseline > 0 ->
-            "$remainingBaseline more comparable " + if (remainingBaseline == 1) "session" else "sessions" + " to unlock your pace / HR trend"
+            "$remainingBaseline more comparable " + (if (remainingBaseline == 1) "session" else "sessions") + " to unlock your pace / HR trend"
         fitness.trendDeltaPercent != null ->
             "Based on comparable pace and heart-rate sessions"
         else -> "Keep training consistently to build your personal trend"
