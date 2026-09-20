@@ -312,6 +312,29 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     )
                 }
             )
+            val persistedDraftRows = recent.filter { it.metadata["sessionId"] == activeSessionId }.sortedBy { it.timestampEpochMs }
+            if (workoutExercises.isEmpty() && persistedDraftRows.isNotEmpty()) {
+                val ids = persistedDraftRows.mapNotNull { it.metadata["exerciseId"] }.distinct()
+                workoutExercises.addAll(ids.mapNotNull { id -> catalog.find { it.id == id } })
+            }
+            if (session.isEmpty() && persistedDraftRows.isNotEmpty()) {
+                session.addAll(
+                    persistedDraftRows.mapNotNull { row ->
+                        val exerciseId = row.metadata["exerciseId"] ?: return@mapNotNull null
+                        val exercise = catalog.find { it.id == exerciseId } ?: return@mapNotNull null
+                        NativeWorkoutSet(
+                            exercise = exercise,
+                            reps = row.metadata["reps"]?.toIntOrNull() ?: return@mapNotNull null,
+                            loadKg = row.metadata["loadKg"]?.toDoubleOrNull() ?: 0.0,
+                            timestamp = row.timestampEpochMs,
+                            type = row.metadata["setType"] ?: "Work",
+                            rir = row.metadata["rir"]?.toIntOrNull(),
+                            rpe = row.metadata["rpe"]?.toDoubleOrNull(),
+                            supersetTag = row.metadata["superset"]?.takeIf { it.isNotBlank() }
+                        )
+                    }
+                )
+            }
             selected = draft.selectedExerciseId?.let { id -> catalog.find { it.id == id } } ?: workoutExercises.firstOrNull()
             restEndsAt = draft.restEndsAt
             restSeconds = (((restEndsAt - System.currentTimeMillis()).coerceAtLeast(0L) + 999L) / 1000L).toInt()
@@ -340,6 +363,46 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             restSeconds -= 1
             if (restSeconds <= 0) restEndsAt = 0L
         }
+    }
+
+    fun resumeWorkout() {
+        if (startedAt <= 0L) return
+
+        if (workoutExercises.isEmpty() || session.isEmpty()) {
+            val matchingRows = recent
+                .filter { it.metadata["sessionId"] == activeSessionId }
+                .sortedBy { it.timestampEpochMs }
+
+            if (workoutExercises.isEmpty()) {
+                val ids = matchingRows.mapNotNull { it.metadata["exerciseId"] }.distinct()
+                workoutExercises.clear()
+                workoutExercises.addAll(ids.mapNotNull { id -> catalog.find { it.id == id } })
+            }
+
+            if (session.isEmpty() && matchingRows.isNotEmpty()) {
+                session.clear()
+                session.addAll(
+                    matchingRows.mapNotNull { row ->
+                        val exerciseId = row.metadata["exerciseId"] ?: return@mapNotNull null
+                        val exercise = catalog.find { it.id == exerciseId } ?: return@mapNotNull null
+                        NativeWorkoutSet(
+                            exercise = exercise,
+                            reps = row.metadata["reps"]?.toIntOrNull() ?: return@mapNotNull null,
+                            loadKg = row.metadata["loadKg"]?.toDoubleOrNull() ?: 0.0,
+                            timestamp = row.timestampEpochMs,
+                            type = row.metadata["setType"] ?: "Work",
+                            rir = row.metadata["rir"]?.toIntOrNull(),
+                            rpe = row.metadata["rpe"]?.toDoubleOrNull(),
+                            supersetTag = row.metadata["superset"]?.takeIf { it.isNotBlank() }
+                        )
+                    }
+                )
+            }
+        }
+
+        if (selected == null) selected = workoutExercises.firstOrNull()
+        writeActiveDraft()
+        mode = "workout"
     }
 
     fun startWorkout(exercises: List<NativeExercise> = emptyList()) {
@@ -445,10 +508,10 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 
                 StrengthSessionPanel(
                     activeWorkout = startedAt > 0L,
-                    workingSets = strengthProgress.weeklyWorkingSets,
-                    volumeKg = strengthProgress.weeklyVolumeKg.roundToInt(),
+                    workingSets = session.count { it.type != "Warmup" },
+                    volumeKg = session.filter { it.type != "Warmup" }.sumOf { it.volume }.roundToInt(),
                     lastWorkout = lastSession?.name ?: "No completed workout yet",
-                    onAction = { if (startedAt > 0L) mode = "workout" else startWorkout() },
+                    onAction = { if (startedAt > 0L) resumeWorkout() else startWorkout() },
                     onDelete = {
                         if (startedAt > 0L) {
                             clearActiveWorkoutDraft(context)
