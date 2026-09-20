@@ -1,6 +1,6 @@
 package com.projectsuperhuman.next
 
-internal const val CARDIO_SESSION_SCHEMA_VERSION = 2
+internal const val CARDIO_SESSION_SCHEMA_VERSION = 3
 internal const val CARDIO_LIVE_DRAFT_SCHEMA_VERSION = 2
 
 internal enum class CardioActivityType(
@@ -64,6 +64,8 @@ internal data class CardioSession(
     val avgSplit500mSeconds: Int? = null,
     val avgPace100mSeconds: Int? = null,
     val pausedDurationSeconds: Int = 0,
+    val zoneSchemeId: String? = null,
+    val physiologyRevisionId: String? = null,
     val schemaVersion: Int = CARDIO_SESSION_SCHEMA_VERSION,
     val extensions: Map<String, String> = emptyMap()
 )
