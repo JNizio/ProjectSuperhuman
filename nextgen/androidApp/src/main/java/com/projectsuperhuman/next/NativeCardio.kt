@@ -380,42 +380,45 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
 
         when (screen) {
             CardioScreen.HOME -> {
-                CardioHero(
-                    active = activeDraft,
-                    activeActivity = activeDraftState?.activity,
-                    activeWorkoutType = activeDraftState?.workoutType,
-                    activeElapsedSeconds = cardioState.liveElapsedSeconds,
-                    activeRunning = cardioState.isRecording,
-                    saveInProgress = cardioState.saveInProgress,
-                    activeHeartRate = sensorMetrics.currentHeartRateBpm,
-                    activeZone = sensorMetrics.currentZone,
-                    activeSensorLabel = cardioProductSensorStatus(sensorMetrics),
-                    activeDistanceMeters = movementMetrics.distanceMeters,
-                    activePaceSecondsPerKm = movementMetrics.currentPaceSecondsPerKm,
-                    confirmFinish = confirmHomeFinish,
-                    onPrimary = {
-                        confirmHomeFinish = false
-                        if (activeDraft) screen = CardioScreen.LIVE else screen = CardioScreen.PICK_ACTIVITY
-                    },
-                    onToggleActive = {
-                        confirmHomeFinish = false
-                        if (cardioState.isRecording) cardioViewModel.pause() else cardioViewModel.resume()
-                    },
-                    onSaveActive = {
-                        if (!confirmHomeFinish) {
-                            confirmHomeFinish = true
-                            feedback = "Tap Stop & Save again to confirm"
-                        } else {
+                if (activeDraft) {
+                    CardioHero(
+                        active = activeDraft,
+                        activeActivity = activeDraftState?.activity,
+                        activeWorkoutType = activeDraftState?.workoutType,
+                        activeElapsedSeconds = cardioState.liveElapsedSeconds,
+                        activeRunning = cardioState.isRecording,
+                        saveInProgress = cardioState.saveInProgress,
+                        activeHeartRate = sensorMetrics.currentHeartRateBpm,
+                        activeZone = sensorMetrics.currentZone,
+                        activeSensorLabel = cardioProductSensorStatus(sensorMetrics),
+                        activeDistanceMeters = movementMetrics.distanceMeters,
+                        activePaceSecondsPerKm = movementMetrics.currentPaceSecondsPerKm,
+                        confirmFinish = confirmHomeFinish,
+                        onPrimary = {
                             confirmHomeFinish = false
-                            cardioViewModel.quickSave { success ->
-                                if (success) screen = CardioScreen.HOME
+                            if (activeDraft) screen = CardioScreen.LIVE else screen = CardioScreen.PICK_ACTIVITY
+                        },
+                        onToggleActive = {
+                            confirmHomeFinish = false
+                            if (cardioState.isRecording) cardioViewModel.pause() else cardioViewModel.resume()
+                        },
+                        onSaveActive = {
+                            if (!confirmHomeFinish) {
+                                confirmHomeFinish = true
+                                feedback = "Tap Stop & Save again to confirm"
+                            } else {
+                                confirmHomeFinish = false
+                                cardioViewModel.quickSave { success ->
+                                    if (success) screen = CardioScreen.HOME
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                }
                 CardioVisualHub(
                     sessions = sessions,
                     sensorMetrics = sensorMetrics,
+                    showStartBar = !activeDraft,
                     onQuickStart = { activity ->
                         liveActivity = activity
                         liveWorkoutType = CardioWorkoutType.FREE
@@ -445,8 +448,18 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             }
 
             CardioScreen.PICK_ACTIVITY -> {
-                CardioHeroStrip("START CARDIO", "Choose an activity", "The live timer works without GPS or a wearable.", CardioAccent)
-                CardioSection("ACTIVITY", "Choose what you are about to do") {
+                Text(
+                    "Choose activity",
+                    color = CardioInk,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    "All cardio modes",
+                    color = CardioMuted,
+                    fontSize = 9.sp
+                )
+                CardioSection("ACTIVITY", "") {
                     CardioActivityPicker(liveActivity) { activity ->
                         liveActivity = activity
                     }
