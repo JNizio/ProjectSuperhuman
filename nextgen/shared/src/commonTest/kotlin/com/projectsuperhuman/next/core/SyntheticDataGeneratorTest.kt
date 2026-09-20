@@ -30,6 +30,9 @@ class SyntheticDataGeneratorTest {
         assertTrue(values.any { it.metric == "sleep_score" })
         assertTrue(values.any { it.metric == "food_kcal" })
         assertTrue(values.any { it.metric == "steps" })
+        assertTrue(values.any { it.metric == "cardio_session" })
+        assertTrue(values.any { it.metric == "cardio_hr_sample_bpm" })
+        assertTrue(values.any { it.metric == "cardio_rr_interval_ms" })
 
         val expectedDomains = setOf(
             HealthDomain.SLEEP,
@@ -88,6 +91,14 @@ class SyntheticDataGeneratorTest {
 
         assertEquals(365, metric(HealthDomain.EXERCISE, "steps").size)
         assertEquals(365, metric(HealthDomain.EXERCISE, "active_calories_kcal").size)
+        val cardioSessions = metric(HealthDomain.EXERCISE, "cardio_session")
+        assertTrue(cardioSessions.size >= 120, "One-year synthetic history should include regular Cardio sessions")
+        assertTrue(cardioSessions.all { !it.metadata["sessionId"].isNullOrBlank() })
+        assertTrue(cardioSessions.all { !it.metadata["activityType"].isNullOrBlank() })
+        assertTrue(cardioSessions.all { it.metadata["avgHeartRate"]?.toIntOrNull() != null })
+        assertTrue(cardioSessions.count { it.metadata["avgPaceSecPerKm"] != null } >= 60)
+        assertTrue(metric(HealthDomain.EXERCISE, "cardio_hr_sample_bpm").size >= cardioSessions.size * 12)
+        assertTrue(metric(HealthDomain.EXERCISE, "cardio_rr_interval_ms").size >= cardioSessions.size * 12)
         assertEquals(365 * 3, metric(HealthDomain.NUTRITION, "food_kcal").size)
         assertEquals(365, metric(HealthDomain.HYDRATION, "water_total_l").size)
         assertEquals(365, metric(HealthDomain.MINDFULNESS, "mood_score").size)
