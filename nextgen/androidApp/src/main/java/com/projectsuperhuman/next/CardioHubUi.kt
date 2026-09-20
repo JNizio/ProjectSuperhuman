@@ -1326,6 +1326,256 @@ private fun CardioHubSignalDetail(label: String, value: String) {
 }
 
 @Composable
+private fun CardioHubQuickStartEditor(
+    activities: List<CardioActivityType>,
+    onActivitiesChange: (List<CardioActivityType>) -> Unit,
+    onDone: () -> Unit
+) {
+    var activeSlot by remember { mutableStateOf(0) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+        Text(
+            "Quick Start",
+            color = superhumanTextPrimary,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            "Choose which four activities appear on the Cardio home screen.",
+            color = superhumanTextMuted,
+            fontSize = 9.sp
+        )
+        Spacer(Modifier.height(14.dp))
+
+        Text(
+            "SLOTS",
+            color = superhumanTextMuted,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = .5.sp
+        )
+        Spacer(Modifier.height(6.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            activities.take(CardioHubPreferences.QUICK_SLOT_COUNT).forEachIndexed { index, activity ->
+                val accent = cardioHubQuickAccent(index)
+                Column(
+                    Modifier.weight(1f)
+                        .background(
+                            if (activeSlot == index) accent.copy(alpha = .14f) else superhumanSurfaceSoft,
+                            RoundedCornerShape(14.dp)
+                        )
+                        .clickable { activeSlot = index }
+                        .padding(horizontal = 5.dp, vertical = 10.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    SuperhumanDomainIcon(
+                        glyph = cardioDomainGlyph(activity),
+                        tint = accent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.height(5.dp))
+                    Text(
+                        cardioHubQuickLabel(activity),
+                        color = superhumanTextPrimary,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "REPLACE SLOT ${activeSlot + 1}",
+            color = superhumanTextMuted,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = .5.sp
+        )
+        Spacer(Modifier.height(5.dp))
+
+        CardioActivityType.entries.forEach { activity ->
+            val selected = activities.getOrNull(activeSlot) == activity
+            Row(
+                Modifier.fillMaxWidth()
+                    .heightIn(min = 46.dp)
+                    .clickable {
+                        onActivitiesChange(
+                            replaceCardioQuickActivity(
+                                current = activities,
+                                slot = activeSlot,
+                                replacement = activity
+                            )
+                        )
+                    }
+                    .padding(vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                SuperhumanDomainIcon(
+                    glyph = cardioDomainGlyph(activity),
+                    tint = if (selected) superhumanBlue else superhumanTextMuted,
+                    modifier = Modifier.size(19.dp)
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    activity.displayName,
+                    color = superhumanTextPrimary,
+                    fontSize = 10.sp,
+                    fontWeight = if (selected) FontWeight.Black else FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
+                )
+                if (selected) {
+                    Text("SELECTED", color = superhumanBlue, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .background(superhumanBlue.copy(alpha = .12f), RoundedCornerShape(14.dp))
+                .clickable { onDone() }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "DONE",
+                color = superhumanBlue,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.weight(1f)
+            )
+            Text("✓", color = superhumanBlue, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun CardioHubGoalEditor(
+    goals: CardioHubGoals,
+    onSave: (CardioHubGoals) -> Unit,
+    onCancel: () -> Unit
+) {
+    var totalText by remember(goals) { mutableStateOf(goals.totalMinutes?.toString().orEmpty()) }
+    var zone2Text by remember(goals) { mutableStateOf(goals.zone2Minutes?.toString().orEmpty()) }
+    var zone3Text by remember(goals) { mutableStateOf(goals.zone3Minutes?.toString().orEmpty()) }
+
+    fun parsed(text: String): Int? = text.toIntOrNull()?.takeIf { it > 0 }
+
+    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+        Text(
+            "Weekly Cardio goals",
+            color = superhumanTextPrimary,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            "These goals power the completion rings on your Cardio dashboard.",
+            color = superhumanTextMuted,
+            fontSize = 9.sp
+        )
+        Spacer(Modifier.height(14.dp))
+
+        OutlinedTextField(
+            value = totalText,
+            onValueChange = { totalText = it.filter(Char::isDigit).take(4) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Total cardio minutes") },
+            placeholder = { Text("e.g. 150") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = zone2Text,
+            onValueChange = { zone2Text = it.filter(Char::isDigit).take(4) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Zone 2 minutes") },
+            placeholder = { Text("e.g. 90") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlinedTextField(
+            value = zone3Text,
+            onValueChange = { zone3Text = it.filter(Char::isDigit).take(4) },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Zone 3 minutes") },
+            placeholder = { Text("e.g. 30") },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        )
+
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Leave a field empty to remove that goal.",
+            color = superhumanTextMuted,
+            fontSize = 8.sp
+        )
+        Spacer(Modifier.height(12.dp))
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(
+                Modifier.weight(1f)
+                    .heightIn(min = 48.dp)
+                    .background(superhumanSurfaceSoft, RoundedCornerShape(14.dp))
+                    .clickable { onCancel() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("CANCEL", color = superhumanTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+            Box(
+                Modifier.weight(1f)
+                    .heightIn(min = 48.dp)
+                    .background(superhumanBlue.copy(alpha = .14f), RoundedCornerShape(14.dp))
+                    .clickable {
+                        onSave(
+                            CardioHubGoals(
+                                totalMinutes = parsed(totalText),
+                                zone2Minutes = parsed(zone2Text),
+                                zone3Minutes = parsed(zone3Text)
+                            )
+                        )
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("SAVE GOALS", color = superhumanBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+private fun cardioHubWeekZoneMinutes(
+    sessions: List<CardioSession>,
+    zone: Int
+): Int {
+    val weekStart = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
+    return sessions.asSequence()
+        .filter { it.endedAt >= weekStart }
+        .sumOf { it.zoneSeconds[zone] ?: 0 } / 60
+}
+
+private fun cardioHubQuickLabel(activity: CardioActivityType): String = when (activity) {
+    CardioActivityType.STATIONARY_BIKE -> "Indoor bike"
+    CardioActivityType.STAIR_CLIMBER -> "Stairs"
+    CardioActivityType.GENERAL_CARDIO -> "General"
+    else -> activity.displayName
+}
+
+private fun cardioHubQuickAccent(index: Int): Color = when (index) {
+    0 -> superhumanGreen
+    1 -> superhumanBlue
+    2 -> Color(0xFF8E72D8)
+    else -> Color(0xFF4CA7B8)
+}
+
+@Composable
 private fun CardioHubSheetAction(label: String, accent: Color, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth()
