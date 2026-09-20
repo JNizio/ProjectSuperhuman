@@ -445,169 +445,84 @@ internal fun CardioAnalyticsHistoryPanel(
     onOpenSession: (CardioSession) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var range by remember { mutableStateOf(CardioAnalysisRange.ALL_TIME) }
     var selectedActivity by remember { mutableStateOf<CardioActivityType?>(null) }
-    var selectedWorkoutType by remember { mutableStateOf<CardioWorkoutType?>(null) }
-    var selectedSource by remember { mutableStateOf<String?>(null) }
-    var showAdvancedFilters by remember { mutableStateOf(false) }
-    var query by remember { mutableStateOf("") }
-    var pagesVisible by remember { mutableIntStateOf(1) }
-
-    val availableSources = remember(sessions) {
-        sessions.map { it.source.trim() }
-            .filter { it.isNotBlank() }
-            .distinctBy { it.lowercase() }
-            .sortedBy { it.lowercase() }
+    var showFilters by remember { mutableStateOf(false) }
+    val recent = remember(sessions, selectedActivity) {
+        sessions.asSequence()
+            .filter { selectedActivity == null || it.activity == selectedActivity }
+            .sortedByDescending { it.endedAt }
+            .toList()
     }
-    val filter = remember(range, selectedActivity, selectedWorkoutType, selectedSource, query) {
-        CardioHistoryFilter(
-            range = range,
-            activities = selectedActivity?.let { setOf(it) }.orEmpty(),
-            workoutTypes = selectedWorkoutType?.let { setOf(it) }.orEmpty(),
-            sources = selectedSource?.let { setOf(it) }.orEmpty(),
-            query = query
-        )
-    }
-    val pages = remember(sessions, filter, pagesVisible) {
-        (0 until pagesVisible).map {
-            CardioHistoryEngine.filterAndPage(sessions, filter, page = it, pageSize = 30)
-        }
-    }
-    val visibleItems = remember(pages) { pages.flatMap { it.items } }
-    val total = pages.firstOrNull()?.totalItems ?: 0
-    val hasMore = pages.lastOrNull()?.hasMore == true
 
     Column(
-        modifier
-            .fillMaxWidth()
-            .background(superhumanSurface, RoundedCornerShape(22.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(22.dp))
-            .padding(14.dp),
+        modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            "History",
-            color = superhumanTextPrimary,
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Black
-        )
-        CardioAnalysisRangeSelector(range, {
-            range = it
-            pagesVisible = 1
-        })
-        OutlinedTextField(
-            value = query,
-            onValueChange = {
-                query = it.take(80)
-                pagesVisible = 1
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            label = { Text("Search notes or activity") }
-        )
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            item {
-                AnalyticsFilterChip(
-                    text = "All activities",
-                    selected = selectedActivity == null
-                ) {
-                    selectedActivity = null
-                    pagesVisible = 1
-                }
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "Recent workouts",
+                    color = superhumanTextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    if (recent.isEmpty()) "No saved workouts yet" else "${recent.size} saved ${if (recent.size == 1) "workout" else "workouts"}",
+                    color = superhumanTextMuted,
+                    fontSize = 11.sp
+                )
             }
-            items(CardioActivityType.entries.toList()) { activity ->
-                AnalyticsFilterChip(
-                    text = activity.displayName,
-                    selected = selectedActivity == activity
-                ) {
-                    selectedActivity = activity
-                    pagesVisible = 1
-                }
+            Box(
+                Modifier
+                    .heightIn(min = 42.dp)
+                    .background(superhumanSurfaceSoft, RoundedCornerShape(13.dp))
+                    .clickable { showFilters = !showFilters }
+                    .padding(horizontal = 13.dp, vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (showFilters) "DONE" else "FILTER",
+                    color = superhumanBlue,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black
+                )
             }
         }
 
-        AnalyticsFilterChip(
-            text = if (showAdvancedFilters) "Hide extra filters" else "More filters",
-            selected = showAdvancedFilters
-        ) {
-            showAdvancedFilters = !showAdvancedFilters
-        }
-        if (showAdvancedFilters) {
-            Text("Workout type", color = superhumanTextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        if (showFilters) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item {
-                    AnalyticsFilterChip("All types", selectedWorkoutType == null) {
-                        selectedWorkoutType = null
-                        pagesVisible = 1
+                    AnalyticsFilterChip("All", selectedActivity == null) {
+                        selectedActivity = null
                     }
                 }
-                items(CardioWorkoutType.entries.toList()) { type ->
-                    AnalyticsFilterChip(type.label, selectedWorkoutType == type) {
-                        selectedWorkoutType = type
-                        pagesVisible = 1
-                    }
-                }
-            }
-            if (availableSources.isNotEmpty()) {
-                Text("Source / provider", color = superhumanTextMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    item {
-                        AnalyticsFilterChip("All sources", selectedSource == null) {
-                            selectedSource = null
-                            pagesVisible = 1
-                        }
-                    }
-                    items(availableSources) { source ->
-                        AnalyticsFilterChip(source, selectedSource == source) {
-                            selectedSource = source
-                            pagesVisible = 1
-                        }
+                items(CardioActivityType.entries.toList()) { activity ->
+                    AnalyticsFilterChip(activity.displayName, selectedActivity == activity) {
+                        selectedActivity = activity
                     }
                 }
             }
         }
 
-        Text(
-            total.toString() + if (total == 1) " matching session" else " matching sessions",
-            color = superhumanTextMuted,
-            fontSize = 12.sp
-        )
-
-        if (visibleItems.isEmpty()) {
-            AnalyticsEmpty("No sessions match these filters.")
+        if (recent.isEmpty()) {
+            AnalyticsEmpty(
+                if (sessions.isEmpty()) "Complete or log a cardio workout and it will appear here."
+                else "No workouts match this filter."
+            )
         } else {
-            LazyColumn(
+            Column(
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 180.dp, max = 520.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    .background(superhumanSurface, RoundedCornerShape(20.dp))
+                    .border(1.dp, superhumanBorder, RoundedCornerShape(20.dp))
+                    .padding(10.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                items(visibleItems, key = { it.id }) { session ->
+                recent.take(100).forEach { session ->
                     AnalyticsHistoryRow(session) { onOpenSession(session) }
-                }
-                if (hasMore) {
-                    item {
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp)
-                                .background(superhumanSurfaceSoft, RoundedCornerShape(14.dp))
-                                .clickable { pagesVisible += 1 }
-                                .semantics {
-                                    role = Role.Button
-                                    contentDescription = "Load 30 more cardio sessions"
-                                }
-                                .padding(12.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                "Load more",
-                                color = superhumanGreen,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
                 }
             }
         }
