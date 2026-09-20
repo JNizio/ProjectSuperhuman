@@ -49,7 +49,9 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
                     restore.draft.sessionId,
                     restore.draft.activity,
                     restore.draft.startedAtEpochMs,
-                    paused = restore.draft.phase != CardioLivePhase.RECORDING
+                    paused = restore.draft.phase != CardioLivePhase.RECORDING,
+                    pausedSinceEpochMs = restore.draft.phaseStartedEpochMs
+                        .takeIf { restore.draft.phase != CardioLivePhase.RECORDING }
                 )
                 if (restore.draft.phase != CardioLivePhase.RECORDING) {
                     CardioSensorRuntime.pauseSession(System.currentTimeMillis())
