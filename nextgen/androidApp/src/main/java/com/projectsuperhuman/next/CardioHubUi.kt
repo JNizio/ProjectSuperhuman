@@ -769,50 +769,6 @@ private fun CardioHubWeekRing(week: CardioWeekIntentSnapshot) {
     }
 }
 
-@Composable
-private fun CardioHubSignalDots(available: Int, total: Int, accent: Color) {
-    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        repeat(total.coerceAtLeast(0)) { index ->
-            Box(
-                Modifier.size(7.dp)
-                    .background(
-                        if (index < available) accent else superhumanBorder,
-                        CircleShape
-                    )
-            )
-        }
-    }
-}
-
-@Composable
-private fun CardioHubWeekRing(week: CardioWeekIntentSnapshot) {
-    Box(Modifier.size(56.dp), contentAlignment = Alignment.Center) {
-        Canvas(Modifier.size(56.dp)) {
-            val stroke = 5.dp.toPx()
-            drawArc(
-                color = superhumanBorder.copy(alpha = .55f),
-                startAngle = -90f,
-                sweepAngle = 360f,
-                useCenter = false,
-                style = Stroke(stroke, cap = StrokeCap.Round)
-            )
-            week.progressFraction?.let {
-                drawArc(
-                    color = Color(0xFF8E72D8),
-                    startAngle = -90f,
-                    sweepAngle = 360f * it.toFloat().coerceIn(0f, 1f),
-                    useCenter = false,
-                    style = Stroke(stroke, cap = StrokeCap.Round)
-                )
-            }
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(week.minutes.toString(), color = superhumanTextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Black)
-            Text("MIN", color = superhumanTextMuted, fontSize = 6.sp, fontWeight = FontWeight.Black)
-        }
-    }
-}
-
 
 @Composable
 private fun CardioHubSensorStrip(metrics: CardioLiveSensorMetrics) {
