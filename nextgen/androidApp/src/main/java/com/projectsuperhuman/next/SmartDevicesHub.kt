@@ -117,7 +117,7 @@ private data class PopularDeviceConnection(
 private val popularDeviceConnections = listOf(
     PopularDeviceConnection("samsung", "S", "Galaxy Watch", "Samsung Health", "Samsung watches"),
     PopularDeviceConnection("fitbit", "F", "Fitbit / Pixel Watch", "Fitbit", "Fitbit & Pixel wearables"),
-    PopularDeviceConnection("garmin", "G", "Garmin", "Garmin Connect", "Garmin watches & trackers"),
+    PopularDeviceConnection("garmin", "G", "Garmin", "Garmin Connect", "Garmin watches & trackers · Android 14+"),
     PopularDeviceConnection("oura", "O", "Oura Ring", "Oura", "Oura rings"),
     PopularDeviceConnection("whoop", "W", "WHOOP", "WHOOP", "WHOOP wearables"),
     PopularDeviceConnection("other", "+", "Other wearable", "your device app", "Any Health Connect source")
