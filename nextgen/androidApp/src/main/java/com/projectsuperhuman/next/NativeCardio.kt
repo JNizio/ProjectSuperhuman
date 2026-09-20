@@ -786,32 +786,14 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
             }
 
             CardioScreen.FITNESS -> {
-                CardioHeroStrip(
-                    "FITNESS",
-                    "Am I getting fitter?",
-                    "Personal baselines first; unavailable metrics stay unavailable.",
-                    CardioAccent
-                )
                 CardioFitnessHubScreen(sessions)
             }
 
             CardioScreen.PROGRESS -> {
-                CardioHeroStrip(
-                    "TRENDS",
-                    "Training over time",
-                    "One chart, one question. Change range when you need more context.",
-                    Color(0xFF7B61C9)
-                )
                 CardioTrendsHubScreen(sessions)
             }
 
             CardioScreen.RECORDS -> {
-                CardioHeroStrip(
-                    "TESTS & RECORDS",
-                    "Verified performance",
-                    "Records require evidence; tests unlock only when their protocol exists.",
-                    CardioGold
-                )
                 CardioRecordsHubScreen(sessions)
             }
         }
@@ -837,7 +819,7 @@ private fun CardioHeader(screen: CardioScreen, onBack: () -> Unit) {
                 CardioScreen.DETAIL -> "Session"
                 CardioScreen.FITNESS -> "Fitness"
                 CardioScreen.PROGRESS -> "Trends"
-                CardioScreen.RECORDS -> "Tests & records"
+                CardioScreen.RECORDS -> "Records"
             },
             color = CardioInk,
             fontSize = 25.sp,
