@@ -179,7 +179,9 @@ internal data class CardioGpsQualityPoint(
     val quality: CardioObservationQuality,
     val reason: String? = null
 ) {
-    val accepted: Boolean get() = quality == CardioObservationQuality.ACCEPTED
+    val accepted: Boolean
+        get() = quality == CardioObservationQuality.ACCEPTED ||
+            quality == CardioObservationQuality.GAP_ADJACENT
 }
 
 internal enum class CardioGpsQualityLabel {
@@ -292,6 +294,13 @@ internal object CardioGpsProcessor {
         if (previousAccepted != null) {
             val dtMs = fix.timestampEpochMs - previousAccepted.timestampEpochMs
             if (dtMs <= 0L) return CardioGpsQualityPoint(fix, CardioObservationQuality.INVALID, "Non-increasing GPS timestamp")
+            if (dtMs > 30_000L) {
+                return CardioGpsQualityPoint(
+                    fix,
+                    CardioObservationQuality.GAP_ADJACENT,
+                    "GPS resumed after a route gap; gap distance is not connected"
+                )
+            }
             if (dtMs <= 30_000L) {
                 val derivedSpeed = haversineMeters(previousAccepted, fix) / (dtMs / 1000.0)
                 if (derivedSpeed > plausibleMaxSpeedMps(activity)) {
