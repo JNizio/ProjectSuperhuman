@@ -82,6 +82,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var pendingDeleteSessionId by remember { mutableStateOf<String?>(null) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var confirmHomeDiscard by remember { mutableStateOf(false) }
     var confirmHomeFinish by remember { mutableStateOf(false) }
     var liveAutoPauseEnabled by remember { mutableStateOf(false) }
     var showLiveOptions by remember { mutableStateOf(false) }
@@ -396,13 +397,30 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                         confirmFinish = confirmHomeFinish,
                         onPrimary = {
                             confirmHomeFinish = false
+                            confirmHomeDiscard = false
                             if (activeDraft) screen = CardioScreen.LIVE else screen = CardioScreen.PICK_ACTIVITY
                         },
                         onToggleActive = {
                             confirmHomeFinish = false
+                            confirmHomeDiscard = false
                             if (cardioState.isRecording) cardioViewModel.pause() else cardioViewModel.resume()
                         },
+                        confirmDiscard = confirmHomeDiscard,
+                        onDiscardActive = {
+                            confirmHomeFinish = false
+                            if (!confirmHomeDiscard) {
+                                confirmHomeDiscard = true
+                                feedback = "Tap Delete again to discard this workout"
+                            } else {
+                                confirmHomeDiscard = false
+                                cardioViewModel.discardLive {
+                                    feedback = null
+                                    screen = CardioScreen.HOME
+                                }
+                            }
+                        },
                         onSaveActive = {
+                            confirmHomeDiscard = false
                             if (!confirmHomeFinish) {
                                 confirmHomeFinish = true
                                 feedback = "Tap Stop & Save again to confirm"
@@ -504,11 +522,27 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     )
                     CardioLiveControls(
                         running = cardioState.isRecording,
+                        confirmDiscard = confirmDiscard,
                         onToggle = {
+                            confirmDiscard = false
                             if (cardioState.isRecording) cardioViewModel.pause() else cardioViewModel.resume()
                         },
                         onLap = { cardioViewModel.manualLap() },
-                        onFinish = { prepareFinishedLive() }
+                        onFinish = {
+                            confirmDiscard = false
+                            prepareFinishedLive()
+                        },
+                        onDiscard = {
+                            if (confirmDiscard) {
+                                cardioViewModel.discardLive {
+                                    confirmDiscard = false
+                                    showLiveOptions = false
+                                    screen = CardioScreen.HOME
+                                }
+                            } else {
+                                confirmDiscard = true
+                            }
+                        }
                     )
                     CardioActionCompact(
                         if (showLiveOptions) "Hide workout options" else "Workout options",
@@ -841,8 +875,10 @@ private fun CardioHero(
     activeDistanceMeters: Double,
     activePaceSecondsPerKm: Int?,
     confirmFinish: Boolean,
+    confirmDiscard: Boolean,
     onPrimary: () -> Unit,
     onToggleActive: () -> Unit,
+    onDiscardActive: () -> Unit,
     onSaveActive: () -> Unit
 ) {
     if (!active) {
@@ -954,6 +990,13 @@ private fun CardioHero(
                 modifier = Modifier.weight(1.15f),
                 enabled = !saveInProgress,
                 onClick = onSaveActive
+            )
+            CardioCompactHeroAction(
+                label = if (confirmDiscard) "Confirm delete" else "Delete",
+                accent = CardioCoral,
+                modifier = Modifier.weight(1f),
+                enabled = !saveInProgress,
+                onClick = onDiscardActive
             )
         }
     }
@@ -1424,9 +1467,11 @@ private fun CardioMiniFact(label: String, value: String, modifier: Modifier) {
 @Composable
 private fun CardioLiveControls(
     running: Boolean,
+    confirmDiscard: Boolean,
     onToggle: () -> Unit,
     onLap: () -> Unit,
-    onFinish: () -> Unit
+    onFinish: () -> Unit,
+    onDiscard: () -> Unit
 ) {
     Row(
         Modifier.fillMaxWidth()
@@ -1455,6 +1500,15 @@ private fun CardioLiveControls(
             modifier = Modifier.weight(1f),
             onClick = onFinish
         )
+        if (!running) {
+            CardioControlButton(
+                icon = CardioUiIcon.DELETE,
+                label = if (confirmDiscard) "Confirm" else "Delete",
+                accent = Color(0xFFF08B8F),
+                modifier = Modifier.weight(1f),
+                onClick = onDiscard
+            )
+        }
     }
 }
 
@@ -1466,22 +1520,29 @@ private fun CardioControlButton(
     modifier: Modifier,
     onClick: () -> Unit
 ) {
-    Row(
-        modifier.heightIn(min = 58.dp)
+    Column(
+        modifier.heightIn(min = 72.dp)
             .background(Color.White.copy(alpha = .075f), RoundedCornerShape(16.dp))
             .clickable { onClick() }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+            .padding(horizontal = 6.dp, vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
         Box(
-            Modifier.size(38.dp).background(accent.copy(alpha = .16f), CircleShape),
+            Modifier.size(34.dp).background(accent.copy(alpha = .16f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            CardioVectorIcon(icon, accent, Modifier.size(20.dp))
+            CardioVectorIcon(icon, accent, Modifier.size(18.dp))
         }
-        Spacer(Modifier.width(9.dp))
-        Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(5.dp))
+        Text(
+            label,
+            color = Color.White,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Black,
+            maxLines = 1,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
