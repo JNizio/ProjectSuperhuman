@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,17 +43,18 @@ internal data class CardioProductOverviewModel(
 internal fun buildCardioProductOverviewModel(
     sessions: List<CardioSession>,
     targetMinutes: Int? = null,
+    recoveryContext: CardioRecoveryContext? = null,
     nowEpochMs: Long = System.currentTimeMillis()
 ): CardioProductOverviewModel {
     val fitness = CardioPersonalBaselineEngine.fitnessSnapshot(sessions, nowEpochMs)
     val load = CardioTrainingLoadEngine.latest(sessions, nowEpochMs)
     val loadAnalytics = CardioAnalyticsEngine.loadAnalytics(sessions, nowEpochMs)
-    val readiness = CardioPersonalBaselineEngine.readiness(
-        CardioRecoveryContext(
-            trainingStressBalance = load?.trainingStressBalance
-                ?.takeIf { loadAnalytics.scoredSessions > 0 }
-        )
-    )
+    val supportedTsb = load?.trainingStressBalance
+        ?.takeIf { loadAnalytics.scoredSessions > 0 }
+    val context = recoveryContext?.copy(
+        trainingStressBalance = recoveryContext.trainingStressBalance ?: supportedTsb
+    ) ?: CardioRecoveryContext(trainingStressBalance = supportedTsb)
+    val readiness = CardioPersonalBaselineEngine.readiness(context)
     val week = CardioPersonalBaselineEngine.weekIntent(
         sessions = sessions,
         targetMinutes = targetMinutes,
@@ -94,7 +96,23 @@ internal fun CardioProductOverview(
     onTrends: () -> Unit,
     onTestsRecords: () -> Unit
 ) {
-    val model = remember(sessions) { buildCardioProductOverviewModel(sessions) }
+    var recoveryContext by remember { mutableStateOf<CardioRecoveryContext?>(null) }
+
+    LaunchedEffect(sessions) {
+        val loadAnalytics = CardioAnalyticsEngine.loadAnalytics(sessions)
+        val latestLoad = CardioTrainingLoadEngine.latest(sessions)
+            ?.takeIf { loadAnalytics.scoredSessions > 0 }
+        recoveryContext = runCatching {
+            CardioNof1Repository().loadRecoveryContext(latestLoad)
+        }.getOrNull()
+    }
+
+    val model = remember(sessions, recoveryContext) {
+        buildCardioProductOverviewModel(
+            sessions = sessions,
+            recoveryContext = recoveryContext
+        )
+    }
 
     Column(
         Modifier.fillMaxWidth(),
