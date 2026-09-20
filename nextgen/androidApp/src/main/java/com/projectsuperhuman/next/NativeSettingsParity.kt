@@ -150,73 +150,24 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Settings", color = SettingsInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
-        Text("Appearance, smart devices, backup and app controls.", color = SettingsMuted, fontSize = 11.sp)
-
-        Column(
+        Row(
             Modifier.fillMaxWidth()
-                .background(SettingsCard, RoundedCornerShape(22.dp))
+                .height(58.dp)
+                .background(SettingsCard, RoundedCornerShape(18.dp))
                 .superhumanClickable(onClick = openSmartDevices)
-                .padding(16.dp)
+                .padding(horizontal = 15.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    Modifier.background(SettingsBlue.copy(alpha = .11f), RoundedCornerShape(14.dp)).padding(horizontal = 11.dp, vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("⌁", color = SettingsBlue, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                }
-                Column(Modifier.weight(1f).padding(start = 11.dp)) {
-                    Text("Devices & connections", color = SettingsNavy, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                    Text(
-                        "Watches, rings, heart-rate sensors, scales and health apps",
-                        color = SettingsMuted,
-                        fontSize = 9.sp,
-                        lineHeight = 13.sp
-                    )
-                }
-                Text("›", color = SettingsNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(9.dp))
-            Text(
-                "Manage all device setup on one dedicated screen. Popular brands have quick setup shortcuts and every source shows whether data is direct or imported.",
-                color = SettingsMuted,
-                fontSize = 8.5.sp,
-                lineHeight = 13.sp
-            )
-        }
-
-        Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Appearance", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                    Text(if (darkMode) "Dark mode is on" else "Light mode is on", color = SettingsMuted, fontSize = 10.sp)
-                }
-                Text(if (darkMode) "DARK" else "LIGHT", color = if (darkMode) superhumanAccent else SettingsBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(
-                Modifier.fillMaxWidth().background(SettingsSoft, RoundedCornerShape(16.dp)).padding(horizontal = 13.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("Dark mode", color = SettingsInk, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                    Text("Use dark surfaces throughout Project Superhuman and match system-bar contrast.", color = SettingsMuted, fontSize = 8.sp, lineHeight = 12.sp)
-                }
-                Switch(
-                    checked = darkMode,
-                    onCheckedChange = { SuperhumanAppearance.setDarkMode(context, it) },
-                    modifier = Modifier.semantics { contentDescription = "Dark mode" }
-                )
-            }
+            Text("Devices", color = SettingsNavy, fontSize = 15.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
+            Text("›", color = SettingsBlue, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         }
 
         Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Data Vault", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                    Text("$storedCount shared health values stored", color = SettingsMuted, fontSize = 10.sp)
+                    Text("$storedCount values", color = SettingsMuted, fontSize = 10.sp)
                 }
-                Text("NATIVE", color = SettingsGreen, fontSize = 9.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(12.dp))
             VaultButton("Export backup", "Save a portable Project Superhuman JSON backup", SettingsBlue) {
