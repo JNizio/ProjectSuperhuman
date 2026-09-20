@@ -21,6 +21,11 @@ internal data class CardioLiveSensorMetrics(
     val maxHeartRateBpm: Int? = null,
     val currentZone: Int? = null,
     val heartRateCoveragePct: Double = 0.0,
+    val heartRateAcceptedPct: Double = 0.0,
+    val suspectHeartRateSamples: Int = 0,
+    val rrValidBeatPct: Double = 0.0,
+    val rrCoveragePct: Double = 0.0,
+    val rmssdMs: Double? = null,
     val lastSampleAgeMs: Long? = null,
     val message: String = "Timer-only cardio"
 )
@@ -318,6 +323,10 @@ internal object CardioSensorRuntime {
         val sensor = _state.value.withFreshness(nowEpochMs)
         val summary = forcedSummary ?: if (activeSessionId != null) collector.snapshot(nowEpochMs) else lastStoppedSummary
         val fresh = sensor.freshHeartRate(nowEpochMs)
+        val hrQuality = CardioHrQualityProcessor.analyse(collector.rawHeartRateSamples())
+        val activeDurationMs = (summary.measuredSeconds + summary.unclassifiedSeconds)
+            .coerceAtLeast(0) * 1000L
+        val rrQuality = CardioRrProcessor.analyse(collector.rawRrIntervals(), activeDurationMs)
         val sourceLabel = when (sensor.providerType) {
             CardioSensorProviderType.H19C -> "H19C"
             CardioSensorProviderType.BLE_HEART_RATE -> sensor.provenance?.deviceName ?: "BLE HR"
@@ -334,6 +343,11 @@ internal object CardioSensorRuntime {
             maxHeartRateBpm = summary.maxBpm,
             currentZone = if (fresh != null) summary.currentZone else null,
             heartRateCoveragePct = summary.heartRateCoveragePct,
+            heartRateAcceptedPct = hrQuality.acceptedPercent,
+            suspectHeartRateSamples = hrQuality.suspectCount,
+            rrValidBeatPct = rrQuality.validBeatPercent,
+            rrCoveragePct = rrQuality.coveragePercent,
+            rmssdMs = rrQuality.rmssdMs,
             lastSampleAgeMs = sensor.sampleAgeMs(nowEpochMs),
             message = sensor.message
         )
