@@ -1005,34 +1005,38 @@ private fun CardioHubIconBadge(glyph: CardioHubGlyph, accent: Color) {
 }
 
 @Composable
-private fun CardioHubGlyphIcon(glyph: CardioHubGlyph, tint: Color, modifier: Modifier = Modifier.size(20.dp)) {
+private fun CardioHubGlyphIcon(
+    glyph: CardioHubGlyph,
+    tint: Color,
+    modifier: Modifier = Modifier.size(20.dp)
+) {
+    val domainGlyph = when (glyph) {
+        CardioHubGlyph.RUN -> SuperhumanDomainGlyph.RUNNING
+        CardioHubGlyph.WALK -> SuperhumanDomainGlyph.WALKING
+        CardioHubGlyph.BIKE -> SuperhumanDomainGlyph.CYCLING
+        CardioHubGlyph.ROW -> SuperhumanDomainGlyph.ROWING
+        CardioHubGlyph.TROPHY -> SuperhumanDomainGlyph.TROPHY
+        CardioHubGlyph.TREND,
+        CardioHubGlyph.LOAD -> SuperhumanDomainGlyph.TREND
+        CardioHubGlyph.HEART -> SuperhumanDomainGlyph.HEARTBEAT
+        CardioHubGlyph.MORE -> SuperhumanDomainGlyph.MORE
+        else -> null
+    }
+
+    if (domainGlyph != null) {
+        SuperhumanDomainIcon(
+            glyph = domainGlyph,
+            tint = tint,
+            modifier = modifier
+        )
+        return
+    }
+
     Canvas(modifier) {
         val w = size.width
         val h = size.height
         val s = size.minDimension * .09f
         when (glyph) {
-            CardioHubGlyph.HEART -> {
-                val path = Path().apply {
-                    moveTo(w * .50f, h * .82f)
-                    cubicTo(w * .12f, h * .58f, w * .12f, h * .22f, w * .34f, h * .22f)
-                    cubicTo(w * .43f, h * .22f, w * .49f, h * .29f, w * .50f, h * .36f)
-                    cubicTo(w * .51f, h * .29f, w * .57f, h * .22f, w * .66f, h * .22f)
-                    cubicTo(w * .88f, h * .22f, w * .88f, h * .58f, w * .50f, h * .82f)
-                    close()
-                }
-                drawPath(path, tint)
-            }
-            CardioHubGlyph.TREND, CardioHubGlyph.LOAD -> {
-                val path = Path().apply {
-                    moveTo(w * .10f, h * .72f)
-                    lineTo(w * .32f, h * .54f)
-                    lineTo(w * .52f, h * .61f)
-                    lineTo(w * .78f, h * .27f)
-                    lineTo(w * .90f, h * .34f)
-                }
-                drawPath(path, tint, style = Stroke(s, cap = StrokeCap.Round))
-                drawLine(tint, Offset(w * .10f, h * .84f), Offset(w * .90f, h * .84f), s * .65f, StrokeCap.Round)
-            }
             CardioHubGlyph.CALENDAR -> {
                 drawRoundRect(tint, Offset(w * .16f, h * .24f), Size(w * .68f, h * .60f), style = Stroke(s))
                 drawLine(tint, Offset(w * .16f, h * .41f), Offset(w * .84f, h * .41f), s * .75f)
@@ -1049,49 +1053,24 @@ private fun CardioHubGlyphIcon(glyph: CardioHubGlyph, tint: Color, modifier: Mod
                 drawArc(tint, 220f, 100f, false, Offset(w * .27f, h * .31f), Size(w * .46f, h * .46f), style = Stroke(s))
                 drawCircle(tint, w * .055f, center = Offset(w * .5f, h * .66f))
             }
-            CardioHubGlyph.RUN, CardioHubGlyph.WALK -> {
-                drawCircle(tint, w * .08f, Offset(w * .55f, h * .18f))
-                drawLine(tint, Offset(w * .50f, h * .29f), Offset(w * .44f, h * .55f), s, StrokeCap.Round)
-                drawLine(tint, Offset(w * .46f, h * .39f), Offset(w * .25f, h * .48f), s, StrokeCap.Round)
-                drawLine(tint, Offset(w * .46f, h * .40f), Offset(w * .67f, h * .48f), s, StrokeCap.Round)
-                drawLine(tint, Offset(w * .44f, h * .55f), Offset(w * .28f, h * .82f), s, StrokeCap.Round)
-                drawLine(tint, Offset(w * .44f, h * .55f), Offset(w * .70f, h * .78f), s, StrokeCap.Round)
-            }
-            CardioHubGlyph.BIKE -> {
-                drawCircle(tint, w * .20f, Offset(w * .25f, h * .68f), style = Stroke(s))
-                drawCircle(tint, w * .20f, Offset(w * .75f, h * .68f), style = Stroke(s))
-                drawLine(tint, Offset(w * .25f, h * .68f), Offset(w * .45f, h * .43f), s)
-                drawLine(tint, Offset(w * .45f, h * .43f), Offset(w * .58f, h * .68f), s)
-                drawLine(tint, Offset(w * .58f, h * .68f), Offset(w * .25f, h * .68f), s)
-                drawLine(tint, Offset(w * .58f, h * .68f), Offset(w * .75f, h * .68f), s)
-                drawLine(tint, Offset(w * .45f, h * .43f), Offset(w * .41f, h * .31f), s)
-            }
-            CardioHubGlyph.ROW -> {
-                drawLine(tint, Offset(w * .18f, h * .72f), Offset(w * .82f, h * .72f), s, StrokeCap.Round)
-                drawLine(tint, Offset(w * .34f, h * .55f), Offset(w * .64f, h * .55f), s, StrokeCap.Round)
-                drawCircle(tint, w * .07f, Offset(w * .43f, h * .28f))
-                drawLine(tint, Offset(w * .43f, h * .36f), Offset(w * .52f, h * .55f), s, StrokeCap.Round)
-                drawLine(tint, Offset(w * .49f, h * .43f), Offset(w * .70f, h * .32f), s, StrokeCap.Round)
-                drawLine(tint, Offset(w * .70f, h * .32f), Offset(w * .84f, h * .76f), s * .75f, StrokeCap.Round)
-                drawLine(tint, Offset(w * .52f, h * .55f), Offset(w * .67f, h * .72f), s, StrokeCap.Round)
-            }
             CardioHubGlyph.HISTORY -> {
                 drawCircle(tint, w * .33f, center, style = Stroke(s))
                 drawLine(tint, center, Offset(w * .5f, h * .31f), s, StrokeCap.Round)
                 drawLine(tint, center, Offset(w * .67f, h * .58f), s, StrokeCap.Round)
             }
-            CardioHubGlyph.TROPHY -> {
-                drawArc(tint, 0f, 180f, false, Offset(w * .25f, h * .17f), Size(w * .5f, h * .5f), style = Stroke(s))
-                drawLine(tint, Offset(w * .5f, h * .43f), Offset(w * .5f, h * .76f), s, StrokeCap.Round)
-                drawLine(tint, Offset(w * .32f, h * .82f), Offset(w * .68f, h * .82f), s, StrokeCap.Round)
-            }
             CardioHubGlyph.PLUS -> {
                 drawLine(tint, Offset(w * .2f, h * .5f), Offset(w * .8f, h * .5f), s, StrokeCap.Round)
                 drawLine(tint, Offset(w * .5f, h * .2f), Offset(w * .5f, h * .8f), s, StrokeCap.Round)
             }
-            CardioHubGlyph.MORE -> {
-                repeat(3) { index -> drawCircle(tint, w * .055f, Offset(w * (.28f + index * .22f), h * .5f)) }
-            }
+            CardioHubGlyph.HEART,
+            CardioHubGlyph.TREND,
+            CardioHubGlyph.LOAD,
+            CardioHubGlyph.RUN,
+            CardioHubGlyph.WALK,
+            CardioHubGlyph.BIKE,
+            CardioHubGlyph.ROW,
+            CardioHubGlyph.TROPHY,
+            CardioHubGlyph.MORE -> Unit
         }
     }
 }
