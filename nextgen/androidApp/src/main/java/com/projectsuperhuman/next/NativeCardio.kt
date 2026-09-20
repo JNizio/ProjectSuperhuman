@@ -1563,6 +1563,104 @@ private fun CardioControlButton(
 }
 
 @Composable
+private fun CardioLivePrimaryMetrics(
+    activity: CardioActivityType,
+    movement: CardioLiveMovementMetrics,
+    sensor: CardioLiveSensorMetrics
+) {
+    val performanceLabel: String
+    val performanceValue: String
+    val performanceUnit: String?
+    when (activity.paceMode) {
+        CardioPaceMode.PER_KM -> {
+            performanceLabel = "PACE"
+            performanceValue = cardioFormatPace(movement.currentPaceSecondsPerKm)
+            performanceUnit = "/km"
+        }
+        CardioPaceMode.SPEED -> {
+            performanceLabel = "SPEED"
+            performanceValue = movement.currentSpeedMetersPerSecond
+                ?.let { cardioFormatNumber(it * 3.6) } ?: "—"
+            performanceUnit = "km/h"
+        }
+        else -> {
+            performanceLabel = "MOVING"
+            performanceValue = cardioFormatDuration((movement.movingTimeMs / 1000L).toInt())
+            performanceUnit = null
+        }
+    }
+    Column(
+        Modifier.fillMaxWidth()
+            .background(CardioSurface, RoundedCornerShape(21.dp))
+            .border(1.dp, CardioBorder.copy(alpha = .72f), RoundedCornerShape(21.dp))
+            .padding(14.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            CardioLiveMetricCell(
+                "HEART RATE",
+                sensor.currentHeartRateBpm?.toString() ?: "—",
+                "bpm",
+                Color(0xFFC85772),
+                Modifier.weight(1f)
+            )
+            CardioStatDivider()
+            CardioLiveMetricCell(
+                performanceLabel,
+                performanceValue,
+                performanceUnit,
+                CardioBlue,
+                Modifier.weight(1f)
+            )
+            CardioStatDivider()
+            CardioLiveMetricCell(
+                "DISTANCE",
+                if (movement.distanceMeters > 0.0) {
+                    cardioFormatNumber(movement.distanceMeters / 1000.0)
+                } else "—",
+                "km",
+                CardioAccent,
+                Modifier.weight(1f)
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        val gps = when (movement.gpsQuality) {
+            CardioGpsQualityLabel.GOOD -> "GPS good"
+            CardioGpsQualityLabel.WEAK -> "GPS weak"
+            CardioGpsQualityLabel.UNAVAILABLE -> movement.message
+        }
+        val hrState = when (sensor.connection) {
+            CardioSensorConnectionState.CONNECTED -> sensor.sourceLabel + " live"
+            CardioSensorConnectionState.STALE -> sensor.sourceLabel + " stale"
+            CardioSensorConnectionState.RECONNECTING -> sensor.sourceLabel + " reconnecting"
+            else -> sensor.connection.name.lowercase().replace('_', ' ')
+        }
+        Text(
+            gps + " · " + hrState,
+            color = CardioMuted,
+            fontSize = 9.sp
+        )
+        movement.structuredProgress?.let { progress ->
+            val step = progress.state.currentStep
+            if (step != null) {
+                Spacer(Modifier.height(8.dp))
+                val remaining = when {
+                    progress.remainingSeconds != null -> cardioFormatDuration(progress.remainingSeconds)
+                    progress.remainingMeters != null -> cardioFormatNumber(progress.remainingMeters) + " m"
+                    else -> "Open"
+                }
+                val upcoming = progress.state.upcomingStep?.label?.let { " · next " + it }.orEmpty()
+                Text(
+                    step.label + " · " + remaining + upcoming,
+                    color = CardioInk,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun CardioLiveMetricsPanel(metrics: CardioLiveSensorMetrics) {
     val connectionLabel = when (metrics.connection) {
         CardioSensorConnectionState.CONNECTED -> "LIVE"
@@ -1639,10 +1737,23 @@ private fun CardioLiveMetricsPanel(metrics: CardioLiveSensorMetrics) {
             .orEmpty()
         val zone = metrics.currentZone?.let { "Z$it" } ?: "—"
         Text(
-            "Zone $zone · HR coverage ${String.format(Locale.US, "%.0f", metrics.heartRateCoveragePct)}%$freshness",
+            "Zone " + zone + " · HR coverage " +
+                String.format(Locale.US, "%.0f", metrics.heartRateCoveragePct) +
+                "% · accepted " + String.format(Locale.US, "%.0f", metrics.heartRateAcceptedPct) +
+                "%" + freshness,
             color = CardioMuted,
             fontSize = 10.sp
         )
+        if (metrics.rrValidBeatPct > 0.0) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "RR valid " + String.format(Locale.US, "%.0f", metrics.rrValidBeatPct) +
+                    "% · RR coverage " + String.format(Locale.US, "%.0f", metrics.rrCoveragePct) +
+                    "%" + (metrics.rmssdMs?.let { " · RMSSD " + String.format(Locale.US, "%.1f", it) + " ms derived" } ?: ""),
+                color = CardioMuted,
+                fontSize = 9.sp
+            )
+        }
         if (metrics.connection != CardioSensorConnectionState.CONNECTED) {
             Spacer(Modifier.height(4.dp))
             Text(metrics.message, color = CardioMuted, fontSize = 9.sp)
