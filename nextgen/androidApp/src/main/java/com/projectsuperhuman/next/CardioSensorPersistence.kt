@@ -45,6 +45,7 @@ internal fun CardioSession.withCardioHeartRateSummary(
         minHeartRate = minHeartRate ?: summary.minBpm,
         maxHeartRate = maxHeartRate ?: summary.maxBpm,
         zoneSeconds = if (zoneSeconds.isNotEmpty()) zoneSeconds else summary.zoneSeconds,
+        zoneSchemeId = zoneSchemeId ?: summary.zoneSchemeId,
         extensions = extensions + sensorExtensions
     )
 }

@@ -333,6 +333,7 @@ internal class CardioSessionHeartRateCollector(
 ) {
     private var sessionId: String? = null
     private val samples = mutableListOf<CardioHeartRateSample>()
+    private val rrIntervals = mutableListOf<CardioRrIntervalSample>()
     private val windows = mutableListOf<CardioActiveWindow>()
     private var openWindowStart: Long? = null
     private var stoppedAt: Long? = null
@@ -340,6 +341,7 @@ internal class CardioSessionHeartRateCollector(
     fun start(id: String, startedAtEpochMs: Long) {
         sessionId = id
         samples.clear()
+        rrIntervals.clear()
         windows.clear()
         openWindowStart = startedAtEpochMs
         stoppedAt = null
@@ -358,13 +360,30 @@ internal class CardioSessionHeartRateCollector(
 
     fun accept(sample: CardioHeartRateSample): Boolean {
         if (sessionId == null || stoppedAt != null || openWindowStart == null) return false
-        if (!sample.isPhysiologicallyStorable) return false
         val start = openWindowStart ?: return false
         if (sample.timestampEpochMs < start) return false
         if (samples.lastOrNull()?.let { it.timestampEpochMs == sample.timestampEpochMs && it.bpm == sample.bpm } == true) return false
+        // Raw observations are retained. The analytic processor separately decides whether a value
+        // is physiologically usable, so filtering can be recomputed without destroying evidence.
         samples += sample
         return true
     }
+
+    fun acceptRr(sample: CardioRrIntervalSample): Boolean {
+        if (sessionId == null || stoppedAt != null || openWindowStart == null) return false
+        val start = openWindowStart ?: return false
+        if (sample.timestampEpochMs < start) return false
+        if (rrIntervals.lastOrNull()?.let {
+                it.timestampEpochMs == sample.timestampEpochMs && it.rrMs == sample.rrMs
+            } == true
+        ) return false
+        rrIntervals += sample
+        return true
+    }
+
+    fun rawHeartRateSamples(): List<CardioHeartRateSample> = samples.toList()
+
+    fun rawRrIntervals(): List<CardioRrIntervalSample> = rrIntervals.toList()
 
     fun snapshot(nowEpochMs: Long): CardioHeartRateSummary {
         if (sessionId == null) return CardioHeartRateSummary(zoneSchemeId = zoneScheme.id)

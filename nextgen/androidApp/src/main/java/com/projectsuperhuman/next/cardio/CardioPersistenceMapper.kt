@@ -67,6 +67,8 @@ internal fun cardioSessionFromValue(row: HealthValue): CardioSession {
         zoneSeconds = zones,
         avgSplit500mSeconds = i("avgSplit500mSeconds"),
         avgPace100mSeconds = i("avgPace100mSeconds"),
+        zoneSchemeId = meta["zoneSchemeId"],
+        physiologyRevisionId = meta["physiologyRevisionId"],
         schemaVersion = i("cardioSchemaVersion") ?: 1,
         extensions = extensions
     )
@@ -108,6 +110,8 @@ internal fun CardioSession.toHealthValue(): HealthValue {
     rpe?.let { meta["rpe"] = it.toString() }
     avgSplit500mSeconds?.let { meta["avgSplit500mSeconds"] = it.toString() }
     avgPace100mSeconds?.let { meta["avgPace100mSeconds"] = it.toString() }
+    zoneSchemeId?.let { meta["zoneSchemeId"] = it }
+    physiologyRevisionId?.let { meta["physiologyRevisionId"] = it }
     zoneSeconds.forEach { (zone, seconds) -> meta["zone" + zone + "Seconds"] = seconds.toString() }
     extensions.forEach { (key, value) ->
         if (key.isNotBlank() && !key.startsWith("_storage")) {

@@ -171,6 +171,17 @@ object CoreMetricRegistry : MetricRegistry {
         MetricDefinition("heart_rate_min_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.MIN_MAX_AVG, minAccepted = 20.0, maxAccepted = 260.0),
         MetricDefinition("heart_rate_max_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.MIN_MAX_AVG, minAccepted = 20.0, maxAccepted = 260.0),
 
+        // Cardio n-of-1 evidence. Raw streams deliberately retain values outside the normal
+        // analytic range; quality metadata determines whether a sample is included in derivations.
+        MetricDefinition("cardio_hr_sample_bpm", HealthDomain.EXERCISE, "bpm", aggregation = MetricAggregation.MIN_MAX_AVG),
+        MetricDefinition("cardio_rr_interval_ms", HealthDomain.EXERCISE, "ms", aggregation = MetricAggregation.MIN_MAX_AVG),
+        MetricDefinition("heart_rate_variability_rmssd_ms", HealthDomain.EXERCISE, "ms", aliases = setOf("hrv_rmssd_ms"), aggregation = MetricAggregation.AVERAGE, derived = true, minAccepted = 1.0, maxAccepted = 500.0),
+        MetricDefinition("cardio_fitness_efficiency_delta_pct", HealthDomain.EXERCISE, "%", aggregation = MetricAggregation.LAST, derived = true),
+        MetricDefinition("cardio_training_readiness_score", HealthDomain.EXERCISE, "score", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0, maxAccepted = 100.0),
+        MetricDefinition("cardio_chronic_training_load", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
+        MetricDefinition("cardio_acute_training_load", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true, minAccepted = 0.0),
+        MetricDefinition("cardio_training_stress_balance", HealthDomain.EXERCISE, "load", aggregation = MetricAggregation.LAST, derived = true),
+
         // Hydration. Intake events are signed because corrections subtract from a day.
         MetricDefinition("water_intake_ml", HealthDomain.HYDRATION, "ml", aliases = setOf("hydration_intake_ml"), aggregation = MetricAggregation.SUM, minAccepted = -10_000.0, maxAccepted = 10_000.0),
         MetricDefinition("water_total_l", HealthDomain.HYDRATION, "L", aliases = setOf("hydration_total_l"), aggregation = MetricAggregation.LAST, minAccepted = 0.0, maxAccepted = 10.0),
