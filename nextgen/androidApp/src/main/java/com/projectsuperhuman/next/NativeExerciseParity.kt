@@ -1226,8 +1226,8 @@ private fun StrengthLiveControlBar(
                 Text(setCount.toString() + " sets · " + exerciseCount + " exercises", color = ExerciseMuted, fontSize = 9.sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StrengthRoundControl(if (paused) R.drawable.tabler_player_play else R.drawable.tabler_player_pause, ExerciseBlue, onPlayPause)
-                StrengthRoundControl(R.drawable.tabler_trash, superhumanRed, onDelete)
+                StrengthTopIconButton(if (paused) R.drawable.tabler_player_play else R.drawable.tabler_player_pause, ExerciseBlue, onPlayPause)
+                StrengthTopIconButton(R.drawable.tabler_trash, superhumanRed, onDelete)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -1242,7 +1242,7 @@ private fun StrengthLiveControlBar(
 }
 
 @Composable
-private fun StrengthRoundControl(
+private fun StrengthTopIconButton(
     iconRes: Int,
     tint: Color,
     onClick: () -> Unit
@@ -1250,7 +1250,8 @@ private fun StrengthRoundControl(
     Box(
         Modifier
             .size(42.dp)
-            .background(tint.copy(alpha = .13f), CircleShape)
+            .background(ExerciseSoft, RoundedCornerShape(13.dp))
+            .border(1.dp, tint.copy(alpha = .28f), RoundedCornerShape(13.dp))
             .superhumanClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -1258,7 +1259,7 @@ private fun StrengthRoundControl(
             painter = painterResource(id = iconRes),
             contentDescription = null,
             tint = tint,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(20.dp)
         )
     }
 }
@@ -1573,53 +1574,23 @@ private fun StrengthSessionPanel(
 
             if (activeWorkout) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(
-                        Modifier
-                            .size(40.dp)
-                            .background(ExerciseBlue.copy(alpha = .16f), CircleShape)
-                            .superhumanClickable(onClick = onAction),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "▶",
-                            color = ExerciseBlue,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.Black,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                    Box(
-                        Modifier
-                            .size(40.dp)
-                            .background(superhumanRed.copy(alpha = .12f), CircleShape)
-                            .superhumanClickable(onClick = onDelete),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            "×",
-                            color = superhumanRed,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            } else {
-                Box(
-                    Modifier
-                        .size(40.dp)
-                        .background(ExerciseBlue.copy(alpha = .16f), CircleShape)
-                        .superhumanClickable(onClick = onAction),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "+",
-                        color = ExerciseBlue,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Black,
-                        textAlign = TextAlign.Center
+                    StrengthTopIconButton(
+                        iconRes = R.drawable.tabler_player_play,
+                        tint = ExerciseBlue,
+                        onClick = onAction
+                    )
+                    StrengthTopIconButton(
+                        iconRes = R.drawable.tabler_trash,
+                        tint = superhumanRed,
+                        onClick = onDelete
                     )
                 }
+            } else {
+                StrengthTopIconButton(
+                    iconRes = R.drawable.tabler_plus,
+                    tint = ExerciseBlue,
+                    onClick = onAction
+                )
             }
         }
 
