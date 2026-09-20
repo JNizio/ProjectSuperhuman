@@ -10,15 +10,6 @@ enum class TrudyEvidenceKind {
     UNCERTAINTY_OR_DATA_GAP
 }
 
-/** Provenance class for a stored value. This is deliberately separate from confidence/quality. */
-enum class TrudyValueClass {
-    MEASURED,
-    DERIVED,
-    ESTIMATED,
-    INFERRED,
-    UNKNOWN
-}
-
 data class TrudyTimeRange(
     val fromEpochMs: Long,
     val toEpochMs: Long
@@ -50,22 +41,8 @@ data class TrudyMetricEvidence(
     val confidence: Double? = null,
     val dataQuality: TrudyDataQualityEvidence? = null,
     val evidenceKind: TrudyEvidenceKind = TrudyEvidenceKind.DIRECT_PERSONAL_OBSERVATION,
-    val metadata: Map<String, String> = emptyMap(),
-    val valueClass: TrudyValueClass = TrudyValueClass.MEASURED,
-    val confidenceLabel: String? = null,
-    val algorithmVersion: String? = null,
-    val sessionId: String? = null,
-    val deviceId: String? = null,
-    val deviceName: String? = null,
-    val coverageFraction: Double? = null,
-    val caveat: String? = null
-) {
-    init {
-        require(sampleCount >= 0)
-        require(confidence == null || confidence.isFinite())
-        require(coverageFraction == null || coverageFraction.isFinite() && coverageFraction in 0.0..1.0)
-    }
-}
+    val metadata: Map<String, String> = emptyMap()
+)
 
 data class TrudyDerivedMetricEvidence(
     val domain: HealthDomain,
