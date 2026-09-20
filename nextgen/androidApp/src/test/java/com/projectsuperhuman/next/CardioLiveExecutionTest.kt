@@ -160,6 +160,22 @@ internal class CardioLiveExecutionTest {
     }
 
     @Test
+    fun gpsGapDoesNotBridgeLostLocationButTrackingResumesAfterRecovery() {
+        val raw = listOf(
+            fix(0, 51.5000, -0.1200),
+            fix(10_000, 51.5000, -0.1195),
+            fix(60_000, 51.5000, -0.1180),
+            fix(70_000, 51.5000, -0.1175)
+        )
+        val result = CardioGpsProcessor.summarise(raw, CardioActivityType.RUNNING, 70_000)
+
+        assertEquals(CardioObservationQuality.GAP_ADJACENT, result.qualityPoints[2].quality)
+        assertEquals(4, result.cleanedRoute.size)
+        assertTrue(result.distanceMeters in 60.0..80.0)
+        assertEquals(20_000L, result.movingTimeMs)
+    }
+
+    @Test
     fun autoPauseUsesDebounceAndHysteresisWithoutOscillation() {
         val engine = CardioAutoPauseEngine(
             CardioAutoPauseConfig(
