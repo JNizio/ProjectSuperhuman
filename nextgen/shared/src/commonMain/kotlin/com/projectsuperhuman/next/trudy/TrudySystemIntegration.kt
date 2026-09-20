@@ -55,6 +55,14 @@ object TrudySystemCatalog {
             metric(HealthDomain.EXERCISE, "exercise_minutes", setOf("exercise minutes", "activity"), TrudyMetricPreference.HIGHER_IS_FAVOURABLE),
             metric(HealthDomain.EXERCISE, "workout_volume", setOf("training volume", "workout volume")),
             metric(HealthDomain.EXERCISE, "calories_burned_active_kcal", setOf("active calories"))),
+        module("cardio", setOf("cardio", "running", "run", "cycling", "zone 2", "fitness", "fitter", "training load", "readiness", "recovery"),
+            metric(HealthDomain.EXERCISE, "cardio_session", setOf("cardio session", "cardio minutes", "run duration", "training time")),
+            metric(HealthDomain.EXERCISE, "cardio_fitness_efficiency_delta_pct", setOf("fitness", "fitter", "running efficiency", "cardio efficiency", "pace at heart rate", "pace at hr"), TrudyMetricPreference.HIGHER_IS_FAVOURABLE),
+            metric(HealthDomain.EXERCISE, "cardio_training_readiness_score", setOf("readiness", "training readiness", "recovery readiness")),
+            metric(HealthDomain.EXERCISE, "cardio_chronic_training_load", setOf("chronic load", "long term load", "training load")),
+            metric(HealthDomain.EXERCISE, "cardio_acute_training_load", setOf("acute load", "short term load")),
+            metric(HealthDomain.EXERCISE, "cardio_training_stress_balance", setOf("training stress balance", "fitness fatigue balance", "tsb")),
+            metric(HealthDomain.EXERCISE, "heart_rate_variability_rmssd_ms", setOf("hrv", "rmssd"))),
         module("steps", setOf("steps", "walking", "walked"),
             metric(HealthDomain.EXERCISE, "steps", setOf("steps", "step count"), TrudyMetricPreference.HIGHER_IS_FAVOURABLE)),
         module("nutrition", setOf("nutrition", "food", "diet", "meal", "calories", "protein", "caffeine"),
@@ -529,6 +537,20 @@ class TrudySystemInvestigationPlanner(
         selected: List<TrudySystemMetric>
     ): TrudyToolOperation? {
         val pair = when {
+            ("temperature" in text || "heat" in text || "hot" in text || "weather" in text) &&
+                ("heart rate" in text || "hr" in text) &&
+                ("running" in text || "run" in text || "cardio" in text) ->
+                TrudySystemMetric(HealthDomain.ENVIRONMENT, "environment_temperature_c", emptySet()) to
+                    TrudySystemMetric(HealthDomain.EXERCISE, "heart_rate_avg_bpm", emptySet())
+            ("humidity" in text || "humid" in text) &&
+                ("heart rate" in text || "hr" in text) &&
+                ("running" in text || "run" in text || "cardio" in text) ->
+                TrudySystemMetric(HealthDomain.ENVIRONMENT, "environment_relative_humidity_pct", emptySet()) to
+                    TrudySystemMetric(HealthDomain.EXERCISE, "heart_rate_avg_bpm", emptySet())
+            ("sleep" in text || "slept" in text || "night" in text) &&
+                ("running" in text || "run" in text || "cardio" in text || "fitness" in text || "performance" in text) ->
+                TrudySystemMetric(HealthDomain.SLEEP, "sleep_score", emptySet()) to
+                    TrudySystemMetric(HealthDomain.EXERCISE, "cardio_fitness_efficiency_delta_pct", emptySet())
             ("sleep" in text || "slept" in text || "night" in text) && "caffeine" in text ->
                 return GetLaggedAssociation(
                     leftDomain = HealthDomain.NUTRITION,

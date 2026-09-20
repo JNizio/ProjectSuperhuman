@@ -187,7 +187,15 @@ class TrudyPromptFormatter(
 
     private fun TrudyMetricEvidence.renderCompact() = buildString {
         append("${domain.name}/$metricId=$value $unit @${timestampEpochMs} source=$source")
+        append(" class=").append(valueClass.name)
         confidence?.let { append(" confidence=").append(it) }
+        confidenceLabel?.let { append(" confidenceLabel=").append(it) }
+        algorithmVersion?.let { append(" algorithm=").append(it) }
+        sessionId?.let { append(" session=").append(it) }
+        deviceName?.let { append(" device=").append(it) }
+        deviceId?.let { append(" deviceId=").append(it) }
+        coverageFraction?.let { append(" coverage=").append(it) }
+        caveat?.let { append(" caveat=").append(it.take(MAX_TEXT_CHARS)) }
         dataQuality?.let { append(" quality=").append(it.score).append("/100 stale=").append(it.isStale) }
         if (metadata.isNotEmpty()) append(" metadata=").append(
             metadata.entries.take(MAX_METADATA_FIELDS).joinToString { "${it.key}=${it.value.take(MAX_METADATA_VALUE_CHARS)}" }
