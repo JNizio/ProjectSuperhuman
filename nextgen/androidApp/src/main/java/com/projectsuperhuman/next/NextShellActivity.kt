@@ -86,7 +86,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, INSIGHTS, EXPERIMENTS, SETTINGS, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
+    HOME, INSIGHTS, EXPERIMENTS, SETTINGS, SMART_DEVICES, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
 }
 
 @Composable
@@ -101,7 +101,7 @@ private fun SuperhumanShell(
     val trudyState = remember { TrudyConversationState() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
-    SmartDevicesNavigationBridge.open = { page = ShellPage.SETTINGS }
+    SmartDevicesNavigationBridge.open = { page = ShellPage.SMART_DEVICES }
 
     Surface(color = ShellBg, modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
@@ -138,7 +138,8 @@ private fun SuperhumanShell(
                     )
                     ShellPage.INSIGHTS -> NativeInsightsPage(onBack = { page = ShellPage.HOME })
                     ShellPage.EXPERIMENTS -> NativeExperimentsPage { page = ShellPage.HOME }
-                    ShellPage.SETTINGS -> NativeSettingsWithUsage(noCompatibility)
+                    ShellPage.SETTINGS -> NativeSettingsWithUsage(noCompatibility) { page = ShellPage.SMART_DEVICES }
+                    ShellPage.SMART_DEVICES -> SmartDevicesHub(onBack = { page = ShellPage.SETTINGS })
                     ShellPage.TRUDY -> NativeTrudy(
                         state = trudyState,
                         controller = trudyController,
