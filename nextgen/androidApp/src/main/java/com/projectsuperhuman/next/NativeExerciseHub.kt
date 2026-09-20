@@ -20,17 +20,26 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.projectsuperhuman.next.core.HealthDomain
+import com.projectsuperhuman.next.core.HealthValue
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 internal enum class ExerciseDestination {
     HUB,
@@ -38,12 +47,6 @@ internal enum class ExerciseDestination {
     CARDIO
 }
 
-/**
- * Top-level Exercise router.
- *
- * Home owns entry/exit from Exercise. This router owns navigation between the
- * Exercise landing page and its Strength/Cardio submodules.
- */
 @Composable
 internal fun NativeExerciseHub(
     onBackToHome: () -> Unit,
@@ -77,12 +80,6 @@ internal fun NativeExerciseHub(
     }
 }
 
-/**
- * Stable Strength integration seam.
- *
- * The current parity implementation stays untouched so Strength feature work
- * can continue independently of top-level Exercise navigation.
- */
 @Composable
 internal fun NativeStrengthTrainingScreen(
     onBack: () -> Unit,
@@ -90,6 +87,14 @@ internal fun NativeStrengthTrainingScreen(
 ) {
     NativeExerciseParityScreen(onBack = onBack, openLegacy = openLegacy)
 }
+
+private data class ExerciseRecentItem(
+    val timestamp: Long,
+    val type: String,
+    val title: String,
+    val detail: String,
+    val accent: Color
+)
 
 @Composable
 private fun NativeExerciseLandingPage(
@@ -101,9 +106,79 @@ private fun NativeExerciseLandingPage(
     val ink = superhumanTextPrimary
     val muted = superhumanTextMuted
     val surface = superhumanSurface
+    val softSurface = superhumanSurfaceSoft
     val border = superhumanBorder
     val strengthAccent = superhumanBlue
     val cardioAccent = superhumanGreen
+
+    val cardioViewModel: CardioViewModel = viewModel()
+    val cardioState by cardioViewModel.state.collectAsState()
+    val cardioSessions = cardioState.sessions
+
+    var strengthSessions by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
+    val exerciseData = remember { NativeDomainData.forDomain(HealthDomain.EXERCISE) }
+
+    LaunchedEffect(Unit) {
+        val now = System.currentTimeMillis()
+        val lookback = 5L * 365L * 86_400_000L
+        strengthSessions = exerciseData
+            .between("workout_session", now - lookback, now)
+            .sortedByDescending { it.timestampEpochMs }
+            .take(1000)
+    }
+
+    val now = System.currentTimeMillis()
+    val weekStart = now - 7L * 86_400_000L
+    val strengthWeek = strengthSessions.filter { it.timestampEpochMs >= weekStart }
+    val cardioWeek = cardioSessions.filter { it.endedAt >= weekStart }
+
+    val strengthWeekMinutes = strengthWeek.sumOf {
+        it.metadata["durationMin"]?.toIntOrNull() ?: 0
+    }
+    val cardioWeekMinutes = cardioWeek.sumOf { it.durationSeconds } / 60
+    val weekWorkoutCount = strengthWeek.size + cardioWeek.size
+    val weekMinutes = strengthWeekMinutes + cardioWeekMinutes
+    val weekActiveDays = (
+        strengthWeek.map { exerciseDay(it.timestampEpochMs) } +
+            cardioWeek.map { exerciseDay(it.endedAt) }
+        ).distinct().size
+
+    val lastStrength = strengthSessions.firstOrNull()
+    val lastCardio = cardioSessions.maxByOrNull { it.endedAt }
+    val cardioWeekDistance = cardioWeek.mapNotNull { it.distanceKm }.sum()
+
+    val recentItems = remember(strengthSessions, cardioSessions, ink, strengthAccent, cardioAccent) {
+        val strength = strengthSessions.take(8).map { row ->
+            val name = row.metadata["workoutName"].orEmpty().ifBlank { "Strength workout" }
+            val duration = row.metadata["durationMin"]?.toIntOrNull()
+            val sets = row.metadata["workingSets"]?.toIntOrNull()
+            ExerciseRecentItem(
+                timestamp = row.timestampEpochMs,
+                type = "Strength",
+                title = name,
+                detail = buildList {
+                    duration?.takeIf { it > 0 }?.let { add("${it} min") }
+                    sets?.takeIf { it > 0 }?.let { add("${it} sets") }
+                }.joinToString(" · ").ifBlank { "Completed workout" },
+                accent = strengthAccent
+            )
+        }
+        val cardio = cardioSessions.sortedByDescending { it.endedAt }.take(8).map { session ->
+            ExerciseRecentItem(
+                timestamp = session.endedAt,
+                type = "Cardio",
+                title = session.activity.displayName,
+                detail = buildList {
+                    add("${session.durationSeconds / 60} min")
+                    session.distanceKm?.let {
+                        add(String.format(Locale.US, "%.1f km", it))
+                    }
+                }.joinToString(" · "),
+                accent = cardioAccent
+            )
+        }
+        (strength + cardio).sortedByDescending { it.timestamp }.take(5)
+    }
 
     Column(
         Modifier
@@ -111,7 +186,7 @@ private fun NativeExerciseLandingPage(
             .background(background)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
@@ -133,52 +208,36 @@ private fun NativeExerciseLandingPage(
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    "Choose how you want to train",
+                    "Strength · Cardio",
                     color = muted,
                     fontSize = 10.sp
                 )
             }
         }
 
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            superhumanBrandText.copy(alpha = if (SuperhumanAppearance.darkMode) .92f else 1f),
-                            superhumanBlue.copy(alpha = .90f)
-                        )
-                    ),
-                    RoundedCornerShape(28.dp)
-                )
-                .padding(21.dp)
-        ) {
-            Text(
-                "TRAINING",
-                color = Color.White.copy(alpha = .68f),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black
-            )
-            Text(
-                "What are you training?",
-                color = Color.White,
-                fontSize = 27.sp,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Strength and cardio stay separate so logging and progress remain clear.",
-                color = Color.White.copy(alpha = .76f),
-                fontSize = 10.sp,
-                lineHeight = 15.sp
+        if (cardioState.liveDraft != null) {
+            ExerciseActiveCardioCard(
+                activity = cardioState.liveDraft?.activity?.displayName ?: "Cardio",
+                elapsedSeconds = cardioState.liveElapsedSeconds,
+                accent = cardioAccent,
+                surface = surface,
+                border = border,
+                ink = ink,
+                muted = muted,
+                onClick = onOpenCardio
             )
         }
 
         ExerciseModuleCard(
             mark = "S",
             title = "STRENGTH",
-            description = "Resistance training, routines, sets and personal records",
+            primary = if (strengthWeek.isEmpty()) "No strength sessions this week"
+            else "${strengthWeek.size} session${if (strengthWeek.size == 1) "" else "s"} this week",
+            secondary = lastStrength?.let {
+                val name = it.metadata["workoutName"].orEmpty().ifBlank { "Strength workout" }
+                "Last: $name · ${exerciseRelativeDate(it.timestampEpochMs)}"
+            } ?: "Start a workout, use routines and track PRs",
+            action = "OPEN STRENGTH",
             accent = strengthAccent,
             surface = surface,
             border = border,
@@ -190,7 +249,19 @@ private fun NativeExerciseLandingPage(
         ExerciseModuleCard(
             mark = "C",
             title = "CARDIO",
-            description = "Running, walking, cycling, heart rate and endurance",
+            primary = if (cardioWeek.isEmpty()) "No cardio sessions this week"
+            else buildString {
+                append("${cardioWeekMinutes} min")
+                if (cardioWeekDistance > 0.0) {
+                    append(" · ")
+                    append(String.format(Locale.US, "%.1f km", cardioWeekDistance))
+                }
+                append(" this week")
+            },
+            secondary = lastCardio?.let {
+                "Last: ${it.activity.displayName} · ${exerciseRelativeDate(it.endedAt)}"
+            } ?: "Run, walk, cycle and track cardio fitness",
+            action = "OPEN CARDIO",
             accent = cardioAccent,
             surface = surface,
             border = border,
@@ -199,15 +270,149 @@ private fun NativeExerciseLandingPage(
             onClick = onOpenCardio
         )
 
+        Text(
+            "THIS WEEK",
+            color = muted,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.padding(top = 2.dp)
+        )
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(softSurface, RoundedCornerShape(18.dp))
+                .border(1.dp, border, RoundedCornerShape(18.dp))
+                .padding(vertical = 14.dp, horizontal = 8.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly
+        ) {
+            ExerciseCompactMetric(
+                value = weekWorkoutCount.toString(),
+                label = "WORKOUTS",
+                ink = ink,
+                muted = muted
+            )
+            ExerciseMetricDivider(border)
+            ExerciseCompactMetric(
+                value = weekMinutes.toString(),
+                label = "MINUTES",
+                ink = ink,
+                muted = muted
+            )
+            ExerciseMetricDivider(border)
+            ExerciseCompactMetric(
+                value = weekActiveDays.toString(),
+                label = "ACTIVE DAYS",
+                ink = ink,
+                muted = muted
+            )
+        }
+
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(surface, RoundedCornerShape(18.dp))
+                .border(1.dp, border, RoundedCornerShape(18.dp))
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "PROGRESS",
+                    color = ink,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    "Strength PRs and cardio fitness stay in their dedicated modules",
+                    color = muted,
+                    fontSize = 9.sp,
+                    lineHeight = 13.sp
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ExerciseMiniAction("S", strengthAccent, onOpenStrength)
+                ExerciseMiniAction("C", cardioAccent, onOpenCardio)
+            }
+        }
+
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "RECENT",
+                color = muted,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.weight(1f)
+            )
+            if (recentItems.isNotEmpty()) {
+                Text(
+                    "${recentItems.size} shown",
+                    color = muted,
+                    fontSize = 8.sp
+                )
+            }
+        }
+
+        if (recentItems.isEmpty()) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(softSurface, RoundedCornerShape(18.dp))
+                    .border(1.dp, border, RoundedCornerShape(18.dp))
+                    .padding(18.dp)
+            ) {
+                Text(
+                    "No workouts yet",
+                    color = ink,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Your completed strength and cardio sessions will appear here.",
+                    color = muted,
+                    fontSize = 9.sp,
+                    lineHeight = 13.sp
+                )
+            }
+        } else {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .background(surface, RoundedCornerShape(18.dp))
+                    .border(1.dp, border, RoundedCornerShape(18.dp))
+            ) {
+                recentItems.forEachIndexed { index, item ->
+                    ExerciseRecentRow(
+                        item = item,
+                        ink = ink,
+                        muted = muted,
+                        onClick = if (item.type == "Strength") onOpenStrength else onOpenCardio
+                    )
+                    if (index != recentItems.lastIndex) {
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .height(1.dp)
+                                .background(border.copy(alpha = .75f))
+                        )
+                    }
+                }
+            }
+        }
+
         Spacer(Modifier.height(18.dp))
     }
 }
 
 @Composable
-private fun ExerciseModuleCard(
-    mark: String,
-    title: String,
-    description: String,
+private fun ExerciseActiveCardioCard(
+    activity: String,
+    elapsedSeconds: Int,
     accent: Color,
     surface: Color,
     border: Color,
@@ -218,59 +423,276 @@ private fun ExerciseModuleCard(
     Row(
         Modifier
             .fillMaxWidth()
-            .background(surface, RoundedCornerShape(23.dp))
-            .border(1.dp, border, RoundedCornerShape(23.dp))
-            .clickable { onClick() }
-            .padding(18.dp),
+            .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .13f else .08f), RoundedCornerShape(18.dp))
+            .border(1.dp, accent.copy(alpha = .42f), RoundedCornerShape(18.dp))
+            .clickable(onClick = onClick)
+            .padding(15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             Modifier
-                .size(48.dp)
-                .background(
-                    accent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .10f),
-                    CircleShape
-                ),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                mark,
-                color = accent,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Black
-            )
-        }
-
+                .size(10.dp)
+                .background(accent, CircleShape)
+        )
         Column(
             Modifier
                 .weight(1f)
-                .padding(horizontal = 14.dp)
+                .padding(horizontal = 12.dp)
         ) {
+            Text(
+                "${activity.uppercase()} IN PROGRESS",
+                color = ink,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                exerciseDuration(elapsedSeconds),
+                color = muted,
+                fontSize = 9.sp
+            )
+        }
+        Text(
+            "RESUME  →",
+            color = accent,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Black
+        )
+    }
+}
+
+@Composable
+private fun ExerciseModuleCard(
+    mark: String,
+    title: String,
+    primary: String,
+    secondary: String,
+    action: String,
+    accent: Color,
+    surface: Color,
+    border: Color,
+    ink: Color,
+    muted: Color,
+    onClick: () -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(surface, RoundedCornerShape(22.dp))
+            .border(1.dp, border, RoundedCornerShape(22.dp))
+            .clickable(onClick = onClick)
+            .padding(17.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(42.dp)
+                    .background(
+                        accent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .10f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    mark,
+                    color = accent,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+
             Text(
                 title,
                 color = ink,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Black
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 12.dp)
             )
-            Spacer(Modifier.height(3.dp))
+
             Text(
-                description,
-                color = muted,
-                fontSize = 10.sp,
-                lineHeight = 15.sp
+                "→",
+                color = accent,
+                fontSize = 21.sp,
+                fontWeight = FontWeight.Bold
             )
         }
 
+        Spacer(Modifier.height(12.dp))
         Text(
-            "→",
-            color = accent,
-            fontSize = 22.sp,
+            primary,
+            color = ink,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            secondary,
+            color = muted,
+            fontSize = 9.sp,
+            lineHeight = 13.sp
+        )
+        Spacer(Modifier.height(12.dp))
+        Box(
+            Modifier
+                .background(
+                    accent.copy(alpha = if (SuperhumanAppearance.darkMode) .15f else .09f),
+                    RoundedCornerShape(11.dp)
+                )
+                .padding(horizontal = 11.dp, vertical = 7.dp)
+        ) {
+            Text(
+                action,
+                color = accent,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExerciseCompactMetric(
+    value: String,
+    label: String,
+    ink: Color,
+    muted: Color
+) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            value,
+            color = ink,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            label,
+            color = muted,
+            fontSize = 7.sp,
             fontWeight = FontWeight.Bold
         )
     }
 }
 
-/** Stable Cardio integration seam owned by the Exercise router. */
+@Composable
+private fun ExerciseMetricDivider(border: Color) {
+    Box(
+        Modifier
+            .height(30.dp)
+            .size(width = 1.dp, height = 30.dp)
+            .background(border)
+    )
+}
+
+@Composable
+private fun ExerciseMiniAction(
+    label: String,
+    accent: Color,
+    onClick: () -> Unit
+) {
+    Box(
+        Modifier
+            .size(36.dp)
+            .background(
+                accent.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f),
+                CircleShape
+            )
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            label,
+            color = accent,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Black
+        )
+    }
+}
+
+@Composable
+private fun ExerciseRecentRow(
+    item: ExerciseRecentItem,
+    ink: Color,
+    muted: Color,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(34.dp)
+                .background(
+                    item.accent.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f),
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                if (item.type == "Strength") "S" else "C",
+                color = item.accent,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black
+            )
+        }
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(horizontal = 11.dp)
+        ) {
+            Text(
+                item.title,
+                color = ink,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "${exerciseRelativeDate(item.timestamp)} · ${item.detail}",
+                color = muted,
+                fontSize = 8.sp
+            )
+        }
+        Text(
+            "→",
+            color = item.accent,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+private fun exerciseDuration(seconds: Int): String {
+    val safe = seconds.coerceAtLeast(0)
+    val hours = safe / 3600
+    val minutes = (safe % 3600) / 60
+    val secs = safe % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, secs)
+    } else {
+        "%d:%02d".format(minutes, secs)
+    }
+}
+
+private fun exerciseDay(timestamp: Long): LocalDate =
+    Instant.ofEpochMilli(timestamp)
+        .atZone(ZoneId.systemDefault())
+        .toLocalDate()
+
+private fun exerciseRelativeDate(timestamp: Long): String {
+    val date = exerciseDay(timestamp)
+    val today = LocalDate.now()
+    return when (date) {
+        today -> "Today"
+        today.minusDays(1) -> "Yesterday"
+        else -> date.format(DateTimeFormatter.ofPattern("d MMM"))
+    }
+}
+
 @Composable
 internal fun NativeCardioEntryScreen(onBack: () -> Unit) {
     NativeCardioScreen(onBack = onBack)
