@@ -236,8 +236,8 @@ private fun CardioHubStartBar(
 ) {
     Column(
         Modifier.fillMaxWidth()
-            .background(superhumanSurface, RoundedCornerShape(19.dp))
-            .padding(horizontal = 12.dp, vertical = 9.dp)
+            .background(superhumanSurface, RoundedCornerShape(20.dp))
+            .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("START CARDIO", color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black)
@@ -250,10 +250,10 @@ private fun CardioHubStartBar(
                 modifier = Modifier.clickable { onEdit() }.padding(horizontal = 8.dp, vertical = 6.dp)
             )
         }
-        Spacer(Modifier.height(6.dp))
+        Spacer(Modifier.height(10.dp))
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             activities.take(CardioHubPreferences.QUICK_SLOT_COUNT).forEachIndexed { index, activity ->
                 val accent = cardioHubQuickAccent(index)
@@ -280,9 +280,9 @@ private fun CardioHubStartActivityAction(
 ) {
     Column(
         modifier
-            .heightIn(min = 58.dp)
+            .heightIn(min = 60.dp)
             .clickable { onClick() }
-            .padding(horizontal = 2.dp, vertical = 5.dp),
+            .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -317,7 +317,7 @@ private fun CardioHubStartMoreAction(
         modifier
             .heightIn(min = 58.dp)
             .clickable { onClick() }
-            .padding(horizontal = 2.dp, vertical = 5.dp),
+            .padding(horizontal = 2.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -674,7 +674,7 @@ private fun CardioHubSensorStrip(metrics: CardioLiveSensorMetrics) {
     val accent = if (connected) superhumanGreen else superhumanBlue
     Row(
         Modifier.fillMaxWidth()
-            .heightIn(min = 44.dp)
+            .heightIn(min = 48.dp)
             .clickable { SmartDevicesNavigationBridge.open?.invoke() }
             .semantics {
                 role = Role.Button
@@ -750,8 +750,8 @@ private fun CardioHubDeepDiveBar(
 ) {
     Column(
         Modifier.fillMaxWidth()
-            .background(superhumanSurface, RoundedCornerShape(18.dp))
-            .padding(horizontal = 10.dp, vertical = 9.dp)
+            .background(superhumanSurface, RoundedCornerShape(20.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Text("EXPLORE", color = superhumanTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
         Spacer(Modifier.height(6.dp))
@@ -820,7 +820,7 @@ private fun CardioHubMiniDivider() {
 private fun CardioHubRecentSessions(sessions: List<CardioSession>, onOpen: (CardioSession) -> Unit) {
     Row(
         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(9.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         sessions.forEach { session ->
             CardioHubRecentSessionCard(session) { onOpen(session) }
@@ -1156,9 +1156,12 @@ private fun CardioHubSummaryBlock(
 
 @Composable
 private fun CardioHubSectionHeader(title: String, subtitle: String, modifier: Modifier = Modifier) {
-    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-        Text(title, color = superhumanTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.width(7.dp))
+    Row(
+        modifier.fillMaxWidth().heightIn(min = 24.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(title, color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.width(8.dp))
         Text(subtitle, color = superhumanTextMuted, fontSize = 8.sp)
     }
 }
