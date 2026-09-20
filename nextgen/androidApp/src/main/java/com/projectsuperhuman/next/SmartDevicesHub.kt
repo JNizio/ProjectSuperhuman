@@ -10,13 +10,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -103,6 +106,23 @@ internal object SmartDeviceCatalog {
     )
 }
 
+private data class PopularDeviceConnection(
+    val id: String,
+    val mark: String,
+    val name: String,
+    val companionApp: String,
+    val description: String
+)
+
+private val popularDeviceConnections = listOf(
+    PopularDeviceConnection("samsung", "S", "Galaxy Watch", "Samsung Health", "Samsung watches"),
+    PopularDeviceConnection("fitbit", "F", "Fitbit / Pixel Watch", "Fitbit", "Fitbit & Pixel wearables"),
+    PopularDeviceConnection("garmin", "G", "Garmin", "Garmin Connect", "Garmin watches & trackers"),
+    PopularDeviceConnection("oura", "O", "Oura Ring", "Oura", "Oura rings"),
+    PopularDeviceConnection("whoop", "W", "WHOOP", "WHOOP", "WHOOP wearables"),
+    PopularDeviceConnection("other", "+", "Other wearable", "your device app", "Any Health Connect source")
+)
+
 private enum class DeviceBluetoothAction {
     NONE,
     H19C_ADD,
@@ -113,7 +133,7 @@ private enum class DeviceBluetoothAction {
 }
 
 @Composable
-internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
+internal fun SmartDevicesHub(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -128,6 +148,7 @@ internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
     var healthAllPermissions by remember { mutableStateOf(false) }
     var healthStatus by remember { mutableStateOf("Checking Health Connect…") }
     var healthSyncing by remember { mutableStateOf(false) }
+    var selectedPopularDevice by remember { mutableStateOf<PopularDeviceConnection?>(null) }
     var pendingBluetoothAction by remember { mutableStateOf(DeviceBluetoothAction.NONE) }
     var confirmForgetH19c by remember { mutableStateOf(false) }
     var confirmForgetBle by remember { mutableStateOf(false) }
@@ -183,6 +204,17 @@ internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
         }
     }
 
+    fun beginHealthConnectSetup(connection: PopularDeviceConnection?) {
+        selectedPopularDevice = connection
+        scope.launch {
+            when {
+                GlobalHealthConnect.availability(context) != HealthConnectClient.SDK_AVAILABLE -> refreshHealthState()
+                healthConnected -> syncHealthConnect()
+                else -> healthPermissionLauncher.launch(GlobalHealthConnect.requestPermissions(context))
+            }
+        }
+    }
+
     fun runBluetoothAction(action: DeviceBluetoothAction) {
         pendingBluetoothAction = DeviceBluetoothAction.NONE
         when (action) {
@@ -230,33 +262,86 @@ internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
 
     Column(
         modifier
-            .fillMaxWidth()
-            .background(superhumanSurface, RoundedCornerShape(24.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(24.dp))
-            .padding(16.dp),
+            .fillMaxSize()
+            .background(superhumanBackground)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 18.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Smart Devices", color = superhumanTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
+                Text("‹", color = superhumanBrandText, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            }
+            Column(Modifier.weight(1f).padding(start = 12.dp)) {
+                Text("Devices & connections", color = superhumanTextPrimary, fontSize = 24.sp, fontWeight = FontWeight.Black)
                 Text(
-                    "One place to add, connect, disconnect and inspect every device or health service.",
+                    "Add wearables, sensors, scales and health apps.",
                     color = superhumanTextMuted,
-                    fontSize = 10.sp,
-                    lineHeight = 14.sp
+                    fontSize = 10.sp
                 )
             }
-            DeviceBadge("DEVICE HUB", superhumanBlue)
         }
 
+        Column(
+            Modifier.fillMaxWidth().background(superhumanBrandText, RoundedCornerShape(24.dp)).padding(17.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(
+                "One connection layer",
+                color = androidx.compose.ui.graphics.Color.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                "Fast workout sensors stay direct. Watches and health apps can share history through Health Connect.",
+                color = androidx.compose.ui.graphics.Color.White.copy(alpha = .74f),
+                fontSize = 9.sp,
+                lineHeight = 14.sp
+            )
+        }
+
+        SmartDeviceSectionLabel("QUICK CONNECT")
         Text(
-            "Modules consume measurements from this device layer. They no longer own pairing, Bluetooth permissions or account connection flows.",
+            "Choose the brand you already use. Each shortcut shows the real route instead of pretending every watch has a direct connection.",
             color = superhumanTextMuted,
             fontSize = 9.sp,
             lineHeight = 14.sp
         )
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+            items(popularDeviceConnections, key = { it.id }) { connection ->
+                PopularConnectionCard(
+                    connection = connection,
+                    selected = selectedPopularDevice?.id == connection.id,
+                    onClick = { beginHealthConnectSetup(connection) }
+                )
+            }
+        }
 
-        SmartDeviceSectionLabel("PHYSICAL DEVICES")
+        selectedPopularDevice?.let { selected ->
+            Column(
+                Modifier.fillMaxWidth()
+                    .background(superhumanSurface, RoundedCornerShape(18.dp))
+                    .border(1.dp, superhumanBorder, RoundedCornerShape(18.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Text(selected.name + " setup", color = superhumanTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text(
+                    "1. In " + selected.companionApp + ", enable Health Connect sharing.  2. Grant Project Superhuman the health permissions you want.  3. Return here and sync.",
+                    color = superhumanTextMuted,
+                    fontSize = 9.sp,
+                    lineHeight = 14.sp
+                )
+                Text(
+                    "Route: " + selected.companionApp + " → Health Connect → Project Superhuman. This is not presented as a direct vendor connection.",
+                    color = superhumanTextPrimary,
+                    fontSize = 8.sp,
+                    lineHeight = 12.sp
+                )
+            }
+        }
+
+        SmartDeviceSectionLabel("DIRECT DEVICES")
 
         DeviceHubCard(
             title = h19c.deviceName ?: "H19C / Da Fit wearable",
@@ -272,7 +357,7 @@ internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
                 else -> if (h19c.deviceAddress != null) "SAVED" else "NOT ADDED"
             },
             healthy = h19c.connected,
-            capabilities = "Direct BLE · HR · SpO₂ · steps · sleep" +
+            capabilities = "Watch · direct Bluetooth · HR · SpO₂ · steps · sleep" +
                 (h19c.batteryPercent?.let { " · battery $it%" } ?: ""),
             action = when {
                 h19c.connected -> "DISCONNECT"
@@ -324,7 +409,7 @@ internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
                 else -> if (bleSaved) "SAVED" else "NOT ADDED"
             },
             healthy = bleConnected,
-            capabilities = "Standard BLE · live heart rate · Cardio telemetry",
+            capabilities = "Chest strap / armband · direct Bluetooth · live heart rate · Cardio telemetry",
             action = when {
                 bleConnected -> "DISCONNECT"
                 bleSaved -> "RECONNECT"
@@ -400,7 +485,7 @@ internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
                 else -> "ENABLED"
             },
             healthy = scaleEnabled && (OkokScaleManager.listening || OkokScaleManager.lastSavedAt != null),
-            capabilities = "Direct BLE · weight · impedance · body composition" +
+            capabilities = "Scale · direct Bluetooth · weight · impedance · body composition" +
                 (OkokScaleManager.lastSavedAt?.let { " · last measurement ${deviceFreshness(it)}" } ?: ""),
             action = when {
                 OkokScaleManager.listening -> "DISCONNECT"
@@ -432,7 +517,7 @@ internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
             }
         )
 
-        SmartDeviceSectionLabel("CONNECTED SERVICES")
+        SmartDeviceSectionLabel("HEALTH DATA BRIDGE")
 
         DeviceHubCard(
             title = "Health Connect",
@@ -443,7 +528,7 @@ internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
                 else -> "NOT CONNECTED"
             },
             healthy = healthConnected,
-            capabilities = "Historical/backfill · sleep · HR · steps · calories · workouts",
+            capabilities = "Compatible watch/app history · sleep · HR · steps · calories · workouts",
             action = when {
                 healthSyncing -> "SYNCING…"
                 healthConnected -> "SYNC NOW"
@@ -498,6 +583,44 @@ internal fun SmartDevicesHub(modifier: Modifier = Modifier) {
                 lineHeight = 14.sp
             )
         }
+    }
+}
+
+@Composable
+private fun PopularConnectionCard(
+    connection: PopularDeviceConnection,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val shape = RoundedCornerShape(18.dp)
+    Column(
+        Modifier
+            .width(178.dp)
+            .background(if (selected) superhumanBlue.copy(alpha = .09f) else superhumanSurface, shape)
+            .border(1.dp, if (selected) superhumanBlue.copy(alpha = .45f) else superhumanBorder, shape)
+            .semantics {
+                role = Role.Button
+                contentDescription = "Set up " + connection.name + " through Health Connect"
+            }
+            .superhumanClickable(onClick = onClick)
+            .padding(13.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .width(34.dp)
+                    .heightIn(min = 34.dp)
+                    .background(superhumanBrandText, RoundedCornerShape(13.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(connection.mark, color = androidx.compose.ui.graphics.Color.White, fontSize = 13.sp, fontWeight = FontWeight.Black)
+            }
+            Text("SET UP", color = superhumanBlue, fontSize = 7.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 8.dp))
+        }
+        Text(connection.name, color = superhumanTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Black)
+        Text(connection.description, color = superhumanTextMuted, fontSize = 8.sp, lineHeight = 11.sp)
+        Text("via Health Connect", color = superhumanBlue, fontSize = 8.sp, fontWeight = FontWeight.Bold)
     }
 }
 
