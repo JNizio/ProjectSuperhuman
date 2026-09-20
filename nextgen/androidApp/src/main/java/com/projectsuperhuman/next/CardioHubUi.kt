@@ -76,8 +76,14 @@ internal fun CardioVisualHub(
     onTestsRecords: () -> Unit,
     onLog: () -> Unit
 ) {
+    val context = LocalContext.current
+    val hubPreferences = remember(context.applicationContext) {
+        CardioHubPreferences(context.applicationContext)
+    }
     var recoveryContext by remember { mutableStateOf<CardioRecoveryContext?>(null) }
     var sheet by remember { mutableStateOf<CardioHubSheet?>(null) }
+    var quickActivities by remember { mutableStateOf(hubPreferences.quickActivities()) }
+    var goals by remember { mutableStateOf(hubPreferences.goals()) }
 
     LaunchedEffect(sessions) {
         val loadAnalytics = CardioAnalyticsEngine.loadAnalytics(sessions)
@@ -98,6 +104,7 @@ internal fun CardioVisualHub(
     val loadSeries = remember(sessions) {
         CardioTrainingLoadEngine.build(sessions).takeLast(21).map { it.chronicLoad }
     }
+    val zone3MinutesThisWeek = remember(sessions) { cardioHubWeekZoneMinutes(sessions, 3) }
 
     Column(
         Modifier.fillMaxWidth(),
@@ -105,7 +112,9 @@ internal fun CardioVisualHub(
     ) {
         if (showStartBar) {
             CardioHubStartBar(
+                activities = quickActivities,
                 onQuickStart = onQuickStart,
+                onEdit = { sheet = CardioHubSheet.QUICK_STARTS },
                 onMoreActivities = onMoreActivities
             )
         }
@@ -114,6 +123,9 @@ internal fun CardioVisualHub(
             model = model,
             efficiencySeries = efficiencySeries,
             loadSeries = loadSeries,
+            zone3Minutes = zone3MinutesThisWeek,
+            goals = goals,
+            onEditGoals = { sheet = CardioHubSheet.GOALS },
             onFitness = onFitness,
             onReadiness = { sheet = CardioHubSheet.READINESS },
             onTrends = onTrends
@@ -195,6 +207,23 @@ internal fun CardioVisualHub(
                         sheet = null
                         onTrends()
                     }
+                )
+                CardioHubSheet.QUICK_STARTS -> CardioHubQuickStartEditor(
+                    activities = quickActivities,
+                    onActivitiesChange = { updated ->
+                        quickActivities = updated
+                        hubPreferences.saveQuickActivities(updated)
+                    },
+                    onDone = { sheet = null }
+                )
+                CardioHubSheet.GOALS -> CardioHubGoalEditor(
+                    goals = goals,
+                    onSave = { updated ->
+                        goals = updated
+                        hubPreferences.saveGoals(updated)
+                        sheet = null
+                    },
+                    onCancel = { sheet = null }
                 )
             }
         }
