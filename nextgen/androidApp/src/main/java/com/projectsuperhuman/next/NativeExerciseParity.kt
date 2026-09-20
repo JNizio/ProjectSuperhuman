@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -24,6 +25,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -232,6 +234,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var workoutNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showWorkoutExercisePicker by remember { mutableStateOf(false) }
     var workoutExerciseQuery by remember { mutableStateOf("") }
+    var showWorkoutRoutinePicker by remember { mutableStateOf(false) }
 
     suspend fun refresh() {
         val now = System.currentTimeMillis()
@@ -434,6 +437,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         workoutPausedTotalMs = 0L
         showWorkoutExercisePicker = false
         workoutExerciseQuery = ""
+        showWorkoutRoutinePicker = false
         mode = "workout"
         writeActiveDraft()
     }
@@ -919,6 +923,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         workoutPausedTotalMs = 0L
                         showWorkoutExercisePicker = false
                         workoutExerciseQuery = ""
+                        showWorkoutRoutinePicker = false
                         mode = "home"
                     },
                     onFinish = { finishWorkout() }
@@ -973,9 +978,32 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     }
                 }
 
-                StrengthAddExerciseButton {
-                    showWorkoutExercisePicker = !showWorkoutExercisePicker
-                    workoutExerciseQuery = ""
+                StrengthWorkoutAddRow(
+                    onAddExercise = {
+                        showWorkoutExercisePicker = !showWorkoutExercisePicker
+                        showWorkoutRoutinePicker = false
+                        workoutExerciseQuery = ""
+                    },
+                    onAddRoutine = {
+                        showWorkoutRoutinePicker = !showWorkoutRoutinePicker
+                        showWorkoutExercisePicker = false
+                        workoutExerciseQuery = ""
+                    }
+                )
+
+                if (showWorkoutRoutinePicker) {
+                    StrengthWorkoutRoutinePicker(
+                        routines = routines,
+                        catalog = catalog,
+                        onAddRoutine = { routine ->
+                            routine.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } }.forEach { exercise ->
+                                if (workoutExercises.none { it.id == exercise.id }) workoutExercises.add(exercise)
+                            }
+                            if (selected == null) selected = workoutExercises.firstOrNull()
+                            showWorkoutRoutinePicker = false
+                            writeActiveDraft()
+                        }
+                    )
                 }
 
                 if (showWorkoutExercisePicker) {
@@ -1198,8 +1226,8 @@ private fun StrengthLiveControlBar(
                 Text(setCount.toString() + " sets · " + exerciseCount + " exercises", color = ExerciseMuted, fontSize = 9.sp)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                StrengthRoundControl(if (paused) "▶" else "Ⅱ", ExerciseBlue, onPlayPause)
-                StrengthRoundControl("×", superhumanRed, onDelete)
+                StrengthRoundControl(if (paused) R.drawable.tabler_player_play else R.drawable.tabler_player_pause, ExerciseBlue, onPlayPause)
+                StrengthRoundControl(R.drawable.tabler_trash, superhumanRed, onDelete)
             }
         }
         Spacer(Modifier.height(12.dp))
@@ -1214,12 +1242,24 @@ private fun StrengthLiveControlBar(
 }
 
 @Composable
-private fun StrengthRoundControl(symbol: String, tint: Color, onClick: () -> Unit) {
+private fun StrengthRoundControl(
+    iconRes: Int,
+    tint: Color,
+    onClick: () -> Unit
+) {
     Box(
-        Modifier.size(42.dp).background(tint.copy(alpha = .13f), CircleShape).superhumanClickable(onClick = onClick),
+        Modifier
+            .size(42.dp)
+            .background(tint.copy(alpha = .13f), CircleShape)
+            .superhumanClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(symbol, color = tint, fontSize = if (symbol == "×") 23.sp else 15.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center)
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 
@@ -1280,14 +1320,104 @@ private fun StrengthWorkoutExerciseCard(
 }
 
 @Composable
-private fun StrengthAddExerciseButton(onClick: () -> Unit) {
+private fun StrengthWorkoutAddRow(
+    onAddExercise: () -> Unit,
+    onAddRoutine: () -> Unit
+) {
     Row(
-        Modifier.fillMaxWidth().background(ExerciseBlue.copy(alpha = .12f), RoundedCornerShape(16.dp)).superhumanClickable(onClick = onClick).padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("+", color = ExerciseBlue, fontSize = 20.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.width(10.dp))
-        Text("Add exercise", color = ExerciseBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
+        StrengthWorkoutActionButton(
+            iconRes = R.drawable.tabler_plus,
+            label = "Add exercise",
+            modifier = Modifier.weight(1f),
+            onClick = onAddExercise
+        )
+        StrengthWorkoutActionButton(
+            iconRes = R.drawable.tabler_list_details,
+            label = "Routines",
+            modifier = Modifier.weight(1f),
+            onClick = onAddRoutine
+        )
+    }
+}
+
+@Composable
+private fun StrengthWorkoutActionButton(
+    iconRes: Int,
+    label: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier
+            .background(ExerciseBlue.copy(alpha = .12f), RoundedCornerShape(16.dp))
+            .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            painter = painterResource(id = iconRes),
+            contentDescription = null,
+            tint = ExerciseBlue,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(label, color = ExerciseBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+@Composable
+private fun StrengthWorkoutRoutinePicker(
+    routines: List<WorkoutRoutine>,
+    catalog: List<NativeExercise>,
+    onAddRoutine: (WorkoutRoutine) -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(18.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
+            .padding(13.dp)
+    ) {
+        Text("ROUTINES", color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(8.dp))
+        if (routines.isEmpty()) {
+            Text("No routines saved", color = ExerciseMuted, fontSize = 9.sp)
+        } else {
+            routines.forEach { routine ->
+                val preview = routine.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } }.take(3)
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .superhumanClickable { onAddRoutine(routine) }
+                        .padding(vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        preview.forEach { exercise ->
+                            RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.size(36.dp))
+                        }
+                    }
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .padding(horizontal = 10.dp)
+                    ) {
+                        Text(routine.name, color = ExerciseInk, fontSize = 10.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                        Text(routine.exerciseIds.size.toString() + " exercises", color = ExerciseMuted, fontSize = 8.sp)
+                    }
+                    Icon(
+                        painter = painterResource(id = R.drawable.tabler_plus),
+                        contentDescription = null,
+                        tint = ExerciseBlue,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
