@@ -86,9 +86,9 @@ internal class CardioNof1Repository(
             val point = qualityByFix[fix]
             HealthValue(
                 domain = HealthDomain.EXERCISE,
-                metric = "cardio_gps_fix_accuracy_m",
-                value = fix.accuracyMeters.toDouble(),
-                unit = "m",
+                metric = "cardio_gps_fix",
+                value = 1.0,
+                unit = "count",
                 timestampEpochMs = fix.timestampEpochMs,
                 source = "phone-gps",
                 metadata = buildMap {
@@ -99,6 +99,7 @@ internal class CardioNof1Repository(
                     point?.reason?.let { put("qualityReason", it) }
                     put("latitude", fix.latitude.toString())
                     put("longitude", fix.longitude.toString())
+                    put("accuracyMeters", fix.accuracyMeters.toString())
                     put("receivedAtEpochMs", fix.receivedAtEpochMs.toString())
                     put("sourceKind", fix.source.name)
                     fix.altitudeMeters?.let { put("altitudeMeters", it.toString()) }
