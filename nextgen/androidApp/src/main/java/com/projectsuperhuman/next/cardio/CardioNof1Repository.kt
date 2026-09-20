@@ -2,7 +2,6 @@ package com.projectsuperhuman.next
 
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
-import kotlin.math.abs
 
 internal class CardioNof1Repository(
     private val nowEpochMs: () -> Long = System::currentTimeMillis
@@ -12,9 +11,9 @@ internal class CardioNof1Repository(
         samples: List<CardioHeartRateSample>
     ): CardioWriteResult {
         if (samples.isEmpty()) return CardioWriteResult(true, "No heart-rate samples to persist")
-        val ordered = samples.sortedBy { it.timestampEpochMs }
-        val rows = ordered.mapIndexed { index, sample ->
-            val quality = classifyHeartRate(sample, ordered.getOrNull(index - 1))
+        val quality = CardioHrQualityProcessor.analyse(samples)
+        val rows = quality.points.mapIndexed { index, point ->
+            val sample = point.sample
             HealthValue(
                 domain = HealthDomain.EXERCISE,
                 metric = "cardio_hr_sample_bpm",
@@ -29,7 +28,8 @@ internal class CardioNof1Repository(
                     )
                     put("sessionId", sessionId)
                     put("valueClass", CardioValueClass.MEASURED.name)
-                    put("quality", quality.name)
+                    put("quality", point.quality.name)
+                    point.reason?.let { put("qualityReason", it) }
                     put("receivedAtEpochMs", sample.receivedAtEpochMs.toString())
                     sample.importedAtEpochMs?.let { put("importedAtEpochMs", it.toString()) }
                     put("timeBasis", sample.timeBasis.name)
@@ -43,15 +43,13 @@ internal class CardioNof1Repository(
 
     suspend fun persistRrIntervals(
         sessionId: String,
-        samples: List<CardioRrIntervalSample>
+        samples: List<CardioRrIntervalSample>,
+        activeDurationMs: Long = samples.sumOf { it.rrMs.toLong().coerceAtLeast(0L) }
     ): CardioWriteResult {
         if (samples.isEmpty()) return CardioWriteResult(true, "No RR intervals to persist")
-        val rows = samples.sortedBy { it.timestampEpochMs }.mapIndexed { index, sample ->
-            val quality = if (sample.isPhysiologicallyStorable) {
-                sample.quality
-            } else {
-                CardioObservationQuality.INVALID
-            }
+        val quality = CardioRrProcessor.analyse(samples, activeDurationMs)
+        val rows = quality.points.mapIndexed { index, point ->
+            val sample = point.sample
             HealthValue(
                 domain = HealthDomain.EXERCISE,
                 metric = "cardio_rr_interval_ms",
@@ -66,15 +64,141 @@ internal class CardioNof1Repository(
                     )
                     put("sessionId", sessionId)
                     put("valueClass", CardioValueClass.MEASURED.name)
-                    put("quality", quality.name)
+                    put("quality", point.quality.name)
+                    point.reason?.let { put("qualityReason", it) }
                     put("receivedAtEpochMs", sample.receivedAtEpochMs.toString())
-                    put("correctionApplied", sample.correctionApplied.toString())
+                    put("correctionApplied", point.correctionApplied.toString())
                     put("algorithmVersion", CARDIO_NOF1_ALGORITHM_VERSION)
                     putAll(sample.source.toMetadata("sensor"))
                 }
             )
         }
         return ingest(rows, "RR intervals")
+    }
+
+    suspend fun persistGpsFixes(
+        sessionId: String,
+        route: CardioRouteSummary
+    ): CardioWriteResult {
+        if (route.rawFixes.isEmpty()) return CardioWriteResult(true, "No GPS fixes to persist")
+        val qualityByFix = route.qualityPoints.associateBy { it.fix }
+        val rows = route.rawFixes.mapIndexed { index, fix ->
+            val point = qualityByFix[fix]
+            HealthValue(
+                domain = HealthDomain.EXERCISE,
+                metric = "cardio_gps_fix_accuracy_m",
+                value = fix.accuracyMeters.toDouble(),
+                unit = "m",
+                timestampEpochMs = fix.timestampEpochMs,
+                source = "phone-gps",
+                metadata = buildMap {
+                    put("sourceRecordId", "cardio-gps:" + sessionId + ":" + fix.timestampEpochMs + ":" + index)
+                    put("sessionId", sessionId)
+                    put("valueClass", CardioValueClass.MEASURED.name)
+                    put("quality", (point?.quality ?: CardioObservationQuality.FILTERED).name)
+                    point?.reason?.let { put("qualityReason", it) }
+                    put("latitude", fix.latitude.toString())
+                    put("longitude", fix.longitude.toString())
+                    put("receivedAtEpochMs", fix.receivedAtEpochMs.toString())
+                    put("sourceKind", fix.source.name)
+                    fix.altitudeMeters?.let { put("altitudeMeters", it.toString()) }
+                    fix.speedMetersPerSecond?.let { put("speedMetersPerSecond", it.toString()) }
+                    put("algorithmVersion", CARDIO_NOF1_ALGORITHM_VERSION)
+                }
+            )
+        }
+        return ingest(rows, "GPS fixes")
+    }
+
+    suspend fun persistLaps(
+        sessionId: String,
+        laps: List<CardioLap>
+    ): CardioWriteResult {
+        if (laps.isEmpty()) return CardioWriteResult(true, "No laps to persist")
+        val rows = laps.map { lap ->
+            HealthValue(
+                domain = HealthDomain.EXERCISE,
+                metric = "cardio_lap_distance_m",
+                value = lap.distanceMeters,
+                unit = "m",
+                timestampEpochMs = lap.endedAt,
+                source = "cardio-live",
+                metadata = buildMap {
+                    put("sourceRecordId", "cardio-lap:" + sessionId + ":" + lap.index)
+                    put("sessionId", sessionId)
+                    put("lapIndex", lap.index.toString())
+                    put("startedAt", lap.startedAt.toString())
+                    put("endedAt", lap.endedAt.toString())
+                    put("durationSeconds", lap.durationSeconds.toString())
+                    put("exactDistance", lap.exactDistance.toString())
+                    put("lapSource", lap.source.name)
+                    put("valueClass", CardioValueClass.MEASURED.name)
+                    lap.avgHeartRate?.let { put("avgHeartRate", it.toString()) }
+                    lap.maxHeartRate?.let { put("maxHeartRate", it.toString()) }
+                    lap.paceSecondsPerKm?.let { put("paceSecondsPerKm", it.toString()) }
+                    lap.speedKmh?.let { put("speedKmh", it.toString()) }
+                    put("algorithmVersion", CARDIO_NOF1_ALGORITHM_VERSION)
+                }
+            )
+        }
+        return ingest(rows, "laps")
+    }
+
+    suspend fun persistPauseEvents(
+        sessionId: String,
+        events: List<CardioPauseEvent>
+    ): CardioWriteResult {
+        val completed = events.filter { it.endedAtEpochMs != null && it.endedAtEpochMs > it.startedAtEpochMs }
+        if (completed.isEmpty()) return CardioWriteResult(true, "No pause events to persist")
+        val rows = completed.mapIndexed { index, event ->
+            val ended = requireNotNull(event.endedAtEpochMs)
+            HealthValue(
+                domain = HealthDomain.EXERCISE,
+                metric = "cardio_pause_duration_s",
+                value = (ended - event.startedAtEpochMs) / 1000.0,
+                unit = "s",
+                timestampEpochMs = ended,
+                source = "cardio-live",
+                metadata = mapOf(
+                    "sourceRecordId" to "cardio-pause:" + sessionId + ":" + index,
+                    "sessionId" to sessionId,
+                    "startedAt" to event.startedAtEpochMs.toString(),
+                    "endedAt" to ended.toString(),
+                    "pauseOrigin" to event.origin.name,
+                    "valueClass" to CardioValueClass.MEASURED.name,
+                    "algorithmVersion" to CARDIO_NOF1_ALGORITHM_VERSION
+                )
+            )
+        }
+        return ingest(rows, "pause events")
+    }
+
+    suspend fun persistLiveTelemetry(
+        session: CardioSession,
+        heartRateSamples: List<CardioHeartRateSample>,
+        rrIntervals: List<CardioRrIntervalSample>,
+        telemetry: CardioLiveTelemetrySnapshot?
+    ): CardioTelemetryPersistenceResult {
+        val results = mutableListOf<CardioWriteResult>()
+        results += persistHeartRateSamples(session.id, heartRateSamples)
+        results += persistRrIntervals(
+            session.id,
+            rrIntervals,
+            activeDurationMs = session.durationSeconds.coerceAtLeast(0) * 1000L
+        )
+        telemetry?.let {
+            results += persistGpsFixes(session.id, it.route)
+            results += persistLaps(session.id, it.laps)
+            results += persistPauseEvents(session.id, it.pauseEvents)
+        }
+        val rr = CardioRrProcessor.analyse(
+            rrIntervals,
+            session.durationSeconds.coerceAtLeast(0) * 1000L
+        )
+        rr.rmssdMetric?.let { metric ->
+            results += publishDerived(session.id, metric, session.endedAt)
+        }
+        return CardioTelemetryPersistenceResult(results)
     }
 
     suspend fun publishDerived(
@@ -232,19 +356,13 @@ internal class CardioNof1Repository(
         CardioWriteResult(false, t.message ?: "Could not persist " + label)
     }
 
-    private fun classifyHeartRate(
-        sample: CardioHeartRateSample,
-        previous: CardioHeartRateSample?
-    ): CardioObservationQuality {
-        if (!sample.isPhysiologicallyStorable) return CardioObservationQuality.INVALID
-        val age = (sample.receivedAtEpochMs - sample.timestampEpochMs).coerceAtLeast(0L)
-        if (age > CARDIO_HR_STALE_AFTER_MS) return CardioObservationQuality.STALE
-        if (previous != null) {
-            val deltaMs = sample.timestampEpochMs - previous.timestampEpochMs
-            val jump = abs(sample.bpm - previous.bpm)
-            if (deltaMs in 1..5_000L && jump >= 45) return CardioObservationQuality.SUSPECT_OUTLIER
-            if (deltaMs > CARDIO_HR_STALE_AFTER_MS) return CardioObservationQuality.GAP_ADJACENT
-        }
-        return CardioObservationQuality.ACCEPTED
-    }
+}
+
+internal data class CardioTelemetryPersistenceResult(
+    val results: List<CardioWriteResult>
+) {
+    val success: Boolean get() = results.all { it.success }
+    val failedCount: Int get() = results.count { !it.success }
+    val accepted: Int get() = results.sumOf { it.accepted }
+    val rejected: Int get() = results.sumOf { it.rejected }
 }
