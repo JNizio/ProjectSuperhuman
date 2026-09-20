@@ -104,11 +104,9 @@ internal fun CardioVisualHub(
     val loadSeries = remember(sessions) {
         CardioTrainingLoadEngine.build(sessions).takeLast(21).map { it.chronicLoad }
     }
-    val zone3MinutesThisWeek = remember(sessions) { cardioHubWeekZoneMinutes(sessions, 3) }
-
     Column(
         Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(11.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         if (showStartBar) {
             CardioHubStartBar(
@@ -123,7 +121,6 @@ internal fun CardioVisualHub(
             model = model,
             efficiencySeries = efficiencySeries,
             loadSeries = loadSeries,
-            zone3Minutes = zone3MinutesThisWeek,
             goals = goals,
             onEditGoals = { sheet = CardioHubSheet.GOALS },
             onFitness = onFitness,
@@ -346,7 +343,6 @@ private fun CardioHubOverviewPanel(
     model: CardioProductOverviewModel,
     efficiencySeries: List<Double>,
     loadSeries: List<Double>,
-    zone3Minutes: Int,
     goals: CardioHubGoals,
     onEditGoals: () -> Unit,
     onFitness: () -> Unit,
@@ -357,16 +353,19 @@ private fun CardioHubOverviewPanel(
     val readiness = model.readiness
     val load = loadSeries.lastOrNull()?.roundToInt()
     val remainingBaseline = (4 - fitness.comparableSessionCount).coerceAtLeast(0)
+    val baselineBuilding = fitness.trendDeltaPercent == null
 
     val headline = when {
-        fitness.trendDeltaPercent == null -> "Building your cardio baseline"
+        baselineBuilding -> "Building your cardio baseline"
         fitness.trendDeltaPercent > 1.0 -> "Fitness is trending up"
         fitness.trendDeltaPercent < -1.0 -> "Fitness trend is lower"
         else -> "Fitness looks steady"
     }
     val explanation = when {
-        fitness.trendDeltaPercent == null && remainingBaseline > 0 ->
-            "$remainingBaseline more comparable " + (if (remainingBaseline == 1) "session" else "sessions") + " to unlock your pace / HR trend"
+        baselineBuilding && remainingBaseline > 0 ->
+            "$remainingBaseline more comparable " +
+                (if (remainingBaseline == 1) "session" else "sessions") +
+                " to unlock pace / HR trend"
         fitness.trendDeltaPercent != null ->
             "Based on comparable pace and heart-rate sessions"
         else -> "Keep training consistently to build your personal trend"
@@ -374,16 +373,36 @@ private fun CardioHubOverviewPanel(
 
     Column(
         Modifier.fillMaxWidth()
-            .background(superhumanSurface, RoundedCornerShape(21.dp))
-            .padding(horizontal = 14.dp, vertical = 13.dp)
+            .background(superhumanSurface, RoundedCornerShape(20.dp))
+            .padding(horizontal = 16.dp, vertical = 15.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(verticalAlignment = Alignment.Top) {
             CardioHubIconBadge(CardioHubGlyph.TREND, superhumanGreen)
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("YOUR CARDIO", color = superhumanTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
-                Text(headline, color = superhumanTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Black, lineHeight = 19.sp)
-                Text(explanation, color = superhumanTextMuted, fontSize = 8.sp, lineHeight = 11.sp)
+                Text(
+                    "YOUR CARDIO",
+                    color = superhumanTextMuted,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = .6.sp
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    headline,
+                    color = superhumanTextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    lineHeight = 20.sp
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    explanation,
+                    color = superhumanTextMuted,
+                    fontSize = 8.sp,
+                    lineHeight = 11.sp
+                )
             }
             Box(
                 Modifier.size(34.dp)
@@ -395,48 +414,49 @@ private fun CardioHubOverviewPanel(
                     glyph = SuperhumanDomainGlyph.MORE,
                     tint = superhumanTextMuted,
                     modifier = Modifier.size(19.dp),
-                    contentDescription = "Set cardio goals"
+                    contentDescription = "Cardio goals"
                 )
             }
         }
 
-        Spacer(Modifier.height(13.dp))
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            CardioHubGoalRing(
-                label = "TOTAL",
-                currentMinutes = model.week.minutes,
-                goalMinutes = goals.totalMinutes,
-                accent = Color(0xFF8E72D8),
-                modifier = Modifier.weight(1f),
-                onClick = onEditGoals
+        if (baselineBuilding) {
+            CardioHubBaselineProgress(
+                completed = fitness.comparableSessionCount.coerceIn(0, 4),
+                total = 4
             )
-            CardioHubGoalRing(
-                label = "ZONE 2",
-                currentMinutes = model.week.zone2Minutes,
-                goalMinutes = goals.zone2Minutes,
-                accent = superhumanGreen,
-                modifier = Modifier.weight(1f),
-                onClick = onEditGoals
-            )
-            CardioHubGoalRing(
-                label = "ZONE 3",
-                currentMinutes = zone3Minutes,
-                goalMinutes = goals.zone3Minutes,
-                accent = Color(0xFFD1A03D),
-                modifier = Modifier.weight(1f),
-                onClick = onEditGoals
+        } else if (efficiencySeries.size >= 2) {
+            CardioHubSparkline(
+                efficiencySeries,
+                superhumanGreen,
+                Modifier.fillMaxWidth().height(36.dp)
             )
         }
 
-        Spacer(Modifier.height(11.dp))
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CardioHubWeekStat(
+                label = "WEEK",
+                value = "${model.week.minutes} min",
+                detail = "${model.week.sessions} sessions",
+                accent = Color(0xFF8E72D8),
+                modifier = Modifier.weight(1f)
+            )
+            CardioHubWeekStat(
+                label = "ZONE 2",
+                value = "${model.week.zone2Minutes} min",
+                detail = goals.zone2Minutes?.let { "Goal $it min" } ?: "No goal",
+                accent = superhumanGreen,
+                modifier = Modifier.weight(1f)
+            )
+        }
+
         Row(
             Modifier.fillMaxWidth()
                 .background(superhumanSurfaceSoft, RoundedCornerShape(15.dp))
                 .clickable { onReadiness() }
-                .padding(horizontal = 11.dp, vertical = 9.dp),
+                .padding(horizontal = 12.dp, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             SuperhumanDomainIcon(
@@ -444,7 +464,7 @@ private fun CardioHubOverviewPanel(
                 tint = superhumanBlue,
                 modifier = Modifier.size(18.dp)
             )
-            Spacer(Modifier.width(9.dp))
+            Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     "TODAY · ${cardioHubShortReadiness(readiness.status)} signals",
@@ -452,124 +472,123 @@ private fun CardioHubOverviewPanel(
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Black
                 )
+                Spacer(Modifier.height(2.dp))
                 Text(
                     "${readiness.availableSignals}/${readiness.totalSignals} inputs · ${readiness.confidence.label} confidence",
                     color = superhumanTextMuted,
                     fontSize = 8.sp
                 )
             }
-            CardioHubSignalDots(readiness.availableSignals, readiness.totalSignals, superhumanBlue)
-            Spacer(Modifier.width(6.dp))
+            CardioHubSignalDots(
+                readiness.availableSignals,
+                readiness.totalSignals,
+                superhumanBlue
+            )
+            Spacer(Modifier.width(8.dp))
             Text("›", color = superhumanBlue, fontSize = 18.sp)
         }
 
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                Modifier.weight(1f)
-                    .clickable { onFitness() }
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                SuperhumanDomainIcon(
-                    glyph = SuperhumanDomainGlyph.TREND,
-                    tint = superhumanGreen,
-                    modifier = Modifier.size(17.dp)
-                )
-                Spacer(Modifier.width(7.dp))
-                Column {
-                    Text("FITNESS", color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
-                    Text(
-                        fitness.trendDeltaPercent?.let {
-                            val sign = if (it > 0) "+" else ""
-                            "$sign${String.format(Locale.US, "%.1f", it)}% efficiency"
-                        } ?: "Baseline ${fitness.comparableSessionCount}/4",
-                        color = superhumanTextPrimary,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-            Row(
-                Modifier.weight(1f)
-                    .clickable { onTrends() }
-                    .padding(vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                SuperhumanDomainIcon(
-                    glyph = SuperhumanDomainGlyph.TREND,
-                    tint = Color(0xFFD1A03D),
-                    modifier = Modifier.size(17.dp)
-                )
-                Spacer(Modifier.width(7.dp))
-                Column {
-                    Text("LOAD", color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
-                    Text(
-                        load?.let { "CTL $it" } ?: "Building",
-                        color = superhumanTextPrimary,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CardioHubOverviewMetric(
+                title = "FITNESS",
+                value = fitness.trendDeltaPercent?.let {
+                    val sign = if (it > 0) "+" else ""
+                    "$sign${String.format(Locale.US, "%.1f", it)}% efficiency"
+                } ?: "Baseline ${fitness.comparableSessionCount}/4",
+                glyph = SuperhumanDomainGlyph.TREND,
+                accent = superhumanGreen,
+                modifier = Modifier.weight(1f),
+                onClick = onFitness
+            )
+            CardioHubOverviewMetric(
+                title = "LOAD",
+                value = load?.let { "CTL $it" } ?: "Building",
+                glyph = SuperhumanDomainGlyph.TREND,
+                accent = Color(0xFFD1A03D),
+                modifier = Modifier.weight(1f),
+                onClick = onTrends
+            )
         }
     }
 }
 
 @Composable
-private fun CardioHubGoalRing(
+private fun CardioHubBaselineProgress(completed: Int, total: Int) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(total) { index ->
+            Box(
+                Modifier.weight(1f)
+                    .height(5.dp)
+                    .background(
+                        if (index < completed) superhumanGreen else superhumanBorder.copy(alpha = .55f),
+                        RoundedCornerShape(999.dp)
+                    )
+            )
+        }
+        Spacer(Modifier.width(4.dp))
+        Text(
+            "$completed/$total",
+            color = superhumanTextMuted,
+            fontSize = 8.sp,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun CardioHubWeekStat(
     label: String,
-    currentMinutes: Int,
-    goalMinutes: Int?,
+    value: String,
+    detail: String,
+    accent: Color,
+    modifier: Modifier
+) {
+    Row(
+        modifier
+            .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .10f else .06f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 11.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(7.dp).background(accent, CircleShape))
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text(label, color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+            Text(value, color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black)
+            Text(detail, color = superhumanTextMuted, fontSize = 7.sp)
+        }
+    }
+}
+
+@Composable
+private fun CardioHubOverviewMetric(
+    title: String,
+    value: String,
+    glyph: SuperhumanDomainGlyph,
     accent: Color,
     modifier: Modifier,
     onClick: () -> Unit
 ) {
-    val progress = goalMinutes?.takeIf { it > 0 }?.let {
-        currentMinutes.toFloat() / it.toFloat()
-    }
-    Column(
-        modifier.clickable { onClick() },
-        horizontalAlignment = Alignment.CenterHorizontally
+    Row(
+        modifier
+            .heightIn(min = 48.dp)
+            .clickable { onClick() }
+            .padding(horizontal = 4.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(Modifier.size(72.dp), contentAlignment = Alignment.Center) {
-            Canvas(Modifier.size(72.dp)) {
-                val stroke = 6.dp.toPx()
-                drawArc(
-                    color = superhumanBorder.copy(alpha = .5f),
-                    startAngle = -90f,
-                    sweepAngle = 360f,
-                    useCenter = false,
-                    style = Stroke(stroke, cap = StrokeCap.Round)
-                )
-                progress?.let { raw ->
-                    drawArc(
-                        color = accent,
-                        startAngle = -90f,
-                        sweepAngle = 360f * raw.coerceIn(0f, 1f),
-                        useCenter = false,
-                        style = Stroke(stroke, cap = StrokeCap.Round)
-                    )
-                }
-            }
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    currentMinutes.toString(),
-                    color = superhumanTextPrimary,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Text("MIN", color = superhumanTextMuted, fontSize = 6.sp, fontWeight = FontWeight.Black)
-            }
+        SuperhumanDomainIcon(glyph, accent, Modifier.size(17.dp))
+        Spacer(Modifier.width(8.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+            Text(value, color = superhumanTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
         }
-        Spacer(Modifier.height(4.dp))
-        Text(label, color = superhumanTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Black)
-        Text(
-            goalMinutes?.let { "of $it min" } ?: "Set goal",
-            color = if (goalMinutes == null) accent else superhumanTextMuted,
-            fontSize = 7.sp,
-            fontWeight = if (goalMinutes == null) FontWeight.Bold else FontWeight.Normal
-        )
+        Text("›", color = accent, fontSize = 16.sp)
     }
 }
 
