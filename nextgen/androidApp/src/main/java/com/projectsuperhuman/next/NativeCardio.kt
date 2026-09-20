@@ -2290,33 +2290,41 @@ private fun CardioWorkoutTypePicker(
     selected: CardioWorkoutType,
     onSelect: (CardioWorkoutType) -> Unit
 ) {
-    CardioWorkoutType.entries.toList().chunked(2).forEach { pair ->
-        Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
+    CardioWorkoutType.entries.toList().chunked(2).forEachIndexed { rowIndex, pair ->
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             pair.forEach { type ->
                 val active = type == selected
                 Column(
-                    Modifier.weight(1f).heightIn(min = 58.dp)
+                    Modifier
+                        .weight(1f)
+                        .height(64.dp)
                         .background(if (active) CardioBlue else CardioSoft, RoundedCornerShape(13.dp))
                         .clickable { onSelect(type) }
-                        .padding(horizontal = 10.dp, vertical = 9.dp)
+                        .padding(horizontal = 10.dp, vertical = 9.dp),
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         type.label,
                         color = if (active) Color.White else CardioInk,
                         fontSize = 10.sp,
+                        lineHeight = 12.sp,
                         fontWeight = FontWeight.Black
                     )
+                    Spacer(Modifier.height(3.dp))
                     Text(
                         type.description,
                         color = if (active) Color.White.copy(alpha = .78f) else CardioMuted,
                         fontSize = 9.sp,
-                        lineHeight = 12.sp
+                        lineHeight = 11.sp,
+                        maxLines = 2
                     )
                 }
             }
             if (pair.size == 1) Spacer(Modifier.weight(1f))
         }
-        Spacer(Modifier.height(7.dp))
+        if (rowIndex < (CardioWorkoutType.entries.size - 1) / 2) {
+            Spacer(Modifier.height(10.dp))
+        }
     }
 }
 
