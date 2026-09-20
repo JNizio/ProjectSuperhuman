@@ -109,7 +109,7 @@ private fun SuperhumanShell(
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
-    val bottomBarHeight = 72.dp
+    val bottomBarHeight = 84.dp
     val trudyState = remember { TrudyConversationState() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
@@ -285,14 +285,14 @@ private fun ShellBottomNavigation(
     Row(
         modifier
             .fillMaxWidth()
-            .height(72.dp)
+            .height(84.dp)
             .background(ShellBg.copy(alpha = .98f))
             .border(
                 width = 1.dp,
                 color = superhumanBorder.copy(alpha = .8f),
                 shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp)
             )
-            .padding(horizontal = 28.dp, vertical = 8.dp),
+            .padding(horizontal = 24.dp, vertical = 7.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -308,25 +308,14 @@ private fun ShellBottomNavigation(
             selected = selectedPage == ShellPage.TRUDY,
             accent = ShellTrudy,
             onClick = onTrudy,
-            icon = { color ->
-                Box(
-                    Modifier
-                        .size(25.dp)
-                        .background(color.copy(alpha = .14f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("T", color = color, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                }
-            }
+            icon = { color -> TrudyNavIcon(color) }
         )
         ShellBottomItem(
             label = "Settings",
             selected = selectedPage == ShellPage.SETTINGS || selectedPage == ShellPage.SMART_DEVICES,
             accent = ShellNavy,
             onClick = onSettings,
-            icon = { color ->
-                Text("⚙", color = color, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-            }
+            icon = { color -> SettingsNavIcon(color) }
         )
     }
 }
@@ -342,18 +331,13 @@ private fun ShellBottomItem(
     val color = if (selected) accent else ShellMuted
     Column(
         Modifier
-            .clickable(onClick = onClick)
-            .padding(horizontal = 18.dp, vertical = 4.dp),
+            .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 3.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box(
-            Modifier
-                .background(
-                    if (selected) accent.copy(alpha = .12f) else Color.Transparent,
-                    RoundedCornerShape(14.dp)
-                )
-                .padding(horizontal = 13.dp, vertical = 4.dp),
+            Modifier.height(30.dp),
             contentAlignment = Alignment.Center
         ) {
             icon(color)
@@ -362,7 +346,17 @@ private fun ShellBottomItem(
             label,
             color = color,
             fontSize = 8.sp,
+            lineHeight = 9.sp,
             fontWeight = if (selected) FontWeight.Black else FontWeight.Bold
+        )
+        Box(
+            Modifier
+                .width(18.dp)
+                .height(2.dp)
+                .background(
+                    if (selected) accent else Color.Transparent,
+                    RoundedCornerShape(999.dp)
+                )
         )
     }
 }
@@ -392,5 +386,65 @@ private fun PersonNavIcon(color: Color) {
             strokeWidth = stroke,
             cap = StrokeCap.Round
         )
+    }
+}
+
+
+@Composable
+private fun TrudyNavIcon(color: Color) {
+    Canvas(Modifier.size(25.dp)) {
+        val stroke = 2.dp.toPx()
+        val left = size.width * .16f
+        val top = size.height * .18f
+        val right = size.width * .84f
+        val bottom = size.height * .70f
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(left, top),
+            size = androidx.compose.ui.geometry.Size(right - left, bottom - top),
+            cornerRadius = androidx.compose.ui.geometry.CornerRadius(6.dp.toPx(), 6.dp.toPx()),
+            style = Stroke(width = stroke)
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * .38f, bottom),
+            end = Offset(size.width * .30f, size.height * .84f),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = color,
+            start = Offset(size.width * .30f, size.height * .84f),
+            end = Offset(size.width * .50f, bottom),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        drawCircle(color, radius = 1.35.dp.toPx(), center = Offset(size.width * .38f, size.height * .44f))
+        drawCircle(color, radius = 1.35.dp.toPx(), center = Offset(size.width * .50f, size.height * .44f))
+        drawCircle(color, radius = 1.35.dp.toPx(), center = Offset(size.width * .62f, size.height * .44f))
+    }
+}
+
+@Composable
+private fun SettingsNavIcon(color: Color) {
+    Canvas(Modifier.size(25.dp)) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val outer = size.minDimension * .32f
+        val inner = size.minDimension * .12f
+        val stroke = 2.dp.toPx()
+        repeat(8) { index ->
+            val angle = Math.toRadians((index * 45.0) - 90.0)
+            val start = Offset(
+                center.x + kotlin.math.cos(angle).toFloat() * outer,
+                center.y + kotlin.math.sin(angle).toFloat() * outer
+            )
+            val end = Offset(
+                center.x + kotlin.math.cos(angle).toFloat() * (outer + size.minDimension * .12f),
+                center.y + kotlin.math.sin(angle).toFloat() * (outer + size.minDimension * .12f)
+            )
+            drawLine(color, start, end, strokeWidth = stroke, cap = StrokeCap.Round)
+        }
+        drawCircle(color = color, radius = outer, center = center, style = Stroke(width = stroke))
+        drawCircle(color = color, radius = inner, center = center, style = Stroke(width = stroke))
     }
 }
