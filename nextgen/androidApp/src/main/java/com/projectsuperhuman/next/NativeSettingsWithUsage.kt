@@ -36,7 +36,7 @@ private val SettingsUsageMuted get() = superhumanTextMuted
 private val SettingsUsageBlue get() = superhumanBlue
 
 @Composable
-internal fun NativeSettingsWithUsage(openLegacy: () -> Unit) {
+internal fun NativeSettingsWithUsage(openLegacy: () -> Unit, openSmartDevices: () -> Unit) {
     val context = LocalContext.current
     var showUsage by remember { mutableStateOf(false) }
     val themeMode = SuperhumanAppearance.themeMode
@@ -89,7 +89,7 @@ internal fun NativeSettingsWithUsage(openLegacy: () -> Unit) {
             }
         } else {
             Box(Modifier.fillMaxWidth().weight(1f)) {
-                NativeSettingsParity(openLegacy)
+                NativeSettingsParity(openLegacy, openSmartDevices)
             }
         }
     }
