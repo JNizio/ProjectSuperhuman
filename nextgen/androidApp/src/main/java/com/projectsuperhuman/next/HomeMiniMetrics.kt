@@ -227,13 +227,31 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
 
         Box(Modifier.width(1.dp).height(28.dp).background(MiniBorder))
 
-        Text(
-            date,
-            color = MiniNavy,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = 14.dp)
-        )
+        Row(
+            Modifier
+                .weight(1f)
+                .height(36.dp)
+                .padding(start = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "DATE",
+                color = MiniMuted,
+                fontSize = 7.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = .6.sp,
+                lineHeight = 8.sp
+            )
+            Spacer(Modifier.width(10.dp))
+            Text(
+                date,
+                color = MiniNavy,
+                fontSize = 10.sp,
+                lineHeight = 17.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 1
+            )
+        }
     }
 }
 
