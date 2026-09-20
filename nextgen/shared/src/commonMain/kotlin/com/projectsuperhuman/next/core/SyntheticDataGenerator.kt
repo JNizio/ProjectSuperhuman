@@ -211,7 +211,9 @@ class SyntheticDataGenerator(
             val steps = (
                 3_500.0 + activity * 9_000.0 + recovery * 1_200.0 - stress * 650.0 + random.centered(900.0)
                 ).coerceIn(1_800.0, 19_000.0)
-            val workoutDay = dayIndex % 7 in setOf(0, 2, 4, 5) && recovery > 0.28
+            val strengthWorkoutDay = dayIndex % 7 in setOf(0, 3, 5) && recovery > 0.28
+            val cardioWorkoutDay = dayIndex % 7 in setOf(1, 4, 6) && recovery > 0.25
+            val workoutDay = strengthWorkoutDay || cardioWorkoutDay
             val workoutMinutes = if (workoutDay) {
                 (30.0 + activity * 38.0 + random.centered(8.0)).coerceIn(22.0, 85.0)
             } else 0.0
@@ -235,7 +237,171 @@ class SyntheticDataGenerator(
                 )
             }
 
-            if (workoutDay) {
+
+            if (cardioWorkoutDay) {
+                val dayToken = anchor / DAY_MS
+                val sessionId = "synthetic-cardio:${config.seed}:$dayToken"
+                val activityType = when (dayIndex % 4) {
+                    0 -> "RUNNING"
+                    1 -> "WALKING"
+                    2 -> "CYCLING"
+                    else -> "RUNNING"
+                }
+                val workoutType = when (dayIndex % 6) {
+                    1 -> "ZONE_2"
+                    4 -> "EASY"
+                    else -> if (recovery > 0.68) "TEMPO" else "EASY"
+                }
+                val durationMinutes = (
+                    28.0 + activity * 34.0 + recovery * 8.0 + random.centered(6.0)
+                    ).coerceIn(24.0, 78.0)
+                val durationSeconds = (durationMinutes * 60.0).roundToInt()
+                val trainingAgeFraction = if (config.days <= 1) 0.0 else dayIndex.toDouble() / (config.days - 1).toDouble()
+                val sessionEnd = (anchor - 3L * HOUR_MS + random.nextInt(-20, 21) * MINUTE_MS).coerceAtMost(now)
+                val sessionStart = sessionEnd - durationSeconds * 1000L
+                val effort = when (workoutType) {
+                    "TEMPO" -> 0.76
+                    "ZONE_2" -> 0.56
+                    else -> 0.48
+                }
+                val avgHeartRate = (
+                    112.0 + effort * 47.0 + stress * 5.0 - recovery * 4.0 + random.centered(4.0)
+                    ).roundToInt().coerceIn(96, 174)
+                val maxHeartRate = (
+                    avgHeartRate + 14.0 + effort * 15.0 + random.centered(4.0)
+                    ).roundToInt().coerceIn(avgHeartRate + 4, 194)
+                val minHeartRate = (
+                    avgHeartRate - 24.0 + random.centered(4.0)
+                    ).roundToInt().coerceIn(72, avgHeartRate - 3)
+                val rpe = (
+                    2.6 + effort * 5.0 + stress * 0.8 - recovery * 0.5 + random.centered(0.55)
+                    ).coerceIn(2.0, 8.8)
+
+                val baseRunningPace = 382.0 - trainingAgeFraction * 34.0
+                val baseWalkingPace = 665.0 - trainingAgeFraction * 42.0
+                val pacePenalty = stress * 18.0 - recovery * 13.0 + random.centered(10.0)
+                val avgPaceSecPerKm = when (activityType) {
+                    "RUNNING" -> (baseRunningPace + pacePenalty - if (workoutType == "TEMPO") 24.0 else 0.0)
+                        .roundToInt().coerceIn(285, 455)
+                    "WALKING" -> (baseWalkingPace + pacePenalty).roundToInt().coerceIn(500, 780)
+                    else -> null
+                }
+                val avgSpeedKmh = when (activityType) {
+                    "CYCLING" -> (
+                        20.5 + trainingAgeFraction * 3.8 + activity * 3.2 - stress * 1.3 + random.centered(1.5)
+                        ).coerceIn(16.0, 32.0)
+                    else -> avgPaceSecPerKm?.let { 3600.0 / it }
+                }
+                val distanceKm = when (activityType) {
+                    "CYCLING" -> avgSpeedKmh!! * durationMinutes / 60.0
+                    else -> avgPaceSecPerKm?.let { durationSeconds.toDouble() / it } ?: 0.0
+                }
+                val elevationGainM = when (activityType) {
+                    "CYCLING" -> (distanceKm * (6.0 + random.nextDouble() * 9.0)).coerceAtLeast(0.0)
+                    "RUNNING", "WALKING" -> (distanceKm * (3.0 + random.nextDouble() * 7.0)).coerceAtLeast(0.0)
+                    else -> 0.0
+                }
+                val cadence = when (activityType) {
+                    "RUNNING" -> (160 + activity * 18.0 + random.centered(5.0)).roundToInt().coerceIn(148, 184)
+                    "WALKING" -> (103 + activity * 18.0 + random.centered(5.0)).roundToInt().coerceIn(92, 132)
+                    "CYCLING" -> (76 + activity * 15.0 + random.centered(5.0)).roundToInt().coerceIn(65, 98)
+                    else -> 0
+                }
+
+                val zone2Share = when (workoutType) {
+                    "ZONE_2" -> 0.76
+                    "EASY" -> 0.58
+                    else -> 0.32
+                }
+                val zone3Share = when (workoutType) {
+                    "TEMPO" -> 0.46
+                    else -> 0.19
+                }
+                val zone4Share = if (workoutType == "TEMPO") 0.13 else 0.04
+                val zone1Seconds = (durationSeconds * 0.12).roundToInt()
+                val zone2Seconds = (durationSeconds * zone2Share).roundToInt()
+                val zone3Seconds = (durationSeconds * zone3Share).roundToInt()
+                val zone4Seconds = (durationSeconds * zone4Share).roundToInt()
+                val allocated = zone1Seconds + zone2Seconds + zone3Seconds + zone4Seconds
+                val zone5Seconds = (durationSeconds - allocated).coerceAtLeast(0)
+
+                val cardioMetadata = buildMap {
+                    put("sessionId", sessionId)
+                    put("cardioSchemaVersion", "3")
+                    put("activityType", activityType)
+                    put("activityName", activityType.lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() })
+                    put("startedAt", sessionStart.toString())
+                    put("endedAt", sessionEnd.toString())
+                    put("durationSeconds", durationSeconds.toString())
+                    put("pausedDurationSeconds", "0")
+                    put("cardioSource", "synthetic-cardio")
+                    put("workoutType", workoutType)
+                    put("distanceKm", roundedText(distanceKm))
+                    put("avgHeartRate", avgHeartRate.toString())
+                    put("maxHeartRate", maxHeartRate.toString())
+                    put("minHeartRate", minHeartRate.toString())
+                    put("caloriesKcal", roundedText(durationMinutes * (6.0 + effort * 5.0)))
+                    avgPaceSecPerKm?.let {
+                        put("avgPaceSecPerKm", it.toString())
+                        put("bestPaceSecPerKm", (it * 0.90).roundToInt().toString())
+                    }
+                    avgSpeedKmh?.let {
+                        put("avgSpeedKmh", roundedText(it))
+                        put("maxSpeedKmh", roundedText(it * (1.12 + effort * 0.08)))
+                    }
+                    put("elevationGainM", roundedText(elevationGainM))
+                    put("cadence", cadence.toString())
+                    put("rpe", roundedText(rpe))
+                    put("notes", "Synthetic Cardio session for developer testing")
+                    put("zoneSchemeId", "synthetic-5-zone-v1")
+                    put("physiologyRevisionId", "synthetic-profile-v1")
+                    put("zone1Seconds", zone1Seconds.toString())
+                    put("zone2Seconds", zone2Seconds.toString())
+                    put("zone3Seconds", zone3Seconds.toString())
+                    put("zone4Seconds", zone4Seconds.toString())
+                    put("zone5Seconds", zone5Seconds.toString())
+                }
+                add(
+                    dayIndex, anchor, HealthDomain.EXERCISE, "cardio_session",
+                    durationMinutes, "min", sessionEnd, 500,
+                    cardioMetadata
+                )
+
+                // A light-weight synthetic raw stream lets quality/provenance and drill-down UI
+                // exercise the same code paths as real sensor-backed sessions.
+                val sampleCount = 18
+                repeat(sampleCount) { sampleIndex ->
+                    val fraction = sampleIndex.toDouble() / (sampleCount - 1).coerceAtLeast(1)
+                    val warmupEffect = if (fraction < 0.20) (fraction / 0.20) * 12.0 - 12.0 else 0.0
+                    val sampleHr = (
+                        avgHeartRate + warmupEffect + sin(sampleIndex / 2.2) * 4.0 + random.centered(2.2)
+                        ).roundToInt().coerceIn(70, maxHeartRate)
+                    val sampleTs = sessionStart + (durationSeconds * 1000L * sampleIndex / (sampleCount - 1).coerceAtLeast(1))
+                    add(
+                        dayIndex, anchor, HealthDomain.EXERCISE, "cardio_hr_sample_bpm",
+                        sampleHr.toDouble(), "bpm", sampleTs, 600 + sampleIndex,
+                        mapOf(
+                            "sessionId" to sessionId,
+                            "valueClass" to "MEASURED",
+                            "quality" to "VALID",
+                            "syntheticSensor" to "chest-strap"
+                        )
+                    )
+                    val rrMs = (60_000.0 / sampleHr + random.centered(18.0)).coerceIn(320.0, 1_300.0)
+                    add(
+                        dayIndex, anchor, HealthDomain.EXERCISE, "cardio_rr_interval_ms",
+                        rrMs, "ms", sampleTs + 250L, 700 + sampleIndex,
+                        mapOf(
+                            "sessionId" to sessionId,
+                            "valueClass" to "MEASURED",
+                            "quality" to "VALID",
+                            "syntheticSensor" to "chest-strap"
+                        )
+                    )
+                }
+            }
+
+            if (strengthWorkoutDay) {
                 val exerciseIds = listOf("db_press", "cable_row", "biceps_curl")
                 var workoutVolume = 0.0
                 exerciseIds.forEachIndexed { setIndex, exerciseId ->
