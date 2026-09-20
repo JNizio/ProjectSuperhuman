@@ -55,7 +55,7 @@ private val SettingsCard get() = superhumanSurface
 private val SettingsSoft get() = superhumanSurfaceSoft
 
 @Composable
-internal fun NativeSettingsParity(openLegacy: () -> Unit) {
+internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     DeveloperDiagnostics.initialize(context)
@@ -152,7 +152,38 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit) {
         Text("Settings", color = SettingsInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
         Text("Appearance, smart devices, backup and app controls.", color = SettingsMuted, fontSize = 11.sp)
 
-        SmartDevicesHub()
+        Column(
+            Modifier.fillMaxWidth()
+                .background(SettingsCard, RoundedCornerShape(22.dp))
+                .superhumanClickable(onClick = openSmartDevices)
+                .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.background(SettingsBlue.copy(alpha = .11f), RoundedCornerShape(14.dp)).padding(horizontal = 11.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("⌁", color = SettingsBlue, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                }
+                Column(Modifier.weight(1f).padding(start = 11.dp)) {
+                    Text("Devices & connections", color = SettingsNavy, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        "Watches, rings, heart-rate sensors, scales and health apps",
+                        color = SettingsMuted,
+                        fontSize = 9.sp,
+                        lineHeight = 13.sp
+                    )
+                }
+                Text("›", color = SettingsNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(9.dp))
+            Text(
+                "Manage all device setup on one dedicated screen. Popular brands have quick setup shortcuts and every source shows whether data is direct or imported.",
+                color = SettingsMuted,
+                fontSize = 8.5.sp,
+                lineHeight = 13.sp
+            )
+        }
 
         Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
