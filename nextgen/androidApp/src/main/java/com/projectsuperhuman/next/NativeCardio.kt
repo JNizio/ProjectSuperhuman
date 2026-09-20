@@ -319,23 +319,10 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     val weekSummary = remember(sessions) {
         val weekStart = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
         val recent = sessions.filter { it.endedAt >= weekStart }
-        listOf(
-            recent.sumOf { it.durationSeconds } / 60,
-            recent.size,
-            recent.sumOf { it.zoneSeconds[2] ?: 0 } / 60
-        ) to recent.mapNotNull { it.distanceKm }.sum()
+        (recent.sumOf { it.durationSeconds } / 60) to recent.size
     }
-    val weekMinutes = weekSummary.first[0]
-    val weekSessionCount = weekSummary.first[1]
-    val weekZone2 = weekSummary.first[2]
-    val weekDistance = weekSummary.second
-    val loadSnapshot = remember(sessions) { calculateCardioLoadSnapshot(sessions) }
-    val weekZoneTotals = remember(sessions) {
-        val weekStart = System.currentTimeMillis() - 7L * 24L * 60L * 60L * 1000L
-        val recent = sessions.filter { it.endedAt >= weekStart }
-        (1..5).associateWith { zone -> recent.sumOf { it.zoneSeconds[zone] ?: 0 } }
-    }
-    val activityGroups = remember(sessions) { sessions.groupBy { it.activity } }
+    val weekMinutes = weekSummary.first
+    val weekSessionCount = weekSummary.second
     val activeDraftState = cardioState.liveDraft
     val activeDraft = activeDraftState != null
 
