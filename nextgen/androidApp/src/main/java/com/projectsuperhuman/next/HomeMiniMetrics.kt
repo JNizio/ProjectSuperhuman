@@ -129,30 +129,13 @@ private fun rememberMiniMetricsForeground(): Boolean {
 }
 
 @Composable
-internal fun HomeDateStrip() {
-    val date = remember {
-        LocalDate.now().format(DateTimeFormatter.ofPattern("EEEE, d MMMM", Locale.ENGLISH))
-    }
-    val gradient = if (SuperhumanAppearance.darkMode) {
-        listOf(superhumanSurface, superhumanSurfaceSoft, superhumanSurface)
-    } else {
-        listOf(Color(0xFFF7FBFE), Color(0xFFEEF8FC), Color(0xFFF7FBFE))
-    }
-    Box(
-        Modifier.fillMaxWidth().height(54.dp)
-            .background(Brush.horizontalGradient(gradient), RoundedCornerShape(20.dp))
-            .border(1.dp, MiniBorder, RoundedCornerShape(20.dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(date, color = MiniNavy, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = .35.sp)
-    }
-}
-
-@Composable
-internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
+internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
     val context = LocalContext.current
     val isForeground = rememberMiniMetricsForeground()
     var metrics by remember { mutableStateOf(MiniMetricSnapshot()) }
+    val date = remember {
+        LocalDate.now().format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.ENGLISH))
+    }
 
     LaunchedEffect(isForeground) {
         metrics = loadMiniMetricSnapshot()
@@ -169,61 +152,45 @@ internal fun HomeMiniMetricsGrid(openMetric: (HomeMiniMetric) -> Unit) {
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MiniMetricCard(
-                metric = HomeMiniMetric.STEPS,
-                value = metrics.steps?.let(::compactCount) ?: "—",
-                unit = "",
-                status = if (metrics.steps != null) {
-                    val age = freshnessLabel(metrics.stepsSourceUpdatedAtMs)
-                    metrics.stepsRecentAverage?.let { "$age · avg ${compactCount(it)}" } ?: age
-                } else "Tap to connect",
-                accent = MiniSteps,
-                modifier = Modifier.weight(1f),
-                style = MiniVisualStyle.DOTS,
-                onClick = { openMetric(HomeMiniMetric.STEPS) }
-            )
-            MiniMetricCard(
-                metric = HomeMiniMetric.BLOOD_OXYGEN,
-                value = metrics.bloodOxygenPct?.toString() ?: "—",
-                unit = if (metrics.bloodOxygenPct != null) "%" else "",
-                status = if (metrics.bloodOxygenPct != null) freshnessLabel(metrics.bloodOxygenTimestampMs) else "Tap to connect",
-                accent = MiniOxygen,
-                modifier = Modifier.weight(1f),
-                style = MiniVisualStyle.RING,
-                onClick = { openMetric(HomeMiniMetric.BLOOD_OXYGEN) }
-            )
+    Row(
+        Modifier.fillMaxWidth()
+            .height(58.dp)
+            .background(superhumanSurface, RoundedCornerShape(18.dp))
+            .border(1.dp, MiniBorder, RoundedCornerShape(18.dp))
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            Modifier.weight(1f).clickable { openMetric(HomeMiniMetric.HEART_RATE) }
+        ) {
+            Text("HEART RATE", color = MiniMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(metrics.heartRateBpm?.toString() ?: "—", color = MiniNavy, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                if (metrics.heartRateBpm != null) {
+                    Spacer(Modifier.width(3.dp))
+                    Text("bpm", color = MiniMuted, fontSize = 7.sp, modifier = Modifier.padding(bottom = 2.dp))
+                }
+            }
         }
 
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            MiniMetricCard(
-                metric = HomeMiniMetric.HEART_RATE,
-                value = metrics.heartRateBpm?.toString() ?: "—",
-                unit = if (metrics.heartRateBpm != null) "bpm" else "",
-                status = if (metrics.heartRateBpm != null) freshnessLabel(metrics.heartRateTimestampMs) else "Tap to connect",
-                accent = MiniHeart,
-                modifier = Modifier.weight(1f),
-                style = MiniVisualStyle.PULSE,
-                onClick = { openMetric(HomeMiniMetric.HEART_RATE) }
-            )
-            MiniMetricCard(
-                metric = HomeMiniMetric.CALORIES,
-                value = metrics.caloriesActiveBurned?.let(::compactCount) ?: "—",
-                unit = if (metrics.caloriesActiveBurned != null) "kcal" else "",
-                status = if (metrics.caloriesActiveBurned != null) {
-                    val eaten = compactCount(metrics.caloriesEaten ?: 0)
-                    val total = metrics.caloriesTotalBurned?.let(::compactCount)
-                    if (total != null) "$eaten eaten · $total total" else "$eaten eaten"
-                } else {
-                    metrics.caloriesEaten?.let { "${compactCount(it)} eaten · connect burn" } ?: "Tap to connect"
-                },
-                accent = MiniCalories,
-                modifier = Modifier.weight(1f),
-                style = MiniVisualStyle.WAVES,
-                onClick = { openMetric(HomeMiniMetric.CALORIES) }
-            )
+        Box(Modifier.width(1.dp).height(28.dp).background(MiniBorder))
+
+        Column(
+            Modifier.weight(1f).padding(start = 14.dp).clickable { openMetric(HomeMiniMetric.STEPS) }
+        ) {
+            Text("STEPS", color = MiniMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
+            Text(metrics.steps?.let(::compactCount) ?: "—", color = MiniNavy, fontSize = 15.sp, fontWeight = FontWeight.Black)
         }
+
+        Box(Modifier.width(1.dp).height(28.dp).background(MiniBorder))
+
+        Text(
+            date,
+            color = MiniNavy,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 14.dp)
+        )
     }
 }
 
