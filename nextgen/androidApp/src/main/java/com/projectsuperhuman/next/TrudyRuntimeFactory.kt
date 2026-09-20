@@ -90,7 +90,7 @@ internal object TrudyRuntimeFactory {
             BuildConfig.TRUDY_GEMINI_API_KEY.takeIf { it.isNotBlank() }
         },
         appContext: Context? = null,
-        experimentRepository: TrudyCanonicalExperimentRepository? = null,
+        experimentRepository: TrudyCanonicalExperimentRepository = EmptyTrudyCanonicalExperimentRepository,
         knowledgeSources: List<TrudyKnowledgeSource> = defaultTrudyKnowledgeSources(),
         temporalBoundaries: TrudyTemporalBoundaryProvider = AndroidTrudyTemporalBoundaryProvider()
     ): TrudyRuntime {
@@ -117,7 +117,7 @@ internal object TrudyRuntimeFactory {
             val intelligenceTools = TrudyIntelligenceToolService(
                 library = TrudyPersonalEvidenceLibrary(evidenceSource),
                 source = evidenceSource,
-                experimentRepository = experimentRepository ?: DataVaultCardioExperimentRepository()
+                experimentRepository = experimentRepository
             )
             val tools = CompositeTrudyToolExecutor(
                 healthExecutor = healthTools,
