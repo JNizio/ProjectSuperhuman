@@ -101,6 +101,14 @@ class TrudySystemIntegrationTest {
     }
 
     @Test
+    fun cardioSummaryRequestUsesStructuredExerciseInsights() {
+        val operation = planner.plan(TrudyAskRequest("Give me a weekly cardio summary")).single()
+
+        val insights = assertIs<TrudyToolOperation.GetInsights>(operation)
+        assertEquals(HealthDomain.EXERCISE, insights.domain)
+    }
+
+    @Test
     fun cardioLanguageMapsToCanonicalNof1Metrics() {
         val metrics = TrudySystemCatalog.metricsMentioned("Am I getting fitter and how has my training load changed?")
 

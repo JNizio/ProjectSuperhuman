@@ -294,8 +294,10 @@ class TrudyHealthContextService(
         val coverage = metadata["coverageFraction"]?.toDoubleOrNull()
             ?: metadata["coverage"]?.toDoubleOrNull()
             ?: metadata["heartRateCoveragePct"]?.toDoubleOrNull()?.div(100.0)
+            ?: metadata["ext.heartRateCoveragePct"]?.toDoubleOrNull()?.div(100.0)
         val sampleCount = metadata["sampleCount"]?.toIntOrNull()
             ?: metadata["heartRateSampleCount"]?.toIntOrNull()
+            ?: metadata["ext.heartRateSampleCount"]?.toIntOrNull()
             ?: 1
         val numericConfidence = metadata["confidenceScore"]?.toDoubleOrNull()
             ?: metadata["confidenceFraction"]?.toDoubleOrNull()
@@ -319,10 +321,10 @@ class TrudyHealthContextService(
             metadata = metadata + trudyCaptureMetadata(),
             valueClass = valueClass,
             confidenceLabel = metadata["confidence"],
-            algorithmVersion = metadata["algorithmVersion"],
+            algorithmVersion = metadata["algorithmVersion"] ?: metadata["ext.algorithmVersion"],
             sessionId = metadata["sessionId"],
-            deviceId = metadata["sensorId"] ?: metadata["deviceId"],
-            deviceName = metadata["sensorDeviceName"] ?: metadata["deviceName"],
+            deviceId = metadata["sensorId"] ?: metadata["ext.sensorId"] ?: metadata["deviceId"],
+            deviceName = metadata["sensorDeviceName"] ?: metadata["ext.sensorDeviceName"] ?: metadata["deviceName"],
             coverageFraction = coverage?.takeIf { it.isFinite() }?.coerceIn(0.0, 1.0),
             caveat = metadata["caveat"]
         )

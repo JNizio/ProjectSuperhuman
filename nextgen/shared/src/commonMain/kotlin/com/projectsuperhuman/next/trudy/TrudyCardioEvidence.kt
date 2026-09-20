@@ -68,10 +68,12 @@ object TrudyCardioEvidenceAssembler {
         val derived = inWindow.filter { it.metric in derivedMetricIds }
         if (sessions.isEmpty() && derived.isEmpty()) return null
 
-        val distances = sessions.mapNotNull { it.metadata["distanceKm"]?.toDoubleOrNull()?.takeIf(Double::isFinite) }
+        val distances = sessions.mapNotNull { it.metadata["distanceKm"]?.toDoubleOrNull()?.takeIf { value -> value.isFinite() } }
         val zone2Seconds = sessions.mapNotNull { it.metadata["zone2Seconds"]?.toDoubleOrNull()?.takeIf(Double::isFinite) }
         val hrCoverage = sessions.mapNotNull {
-            it.metadata["heartRateCoveragePct"]?.toDoubleOrNull()?.takeIf(Double::isFinite)
+            (it.metadata["heartRateCoveragePct"] ?: it.metadata["ext.heartRateCoveragePct"])
+                ?.toDoubleOrNull()
+                ?.takeIf { value -> value.isFinite() }
         }
 
         fun latest(metric: String): Double? = derived

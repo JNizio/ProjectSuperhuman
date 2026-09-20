@@ -206,7 +206,7 @@ class TrudyPromptFormatter(
         "${domain.name}/$metricId latest=$latest $unit mean=$mean samples=$sampleCount change=${change ?: "n/a"} range=${range.fromEpochMs}-${range.toEpochMs} source=$source"
 
     private fun TrudyInsightEvidence.renderCompact() =
-        "${domain.name}/$id kind=${evidenceKind.name} confidence=${confidence ?: "n/a"} evidence=${evidenceMetricIds.joinToString()} title=${title.take(180)} source=$source"
+        "${domain.name}/$id kind=${evidenceKind.name} confidence=${confidence ?: "n/a"} evidence=${evidenceMetricIds.joinToString()} title=${title.take(180)} meaning=${explanation.take(MAX_TEXT_CHARS)} source=$source"
 
     private fun TrudyDataQualityEvidence.renderCompact() =
         "${domain.name} score=$score records=$recordCount metrics=$distinctMetricCount stale=$isStale notes=${notes.joinToString(";").take(240)}"

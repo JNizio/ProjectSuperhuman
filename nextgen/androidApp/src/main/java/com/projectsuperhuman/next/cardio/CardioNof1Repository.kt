@@ -83,8 +83,10 @@ internal class CardioNof1Repository(
         timestampEpochMs: Long = nowEpochMs()
     ): CardioWriteResult {
         val value = metric.value ?: return CardioWriteResult(false, "Derived metric is unavailable")
+        // Algorithm version is part of identity so a historical recomputation cannot silently
+        // overwrite an older derivation of the same metric/session/timestamp.
         val sourceRecordId = "cardio-derived:" + metric.metricId + ":" +
-            (sessionId ?: "global") + ":" + timestampEpochMs
+            (sessionId ?: "global") + ":" + timestampEpochMs + ":" + metric.algorithmVersion
         val row = HealthValue(
             domain = HealthDomain.EXERCISE,
             metric = metric.metricId,

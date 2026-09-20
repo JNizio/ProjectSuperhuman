@@ -23,7 +23,7 @@ class TrudyCardioEvidenceTest {
         val rows = listOf(
             HealthValue(
                 HealthDomain.EXERCISE, "cardio_session", 30.0, "min", 20L, "native-cardio",
-                mapOf("sessionId" to "a", "distanceKm" to "5.0", "zone2Seconds" to "1200", "heartRateCoveragePct" to "90")
+                mapOf("sessionId" to "a", "distanceKm" to "5.0", "zone2Seconds" to "1200", "ext.heartRateCoveragePct" to "90")
             ),
             HealthValue(
                 HealthDomain.EXERCISE, "cardio_session", 40.0, "min", 40L, "native-cardio",

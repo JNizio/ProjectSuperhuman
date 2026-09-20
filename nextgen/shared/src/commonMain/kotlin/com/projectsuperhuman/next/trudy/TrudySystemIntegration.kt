@@ -445,6 +445,11 @@ class TrudySystemInvestigationPlanner(
                 .firstOrNull { it.isNotEmpty() }.orEmpty()
         } else emptyList()
         val modules = (currentModules + inheritedModules).distinctBy { it.id }
+        if (modules.any { it.id == "cardio" } &&
+            listOf("summary", "overview", "weekly review", "monthly review", "cardio review").any { it in text }
+        ) {
+            return listOf(TrudyToolOperation.GetInsights(HealthDomain.EXERCISE))
+        }
         if ("insight" in text) {
             val domains = modules.flatMap { it.metrics }.map { it.domain }.distinct()
                 .ifEmpty { HealthDomain.entries }
