@@ -87,7 +87,13 @@ internal object CardioTrainingLoadIntelligenceEngine {
         zoneId: ZoneId = ZoneId.systemDefault()
     ): CardioTrainingLoadSeries {
         if (evidence.isEmpty()) {
-            return CardioTrainingLoadSeries(emptyList(), emptyMap(), 0.0, false)
+            return CardioTrainingLoadSeries(
+                points = emptyList(),
+                methodCounts = emptyMap(),
+                scoredSessionFraction = 0.0,
+                mixedScaleWarning = false,
+                modelledMethod = null
+            )
         }
 
         val estimates = evidence.associate { it.session.id to sessionLoad(it) }
@@ -95,10 +101,11 @@ internal object CardioTrainingLoadIntelligenceEngine {
         val methodCounts = scored.groupingBy { it.method }.eachCount()
         if (scored.isEmpty()) {
             return CardioTrainingLoadSeries(
-                emptyList(),
-                methodCounts,
-                0.0,
-                false
+                points = emptyList(),
+                methodCounts = methodCounts,
+                scoredSessionFraction = 0.0,
+                mixedScaleWarning = false,
+                modelledMethod = null
             )
         }
 
@@ -114,10 +121,11 @@ internal object CardioTrainingLoadIntelligenceEngine {
         }
         if (eligible.isEmpty()) {
             return CardioTrainingLoadSeries(
-                emptyList(),
-                methodCounts,
-                scored.size.toDouble() / evidence.size,
-                mixed
+                points = emptyList(),
+                methodCounts = methodCounts,
+                scoredSessionFraction = scored.size.toDouble() / evidence.size,
+                mixedScaleWarning = mixed,
+                modelledMethod = modelledMethod
             )
         }
 
@@ -171,10 +179,11 @@ internal object CardioTrainingLoadIntelligenceEngine {
         }
 
         return CardioTrainingLoadSeries(
-            points,
-            methodCounts,
-            scored.size.toDouble() / evidence.size,
-            mixed
+            points = points,
+            methodCounts = methodCounts,
+            scoredSessionFraction = scored.size.toDouble() / evidence.size,
+            mixedScaleWarning = mixed,
+            modelledMethod = modelledMethod
         )
     }
 
@@ -323,10 +332,10 @@ internal object CardioChangePointEngine {
             val after = clean.subList(index, clean.size).map(CardioTimedValue::value)
             val beforeMedian = median(before)
             val afterMedian = median(after)
-            val pooledMedian = median((before + after))
-            val pooledMad = median((before + after).map { abs(it - pooledMedian) })
-            val scale = (1.4826 * pooledMad).coerceAtLeast(1e-9)
-            val effect = (afterMedian - beforeMedian) / scale
+            val beforeMad = median(before.map { abs(it - beforeMedian) })
+            val afterMad = median(after.map { abs(it - afterMedian) })
+            val withinScale = maxOf(1.4826 * beforeMad, 1.4826 * afterMad, 1e-9)
+            val effect = (afterMedian - beforeMedian) / withinScale
             if (abs(effect) > abs(bestEffect)) {
                 bestEffect = effect
                 bestIndex = index
@@ -720,6 +729,7 @@ internal object CardioPeriodSummaryEngine {
         sessions: List<CardioSession>,
         evidence: List<CardioSessionEvidence>,
         period: CardioSummaryPeriod,
+        records: List<CardioRecord> = emptyList(),
         endEpochMs: Long = System.currentTimeMillis(),
         zoneId: ZoneId = ZoneId.systemDefault()
     ): CardioPeriodSummary {
@@ -762,7 +772,8 @@ internal object CardioPeriodSummaryEngine {
             load,
             zone,
             fitnessSignals,
-            emptyList(),
+            records.filter { it.verified && it.sessionId in selected.map(CardioSession::id).toSet() }
+                .map { it.label },
             qualityNotes,
             if (sessions.size >= 8) "Personal baseline available for supported metrics" else "Building baseline",
             missing
