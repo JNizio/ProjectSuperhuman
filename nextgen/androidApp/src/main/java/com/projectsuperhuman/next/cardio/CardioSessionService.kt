@@ -101,7 +101,18 @@ internal class CardioSessionService : Service() {
         startCardioForeground(null, "Cardio session active")
 
         scope.launch {
-            store.load().draft?.let(::ensureRuntimeOwnership)
+            store.load().draft?.let { draft ->
+                val timing = controller.timing(draft)
+                val label = when (draft.phase) {
+                    CardioLivePhase.RECORDING -> "Recording"
+                    CardioLivePhase.PAUSED -> "Paused"
+                    CardioLivePhase.FINISHING -> "Ready to save"
+                }
+                // Upgrade to the location FGS type before a restored outdoor runtime asks for
+                // GPS updates on Android 14+.
+                startCardioForeground(draft, label + " · " + formatElapsed(timing.activeSeconds))
+                ensureRuntimeOwnership(draft)
+            }
             when (intent?.action) {
                 ACTION_PAUSE -> {
                     coordinator.pause()
