@@ -88,15 +88,51 @@ private fun jsonStrings(a: JSONArray?): List<String> = if (a == null) emptyList(
 private fun pretty(s: String) = s.replace('_', ' ').replaceFirstChar { it.uppercase() }
 private fun exerciseNumber(v: Double) = if (v % 1.0 == 0.0) v.toInt().toString() else String.format(java.util.Locale.US, "%.1f", v)
 
+internal fun isCardioOnlyRepDbExercise(id: String, name: String, equipment: String): Boolean {
+    val key = "$id $name $equipment".lowercase()
+    val cardioOnlyTerms = listOf(
+        "treadmill",
+        "stationary bike",
+        "exercise bike",
+        "spin bike",
+        "air bike",
+        "assault bike",
+        "indoor cycling",
+        "cycling",
+        "bicycle",
+        "elliptical",
+        "cross trainer",
+        "stair climber",
+        "stair stepper",
+        "stepmill",
+        "rowing machine",
+        "rowing erg",
+        "row erg",
+        "rower",
+        "ski erg",
+        "ski-erg",
+        "jump rope",
+        "skipping rope",
+        "running",
+        "walking",
+        "swimming"
+    )
+    return cardioOnlyTerms.any(key::contains)
+}
+
 private suspend fun loadRepDb(context: android.content.Context): List<NativeExercise> = withContext(Dispatchers.IO) {
     runCatching {
         val root = JSONObject(context.assets.open("repdb/exercises.json").bufferedReader().use { it.readText() })
         val a = root.getJSONArray("exercises")
-        (0 until a.length()).map { i ->
+        (0 until a.length()).mapNotNull { i ->
             val o = a.getJSONObject(i)
+            val id = o.getString("id")
+            val name = o.optString("name_en", id)
+            val equipment = pretty(o.optString("equipment", "Bodyweight"))
+            if (isCardioOnlyRepDbExercise(id, name, equipment)) return@mapNotNull null
             val flat = o.optJSONObject("images")?.optJSONObject("flat")
             NativeExercise(
-                o.getString("id"), o.optString("name_en", o.getString("id")), pretty(o.optString("body_part", "Other")), pretty(o.optString("equipment", "Bodyweight")),
+                id, name, pretty(o.optString("body_part", "Other")), equipment,
                 pretty(o.optString("difficulty")), pretty(o.optString("mechanic")), o.optDouble("met", 0.0), jsonStrings(o.optJSONArray("primary_muscles")), jsonStrings(o.optJSONArray("secondary_muscles")),
                 jsonStrings(o.optJSONArray("instructions_en")), jsonStrings(o.optJSONArray("tips_en")), flat?.optString("start")?.takeIf(String::isNotBlank), flat?.optString("peak")?.takeIf(String::isNotBlank), flat?.optString("main")?.takeIf(String::isNotBlank)
             )
