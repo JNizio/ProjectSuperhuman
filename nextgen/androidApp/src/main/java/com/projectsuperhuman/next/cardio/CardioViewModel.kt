@@ -116,6 +116,7 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
             while (isActive) {
                 val draft = _state.value.liveDraft
                 if (draft != null) {
+                    CardioGpsRuntime.tick()
                     val timing = controller.timing(draft)
                     _state.update {
                         it.copy(
