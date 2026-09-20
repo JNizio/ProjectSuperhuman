@@ -208,7 +208,7 @@ private fun NativeExerciseLandingPage(
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    "Strength · Cardio",
+                    "Training",
                     color = muted,
                     fontSize = 10.sp
                 )
@@ -237,7 +237,6 @@ private fun NativeExerciseLandingPage(
                 val name = it.metadata["workoutName"].orEmpty().ifBlank { "Strength workout" }
                 "Last: $name · ${exerciseRelativeDate(it.timestampEpochMs)}"
             } ?: "Start a workout, use routines and track PRs",
-            action = "OPEN STRENGTH",
             accent = strengthAccent,
             surface = surface,
             border = border,
@@ -261,7 +260,6 @@ private fun NativeExerciseLandingPage(
             secondary = lastCardio?.let {
                 "Last: ${it.activity.displayName} · ${exerciseRelativeDate(it.endedAt)}"
             } ?: "Run, walk, cycle and track cardio fitness",
-            action = "OPEN CARDIO",
             accent = cardioAccent,
             surface = surface,
             border = border,
@@ -280,9 +278,9 @@ private fun NativeExerciseLandingPage(
         Row(
             Modifier
                 .fillMaxWidth()
-                .background(softSurface, RoundedCornerShape(18.dp))
-                .border(1.dp, border, RoundedCornerShape(18.dp))
-                .padding(vertical = 14.dp, horizontal = 8.dp),
+                .background(softSurface, RoundedCornerShape(16.dp))
+                .border(1.dp, border, RoundedCornerShape(16.dp))
+                .padding(vertical = 11.dp, horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             ExerciseCompactMetric(
@@ -307,54 +305,13 @@ private fun NativeExerciseLandingPage(
             )
         }
 
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(surface, RoundedCornerShape(18.dp))
-                .border(1.dp, border, RoundedCornerShape(18.dp))
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "PROGRESS",
-                    color = ink,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    "Strength PRs and cardio fitness stay in their dedicated modules",
-                    color = muted,
-                    fontSize = 9.sp,
-                    lineHeight = 13.sp
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ExerciseMiniAction("S", strengthAccent, onOpenStrength)
-                ExerciseMiniAction("C", cardioAccent, onOpenCardio)
-            }
-        }
-
-        Row(
-            Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "RECENT",
-                color = muted,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                modifier = Modifier.weight(1f)
-            )
-            if (recentItems.isNotEmpty()) {
-                Text(
-                    "${recentItems.size} shown",
-                    color = muted,
-                    fontSize = 8.sp
-                )
-            }
-        }
+        Text(
+            "RECENT",
+            color = muted,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.padding(top = 2.dp)
+        )
 
         if (recentItems.isEmpty()) {
             Column(
@@ -382,8 +339,8 @@ private fun NativeExerciseLandingPage(
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .background(surface, RoundedCornerShape(18.dp))
-                    .border(1.dp, border, RoundedCornerShape(18.dp))
+                    .background(surface, RoundedCornerShape(16.dp))
+                    .border(1.dp, border, RoundedCornerShape(16.dp))
             ) {
                 recentItems.forEachIndexed { index, item ->
                     ExerciseRecentRow(
@@ -466,7 +423,6 @@ private fun ExerciseModuleCard(
     title: String,
     primary: String,
     secondary: String,
-    action: String,
     accent: Color,
     surface: Color,
     border: Color,
@@ -474,80 +430,69 @@ private fun ExerciseModuleCard(
     muted: Color,
     onClick: () -> Unit
 ) {
-    Column(
+    Row(
         Modifier
             .fillMaxWidth()
-            .background(surface, RoundedCornerShape(22.dp))
-            .border(1.dp, border, RoundedCornerShape(22.dp))
-            .clickable(onClick = onClick)
-            .padding(17.dp)
+            .background(surface, RoundedCornerShape(18.dp))
+            .border(1.dp, border, RoundedCornerShape(18.dp))
+            .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 15.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier
-                    .size(42.dp)
-                    .background(
-                        accent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .10f),
-                        CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    mark,
-                    color = accent,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
-
-            Text(
-                title,
-                color = ink,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Black,
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
-            )
-
-            Text(
-                "→",
-                color = accent,
-                fontSize = 21.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
-        Text(
-            primary,
-            color = ink,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(3.dp))
-        Text(
-            secondary,
-            color = muted,
-            fontSize = 9.sp,
-            lineHeight = 13.sp
-        )
-        Spacer(Modifier.height(12.dp))
         Box(
             Modifier
+                .size(40.dp)
                 .background(
-                    accent.copy(alpha = if (SuperhumanAppearance.darkMode) .15f else .09f),
-                    RoundedCornerShape(11.dp)
-                )
-                .padding(horizontal = 11.dp, vertical = 7.dp)
+                    accent.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f),
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
         ) {
             Text(
-                action,
+                mark,
                 color = accent,
-                fontSize = 8.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Black
             )
         }
+
+        Column(
+            Modifier
+                .weight(1f)
+                .padding(horizontal = 13.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    title,
+                    color = ink,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    primary,
+                    color = accent,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            Text(
+                secondary,
+                color = muted,
+                fontSize = 9.sp,
+                lineHeight = 12.sp,
+                maxLines = 1
+            )
+        }
+
+        Text(
+            "›",
+            color = accent,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
@@ -585,31 +530,6 @@ private fun ExerciseMetricDivider(border: Color) {
 }
 
 @Composable
-private fun ExerciseMiniAction(
-    label: String,
-    accent: Color,
-    onClick: () -> Unit
-) {
-    Box(
-        Modifier
-            .size(36.dp)
-            .background(
-                accent.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f),
-                CircleShape
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            label,
-            color = accent,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Black
-        )
-    }
-}
-
-@Composable
 private fun ExerciseRecentRow(
     item: ExerciseRecentItem,
     ink: Color,
@@ -619,13 +539,13 @@ private fun ExerciseRecentRow(
     Row(
         Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp),
+            .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             Modifier
-                .size(34.dp)
+                .size(32.dp)
                 .background(
                     item.accent.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f),
                     CircleShape
@@ -647,7 +567,7 @@ private fun ExerciseRecentRow(
             Text(
                 item.title,
                 color = ink,
-                fontSize = 11.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(2.dp))
