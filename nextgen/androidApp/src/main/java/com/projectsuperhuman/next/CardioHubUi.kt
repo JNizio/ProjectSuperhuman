@@ -154,19 +154,29 @@ internal fun CardioVisualHub(
 
         if (sessions.isNotEmpty()) {
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .background(superhumanSurface, RoundedCornerShape(16.dp))
+                    .clickable { onSessions() }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CardioHubSectionHeader("RECENT", "Latest workouts", Modifier.weight(1f))
-                Text(
-                    "VIEW ALL ›",
-                    color = superhumanBlue,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.clickable { onSessions() }.padding(vertical = 8.dp)
+                CardioHubGlyphIcon(
+                    CardioHubGlyph.HISTORY,
+                    superhumanBlue,
+                    Modifier.size(18.dp)
                 )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "View recent workouts",
+                    color = superhumanTextPrimary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Text("›", color = superhumanBlue, fontSize = 20.sp)
             }
-            CardioHubRecentSessions(sessions.take(4), onOpenSession)
         }
 
         CardioHubRecordsTile(
