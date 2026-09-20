@@ -169,6 +169,26 @@ internal object CardioBandAnalytics {
         )
     }
 
+    fun paceAtHeartRateTrend(
+        evidence: List<CardioSessionEvidence>,
+        targetHeartRateBpm: Double,
+        toleranceBpm: Double = 3.0
+    ): List<CardioTimedValue> = evidence.mapNotNull { item ->
+        val result = paceAtHeartRate(item.samples, targetHeartRateBpm, toleranceBpm)
+        result.value?.takeIf { result.state == CardioAnalyticState.AVAILABLE }
+            ?.let { CardioTimedValue(item.session.endedAt, it) }
+    }.sortedBy { it.timestampEpochMs }
+
+    fun heartRateAtPaceTrend(
+        evidence: List<CardioSessionEvidence>,
+        targetPaceSecondsPerKm: Double,
+        toleranceFraction: Double = 0.05
+    ): List<CardioTimedValue> = evidence.mapNotNull { item ->
+        val result = heartRateAtPace(item.samples, targetPaceSecondsPerKm, toleranceFraction)
+        result.value?.takeIf { result.state == CardioAnalyticState.AVAILABLE }
+            ?.let { CardioTimedValue(item.session.endedAt, it) }
+    }.sortedBy { it.timestampEpochMs }
+
     private fun confidence(samples: Int, coverage: Double): CardioConfidence = when {
         samples >= 120 && coverage >= 90.0 -> CardioConfidence.HIGH
         samples >= 40 && coverage >= 80.0 -> CardioConfidence.MODERATE
@@ -355,6 +375,25 @@ internal object CardioHrvEngine {
             null, valid, corrected, rejected, coverage, CardioConfidence.INSUFFICIENT,
             CardioAnalyticState.INSUFFICIENT_DATA, reason
         )
+}
+
+internal object CardioHrvBaselineEngine {
+    fun baseline(
+        estimates: List<CardioTimedValue>,
+        nowEpochMs: Long = System.currentTimeMillis()
+    ): CardioBaselineStats = CardioPersonalBaselineStatistics.build(
+        values = estimates,
+        nowEpochMs = nowEpochMs,
+        minimumSamples = 5,
+        staleAfterDays = 21
+    )
+
+    fun deviationPercent(currentRmssdMs: Double?, baseline: CardioBaselineStats): Double? {
+        val current = currentRmssdMs?.takeIf { it.isFinite() && it > 0.0 } ?: return null
+        val reference = baseline.median?.takeIf { it.isFinite() && it > 0.0 } ?: return null
+        if (baseline.state != CardioAnalyticState.AVAILABLE) return null
+        return (current - reference) / reference * 100.0
+    }
 }
 
 internal object CardioVo2EstimateEngine {
