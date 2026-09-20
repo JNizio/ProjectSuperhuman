@@ -46,11 +46,14 @@ internal class CardioSensorProcessingTest {
     }
 
     @Test
-    fun invalidHeartRateRejected() {
+    fun invalidHeartRateIsRejectedByBleParserButRetainedAsRawCollectorEvidence() {
         assertNull(BleHeartRateMeasurementParser.parse(byteArrayOf(0x00, 5)))
         val collector = CardioSessionHeartRateCollector()
         collector.start("s", 0L)
-        assertFalse(collector.accept(hr(1, 300)))
+        assertTrue(collector.accept(hr(1, 300)))
+        assertEquals(1, collector.rawHeartRateSamples().size)
+        val summary = collector.stop(2_000L)
+        assertEquals(0, summary.sampleCount)
     }
 
     @Test
