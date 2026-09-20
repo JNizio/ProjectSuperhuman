@@ -49,7 +49,7 @@ private val CardioDeep = Color(0xFF0A3440)
 private val cardioDateTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
 private enum class CardioScreen {
-    HOME, PICK_ACTIVITY, LIVE, MANUAL, HISTORY, DETAIL, PROGRESS, RECORDS
+    HOME, PICK_ACTIVITY, LIVE, MANUAL, HISTORY, DETAIL, FITNESS, PROGRESS, RECORDS
 }
 
 private fun cardioFormatNumber(value: Double): String =
@@ -78,6 +78,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var pendingDeleteSessionId by remember { mutableStateOf<String?>(null) }
     var feedback by remember { mutableStateOf<String?>(null) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var confirmHomeFinish by remember { mutableStateOf(false) }
 
     var liveActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
     var liveWorkoutType by remember { mutableStateOf(CardioWorkoutType.FREE) }
@@ -300,6 +301,13 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         }
     }
 
+    LaunchedEffect(confirmHomeFinish) {
+        if (confirmHomeFinish) {
+            delay(5000)
+            confirmHomeFinish = false
+        }
+    }
+
     BackHandler {
         when (screen) {
             CardioScreen.HOME -> onBack()
@@ -360,41 +368,45 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     activeElapsedSeconds = cardioState.liveElapsedSeconds,
                     activeRunning = cardioState.isRecording,
                     saveInProgress = cardioState.saveInProgress,
+                    activeHeartRate = sensorMetrics.currentHeartRateBpm,
+                    activeZone = sensorMetrics.currentZone,
+                    activeSensorLabel = cardioProductSensorStatus(sensorMetrics),
+                    confirmFinish = confirmHomeFinish,
                     onPrimary = {
+                        confirmHomeFinish = false
                         if (activeDraft) screen = CardioScreen.LIVE else screen = CardioScreen.PICK_ACTIVITY
                     },
                     onToggleActive = {
+                        confirmHomeFinish = false
                         if (cardioState.isRecording) cardioViewModel.pause() else cardioViewModel.resume()
                     },
                     onSaveActive = {
-                        cardioViewModel.quickSave { success ->
-                            if (success) screen = CardioScreen.HOME
+                        if (!confirmHomeFinish) {
+                            confirmHomeFinish = true
+                            feedback = "Tap Stop & Save again to confirm"
+                        } else {
+                            confirmHomeFinish = false
+                            cardioViewModel.quickSave { success ->
+                                if (success) screen = CardioScreen.HOME
+                            }
                         }
                     }
                 )
-                CardioQuickAccessPanel(
-                    onLog = {
-                        resetForm()
-                        screen = CardioScreen.MANUAL
-                    },
-                    onHistory = { screen = CardioScreen.HISTORY },
-                    onProgress = { screen = CardioScreen.PROGRESS },
-                    onRecords = { screen = CardioScreen.RECORDS }
+                CardioProductOverview(
+                    sessions = sessions,
+                    sensorMetrics = sensorMetrics,
+                    onSessions = { screen = CardioScreen.HISTORY },
+                    onFitness = { screen = CardioScreen.FITNESS },
+                    onTrends = { screen = CardioScreen.PROGRESS },
+                    onTestsRecords = { screen = CardioScreen.RECORDS }
                 )
-                CardioWeeklyOverview(
-                    minutes = weekMinutes,
-                    sessions = weekSessionCount,
-                    distanceKm = weekDistance,
-                    zone2Minutes = weekZone2,
-                    loadSnapshot = loadSnapshot
-                )
-                sessions.firstOrNull()?.let { latest ->
-                    CardioLatestActivityPanel(latest) {
-                        selectedSessionId = latest.id
-                        screen = CardioScreen.DETAIL
-                    }
-                } ?: CardioSection("GET STARTED", "Build a useful baseline with your first session") {
-                    CardioEmpty("No cardio sessions yet", "Start a workout or log something you already completed.")
+                CardioActionCompact(
+                    "Log completed session",
+                    "Add a workout you already completed",
+                    CardioBlue
+                ) {
+                    resetForm()
+                    screen = CardioScreen.MANUAL
                 }
             }
 
@@ -685,6 +697,8 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                         }
                     }
 
+                    CardioSessionDataAndCalculationPanel(session)
+
                     CardioSection("SESSION OPTIONS", "Keep analytics primary; maintenance stays out of the way") {
                         CardioActionCompact("Edit session", "Correct saved details", CardioBlue) {
                             loadSessionIntoForm(session)
@@ -713,65 +727,35 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                 }
             }
 
-            CardioScreen.PROGRESS -> {
-                val totalMinutes = remember(sessions) { sessions.sumOf { it.durationSeconds } / 60 }
-                val totalDistance = remember(sessions) { sessions.mapNotNull { it.distanceKm }.sum() }
-                CardioHeroStrip("PROGRESS", "Training analytics", "Volume, load and measured intensity.", CardioAccent)
-                CardioAnalyticsProgressPanel(sessions)
-                CardioLoadPanel(loadSnapshot)
-                CardioWeeklyProgressPanel(
-                    minutes = weekMinutes,
-                    sessions = weekSessionCount,
-                    distanceKm = weekDistance,
-                    zone2Minutes = weekZone2
+            CardioScreen.FITNESS -> {
+                CardioHeroStrip(
+                    "FITNESS",
+                    "Am I getting fitter?",
+                    "Personal baselines first; unavailable metrics stay unavailable.",
+                    CardioAccent
                 )
-                if (weekZoneTotals.values.sum() > 0) {
-                    CardioZonePanel("7-DAY ZONE DISTRIBUTION", weekZoneTotals)
-                }
-                CardioSection("ACTIVITY MIX", "$totalMinutes total minutes · ${cardioFormatNumber(totalDistance)} km with distance recorded") {
-                    activityGroups.entries.sortedByDescending { it.value.size }.take(8).forEachIndexed { index, (activity, values) ->
-                        val minutes = values.sumOf { it.durationSeconds } / 60
-                        val distance = values.mapNotNull { it.distanceKm }.sum()
-                        CardioActivityProgressRow(activity, values.size, minutes, distance)
-                        if (index < activityGroups.size.coerceAtMost(8) - 1) {
-                            Spacer(Modifier.height(5.dp))
-                        }
-                    }
-                }
-                CardioSection("EFFICIENCY", "Unlock richer comparisons with consistent HR and pace data") {
-                    Text(
-                        "Matched-session insights appear automatically when comparable sessions contain both pace and heart-rate data.",
-                        color = CardioMuted,
-                        fontSize = 10.sp,
-                        lineHeight = 15.sp
-                    )
-                }
+                CardioFitnessProductScreen(sessions)
+            }
+
+            CardioScreen.PROGRESS -> {
+                CardioHeroStrip(
+                    "TRENDS",
+                    "Training over time",
+                    "One chart, one question. Change range when you need more context.",
+                    Color(0xFF7B61C9)
+                )
+                CardioTrendsProductScreen(sessions)
             }
 
             CardioScreen.RECORDS -> {
-                CardioHeroStrip("PERSONAL RECORDS", "Your best work", "Only verified values from saved sessions count.", CardioGold)
-                CardioAnalyticsRecordsPanel(sessions)
-                if (sessions.isEmpty()) {
-                    CardioSection("FEATURED BESTS", "Your performance board will build automatically") {
-                        CardioEmpty("No records yet", "Complete or log a few sessions to start building personal bests.")
-                    }
-                } else {
-                    CardioFeaturedRecords(sessions)
-                    CardioSection("BY ACTIVITY", "Best verified performance for each discipline") {
-                        sessions.groupBy { it.activity }.entries.sortedBy { it.key.displayName }.forEach { (activity, values) ->
-                            CardioRecordBlock(activity, values)
-                        }
-                    }
-                }
-                CardioSection("DISTANCE PRS", "GPS, lap or split data unlocks exact-distance records") {
-                    Text(
-                        "1 km, mile, 5 km, 10 km, 500 m and 2 km records stay locked until exact split data exists. Average pace is never used to fabricate a PR.",
-                        color = CardioMuted,
-                        fontSize = 10.sp,
-                        lineHeight = 15.sp
-                    )
-                }
-            }
+                CardioHeroStrip(
+                    "TESTS & RECORDS",
+                    "Verified performance",
+                    "Records require evidence; tests unlock only when their protocol exists.",
+                    CardioGold
+                )
+                CardioTestsAndRecordsProductScreen(sessions)
+            }}
         }
 
         Spacer(Modifier.height(18.dp))
@@ -794,8 +778,9 @@ private fun CardioHeader(screen: CardioScreen, onBack: () -> Unit) {
                     CardioScreen.MANUAL -> "Log cardio"
                     CardioScreen.HISTORY -> "Cardio history"
                     CardioScreen.DETAIL -> "Session detail"
-                    CardioScreen.PROGRESS -> "Cardio progress"
-                    CardioScreen.RECORDS -> "Personal records"
+                    CardioScreen.FITNESS -> "Fitness"
+                    CardioScreen.PROGRESS -> "Trends"
+                    CardioScreen.RECORDS -> "Tests & records"
                 },
                 color = CardioInk,
                 fontSize = 25.sp,
@@ -809,8 +794,9 @@ private fun CardioHeader(screen: CardioScreen, onBack: () -> Unit) {
                     CardioScreen.MANUAL -> "Log what you actually measured"
                     CardioScreen.HISTORY -> "Review every completed session"
                     CardioScreen.DETAIL -> "See what this session actually did"
-                    CardioScreen.PROGRESS -> "Load, consistency and aerobic progress"
-                    CardioScreen.RECORDS -> "Your best verified performances"
+                    CardioScreen.FITNESS -> "Personal baselines and supported fitness signals"
+                    CardioScreen.PROGRESS -> "Understand what is changing over time"
+                    CardioScreen.RECORDS -> "Verified bests and evidence-gated tests"
                 },
                 color = CardioMuted,
                 fontSize = 11.sp
@@ -829,6 +815,10 @@ private fun CardioHero(
     activeElapsedSeconds: Int,
     activeRunning: Boolean,
     saveInProgress: Boolean,
+    activeHeartRate: Int?,
+    activeZone: Int?,
+    activeSensorLabel: String,
+    confirmFinish: Boolean,
     onPrimary: () -> Unit,
     onToggleActive: () -> Unit,
     onSaveActive: () -> Unit
@@ -894,6 +884,34 @@ private fun CardioHero(
                     fontSize = 9.sp
                 )
 
+                Spacer(Modifier.height(9.dp))
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    activeHeartRate?.let { bpm ->
+                        Box(
+                            Modifier.background(Color.White.copy(alpha = .11f), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 9.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                "$bpm bpm" + (activeZone?.let { " · Z$it" } ?: ""),
+                                color = Color.White,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    Text(
+                        activeSensorLabel,
+                        color = Color.White.copy(alpha = .70f),
+                        fontSize = 8.sp,
+                        lineHeight = 11.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+
                 Spacer(Modifier.height(14.dp))
                 Row(
                     Modifier.fillMaxWidth(),
@@ -919,7 +937,11 @@ private fun CardioHero(
                     )
                     CardioHeroControlButton(
                         icon = CardioUiIcon.STOP,
-                        label = if (saveInProgress) "Saving…" else "Stop & Save",
+                        label = when {
+                            saveInProgress -> "Saving…"
+                            confirmFinish -> "Confirm"
+                            else -> "Stop & Save"
+                        },
                         accent = Color(0xFFFFA3A7),
                         enabled = !saveInProgress,
                         onClick = onSaveActive
