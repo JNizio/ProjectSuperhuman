@@ -144,7 +144,6 @@ internal fun CardioVisualHub(
         CardioHubDeepDiveBar(
             sessionsThisWeek = model.week.sessions,
             loadValue = loadSeries.lastOrNull()?.roundToInt(),
-            longestDistanceKm = sessions.mapNotNull { it.distanceKm }.maxOrNull(),
             onSessions = onSessions,
             onTrends = onTrends,
             onRecords = onTestsRecords
@@ -335,8 +334,8 @@ private fun CardioHubWeekCard(week: CardioWeekIntentSnapshot, onClick: () -> Uni
         Column(horizontalAlignment = Alignment.End) {
             Text("THIS WEEK", color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
             Text(
-                week.targetMinutes?.let { "${week.minutes}/$it min" } ?: "SET GOAL ›",
-                color = if (week.targetMinutes == null) Color(0xFF8E72D8) else superhumanTextPrimary,
+                week.targetMinutes?.let { "${week.minutes}/$it min" } ?: "NO GOAL",
+                color = if (week.targetMinutes == null) superhumanTextMuted else superhumanTextPrimary,
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Black
             )
@@ -449,7 +448,6 @@ private fun CardioHubQuickStart(onQuickStart: (CardioActivityType) -> Unit) {
 private fun CardioHubDeepDiveBar(
     sessionsThisWeek: Int,
     loadValue: Int?,
-    longestDistanceKm: Double?,
     onSessions: () -> Unit,
     onTrends: () -> Unit,
     onRecords: () -> Unit
@@ -465,7 +463,7 @@ private fun CardioHubDeepDiveBar(
             CardioHubDeepDiveItem(
                 glyph = CardioHubGlyph.HISTORY,
                 title = "Sessions",
-                value = "$sessionsThisWeek wk",
+                value = "$sessionsThisWeek this wk",
                 accent = superhumanBlue,
                 modifier = Modifier.weight(1f),
                 onClick = onSessions
@@ -474,7 +472,7 @@ private fun CardioHubDeepDiveBar(
             CardioHubDeepDiveItem(
                 glyph = CardioHubGlyph.LOAD,
                 title = "Trends",
-                value = loadValue?.toString() ?: "—",
+                value = loadValue?.let { "CTL $it" } ?: "Building",
                 accent = Color(0xFF8E72D8),
                 modifier = Modifier.weight(1f),
                 onClick = onTrends
@@ -483,7 +481,7 @@ private fun CardioHubDeepDiveBar(
             CardioHubDeepDiveItem(
                 glyph = CardioHubGlyph.TROPHY,
                 title = "Records",
-                value = longestDistanceKm?.let { String.format(Locale.US, "%.1f km", it) } ?: "—",
+                value = "Verified only",
                 accent = Color(0xFFD1A03D),
                 modifier = Modifier.weight(1f),
                 onClick = onRecords
