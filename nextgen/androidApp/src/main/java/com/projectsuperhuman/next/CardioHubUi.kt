@@ -127,6 +127,7 @@ internal fun CardioVisualHub(
             recoveryContext = recoveryContext
         )
     }
+    val efficiencySeries = remember(sessions) { cardioHubEfficiencySeries(sessions) }
     Column(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -1053,8 +1054,8 @@ internal fun CardioFitnessHubScreen(sessions: List<CardioSession>) {
             } ?: "${fitness.comparableSessionCount}/4 comparable sessions"
         )
         CardioHubExpandableRow(
-            title = if (expanded) "Hide advanced metrics" else "Explore advanced metrics",
-            detail = "Efficiency · pace/HR · decoupling · recovery · aerobic capacity",
+            title = if (expanded) "Hide metrics" else "More metrics",
+            detail = "Efficiency · pace/HR · recovery · aerobic capacity",
             accent = superhumanGreen,
             expanded = expanded
         ) { expanded = !expanded }
@@ -1080,8 +1081,8 @@ internal fun CardioTrendsHubScreen(sessions: List<CardioSession>) {
             } ?: "Add scored sessions to build the trend"
         )
         CardioHubExpandableRow(
-            title = if (expanded) "Hide full analytics" else "Open full trends",
-            detail = "Load · intensity · volume · fitness trends",
+            title = if (expanded) "Hide metrics" else "More metrics",
+            detail = "Load · intensity · volume",
             accent = Color(0xFF8E72D8),
             expanded = expanded
         ) { expanded = !expanded }
