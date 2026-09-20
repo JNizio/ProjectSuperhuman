@@ -49,6 +49,32 @@ internal class CardioSessionService : Service() {
             controller = controller
         )
         createNotificationChannel()
+        scope.launch {
+            CardioGpsRuntime.autoPauseDecisions.collect { decision ->
+                val now = System.currentTimeMillis()
+                when (decision) {
+                    CardioAutoPauseDecision.PAUSE -> {
+                        val draft = store.load().draft
+                        if (draft?.phase == CardioLivePhase.RECORDING) {
+                            coordinator.pause()
+                            CardioSensorRuntime.pauseSession(now)
+                            CardioGpsRuntime.pause(now, manual = false)
+                            refreshNotification()
+                        }
+                    }
+                    CardioAutoPauseDecision.RESUME -> {
+                        val draft = store.load().draft
+                        if (draft?.phase == CardioLivePhase.PAUSED) {
+                            coordinator.resume()
+                            CardioSensorRuntime.resumeSession(now)
+                            CardioGpsRuntime.resume(now, manual = false)
+                            refreshNotification()
+                        }
+                    }
+                    CardioAutoPauseDecision.NONE -> Unit
+                }
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -144,6 +170,17 @@ internal class CardioSessionService : Service() {
                 paused = draft.phase != CardioLivePhase.RECORDING
             )
         }
+    }
+
+    private suspend fun refreshNotification() {
+        val draft = store.load().draft ?: return
+        val timing = controller.timing(draft)
+        val label = when (draft.phase) {
+            CardioLivePhase.RECORDING -> "Recording"
+            CardioLivePhase.PAUSED -> if (CardioGpsRuntime.metrics.value.autoPaused) "Auto-paused" else "Paused"
+            CardioLivePhase.FINISHING -> "Ready to save"
+        }
+        startCardioForeground(draft, label + " · " + formatElapsed(timing.activeSeconds))
     }
 
     private fun startCardioForeground(draft: CardioLiveDraft?, status: String) {
