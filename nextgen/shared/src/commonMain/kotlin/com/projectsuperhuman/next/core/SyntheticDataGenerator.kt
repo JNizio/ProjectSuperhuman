@@ -658,6 +658,7 @@ class SyntheticDataGenerator(
                         "nutritionEstimate" to "bundled-generic-per-100",
                         "protein" to roundedText(protein),
                         "carbs" to roundedText(carbs),
+                        "carbohydrateDefinition" to "TOTAL_INCLUDING_FIBRE",
                         "fat" to roundedText(fat),
                         "fibre" to roundedText(fibre),
                         "sugar" to roundedText(sugar),
