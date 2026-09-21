@@ -3,6 +3,7 @@ package com.projectsuperhuman.next
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,8 +40,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -60,6 +63,8 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 private val N2Navy get() = superhumanBrandText
@@ -862,15 +867,32 @@ private fun N2MacroValue(
 }
 
 @Composable
+private data class N2TrendSeries(
+    val label: String,
+    val color: Color,
+    val values: List<Double>,
+    val target: Double?,
+    val complete: List<Boolean>
+)
+
+@Composable
 private fun N2WeekChart(
     days: List<N2Day>,
     target: Double?,
     selectedDate: LocalDate,
     onSelectDate: (LocalDate) -> Unit
 ) {
+    val dates = days.indices.map { index ->
+        selectedDate.minusDays((days.lastIndex - index).toLong())
+    }
+    val series = listOf(
+        N2TrendSeries("Calories", N2Blue, days.map { it.kcal }, target, days.map { it.kcalComplete }),
+        N2TrendSeries("Protein", N2Cyan, days.map { it.protein }, null, days.map { it.proteinComplete }),
+        N2TrendSeries("Carbs", N2Green, days.map { it.carbs }, null, days.map { it.carbsComplete }),
+        N2TrendSeries("Fat", N2Amber, days.map { it.fat }, null, days.map { it.fatComplete }),
+        N2TrendSeries("Fibre", N2Purple, days.map { it.fibre }, null, days.map { it.fibreComplete })
+    )
     val loggedDays = days.count { it.entries.isNotEmpty() }
-    val completeDays = days.filter { it.entries.isNotEmpty() && it.kcalComplete }
-    val average = completeDays.map { it.kcal }.average().takeIf { !it.isNaN() }
 
     Column(
         Modifier.fillMaxWidth()
@@ -884,95 +906,150 @@ private fun N2WeekChart(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text("Recent days", color = N2Ink, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text("7-day nutrition", color = N2Ink, fontSize = 13.sp, fontWeight = FontWeight.Black)
                 Text(
-                    loggedDays.toString() + " of 7 days logged",
+                    "Tap a day to open its diary",
                     color = N2Muted,
                     fontSize = 8.sp
                 )
             }
-            if (average != null) {
-                Text(
-                    average.roundToInt().toString() + " kcal avg",
-                    color = N2Blue,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
+            Text(
+                loggedDays.toString() + "/7 logged",
+                color = N2Muted,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
 
         Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            days.forEachIndexed { index, item ->
-                val date = selectedDate.minusDays((days.lastIndex - index).toLong())
-                val selected = date == selectedDate
-                val hasData = item.entries.isNotEmpty()
-                val kcalLabel = when {
-                    !hasData -> "—"
-                    item.kcalComplete -> item.kcal.roundToInt().toString()
-                    else -> "~" + item.kcal.roundToInt().toString()
+            series.forEach { metric ->
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Box(Modifier.size(7.dp).background(metric.color, CircleShape))
+                    Text(metric.label, color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+
+        val chartHeight = 128.dp
+        Box(
+            Modifier.fillMaxWidth()
+                .height(chartHeight)
+                .background(N2Surface, RoundedCornerShape(14.dp))
+        ) {
+            Canvas(
+                Modifier.fillMaxSize()
+                    .pointerInput(dates, selectedDate) {
+                        detectTapGestures { tap ->
+                            if (dates.isEmpty()) return@detectTapGestures
+                            val sidePad = 12.dp.toPx()
+                            val usable = (size.width - sidePad * 2f).coerceAtLeast(1f)
+                            val step = if (dates.size > 1) usable / (dates.size - 1) else usable
+                            val index = ((tap.x - sidePad) / step).roundToInt().coerceIn(0, dates.lastIndex)
+                            onSelectDate(dates[index])
+                        }
+                    }
+            ) {
+                val left = 12.dp.toPx()
+                val right = 12.dp.toPx()
+                val top = 12.dp.toPx()
+                val bottom = 24.dp.toPx()
+                val chartW = (size.width - left - right).coerceAtLeast(1f)
+                val chartH = (size.height - top - bottom).coerceAtLeast(1f)
+                val xStep = if (days.size > 1) chartW / (days.size - 1) else chartW
+
+                repeat(3) { grid ->
+                    val y = top + chartH * (grid / 2f)
+                    drawLine(
+                        color = N2Border.copy(alpha = .55f),
+                        start = Offset(left, y),
+                        end = Offset(size.width - right, y),
+                        strokeWidth = 1.dp.toPx()
+                    )
                 }
 
-                Column(
-                    Modifier.weight(1f)
-                        .background(
-                            if (selected) N2Blue.copy(alpha = .18f) else N2Surface,
-                            RoundedCornerShape(13.dp)
+                series.forEach { metric ->
+                    val observedMax = metric.values.maxOrNull()?.takeIf { it > 0.0 } ?: 1.0
+                    val scaleMax = max(metric.target ?: 0.0, observedMax).coerceAtLeast(1.0)
+                    val path = Path()
+                    var started = false
+
+                    metric.values.forEachIndexed { index, value ->
+                        if (days[index].entries.isEmpty()) return@forEachIndexed
+                        val x = left + xStep * index
+                        val fraction = (value / scaleMax).toFloat().coerceIn(0f, 1f)
+                        val y = top + chartH * (1f - fraction)
+
+                        if (!started) {
+                            path.moveTo(x, y)
+                            started = true
+                        } else {
+                            path.lineTo(x, y)
+                        }
+                    }
+
+                    if (started) {
+                        drawPath(
+                            path = path,
+                            color = metric.color,
+                            style = Stroke(width = 2.3.dp.toPx(), cap = StrokeCap.Round)
                         )
-                        .border(
-                            1.dp,
-                            if (selected) N2Blue else N2Border,
-                            RoundedCornerShape(13.dp)
+                    }
+
+                    metric.values.forEachIndexed { index, value ->
+                        if (days[index].entries.isEmpty()) return@forEachIndexed
+                        val x = left + xStep * index
+                        val fraction = (value / scaleMax).toFloat().coerceIn(0f, 1f)
+                        val y = top + chartH * (1f - fraction)
+                        drawCircle(
+                            color = if (metric.complete[index]) metric.color else metric.color.copy(alpha = .55f),
+                            radius = 3.2.dp.toPx(),
+                            center = Offset(x, y)
                         )
-                        .superhumanClickable { onSelectDate(date) }
-                        .padding(vertical = 9.dp, horizontal = 2.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(3.dp)
-                ) {
+                    }
+                }
+
+                dates.forEachIndexed { index, date ->
+                    val x = left + xStep * index
+                    if (date == selectedDate) {
+                        drawCircle(
+                            color = N2Blue.copy(alpha = .14f),
+                            radius = 9.dp.toPx(),
+                            center = Offset(x, size.height - 12.dp.toPx())
+                        )
+                    }
+                }
+            }
+
+            Row(
+                Modifier.fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 7.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                dates.forEach { date ->
                     Text(
-                        date.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() },
-                        color = if (selected) N2Blue else N2Muted,
+                        date.dayOfWeek.name.take(1),
+                        color = if (date == selectedDate) N2Blue else N2Muted,
                         fontSize = 7.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
-                    Text(
-                        date.dayOfMonth.toString(),
-                        color = N2Ink,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    Text(
-                        kcalLabel,
-                        color = when {
-                            selected -> N2Blue
-                            !hasData -> N2Muted
-                            !item.kcalComplete -> N2Amber
-                            else -> N2Ink
-                        },
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
+                        fontWeight = if (date == selectedDate) FontWeight.Black else FontWeight.Bold,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center
                     )
                 }
             }
         }
 
-        if (target != null && target > 0.0 && days.any { it.entries.isNotEmpty() }) {
-            Text(
-                "Tap a day to view its diary · kcal values shown below each date",
-                color = N2Muted,
-                fontSize = 8.sp
-            )
-        } else {
-            Text(
-                "Tap a day to view its diary",
-                color = N2Muted,
-                fontSize = 8.sp
-            )
-        }
+        Text(
+            "Each line is scaled to its own 7-day range so calories and gram-based macros remain readable together.",
+            color = N2Muted,
+            fontSize = 7.sp
+        )
     }
 }
 
