@@ -131,6 +131,11 @@ internal object NativeDataHub {
         gateway.module(domain).page(metric = metric, limit = limit, offset = offset)
     }
 
+    suspend fun valueBySourceRecordId(source: String, sourceRecordId: String): HealthValue? =
+        withContext(Dispatchers.IO) {
+            repository.valueBySourceRecordId(source, sourceRecordId)
+        }
+
     suspend fun latestForDomain(domain: HealthDomain): List<HealthValue> = withContext(Dispatchers.IO) {
         repository.latestForDomain(domain)
     }
