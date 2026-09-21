@@ -383,7 +383,7 @@ Logging creates a source snapshot in HealthValue metadata.
 
 Snapshot metadata includes, where available:
 
-- canonical schema version;
+- canonical food evidence schema version (v4);
 - food identity kind;
 - source type;
 - source record ID;
@@ -489,7 +489,7 @@ Existing in-memory search caching remains in place, and branded product source p
 
 ### User food-correction database
 
-`superhuman_food_overrides.db` is upgraded to schema version 5.
+`superhuman_food_nutrition_overrides.db` is upgraded to schema version 5.
 
 Version 4 added:
 
