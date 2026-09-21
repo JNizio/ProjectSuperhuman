@@ -65,13 +65,14 @@ internal fun NativeNutritionWithFoodEditorPage(onBack: () -> Unit) {
             NativeNutritionExperienceV2Page(onBack)
             Box(
                 Modifier.align(Alignment.BottomEnd)
-                    .padding(18.dp)
-                    .background(if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else FoodEditNavy, RoundedCornerShape(18.dp))
-                    .clickable { editingFoodData = true }
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(end = 18.dp, bottom = 18.dp)
+                    .width(46.dp).height(46.dp)
+                    .background(if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else FoodEditNavy, RoundedCornerShape(16.dp))
+                    .border(1.dp, Color.White.copy(alpha = .12f), RoundedCornerShape(16.dp))
+                    .clickable { editingFoodData = true },
                 contentAlignment = Alignment.Center
             ) {
-                Text("EDIT FOOD DATA", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+                Text("✎", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
             }
         }
     }
