@@ -11,6 +11,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 /**
  * Native appearance modes. SYSTEM is the default so Project Superhuman follows Android without
@@ -105,6 +107,29 @@ internal object SuperhumanAppearance {
         val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK
         return night == Configuration.UI_MODE_NIGHT_YES
     }
+}
+
+/**
+ * Project Superhuman layout contract.
+ *
+ * New UI should prefer these tokens over one-off spacing values so pages, cards, controls and
+ * icon targets stay optically aligned across modules. Keep horizontal edges on the same grid,
+ * use fixed touch targets for navigation icons, and use the same card padding for peer surfaces.
+ */
+internal object SuperhumanLayout {
+    val pageHorizontal: Dp = 18.dp
+    val pageVertical: Dp = 8.dp
+    val sectionGap: Dp = 14.dp
+    val cardPadding: Dp = 16.dp
+    val compactCardPadding: Dp = 12.dp
+    val contentGap: Dp = 10.dp
+    val compactGap: Dp = 8.dp
+    val controlHeight: Dp = 44.dp
+    val iconTouchTarget: Dp = 44.dp
+    val cardRadius: Dp = 22.dp
+    val innerRadius: Dp = 14.dp
+    val segmentedPadding: Dp = 4.dp
+    val segmentedGap: Dp = 4.dp
 }
 
 internal data class SuperhumanPalette(
