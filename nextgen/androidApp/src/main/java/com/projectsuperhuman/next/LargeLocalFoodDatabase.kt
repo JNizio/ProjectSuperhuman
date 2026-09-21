@@ -148,6 +148,11 @@ internal object LargeLocalFoodDatabase {
                                     kcal = cursor.getDouble(3),
                                     protein = cursor.getDouble(4),
                                     carbs = cursor.getDouble(5),
+                                    carbohydrateDefinition = if (cursor.getString(15).startsWith("USDA")) {
+                                        CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE
+                                    } else {
+                                        CarbohydrateDefinition.UNKNOWN
+                                    },
                                     fat = cursor.getDouble(6),
                                     fibre = cursor.getDouble(7),
                                     sugar = cursor.getDouble(8),
@@ -494,6 +499,7 @@ internal object LargeLocalFoodDatabase {
             kcal = kcal,
             protein = protein,
             carbs = carbs,
+            carbohydrateDefinition = CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE,
             fat = fat,
             fibre = nutrients.fibre ?: 0.0,
             sugar = nutrients.sugar ?: 0.0,
