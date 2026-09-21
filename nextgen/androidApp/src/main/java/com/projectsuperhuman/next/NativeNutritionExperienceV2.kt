@@ -87,7 +87,8 @@ private data class N2Entry(
     val foodId: String,
     val timestamp: Long,
     val name: String,
-    val grams: Double,
+    val amount: Double,
+    val amountUnit: String,
     val meal: String,
     val kcal: Double,
     val protein: Double,
@@ -174,6 +175,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     var results by remember { mutableStateOf<List<NativeFood>>(emptyList()) }
     var selected by remember { mutableStateOf<NativeFood?>(null) }
     var portion by remember { mutableStateOf("100") }
+    var portionUnit by remember { mutableStateOf(FoodUnit.G) }
     var meal by remember { mutableStateOf("Breakfast") }
     var searching by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
@@ -259,7 +261,8 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
             barcode = digits
             results = listOf(product)
             selected = product
-            portion = product.servingSize.n2FirstNumber()?.let(::n2Editable) ?: "100"
+            portionUnit = FoodUnitSystem.defaultUnit(product)
+            portion = n2Editable(FoodUnitSystem.defaultAmount(product))
             status = ""
         }
     }
@@ -351,7 +354,8 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 
                 if (results.isNotEmpty()) N2Results(results, selected?.id) { food ->
                     selected = food
-                    portion = food.servingSize.n2FirstNumber()?.let(::n2Editable) ?: "100"
+                    portionUnit = FoodUnitSystem.defaultUnit(food)
+                    portion = n2Editable(FoodUnitSystem.defaultAmount(food))
                 }
 
                 selected?.let { food ->
@@ -359,6 +363,11 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                         food = food,
                         portion = portion,
                         onPortionChange = { portion = it.filter { c -> c.isDigit() || c == '.' }.take(7) },
+                        portionUnit = portionUnit,
+                        onPortionUnitChange = {
+                            portionUnit = it
+                            portion = n2Editable(if (it == FoodUnit.SERVING || it == FoodUnit.PACKAGE || it == FoodUnit.PIECE) 1.0 else FoodUnitSystem.defaultAmount(food).takeIf { default -> FoodUnitSystem.defaultUnit(food) == it } ?: 100.0)
+                        },
                         meal = meal,
                         onMealChange = { meal = it },
                         onAdd = {
@@ -371,7 +380,13 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                                 } else {
                                     selectedDate.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
                                 }
-                                NativeDataHub.saveFood(food, amount, meal, timestampEpochMs = timestamp)
+                                NativeDataHub.saveFood(
+                                    food = food,
+                                    amount = amount,
+                                    inputUnit = portionUnit,
+                                    meal = meal,
+                                    timestampEpochMs = timestamp
+                                )
                                 selected = null
                                 results = emptyList()
                                 query = ""
@@ -861,12 +876,16 @@ private fun N2AddFoodCard(
     food: NativeFood,
     portion: String,
     onPortionChange: (String) -> Unit,
+    portionUnit: FoodUnit,
+    onPortionUnitChange: (FoodUnit) -> Unit,
     meal: String,
     onMealChange: (String) -> Unit,
     onAdd: () -> Unit
 ) {
     val amount = portion.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
-    val factor = amount / 100.0
+    val conversion = FoodUnitSystem.convert(food, amount, portionUnit)
+    val factor = conversion?.factor ?: 0.0
+    val availableUnits = FoodUnitSystem.availableUnits(food)
     Column(
         Modifier.fillMaxWidth().background(N2SoftGreen, RoundedCornerShape(24.dp)).border(1.dp, N2Green.copy(alpha = .24f), RoundedCornerShape(24.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(11.dp)
@@ -884,7 +903,49 @@ private fun N2AddFoodCard(
             N2FoodStat("${n2One(food.carbs * factor)}g", "carbs", Modifier.weight(1f))
             N2FoodStat("${n2One(food.fat * factor)}g", "fat", Modifier.weight(1f))
         }
-        OutlinedTextField(portion, onPortionChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Portion (g / ml)") })
+        OutlinedTextField(
+            portion,
+            onPortionChange,
+            Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Amount (${portionUnit.symbol})") }
+        )
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            availableUnits.forEach { unit ->
+                val active = portionUnit == unit
+                Box(
+                    Modifier.background(if (active) N2Blue else N2Surface, RoundedCornerShape(13.dp))
+                        .border(1.dp, if (active) N2Blue else N2Border, RoundedCornerShape(13.dp))
+                        .superhumanClickable { onPortionUnitChange(unit) }
+                        .padding(horizontal = 13.dp, vertical = 9.dp)
+                ) {
+                    Text(
+                        unit.symbol,
+                        color = if (active) Color.White else N2Muted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+        val unitContext = buildList {
+            if (food.servingQuantity != null && food.servingQuantityUnit != null) {
+                add("1 serving = " + FoodUnitSystem.formatAmount(food.servingQuantity, food.servingQuantityUnit))
+            }
+            if (food.productQuantity != null && food.productQuantityUnit != null) {
+                add("1 package = " + FoodUnitSystem.formatAmount(food.productQuantity, food.productQuantityUnit))
+            }
+            if (food.densityGPerMl != null && food.densityApproximate) {
+                add("mass/volume conversion uses approximate density")
+            }
+        }
+        if (unitContext.isNotEmpty()) {
+            Text(unitContext.joinToString(" · "), color = N2Muted, fontSize = 9.sp)
+        }
+
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             n2Meals.forEach { item ->
                 val active = meal == item
@@ -931,7 +992,7 @@ private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
                     Text(entry.name, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        entry.kcal.roundToInt().toString() + " kcal · " + n2One(entry.grams) + " g",
+                        entry.kcal.roundToInt().toString() + " kcal · " + n2One(entry.amount) + " " + entry.amountUnit,
                         color = N2Muted,
                         fontSize = 10.sp
                     )
@@ -1127,7 +1188,7 @@ private fun N2MealCard(
                         Column(Modifier.weight(1f)) {
                             Text(entry.name, color = N2Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                             Text(
-                                n2One(entry.grams) + " g · " + entry.kcal.roundToInt().toString() + " kcal · " +
+                                n2One(entry.amount) + " " + entry.amountUnit + " · " + entry.kcal.roundToInt().toString() + " kcal · " +
                                     n2One(entry.protein) + "P · " + n2One(entry.carbs) + "C · " + n2One(entry.fat) + "F",
                                 color = N2Muted,
                                 fontSize = 10.sp,
@@ -1564,7 +1625,11 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             foodId = kcal.metadata["foodId"].orEmpty(),
             timestamp = kcal.timestampEpochMs,
             name = kcal.metadata["name"] ?: "Food",
-            grams = kcal.metadata["grams"]?.toDoubleOrNull() ?: 100.0,
+            amount = kcal.metadata["amount"]?.toDoubleOrNull()
+                ?: kcal.metadata["grams"]?.toDoubleOrNull()
+                ?: 100.0,
+            amountUnit = kcal.metadata["amountUnit"]
+                ?: if (kcal.metadata["grams"] != null) "g" else "g",
             meal = kcal.metadata["meal"] ?: "Other",
             kcal = kcal.value,
             protein = metric(entryId, "food_protein"),
