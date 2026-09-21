@@ -28,9 +28,10 @@ import java.util.zip.ZipInputStream
  * expands the device-side reference database from USDA FoodData Central. The source archives are
  * streamed directly into SQLite so the app never needs to hold the 60-200 MB source JSON in memory.
  *
- * FNDDS 2021-2023 is attempted first because it represents foods people actually report eating and
- * carries energy plus a broad nutrient panel. SR Legacy then expands the long tail. Only records with
- * complete kcal/protein/carbohydrate/fat data and at least four recognised micronutrients are kept.
+ * Current USDA Foundation Foods are imported first for high-quality analytical references. FNDDS
+ * 2021-2023 then adds foods people actually report eating, and SR Legacy expands the long tail.
+ * Only records with complete kcal/protein/carbohydrate/fat data and at least four recognised
+ * micronutrients are kept.
  * The importer is restart-safe: each archive is one transaction and only marked complete afterwards.
  */
 internal object LargeLocalFoodDatabase {
