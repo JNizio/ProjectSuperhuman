@@ -228,6 +228,25 @@ internal object NativeDataHub {
         ingestion.ingestValues(copied)
     }
 
+    /**
+     * Rename a grouped meal while preserving each ingredient entry and its nutrition evidence.
+     * Used by the diary's inline meal-title editor.
+     */
+    suspend fun renameNutritionMealGroup(
+        rows: List<HealthValue>,
+        newName: String
+    ): IngestionResult = withContext(Dispatchers.IO) {
+        val safeName = newName.trim().take(80)
+        if (rows.isEmpty() || safeName.isBlank()) {
+            return@withContext IngestionResult(accepted = 0, rejected = 0, deduplicated = 0, issues = emptyList())
+        }
+        rows.forEach(repository::delete)
+        val renamed = rows.map { row ->
+            row.copy(metadata = row.metadata + ("mealGroupName" to safeName))
+        }
+        ingestion.ingestValues(renamed)
+    }
+
     suspend fun clearDomain(domain: HealthDomain) = withContext(Dispatchers.IO) {
         repository.clearDomain(domain)
     }
