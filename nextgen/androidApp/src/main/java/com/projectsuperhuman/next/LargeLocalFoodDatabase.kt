@@ -229,7 +229,12 @@ internal object LargeLocalFoodDatabase {
                                         salt = cursor.getDouble(24),
                                         saltKnown = cursor.getInt(25) != 0,
                                         sourceRecordId = cursor.getString(27).ifBlank { sourceId.removePrefix("usda:") },
-                                        sourceType = if (source.startsWith("USDA")) FoodDataSourceType.USDA else FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE,
+                                        sourceType = when {
+                                            source.startsWith("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
+                                            source.startsWith("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
+                                            source.startsWith("USDA SR Legacy") -> FoodDataSourceType.USDA_SR_LEGACY
+                                            else -> FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE
+                                        },
                                         verificationState = FoodVerificationState.SOURCE_VALIDATED,
                                         confidence = FoodDataConfidence.HIGH
                                     )
@@ -349,7 +354,12 @@ internal object LargeLocalFoodDatabase {
                     salt = cursor.getDouble(23),
                     saltKnown = cursor.getInt(24) != 0,
                     sourceRecordId = cursor.getString(25).ifBlank { sourceId.removePrefix("usda:") },
-                    sourceType = FoodDataSourceType.USDA,
+                    sourceType = when {
+                        source.startsWith("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
+                        source.startsWith("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
+                        source.startsWith("USDA SR Legacy") -> FoodDataSourceType.USDA_SR_LEGACY
+                        else -> FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE
+                    },
                     verificationState = FoodVerificationState.SOURCE_VALIDATED,
                     confidence = FoodDataConfidence.HIGH
                 )
