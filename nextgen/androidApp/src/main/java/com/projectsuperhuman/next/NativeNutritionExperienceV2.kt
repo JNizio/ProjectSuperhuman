@@ -863,7 +863,6 @@ private fun N2MacroValue(
     }
 }
 
-@Composable
 private data class N2TrendSeries(
     val label: String,
     val color: Color,
