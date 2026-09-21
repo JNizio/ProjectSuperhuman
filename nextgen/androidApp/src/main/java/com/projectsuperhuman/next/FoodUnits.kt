@@ -27,10 +27,16 @@ internal enum class FoodUnit(
     TSP("tsp", FoodMeasureDimension.VOLUME, 4.92892159375),
     TBSP("tbsp", FoodMeasureDimension.VOLUME, 14.78676478125),
     CUP("cup", FoodMeasureDimension.VOLUME, 236.5882365),
+    FL_OZ("fl oz", FoodMeasureDimension.VOLUME, 29.5735295625),
 
     SERVING("serving", FoodMeasureDimension.DERIVED, 1.0),
+    PIECE("piece", FoodMeasureDimension.DERIVED, 1.0),
+    SLICE("slice", FoodMeasureDimension.DERIVED, 1.0),
+    SCOOP("scoop", FoodMeasureDimension.DERIVED, 1.0),
+    BAR("bar", FoodMeasureDimension.DERIVED, 1.0),
     PACKAGE("package", FoodMeasureDimension.DERIVED, 1.0),
-    PIECE("piece", FoodMeasureDimension.DERIVED, 1.0);
+    BOTTLE("bottle", FoodMeasureDimension.DERIVED, 1.0),
+    CAN("can", FoodMeasureDimension.DERIVED, 1.0);
 
     companion object {
         fun fromSymbol(raw: String?): FoodUnit? {
@@ -48,9 +54,15 @@ internal enum class FoodUnit(
                 "tsp", "teaspoon", "teaspoons" -> TSP
                 "tbsp", "tablespoon", "tablespoons" -> TBSP
                 "cup", "cups" -> CUP
+                "fl oz", "floz", "fluid ounce", "fluid ounces" -> FL_OZ
                 "serving", "portion" -> SERVING
-                "package", "pack" -> PACKAGE
                 "piece", "pc", "unit" -> PIECE
+                "slice", "slices" -> SLICE
+                "scoop", "scoops" -> SCOOP
+                "bar", "bars" -> BAR
+                "package", "pack", "packet" -> PACKAGE
+                "bottle", "bottles" -> BOTTLE
+                "can", "cans", "tin", "tins" -> CAN
                 else -> null
             }
         }
@@ -58,20 +70,19 @@ internal enum class FoodUnit(
 }
 
 internal data class FoodConversion(
-    /** Amount expressed in the food's nutrition basis unit (usually g or ml). */
     val basisAmount: Double,
     val basisUnit: FoodUnit,
-    /** Multiplier applied to per-basis nutrition. */
     val factor: Double,
-    /** When physically resolvable, canonical mass in grams. */
     val grams: Double?,
-    /** When physically resolvable, canonical volume in millilitres. */
     val millilitres: Double?
 )
 
 internal object FoodUnitSystem {
-    private val massUnits = listOf(FoodUnit.G, FoodUnit.KG, FoodUnit.OZ, FoodUnit.LB)
-    private val volumeUnits = listOf(FoodUnit.ML, FoodUnit.L, FoodUnit.CL, FoodUnit.DL, FoodUnit.TSP, FoodUnit.TBSP, FoodUnit.CUP)
+    private val massUnits = listOf(FoodUnit.MG, FoodUnit.G, FoodUnit.KG, FoodUnit.OZ, FoodUnit.LB)
+    private val volumeUnits = listOf(
+        FoodUnit.ML, FoodUnit.CL, FoodUnit.DL, FoodUnit.L,
+        FoodUnit.TSP, FoodUnit.TBSP, FoodUnit.CUP, FoodUnit.FL_OZ
+    )
 
     fun basisUnit(food: NativeFood): FoodUnit = food.basisUnit
     fun basisAmount(food: NativeFood): Double = food.basisAmount.takeIf { it > 0.0 } ?: 100.0
@@ -92,10 +103,11 @@ internal object FoodUnitSystem {
 
         if (canResolveDerived(food.servingQuantity, food.servingQuantityUnit, food)) {
             out += FoodUnit.SERVING
-            if (looksLikeSinglePiece(food.servingLabel)) out += FoodUnit.PIECE
+            servingSpecificUnit(food)?.let(out::add)
         }
         if (canResolveDerived(food.productQuantity, food.productQuantityUnit, food)) {
             out += FoodUnit.PACKAGE
+            packageSpecificUnit(food)?.let(out::add)
         }
         return out.toList()
     }
@@ -104,12 +116,8 @@ internal object FoodUnitSystem {
         if (FoodUnit.SERVING in availableUnits(food)) FoodUnit.SERVING else food.basisUnit
 
     fun defaultAmount(food: NativeFood): Double =
-        if (defaultUnit(food) == FoodUnit.SERVING) 1.0 else basisAmount(food)
+        if (defaultUnit(food).dimension == FoodMeasureDimension.DERIVED) 1.0 else basisAmount(food)
 
-    /**
-     * Amount in [unit] that corresponds to exactly one nutrition basis quantity.
-     * Useful when the user changes units: 100 g olive oil becomes ~109.9 ml, not an arbitrary 100 ml.
-     */
     fun amountForBasis(food: NativeFood, unit: FoodUnit): Double? {
         val one = convert(food, 1.0, unit) ?: return null
         if (one.factor <= 0.0) return null
@@ -118,23 +126,20 @@ internal object FoodUnitSystem {
 
     fun convert(food: NativeFood, amount: Double, unit: FoodUnit): FoodConversion? {
         if (!amount.isFinite() || amount <= 0.0) return null
-
         return when (unit) {
-            FoodUnit.SERVING -> {
-                val q = food.servingQuantity ?: return null
-                val u = food.servingQuantityUnit ?: return null
-                convert(food, amount * q, u)
+            FoodUnit.SERVING -> convertServing(food, amount)
+            FoodUnit.PIECE,
+            FoodUnit.SLICE,
+            FoodUnit.SCOOP,
+            FoodUnit.BAR -> {
+                if (servingSpecificUnit(food) != unit) return null
+                convertServing(food, amount)
             }
-            FoodUnit.PACKAGE -> {
-                val q = food.productQuantity ?: return null
-                val u = food.productQuantityUnit ?: return null
-                convert(food, amount * q, u)
-            }
-            FoodUnit.PIECE -> {
-                if (!looksLikeSinglePiece(food.servingLabel)) return null
-                val q = food.servingQuantity ?: return null
-                val u = food.servingQuantityUnit ?: return null
-                convert(food, amount * q, u)
+            FoodUnit.PACKAGE -> convertPackage(food, amount)
+            FoodUnit.BOTTLE,
+            FoodUnit.CAN -> {
+                if (packageSpecificUnit(food) != unit) return null
+                convertPackage(food, amount)
             }
             else -> convertPhysical(food, amount, unit)
         }
@@ -143,11 +148,23 @@ internal object FoodUnitSystem {
     fun formatAmount(amount: Double, unit: FoodUnit): String {
         val n = if (abs(amount - amount.toInt()) < 0.0001) amount.toInt().toString()
         else ((amount * 10.0).toInt() / 10.0).toString()
-        return "$n ${unit.symbol}"
+        return n + " " + unit.symbol
     }
 
     fun describeBasis(food: NativeFood): String =
-        "${formatAmount(basisAmount(food), food.basisUnit)} basis"
+        formatAmount(basisAmount(food), food.basisUnit) + " basis"
+
+    private fun convertServing(food: NativeFood, amount: Double): FoodConversion? {
+        val q = food.servingQuantity ?: return null
+        val u = food.servingQuantityUnit ?: return null
+        return convertPhysical(food, amount * q, u)
+    }
+
+    private fun convertPackage(food: NativeFood, amount: Double): FoodConversion? {
+        val q = food.productQuantity ?: return null
+        val u = food.productQuantityUnit ?: return null
+        return convertPhysical(food, amount * q, u)
+    }
 
     private fun convertPhysical(food: NativeFood, amount: Double, unit: FoodUnit): FoodConversion? {
         val basis = food.basisUnit
@@ -190,15 +207,29 @@ internal object FoodUnitSystem {
         return convertPhysical(food, quantity, unit) != null
     }
 
-    private fun looksLikeSinglePiece(label: String): Boolean {
-        if (label.isBlank()) return false
-        val normalized = label.lowercase()
-        return Regex("""\b(1|one)\s*(piece|pc|unit|egg|bar|slice|biscuit|cookie|can|bottle|sachet)\b""")
-            .containsMatchIn(normalized)
+    private fun servingSpecificUnit(food: NativeFood): FoodUnit? {
+        val normalized = food.servingLabel.lowercase()
+        return when {
+            Regex("""\b(slice|slices)\b""").containsMatchIn(normalized) -> FoodUnit.SLICE
+            Regex("""\b(scoop|scoops)\b""").containsMatchIn(normalized) -> FoodUnit.SCOOP
+            Regex("""\b(bar|bars)\b""").containsMatchIn(normalized) -> FoodUnit.BAR
+            Regex("""\b(piece|pieces|pc|pcs|unit|units|egg|eggs|biscuit|biscuits|cookie|cookies)\b""")
+                .containsMatchIn(normalized) -> FoodUnit.PIECE
+            else -> null
+        }
+    }
+
+    private fun packageSpecificUnit(food: NativeFood): FoodUnit? {
+        val normalized = (food.quantity + " " + food.name + " " + food.searchText).lowercase()
+        return when {
+            Regex("""\b(bottle|bottles)\b""").containsMatchIn(normalized) -> FoodUnit.BOTTLE
+            Regex("""\b(can|cans|tin|tins)\b""").containsMatchIn(normalized) -> FoodUnit.CAN
+            else -> null
+        }
     }
 
     fun parseBasis(raw: String): Pair<Double, FoodUnit>? {
-        val match = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-Z]+)""").find(raw.trim()) ?: return null
+        val match = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-Z]+(?:\s+oz)?)""").find(raw.trim()) ?: return null
         val amount = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
         val unit = FoodUnit.fromSymbol(match.groupValues[2]) ?: return null
         if (unit.dimension == FoodMeasureDimension.DERIVED) return null
