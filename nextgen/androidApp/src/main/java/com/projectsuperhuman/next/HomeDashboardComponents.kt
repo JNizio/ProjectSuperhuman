@@ -864,32 +864,20 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
     val accent = if (SuperhumanAppearance.darkMode) Color(0xFF67D4C0) else Color(0xFF167C6B)
     val secondary = if (SuperhumanAppearance.darkMode) Color(0xFF68B5E8) else Color(0xFF2A79A9)
     val muted = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .55f) else HomeMuted
+    val track = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .10f) else HomeBorder
 
     val kcalProgress = if (snapshot.calorieGoal != null && snapshot.calorieGoal > 0) {
         (snapshot.caloriesToday.toFloat() / snapshot.calorieGoal.toFloat()).coerceIn(0f, 1f)
     } else 0f
-    val calorieMeta = when {
-        !hasFood -> "No food logged yet"
-        snapshot.calorieGoal != null && snapshot.calorieGoal > 0 -> {
-            val remaining = snapshot.calorieGoal - snapshot.caloriesToday
-            when {
-                remaining > 0 -> remaining.toString() + " kcal remaining"
-                remaining == 0 -> "Calorie target reached"
-                else -> kotlin.math.abs(remaining).toString() + " kcal over target"
-            }
-        }
-        else -> snapshot.nutritionEntriesToday.toString() +
-            if (snapshot.nutritionEntriesToday == 1) " food logged" else " foods logged"
-    }
 
     Box(
         Modifier.fillMaxWidth()
-            .height(206.dp)
+            .height(222.dp)
             .clip(RoundedCornerShape(28.dp))
             .background(Brush.linearGradient(nutritionGradient))
             .border(
                 1.dp,
-                accent.copy(alpha = if (SuperhumanAppearance.darkMode) .20f else .13f),
+                accent.copy(alpha = if (SuperhumanAppearance.darkMode) .22f else .13f),
                 RoundedCornerShape(28.dp)
             )
             .clickable(onClick = onClick)
@@ -898,7 +886,7 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
             "dashboard_nutrition.png",
             Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
-            alpha = if (SuperhumanAppearance.darkMode) .16f else .24f
+            alpha = if (SuperhumanAppearance.darkMode) .14f else .22f
         )
         Box(
             Modifier.fillMaxSize().background(
@@ -906,8 +894,8 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                     listOf(
                         nutritionGradient.first(),
                         nutritionGradient.first().copy(alpha = .99f),
-                        nutritionGradient[1].copy(alpha = .90f),
-                        nutritionGradient.last().copy(alpha = .48f),
+                        nutritionGradient[1].copy(alpha = .92f),
+                        nutritionGradient.last().copy(alpha = .55f),
                         Color.Transparent
                     )
                 )
@@ -918,8 +906,8 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                 Brush.verticalGradient(
                     listOf(
                         Color.Transparent,
-                        nutritionGradient.first().copy(alpha = .18f),
-                        nutritionGradient.first().copy(alpha = .72f)
+                        nutritionGradient.first().copy(alpha = .12f),
+                        nutritionGradient.first().copy(alpha = .76f)
                     )
                 )
             )
@@ -927,31 +915,20 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
 
         Column(
             Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 15.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column {
-                    Text(
-                        "NUTRITION",
-                        color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.15.sp
-                    )
-                    if (snapshot.latestNutritionFoodName != null) {
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            "Latest · " + snapshot.latestNutritionFoodName,
-                            color = muted,
-                            fontSize = 8.sp,
-                            maxLines = 1
-                        )
-                    }
-                }
+                Text(
+                    "NUTRITION",
+                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.15.sp
+                )
                 Box(
                     Modifier.width(36.dp).height(36.dp)
                         .background(accent.copy(alpha = .12f), CircleShape),
@@ -961,76 +938,143 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                 }
             }
 
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(
-                        (if (snapshot.nutritionCaloriesComplete) "" else "~") + snapshot.caloriesToday,
-                        color = if (SuperhumanAppearance.darkMode) Color.White else HomeNavy,
-                        fontSize = 31.sp,
-                        lineHeight = 32.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        if (snapshot.calorieGoal != null) " / " + snapshot.calorieGoal + " kcal" else "kcal",
-                        color = muted,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(bottom = 4.dp)
-                    )
-                }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HomeNutritionCalorieRing(
+                    calories = snapshot.caloriesToday,
+                    goal = snapshot.calorieGoal,
+                    complete = snapshot.nutritionCaloriesComplete,
+                    progress = kcalProgress,
+                    accent = accent,
+                    track = track
+                )
 
-                Text(calorieMeta, color = muted, fontSize = 9.sp)
-
-                if (snapshot.calorieGoal != null && snapshot.calorieGoal > 0) {
-                    Box(
-                        Modifier.fillMaxWidth(.68f)
-                            .height(5.dp)
-                            .clip(CircleShape)
-                            .background(if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .10f) else HomeBorder)
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(11.dp)
+                ) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        if (kcalProgress > 0f) {
-                            Box(
-                                Modifier.fillMaxWidth(kcalProgress)
-                                    .fillMaxSize()
-                                    .background(accent, CircleShape)
-                            )
-                        }
+                        HomeNutritionMetric(
+                            "Protein",
+                            snapshot.proteinToday,
+                            snapshot.proteinGoal,
+                            accent,
+                            Modifier.weight(1f)
+                        )
+                        HomeNutritionMetric(
+                            "Carbs",
+                            snapshot.carbsToday,
+                            snapshot.carbsGoal,
+                            secondary,
+                            Modifier.weight(1f)
+                        )
+                    }
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        HomeNutritionMetric(
+                            "Fat",
+                            snapshot.fatToday,
+                            snapshot.fatGoal,
+                            HomeAmber,
+                            Modifier.weight(1f)
+                        )
+                        HomeNutritionMetric(
+                            "Fibre",
+                            snapshot.fibreToday,
+                            snapshot.fibreGoal,
+                            HomePurple,
+                            Modifier.weight(1f)
+                        )
                     }
                 }
             }
 
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                HomeNutritionMetric(
-                    "Protein",
-                    snapshot.proteinToday,
-                    snapshot.proteinGoal,
-                    accent,
-                    Modifier.weight(1f)
+                Text(
+                    if (hasFood) {
+                        snapshot.nutritionEntriesToday.toString() +
+                            if (snapshot.nutritionEntriesToday == 1) " food logged" else " foods logged"
+                    } else {
+                        "No food logged yet"
+                    },
+                    color = muted,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
-                HomeNutritionMetric(
-                    "Carbs",
-                    snapshot.carbsToday,
-                    snapshot.carbsGoal,
-                    secondary,
-                    Modifier.weight(1f)
+                snapshot.latestNutritionFoodName?.let { latest ->
+                    Text(
+                        "Latest · " + latest,
+                        color = muted,
+                        fontSize = 8.sp,
+                        maxLines = 1,
+                        modifier = Modifier.fillMaxWidth(.48f),
+                        textAlign = TextAlign.End
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomeNutritionCalorieRing(
+    calories: Int,
+    goal: Int?,
+    complete: Boolean,
+    progress: Float,
+    accent: Color,
+    track: Color
+) {
+    Box(Modifier.size(108.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = 8.dp.toPx()
+            drawArc(
+                color = track,
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = Stroke(width = stroke)
+            )
+            if (goal != null && progress > 0f) {
+                drawArc(
+                    brush = Brush.sweepGradient(listOf(accent, HomeCyan, accent)),
+                    startAngle = -90f,
+                    sweepAngle = 360f * progress,
+                    useCenter = false,
+                    style = Stroke(width = stroke)
                 )
-                HomeNutritionMetric(
-                    "Fat",
-                    snapshot.fatToday,
-                    snapshot.fatGoal,
-                    HomeAmber,
-                    Modifier.weight(1f)
-                )
-                HomeNutritionMetric(
-                    "Fibre",
-                    snapshot.fibreToday,
-                    snapshot.fibreGoal,
-                    HomePurple,
-                    Modifier.weight(1f)
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                (if (complete) "" else "~") + calories,
+                color = if (SuperhumanAppearance.darkMode) Color.White else HomeNavy,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                if (goal != null) "of " + goal else "kcal",
+                color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .55f) else HomeMuted,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Bold
+            )
+            if (goal != null) {
+                Text(
+                    "kcal",
+                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .42f) else HomeMuted,
+                    fontSize = 7.sp
                 )
             }
         }
@@ -1048,16 +1092,21 @@ private fun HomeNutritionMetric(
     val progress = if (target != null && target > 0) {
         (value.toFloat() / target.toFloat()).coerceIn(0f, 1f)
     } else 0f
+    val track = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .09f) else HomeBorder
 
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Text(
-            label.uppercase(),
-            color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .44f) else HomeMuted,
-            fontSize = 6.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = .45.sp,
-            maxLines = 1
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(6.dp).background(accent, CircleShape))
+            Spacer(Modifier.width(5.dp))
+            Text(
+                label.uppercase(),
+                color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .44f) else HomeMuted,
+                fontSize = 6.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = .45.sp,
+                maxLines = 1
+            )
+        }
         Text(
             if (target != null) value.toString() + " / " + target + " g" else value.toString() + " g",
             color = if (SuperhumanAppearance.darkMode) Color.White else HomeInk,
@@ -1067,9 +1116,9 @@ private fun HomeNutritionMetric(
         )
         Box(
             Modifier.fillMaxWidth()
-                .height(3.dp)
+                .height(4.dp)
                 .clip(CircleShape)
-                .background(if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .09f) else HomeBorder)
+                .background(track)
         ) {
             if (target != null && progress > 0f) {
                 Box(
