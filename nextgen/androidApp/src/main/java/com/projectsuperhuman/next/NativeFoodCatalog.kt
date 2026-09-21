@@ -24,7 +24,11 @@ internal data class NativeNutrient(
     val id: String,
     val label: String,
     val valuePer100: Double,
-    val unit: String
+    val unit: String,
+    val evidenceKind: NutrientEvidenceKind = NutrientEvidenceKind.UNSPECIFIED,
+    val source: String = "",
+    val sourceRecordId: String = "",
+    val derivedFrom: String = ""
 )
 
 internal data class NativeFood(
@@ -52,6 +56,12 @@ internal data class NativeFood(
     val fatKnown: Boolean = true,
     val fibreKnown: Boolean = true,
     val sugarKnown: Boolean = true,
+    val saturatedFat: Double = 0.0,
+    val saturatedFatKnown: Boolean = false,
+    val salt: Double = 0.0,
+    val saltKnown: Boolean = false,
+    val sodiumMg: Double = 0.0,
+    val sodiumKnown: Boolean = false,
     val nutritionIntegrityWarning: String? = null,
     val nutritionApproximate: Boolean = false,
     val originalName: String = "",
@@ -61,11 +71,28 @@ internal data class NativeFood(
     val basisUnit: FoodUnit = FoodUnit.G,
     val densityGPerMl: Double? = null,
     val densityApproximate: Boolean = false,
+    val densitySource: DensityEvidenceSource = DensityEvidenceSource.UNKNOWN,
     val productQuantity: Double? = null,
     val productQuantityUnit: FoodUnit? = null,
     val servingQuantity: Double? = null,
     val servingQuantityUnit: FoodUnit? = null,
-    val servingLabel: String = ""
+    val servingLabel: String = "",
+    val identityKind: FoodIdentityKind = FoodIdentityKind.UNKNOWN,
+    val sourceType: FoodDataSourceType = FoodDataSourceType.UNKNOWN,
+    val sourceRecordId: String = "",
+    val sourceRevision: String = "",
+    val lastRetrievedEpochMs: Long? = null,
+    val verificationState: FoodVerificationState = FoodVerificationState.UNVERIFIED,
+    val confidence: FoodDataConfidence = FoodDataConfidence.UNASSESSED,
+    val preparationState: FoodPreparationState = FoodPreparationState.UNSPECIFIED,
+    val energyEvidence: EnergyEvidenceKind = EnergyEvidenceKind.UNKNOWN,
+    val nutrientEvidence: Map<String, NutrientEvidenceKind> = emptyMap(),
+    val ingredientsText: String = "",
+    val allergens: List<String> = emptyList(),
+    val additives: List<String> = emptyList(),
+    val novaGroup: Int? = null,
+    val sourceWarnings: List<String> = emptyList(),
+    val canonicalSchemaVersion: Int = NUTRITION_CANONICAL_SCHEMA_VERSION
 )
 
 internal data class NativeFoodSearchResult(
@@ -75,7 +102,8 @@ internal data class NativeFoodSearchResult(
 )
 
 internal object NativeFoodCatalog {
-    private const val USER_AGENT = "ProjectSuperhuman/11.3 (Android; https://github.com/JNizio/ProjectSuperhuman)"
+    private const val USER_AGENT = "ProjectSuperhuman/11.4 (Android; https://github.com/JNizio/ProjectSuperhuman)"
+    private const val OFF_FIELDS = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,data_quality_errors_tags,data_quality_warnings_tags,nutriments,ingredients_text,allergens_tags,additives_tags,nova_group,last_modified_t,last_modified_datetime"
     private const val FAST_RESULT_COUNT = 8
     private const val MAX_RESULT_COUNT = 10
 
@@ -146,7 +174,7 @@ internal object NativeFoodCatalog {
         FoodNutritionOverrideStore.attach(context)
         startLargeLocalSafely(context)
         val base = cached ?: loadLocal(context).also { cached = it }
-        FoodNutritionOverrideStore.applyAll(context, base)
+        FoodNutritionOverrideStore.applyAll(context, base.map(FoodEvidenceEngine::enrich))
     }
 
     /** Number of local reference foods available without depending on an Open Food Facts search. */
@@ -184,15 +212,16 @@ internal object NativeFoodCatalog {
         }
 
         val localCandidates = (bundledLocal + expandedLocal)
+            .map(FoodEvidenceEngine::enrich)
             .sortedWith(foodComparator(q))
-            .distinctBy { food -> food.barcode?.let { "barcode:$it" } ?: "name:${food.name.trim().lowercase()}" }
+            .distinctBy(FoodEvidenceEngine::dedupKey)
 
         // Broad/common searches stay completely local when we already have enough good candidates.
         // Multi-word queries are more likely to be a specific branded product, so OFF remains useful.
         val specificProductQuery = q.length >= 6 && q.any(Char::isWhitespace)
         val shouldQueryRemote = localCandidates.size < FAST_RESULT_COUNT || specificProductQuery
         val remoteResult = if (shouldQueryRemote) {
-            searchOpenFoodFacts(q, limit = 12)
+            searchOpenFoodFacts(context, q, limit = 12)
         } else {
             emptyList<NativeFood>() to true
         }
@@ -200,11 +229,9 @@ internal object NativeFoodCatalog {
         val merged = FoodNutritionOverrideStore.applyAll(
             context,
             (localCandidates + remoteResult.first)
+                .map(FoodEvidenceEngine::enrich)
                 .sortedWith(foodComparator(q))
-                .distinctBy { food ->
-                    food.barcode?.let { code -> "barcode:$code" }
-                        ?: "name:${food.name.trim().lowercase()}"
-                }
+                .distinctBy(FoodEvidenceEngine::dedupKey)
         ).take(requested)
 
         return NativeFoodSearchResult(
@@ -214,22 +241,39 @@ internal object NativeFoodCatalog {
         )
     }
 
-    suspend fun lookupBarcode(code: String): NativeFood? = withContext(Dispatchers.IO) {
+    suspend fun lookupBarcode(context: Context, code: String): NativeFood? = withContext(Dispatchers.IO) {
+        FoodNutritionOverrideStore.attach(context)
         val digits = code.filter(Char::isDigit)
         if (!NutritionMath.isValidBarcode(digits)) return@withContext null
-        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,data_quality_errors_tags,data_quality_warnings_tags,nutriments"
-        val conn = openConnection("https://world.openfoodfacts.org/api/v2/product/$digits.json?fields=$fields")
+
+        val url = "https://world.openfoodfacts.org/api/v2/product/" + digits + ".json?fields=" + OFF_FIELDS
+        val conn = openConnection(url)
         try {
-            if (conn.responseCode !in 200..299) return@withContext null
-            val root = conn.inputStream.bufferedReader().use { it.readText() }.let(::JSONObject)
-            if (root.optInt("status", 0) != 1) return@withContext null
-            val product = root.optJSONObject("product") ?: return@withContext null
-            parseOpenFoodFactsProduct(product, digits)?.let(FoodNutritionOverrideStore::applyIfAttached)
+            if (conn.responseCode in 200..299) {
+                val root = conn.inputStream.bufferedReader().use { it.readText() }.let(::JSONObject)
+                if (root.optInt("status", 0) == 1) {
+                    val product = root.optJSONObject("product")
+                    if (product != null) {
+                        val retrieved = System.currentTimeMillis()
+                        FoodProductCache.put(context, digits, product.toString(), retrieved)
+                        return@withContext parseOpenFoodFactsProduct(product, digits, retrieved)
+                            ?.let(FoodEvidenceEngine::enrich)
+                            ?.let(FoodNutritionOverrideStore::applyIfAttached)
+                    }
+                }
+            }
         } catch (_: Exception) {
-            null
+            // Fall through to cached source evidence.
         } finally {
             conn.disconnect()
         }
+
+        val cachedProduct = FoodProductCache.get(context, digits) ?: return@withContext null
+        runCatching { JSONObject(cachedProduct.productJson) }
+            .getOrNull()
+            ?.let { parseOpenFoodFactsProduct(it, digits, cachedProduct.retrievedEpochMs) }
+            ?.let(FoodEvidenceEngine::enrich)
+            ?.let(FoodNutritionOverrideStore::applyIfAttached)
     }
 
     /**
@@ -249,14 +293,14 @@ internal object NativeFoodCatalog {
             .toList()
     }
 
-    private suspend fun searchOpenFoodFacts(query: String, limit: Int): Pair<List<NativeFood>, Boolean> = withContext(Dispatchers.IO) {
+    private suspend fun searchOpenFoodFacts(context: Context, query: String, limit: Int): Pair<List<NativeFood>, Boolean> = withContext(Dispatchers.IO) {
         val key = query.trim().lowercase()
         synchronized(remoteCacheLock) { remoteSearchCache[key] }?.let { return@withContext it.take(limit) to true }
 
         // Open Food Facts currently keeps full-text search on the v1 CGI endpoint.
         val encoded = URLEncoder.encode(query.trim(), "UTF-8")
-        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,data_quality_errors_tags,data_quality_warnings_tags,nutriments"
-        val url = "https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&search_simple=1&action=process&json=1&page_size=$limit&fields=$fields"
+        val url = "https://world.openfoodfacts.org/cgi/search.pl?search_terms=" + encoded +
+            "&search_simple=1&action=process&json=1&page_size=" + limit + "&fields=" + OFF_FIELDS
         val conn = openConnection(url)
         try {
             if (conn.responseCode !in 200..299) return@withContext emptyList<NativeFood>() to false
@@ -265,7 +309,11 @@ internal object NativeFoodCatalog {
             val parsed = buildList {
                 for (i in 0 until products.length()) {
                     val p = products.optJSONObject(i) ?: continue
-                    val food = parseOpenFoodFactsProduct(p, p.optString("code")) ?: continue
+                    val code = p.optString("code").filter(Char::isDigit)
+                    val retrieved = System.currentTimeMillis()
+                    if (code.isNotBlank()) FoodProductCache.put(context, code, p.toString(), retrieved)
+                    val food = parseOpenFoodFactsProduct(p, code, retrieved)
+                        ?.let(FoodEvidenceEngine::enrich) ?: continue
                     if (food.name.isNotBlank()) add(food)
                 }
             }
@@ -278,7 +326,11 @@ internal object NativeFoodCatalog {
         }
     }
 
-    private fun parseOpenFoodFactsProduct(p: JSONObject, fallbackCode: String): NativeFood? {
+    private fun parseOpenFoodFactsProduct(
+        p: JSONObject,
+        fallbackCode: String,
+        retrievedEpochMs: Long = System.currentTimeMillis()
+    ): NativeFood? {
         val code = p.optString("code").ifBlank { fallbackCode }.filter(Char::isDigit)
         val nutriments = p.optJSONObject("nutriments") ?: JSONObject()
         val localizedName = resolveOpenFoodFactsDisplayName(p, code)
@@ -293,6 +345,7 @@ internal object NativeFoodCatalog {
             else -> 0.0
         }.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
         val kcalKnown = kcalDirectKnown || kjKnown
+
         val productQuantityUnit = FoodUnit.fromSymbol(p.optString("product_quantity_unit"))
         val servingQuantityUnit = FoodUnit.fromSymbol(p.optString("serving_quantity_unit"))
         val basisUnit = when {
@@ -309,18 +362,70 @@ internal object NativeFoodCatalog {
         val proteinRaw = nutriments.optDoubleSafe("proteins_100g")
         val carbsRaw = nutriments.optDoubleSafe("carbohydrates_100g")
         val fatRaw = nutriments.optDoubleSafe("fat_100g")
+        val proteinKnown = nutriments.hasNonNegativeNumber("proteins_100g")
+        val carbsKnown = nutriments.hasNonNegativeNumber("carbohydrates_100g")
+        val fatKnown = nutriments.hasNonNegativeNumber("fat_100g")
+        val saturatedFatRaw = nutriments.optDoubleSafe("saturated-fat_100g")
+        val saturatedFatKnown = nutriments.hasNonNegativeNumber("saturated-fat_100g")
+        val fibreRaw = nutriments.optDoubleSafe("fiber_100g")
+        val fibreKnown = nutriments.hasNonNegativeNumber("fiber_100g")
+        val sugarRaw = nutriments.optDoubleSafe("sugars_100g")
+        val sugarKnown = nutriments.hasNonNegativeNumber("sugars_100g")
+        val saltRaw = nutriments.optDoubleSafe("salt_100g")
+        val saltKnown = nutriments.hasNonNegativeNumber("salt_100g")
+        val sodiumRawMg = nutriments.optDoubleSafe("sodium_100g") * 1_000.0
+        val sodiumKnown = nutriments.hasNonNegativeNumber("sodium_100g")
+
         val macroIntegrity = NutritionIntegrity.sanitizeMacros(
             kcal = kcal,
             protein = proteinRaw,
             carbs = carbsRaw,
             fat = fatRaw,
-            proteinKnown = nutriments.hasFiniteNumber("proteins_100g"),
-            carbsKnown = nutriments.hasFiniteNumber("carbohydrates_100g"),
-            fatKnown = nutriments.hasFiniteNumber("fat_100g"),
+            proteinKnown = proteinKnown,
+            carbsKnown = carbsKnown,
+            fatKnown = fatKnown,
             kcalKnown = kcalKnown
         )
 
-        val offQualityWarnings = listOf(
+        val integrity = NutritionIntegrity.validateFoodValues(
+            basisAmount = 100.0,
+            basisUnit = basisUnit,
+            kcal = kcal,
+            kcalKnown = kcalKnown,
+            protein = macroIntegrity.protein,
+            proteinKnown = macroIntegrity.proteinKnown,
+            carbs = macroIntegrity.carbs,
+            carbsKnown = macroIntegrity.carbsKnown,
+            fat = macroIntegrity.fat,
+            fatKnown = macroIntegrity.fatKnown,
+            saturatedFat = saturatedFatRaw,
+            saturatedFatKnown = saturatedFatKnown,
+            fibre = fibreRaw,
+            fibreKnown = fibreKnown,
+            sugar = sugarRaw,
+            sugarKnown = sugarKnown,
+            saltG = saltRaw,
+            saltKnown = saltKnown,
+            sodiumMg = sodiumRawMg,
+            sodiumKnown = sodiumKnown,
+            servingQuantity = p.optNullableDouble("serving_quantity"),
+            productQuantity = p.optNullableDouble("product_quantity")
+        )
+
+        val finalSodiumMg = when {
+            sodiumKnown -> sodiumRawMg
+            integrity.derivedSodiumMg != null -> integrity.derivedSodiumMg
+            else -> 0.0
+        }
+        val finalSodiumKnown = sodiumKnown || integrity.derivedSodiumMg != null
+        val finalSalt = when {
+            saltKnown -> saltRaw
+            integrity.derivedSaltG != null -> integrity.derivedSaltG
+            else -> 0.0
+        }
+        val finalSaltKnown = saltKnown || integrity.derivedSaltG != null
+
+        val offWarnings = listOf(
             p.optStringList("data_quality_errors_tags"),
             p.optStringList("data_quality_warnings_tags")
         )
@@ -328,11 +433,26 @@ internal object NativeFoodCatalog {
             .map { it.trim() }
             .filter { warning -> warning.isNotBlank() && isNutritionQualityWarning(warning) }
             .distinct()
-            .joinToString(" · ")
-            .ifBlank { null }
+
+        val sourceWarnings = (offWarnings + integrity.warnings + listOfNotNull(macroIntegrity.warning))
+            .filter(String::isNotBlank)
+            .distinct()
+
+        val sourceRecordId = code.ifBlank { "off-name-" + name.lowercase().hashCode() }
+        val nutrientEvidence = buildMap<String, NutrientEvidenceKind> {
+            if (kcalKnown) put("energy_kcal", if (kcalDirectKnown) NutrientEvidenceKind.SOURCE_REPORTED else NutrientEvidenceKind.DERIVED)
+            if (macroIntegrity.proteinKnown) put("protein", NutrientEvidenceKind.SOURCE_REPORTED)
+            if (macroIntegrity.carbsKnown) put("carbohydrate", NutrientEvidenceKind.SOURCE_REPORTED)
+            if (macroIntegrity.fatKnown) put("fat", NutrientEvidenceKind.SOURCE_REPORTED)
+            if (saturatedFatKnown) put("saturated_fat", NutrientEvidenceKind.SOURCE_REPORTED)
+            if (fibreKnown) put("fibre", NutrientEvidenceKind.SOURCE_REPORTED)
+            if (sugarKnown) put("sugars", NutrientEvidenceKind.SOURCE_REPORTED)
+            if (finalSaltKnown) put("salt", if (saltKnown) NutrientEvidenceKind.SOURCE_REPORTED else NutrientEvidenceKind.DERIVED)
+            if (finalSodiumKnown) put("sodium", if (sodiumKnown) NutrientEvidenceKind.SOURCE_REPORTED else NutrientEvidenceKind.DERIVED)
+        }
 
         return NativeFood(
-            id = if (code.isNotBlank()) "off:$code" else "off:${name.lowercase().hashCode()}",
+            id = if (code.isNotBlank()) "off:$code" else "off:" + name.lowercase().hashCode(),
             name = name,
             country = country,
             kcal = kcal,
@@ -341,34 +461,55 @@ internal object NativeFoodCatalog {
             carbs = macroIntegrity.carbs,
             carbohydrateDefinition = CarbohydrateDefinition.AVAILABLE_EXCLUDING_FIBRE,
             fat = macroIntegrity.fat,
-            fibre = nutriments.optDoubleSafe("fiber_100g"),
-            sugar = nutriments.optDoubleSafe("sugars_100g"),
+            fibre = fibreRaw,
+            sugar = sugarRaw,
             unit = basis,
             source = "Open Food Facts",
             barcode = code.ifBlank { null },
-            searchText = "$brand $categories",
+            searchText = brand + " " + categories,
             brand = brand,
             quantity = p.optString("quantity"),
             servingSize = p.optString("serving_size"),
-            micronutrients = extractMicronutrients(nutriments),
+            micronutrients = extractMicronutrients(nutriments, sourceRecordId),
             proteinKnown = macroIntegrity.proteinKnown,
             carbsKnown = macroIntegrity.carbsKnown,
             fatKnown = macroIntegrity.fatKnown,
-            fibreKnown = nutriments.hasNonNegativeNumber("fiber_100g"),
-            sugarKnown = nutriments.hasNonNegativeNumber("sugars_100g"),
-            nutritionIntegrityWarning = listOfNotNull(macroIntegrity.warning, offQualityWarnings).joinToString(" · ").ifBlank { null },
+            fibreKnown = fibreKnown,
+            sugarKnown = sugarKnown,
+            saturatedFat = saturatedFatRaw,
+            saturatedFatKnown = saturatedFatKnown,
+            salt = finalSalt,
+            saltKnown = finalSaltKnown,
+            sodiumMg = finalSodiumMg,
+            sodiumKnown = finalSodiumKnown,
+            nutritionIntegrityWarning = sourceWarnings.joinToString(" · ").ifBlank { null },
             originalName = localizedName.originalName,
             displayLanguage = localizedName.displayLanguage,
             hasVerifiedEnglishName = localizedName.hasVerifiedEnglishName,
             basisAmount = 100.0,
             basisUnit = basisUnit,
-            densityGPerMl = null,
-            densityApproximate = false,
             productQuantity = p.optNullableDouble("product_quantity"),
             productQuantityUnit = productQuantityUnit,
             servingQuantity = p.optNullableDouble("serving_quantity"),
             servingQuantityUnit = servingQuantityUnit,
-            servingLabel = p.optString("serving_size")
+            servingLabel = p.optString("serving_size"),
+            identityKind = FoodIdentityKind.BRANDED_PRODUCT,
+            sourceType = FoodDataSourceType.OPEN_FOOD_FACTS,
+            sourceRecordId = sourceRecordId,
+            sourceRevision = p.optString("last_modified_datetime").ifBlank { p.optString("last_modified_t") },
+            lastRetrievedEpochMs = retrievedEpochMs,
+            preparationState = FoodEvidenceEngine.inferPreparationState(name + " " + categories),
+            energyEvidence = when {
+                kcalDirectKnown -> EnergyEvidenceKind.REPORTED_KCAL
+                kjKnown -> EnergyEvidenceKind.CONVERTED_KJ
+                else -> EnergyEvidenceKind.UNKNOWN
+            },
+            nutrientEvidence = nutrientEvidence,
+            ingredientsText = p.optString("ingredients_text"),
+            allergens = p.optTagList("allergens_tags"),
+            additives = p.optTagList("additives_tags"),
+            novaGroup = p.optInt("nova_group", 0).takeIf { it in 1..4 },
+            sourceWarnings = sourceWarnings
         )
     }
 
@@ -416,7 +557,7 @@ internal object NativeFoodCatalog {
         )
     }
 
-    private fun extractMicronutrients(n: JSONObject): Map<String, NativeNutrient> {
+    private fun extractMicronutrients(n: JSONObject, sourceRecordId: String = ""): Map<String, NativeNutrient> {
         val out = linkedMapOf<String, NativeNutrient>()
         micronutrientSpecs.forEach { spec ->
             // Several OFF taxonomy ids can map to one canonical nutrient (e.g. folate).
@@ -427,7 +568,15 @@ internal object NativeFoodCatalog {
             if (grams < 0.0 || !grams.isFinite()) return@forEach
             val converted = grams * spec.multiplierFromGrams
             if (converted < 0.0 || !converted.isFinite()) return@forEach
-            out[spec.id] = NativeNutrient(spec.id, spec.label, converted, spec.unit)
+            out[spec.id] = NativeNutrient(
+                id = spec.id,
+                label = spec.label,
+                valuePer100 = converted,
+                unit = spec.unit,
+                evidenceKind = NutrientEvidenceKind.SOURCE_REPORTED,
+                source = "Open Food Facts",
+                sourceRecordId = sourceRecordId
+            )
         }
         if (!out.containsKey("sodium")) {
             val saltKey = "salt_100g"
@@ -437,8 +586,12 @@ internal object NativeFoodCatalog {
                     out["sodium"] = NativeNutrient(
                         id = "sodium",
                         label = "Sodium",
-                        valuePer100 = (saltGrams / 2.5) * 1_000.0,
-                        unit = "mg"
+                        valuePer100 = NutritionIntegrity.saltGToSodiumMg(saltGrams),
+                        unit = "mg",
+                        evidenceKind = NutrientEvidenceKind.DERIVED,
+                        source = "Open Food Facts",
+                        sourceRecordId = sourceRecordId,
+                        derivedFrom = "salt"
                     )
                 }
             }
@@ -464,16 +617,8 @@ internal object NativeFoodCatalog {
             .thenBy { it.name.length }
             .thenBy { it.name.lowercase() }
 
-    /** Common/curated foods win ties before long-tail reference rows and remote products. */
-    private fun sourcePriority(food: NativeFood): Int = when {
-        food.source.contains("label reference", ignoreCase = true) -> 0
-        food.source.startsWith("Project Superhuman", ignoreCase = true) || food.source.startsWith("Local reference", ignoreCase = true) -> 1
-        food.source.contains("Foundation Foods", ignoreCase = true) -> 2
-        food.source.contains("FNDDS", ignoreCase = true) -> 3
-        food.source.startsWith("USDA", ignoreCase = true) -> 4
-        food.source.contains("Open Food Facts", ignoreCase = true) -> 5
-        else -> 3
-    }
+    /** Evidence quality breaks ties after exact identity and integrity state. */
+    private fun sourcePriority(food: NativeFood): Int = FoodEvidenceEngine.sourcePriority(food)
 
     private fun foodSearchRank(food: NativeFood, query: String): Int {
         val q = query.trim().lowercase()
@@ -565,6 +710,23 @@ internal object NativeFoodCatalog {
             else -> null
         }
         return parsed?.isFinite() == true
+    }
+
+    private fun JSONObject.optTagList(key: String): List<String> {
+        val value = opt(key) ?: return emptyList()
+        return when (value) {
+            is JSONArray -> buildList {
+                for (i in 0 until value.length()) {
+                    value.optString(i)
+                        .substringAfter(':')
+                        .trim()
+                        .takeIf(String::isNotBlank)
+                        ?.let(::add)
+                }
+            }
+            is String -> value.split(',').map(String::trim).filter(String::isNotBlank)
+            else -> emptyList()
+        }
     }
 
     private fun JSONObject.optDoubleSafe(key: String): Double {
