@@ -1535,12 +1535,14 @@ private fun N2Insights(
             N2Insight(
                 if (entryCount == 0) "Start with one meal" else "$entryCount foods logged",
                 if (entryCount == 0) "Your food diary is the evidence layer for future cross-module patterns."
-                else "${day.kcal.roundToInt()} kcal · ${n2One(day.protein)} g protein · ${n2One(day.fibre)} g fibre",
+                else (if (day.kcalComplete) "" else "~") + "${day.kcal.roundToInt()} kcal · " +
+                    (if (day.proteinComplete) "" else "~") + "${n2One(day.protein)} g protein · " +
+                    (if (day.fibreComplete) "" else "~") + "${n2One(day.fibre)} g fibre",
                 N2Blue
             )
             N2Insight(
-                if (microCoverage >= 75) "Good nutrient visibility" else "Nutrient picture is partial",
-                "$microCoverage% of today's foods contain at least one micronutrient value.",
+                if (microCoverage >= 75) "Micronutrient data present" else "Micronutrient data is sparse",
+                "$microCoverage% of today's foods contain at least one reported micronutrient value. This does not mean every micronutrient is known.",
                 if (microCoverage >= 75) N2Green else N2Amber
             )
         }
