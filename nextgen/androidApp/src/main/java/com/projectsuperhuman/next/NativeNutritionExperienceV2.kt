@@ -1682,7 +1682,9 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
     }
 
     val entries = groups.mapNotNull { (entryId, group) ->
-        val anchor = group.maxByOrNull { it.timestampEpochMs } ?: return@mapNotNull null
+        val anchor = group.firstOrNull { it.metric == "food_entry" }
+            ?: group.maxByOrNull { it.timestampEpochMs }
+            ?: return@mapNotNull null
         val kcalValue = metric(entryId, "food_kcal")
         N2Entry(
             id = entryId,
