@@ -11,6 +11,15 @@ import java.net.URL
 import java.net.URLEncoder
 import java.util.LinkedHashMap
 
+internal enum class CarbohydrateDefinition {
+    /** EU/Open Food Facts carbohydrate: available carbohydrate, excluding fibre. */
+    AVAILABLE_EXCLUDING_FIBRE,
+    /** USDA carbohydrate by difference: includes dietary fibre. */
+    TOTAL_INCLUDING_FIBRE,
+    /** Source does not establish a compatible carbohydrate definition. */
+    UNKNOWN
+}
+
 internal data class NativeNutrient(
     val id: String,
     val label: String,
@@ -26,6 +35,7 @@ internal data class NativeFood(
     val kcalKnown: Boolean = true,
     val protein: Double,
     val carbs: Double,
+    val carbohydrateDefinition: CarbohydrateDefinition = CarbohydrateDefinition.UNKNOWN,
     val fat: Double,
     val fibre: Double,
     val sugar: Double,
@@ -329,6 +339,7 @@ internal object NativeFoodCatalog {
             kcalKnown = kcalKnown,
             protein = macroIntegrity.protein,
             carbs = macroIntegrity.carbs,
+            carbohydrateDefinition = CarbohydrateDefinition.AVAILABLE_EXCLUDING_FIBRE,
             fat = macroIntegrity.fat,
             fibre = nutriments.optDoubleSafe("fiber_100g"),
             sugar = nutriments.optDoubleSafe("sugars_100g"),
