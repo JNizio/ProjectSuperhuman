@@ -889,7 +889,7 @@ private fun N2Results(foods: List<NativeFood>, selectedId: String?, onSelect: (N
                     Text(
                         buildString {
                             if (food.brand.isNotBlank()) append(food.brand).append(" · ")
-                            append(food.source)
+                            append(FoodEvidenceEngine.userFacingSourceLabel(food))
                         }, color = N2Muted, fontSize = 9.sp
                     )
                     Text(
@@ -930,7 +930,7 @@ private fun N2AddFoodCard(
             if (food.hasVerifiedEnglishName && food.originalName.isNotBlank() && !food.originalName.equals(food.name, ignoreCase = true)) {
                 Text(food.originalName, color = N2Muted, fontSize = 10.sp, maxLines = 1)
             }
-            Text(food.brand.ifBlank { food.source }, color = N2Muted, fontSize = 10.sp)
+            Text(food.brand.ifBlank { FoodEvidenceEngine.userFacingSourceLabel(food) }, color = N2Muted, fontSize = 10.sp)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             N2FoodStat(if (food.kcalKnown) (food.kcal * factor).roundToInt().toString() else "—", "kcal", Modifier.weight(1f))
@@ -980,11 +980,11 @@ private fun N2AddFoodCard(
         if (unitContext.isNotEmpty()) {
             Text(unitContext.joinToString(" · "), color = N2Muted, fontSize = 9.sp)
         }
-        food.nutritionIntegrityWarning?.takeIf { it.isNotBlank() }?.let { warning ->
+        FoodEvidenceEngine.userFacingDataQualityMessage(food)?.let { message ->
             Text(
-                "Source data warning · " + warning,
+                message,
                 color = N2Amber,
-                fontSize = 9.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
             )
         }
