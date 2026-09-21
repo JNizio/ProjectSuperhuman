@@ -1022,7 +1022,7 @@ private fun N2FoodSearchScreen(
         Spacer(Modifier.height(7.dp))
 
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+            Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             foods.take(8).forEach { food ->
