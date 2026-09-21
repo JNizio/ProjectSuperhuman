@@ -245,7 +245,28 @@ internal object LargeLocalFoodDatabase {
                 }
             }
 
-            val result = raw
+            val localCanonical = raw.filter { it.id.startsWith("core:") }
+            val canonicalFamilies = localCanonical.mapNotNull { food ->
+                when {
+                    food.id.startsWith("core:egg:") -> "egg"
+                    food.id.startsWith("core:chicken:breast:") -> "chicken_breast"
+                    else -> null
+                }
+            }.toSet()
+
+            val visible = raw.filterNot { food ->
+                if (food.id.startsWith("core:")) return@filterNot false
+                val text = normalize(food.originalName.ifBlank { food.name })
+                when {
+                    "egg" in canonicalFamilies && text.contains("egg") -> true
+                    "chicken_breast" in canonicalFamilies &&
+                        text.contains("chicken breast") &&
+                        (text.contains("grilled") || text.contains("roasted")) -> true
+                    else -> false
+                }
+            }
+
+            val result = visible
                 .distinctBy { it.id }
                 .sortedWith(
                     compareBy<NativeFood> { canonicalQueryRank(it, q) }
@@ -496,6 +517,7 @@ internal object LargeLocalFoodDatabase {
             val db = helper.writableDatabase
             priorityFoods().forEach { insertFood(db, it, replace = false) }
             seedCanonicalLocalVariants(db)
+            db.execSQL("UPDATE food_reference SET core_rank = 0 WHERE id LIKE 'core:%'")
             synchronized(localSearchCacheLock) { localSearchCache.clear() }
         }
     }
@@ -727,6 +749,8 @@ internal object LargeLocalFoodDatabase {
                         }
                         putMeta(db, completionKey, "1")
                         rebuildCoreFoods(db)
+                        seedCanonicalLocalVariants(db)
+                        db.execSQL("UPDATE food_reference SET core_rank = 0 WHERE id LIKE 'core:%'")
                         synchronized(localSearchCacheLock) { localSearchCache.clear() }
                         db.setTransactionSuccessful()
                     } finally {
