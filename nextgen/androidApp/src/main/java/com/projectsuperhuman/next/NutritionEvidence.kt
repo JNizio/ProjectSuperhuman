@@ -137,6 +137,16 @@ internal data class CanonicalNutrientEvidence(
     val derivedFrom: String = ""
 )
 
+internal data class CarbohydrateEvidenceProfile(
+    val total: CanonicalNutrientEvidence? = null,
+    val available: CanonicalNutrientEvidence? = null,
+    val fibre: CanonicalNutrientEvidence? = null,
+    val sugars: CanonicalNutrientEvidence? = null,
+    val addedSugars: CanonicalNutrientEvidence? = null,
+    val starch: CanonicalNutrientEvidence? = null,
+    val polyols: CanonicalNutrientEvidence? = null
+)
+
 internal data class CanonicalFoodRecord(
     val id: String,
     val identityKind: FoodIdentityKind,
@@ -154,6 +164,10 @@ internal data class CanonicalFoodRecord(
     val basisAmount: Double,
     val basisUnit: FoodUnit,
     val carbohydrateDefinition: CarbohydrateDefinition,
+    val carbohydrates: CarbohydrateEvidenceProfile,
+    val energyEvidence: EnergyEvidenceKind,
+    val densityGPerMl: Double?,
+    val densitySource: DensityEvidenceSource,
     val nutrients: Map<String, CanonicalNutrientEvidence>,
     val integrityWarnings: List<String>,
     val canonicalSchemaVersion: Int = NUTRITION_CANONICAL_SCHEMA_VERSION
@@ -289,6 +303,14 @@ internal object FoodEvidenceEngine {
             )
         }
 
+        val carbNutrient = nutrients["carbohydrate"]
+        val carbohydrateProfile = CarbohydrateEvidenceProfile(
+            total = if (f.carbohydrateDefinition == CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE) carbNutrient else null,
+            available = if (f.carbohydrateDefinition == CarbohydrateDefinition.AVAILABLE_EXCLUDING_FIBRE) carbNutrient else null,
+            fibre = nutrients["fibre"],
+            sugars = nutrients["sugars"]
+        )
+
         return CanonicalFoodRecord(
             id = f.id,
             identityKind = f.identityKind,
@@ -306,6 +328,10 @@ internal object FoodEvidenceEngine {
             basisAmount = f.basisAmount,
             basisUnit = f.basisUnit,
             carbohydrateDefinition = f.carbohydrateDefinition,
+            carbohydrates = carbohydrateProfile,
+            energyEvidence = f.energyEvidence,
+            densityGPerMl = f.densityGPerMl,
+            densitySource = f.densitySource,
             nutrients = nutrients,
             integrityWarnings = f.sourceWarnings,
             canonicalSchemaVersion = f.canonicalSchemaVersion
