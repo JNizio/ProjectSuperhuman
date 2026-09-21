@@ -135,4 +135,13 @@ class FoodUnitSystemTest {
         assertNull(FoodUnitSystem.convert(unresolved, 1.0, FoodUnit.PIECE))
     }
 
+
+    @Test
+    fun parsesPhysicalQuantityInsideHumanServingLabels() {
+        assertEquals(32.0, FoodUnitSystem.parseBasis("1 slice (32 g)")?.first)
+        assertEquals(FoodUnit.G, FoodUnitSystem.parseBasis("1 slice (32 g)")?.second)
+        assertEquals(330.0, FoodUnitSystem.parseBasis("6 x 330 ml")?.first)
+        assertEquals(FoodUnit.ML, FoodUnitSystem.parseBasis("6 x 330 ml")?.second)
+    }
+
 }
