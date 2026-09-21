@@ -194,9 +194,10 @@ internal object NativeDataHub {
                 LargeLocalFoodDatabase.search(appContext, query, limit = 6)
             }.getOrDefault(emptyList())
             if (expanded.isNotEmpty()) return expanded.first()
-            val q = query.lowercase()
+            val tokens = query.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
             return bundled.firstOrNull { food ->
-                food.name.lowercase().contains(q) || food.searchText.lowercase().contains(q)
+                val haystack = (food.name + " " + food.searchText).lowercase()
+                tokens.all(haystack::contains)
             }
         }
 
