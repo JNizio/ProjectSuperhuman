@@ -520,15 +520,29 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
     } else {
         "${snapshot.workoutVolumeToday} kg"
     }
+    val distanceLabel = if (snapshot.cardioDistanceTodayKm >= 10.0) {
+        String.format(Locale.US, "%.1f km", snapshot.cardioDistanceTodayKm)
+    } else {
+        String.format(Locale.US, "%.2f km", snapshot.cardioDistanceTodayKm)
+    }
     val headline = if (trained) {
         "${snapshot.workoutsToday} session${if (snapshot.workoutsToday == 1) "" else "s"} today"
     } else {
         "Ready to train"
     }
+    val summaryLine = if (trained) {
+        buildList {
+            if (snapshot.strengthWorkoutsToday > 0) add("${snapshot.strengthWorkoutsToday} strength")
+            if (snapshot.cardioWorkoutsToday > 0) add("${snapshot.cardioWorkoutsToday} cardio")
+            if (snapshot.trainingMinutesToday > 0) add("${snapshot.trainingMinutesToday} min")
+        }.joinToString(" · ")
+    } else {
+        "Strength and cardio"
+    }
 
     Box(
         Modifier.fillMaxWidth()
-            .height(212.dp)
+            .height(205.dp)
             .clip(RoundedCornerShape(29.dp))
             .background(
                 Brush.linearGradient(
@@ -546,7 +560,7 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
             "dashboard_training.png",
             Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
-            alpha = .23f
+            alpha = .21f
         )
         Box(
             Modifier.fillMaxSize().background(
@@ -566,8 +580,8 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
                 Brush.verticalGradient(
                     listOf(
                         Color.Transparent,
-                        Color(0xFF061829).copy(alpha = .16f),
-                        Color(0xFF061829).copy(alpha = .72f)
+                        Color(0xFF061829).copy(alpha = .18f),
+                        Color(0xFF061829).copy(alpha = .76f)
                     )
                 )
             )
@@ -603,42 +617,56 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
             Spacer(Modifier.height(7.dp))
             Text(headline, color = Color.White, fontSize = 25.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black)
             Text(
-                if (trained) "Strength and cardio activity" else "Strength and cardio",
+                summaryLine,
                 color = Color.White.copy(alpha = .56f),
                 fontSize = 9.sp
             )
 
-            Spacer(Modifier.height(14.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                TrainingModuleTile(
+            Spacer(Modifier.height(11.dp))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = .10f)))
+            Spacer(Modifier.height(11.dp))
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                TrainingSummaryColumn(
                     title = "STRENGTH",
-                    value = if (snapshot.strengthWorkoutsToday > 0) {
-                        "${snapshot.strengthWorkoutsToday} session${if (snapshot.strengthWorkoutsToday == 1) "" else "s"}"
-                    } else {
-                        "No session"
+                    accent = strengthAccent,
+                    primary = when {
+                        snapshot.strengthWorkoutsToday > 0 && !snapshot.latestStrengthWorkoutName.isNullOrBlank() ->
+                            snapshot.latestStrengthWorkoutName
+                        snapshot.strengthWorkoutsToday > 0 -> "${snapshot.strengthWorkoutsToday} session${if (snapshot.strengthWorkoutsToday == 1) "" else "s"}"
+                        else -> "No strength today"
                     },
-                    detail = if (snapshot.strengthWorkoutsToday > 0) {
+                    secondary = if (snapshot.strengthWorkoutsToday > 0) {
                         "${snapshot.workoutSetsToday} sets · $volumeLabel"
                     } else {
                         "Routines · PRs · history"
                     },
-                    accent = strengthAccent,
                     modifier = Modifier.weight(1f)
                 )
-                TrainingModuleTile(
+
+                Box(
+                    Modifier.width(1.dp).height(49.dp)
+                        .background(Color.White.copy(alpha = .10f))
+                )
+
+                TrainingSummaryColumn(
                     title = "CARDIO",
-                    value = if (snapshot.cardioWorkoutsToday > 0) {
-                        "${snapshot.cardioWorkoutsToday} session${if (snapshot.cardioWorkoutsToday == 1) "" else "s"}"
-                    } else {
-                        "No session"
-                    },
-                    detail = if (snapshot.cardioWorkoutsToday > 0) {
-                        "Open cardio details"
-                    } else {
-                        "Run · walk · cycle · fitness"
-                    },
                     accent = cardioAccent,
-                    modifier = Modifier.weight(1f)
+                    primary = when {
+                        snapshot.cardioWorkoutsToday > 0 && !snapshot.latestCardioActivityName.isNullOrBlank() ->
+                            snapshot.latestCardioActivityName
+                        snapshot.cardioWorkoutsToday > 0 -> "${snapshot.cardioWorkoutsToday} session${if (snapshot.cardioWorkoutsToday == 1) "" else "s"}"
+                        else -> "No cardio today"
+                    },
+                    secondary = if (snapshot.cardioWorkoutsToday > 0) {
+                        listOfNotNull(
+                            distanceLabel.takeIf { snapshot.cardioDistanceTodayKm > 0.0 },
+                            "${snapshot.cardioMinutesToday} min".takeIf { snapshot.cardioMinutesToday > 0 }
+                        ).joinToString(" · ").ifBlank { "Session logged" }
+                    } else {
+                        "Run · walk · cycle"
+                    },
+                    modifier = Modifier.weight(1f).padding(start = 14.dp)
                 )
             }
         }
@@ -646,29 +674,17 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
 }
 
 @Composable
-private fun TrainingModuleTile(
+private fun TrainingSummaryColumn(
     title: String,
-    value: String,
-    detail: String,
     accent: Color,
+    primary: String,
+    secondary: String,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier.height(72.dp)
-            .background(Color.White.copy(alpha = .075f), RoundedCornerShape(17.dp))
-            .border(1.dp, accent.copy(alpha = .20f), RoundedCornerShape(17.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Box(
-            Modifier.width(9.dp).height(9.dp)
-                .background(accent, CircleShape)
-        )
-        Spacer(Modifier.width(9.dp))
-        Column(
-            Modifier.weight(1f),
-            verticalArrangement = Arrangement.Center
-        ) {
+    Column(modifier) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(7.dp).height(7.dp).background(accent, CircleShape))
+            Spacer(Modifier.width(6.dp))
             Text(
                 title,
                 color = accent,
@@ -677,26 +693,24 @@ private fun TrainingModuleTile(
                 letterSpacing = .65.sp,
                 maxLines = 1
             )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                value,
-                color = Color.White,
-                fontSize = 13.sp,
-                lineHeight = 15.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 1
-            )
-            if (detail.isNotBlank()) {
-                Spacer(Modifier.height(1.dp))
-                Text(
-                    detail,
-                    color = Color.White.copy(alpha = .50f),
-                    fontSize = 6.5.sp,
-                    lineHeight = 8.sp,
-                    maxLines = 1
-                )
-            }
         }
+        Spacer(Modifier.height(5.dp))
+        Text(
+            primary,
+            color = Color.White,
+            fontSize = 12.5.sp,
+            lineHeight = 15.sp,
+            fontWeight = FontWeight.Black,
+            maxLines = 1
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            secondary,
+            color = Color.White.copy(alpha = .50f),
+            fontSize = 7.sp,
+            lineHeight = 9.sp,
+            maxLines = 1
+        )
     }
 }
 
