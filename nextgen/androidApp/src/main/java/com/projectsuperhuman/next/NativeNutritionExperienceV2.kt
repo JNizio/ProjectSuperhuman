@@ -1669,8 +1669,8 @@ private suspend fun n2SaveGoals(goals: N2Goals) {
 
 private fun n2BuildDay(rows: List<HealthValue>): N2Day {
     val foodRows = rows.filter { it.metric.startsWith("food_") }
-    val kcalRows = foodRows.filter { it.metric == "food_kcal" }
-    val groups = kcalRows.groupBy { row -> row.metadata["diaryEntryId"] ?: "legacy:${row.timestampEpochMs}:${row.metadata["foodId"].orEmpty()}" }
+    val anchorRows = foodRows.filter { it.metric == "food_entry" || it.metric == "food_kcal" }
+    val groups = anchorRows.groupBy { row -> row.metadata["diaryEntryId"] ?: "legacy:${row.timestampEpochMs}:${row.metadata["foodId"].orEmpty()}" }
 
     fun metric(entryId: String, metric: String, fallback: String? = null): Double {
         val direct = foodRows.firstOrNull { row ->
@@ -1682,42 +1682,44 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
     }
 
     val entries = groups.mapNotNull { (entryId, group) ->
-        val kcal = group.maxByOrNull { it.timestampEpochMs } ?: return@mapNotNull null
+        val anchor = group.maxByOrNull { it.timestampEpochMs } ?: return@mapNotNull null
+        val kcalValue = metric(entryId, "food_kcal")
         N2Entry(
             id = entryId,
-            foodId = kcal.metadata["foodId"].orEmpty(),
-            timestamp = kcal.timestampEpochMs,
-            name = kcal.metadata["name"] ?: "Food",
-            amount = kcal.metadata["amount"]?.toDoubleOrNull()
-                ?: kcal.metadata["grams"]?.toDoubleOrNull()
+            foodId = anchor.metadata["foodId"].orEmpty(),
+            timestamp = anchor.timestampEpochMs,
+            name = anchor.metadata["name"] ?: "Food",
+            amount = anchor.metadata["amount"]?.toDoubleOrNull()
+                ?: anchor.metadata["grams"]?.toDoubleOrNull()
                 ?: 100.0,
-            amountUnit = kcal.metadata["amountUnit"]
-                ?: if (kcal.metadata["grams"] != null) "g" else "g",
-            meal = kcal.metadata["meal"] ?: "Other",
-            kcal = kcal.value,
-            kcalKnown = kcal.metadata["kcalKnown"]?.toBooleanStrictOrNull() ?: true,
+            amountUnit = anchor.metadata["amountUnit"]
+                ?: if (anchor.metadata["grams"] != null) "g" else "g",
+            meal = anchor.metadata["meal"] ?: "Other",
+            kcal = kcalValue,
+            kcalKnown = anchor.metadata["kcalKnown"]?.toBooleanStrictOrNull()
+                ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_kcal" },
             protein = metric(entryId, "food_protein"),
-            proteinKnown = kcal.metadata["proteinKnown"]?.toBooleanStrictOrNull()
+            proteinKnown = anchor.metadata["proteinKnown"]?.toBooleanStrictOrNull()
                 ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_protein" },
             carbs = metric(entryId, "food_carbs", "carbs"),
-            carbsKnown = kcal.metadata["carbsKnown"]?.toBooleanStrictOrNull()
+            carbsKnown = anchor.metadata["carbsKnown"]?.toBooleanStrictOrNull()
                 ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_carbs" },
-            carbohydrateDefinition = kcal.metadata["carbohydrateDefinition"]
+            carbohydrateDefinition = anchor.metadata["carbohydrateDefinition"]
                 ?.let { runCatching { CarbohydrateDefinition.valueOf(it) }.getOrNull() }
                 ?: CarbohydrateDefinition.UNKNOWN,
             fat = metric(entryId, "food_fat", "fat"),
-            fatKnown = kcal.metadata["fatKnown"]?.toBooleanStrictOrNull()
+            fatKnown = anchor.metadata["fatKnown"]?.toBooleanStrictOrNull()
                 ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_fat" },
             fibre = metric(entryId, "food_fibre", "fibre"),
-            fibreKnown = kcal.metadata["fibreKnown"]?.toBooleanStrictOrNull()
+            fibreKnown = anchor.metadata["fibreKnown"]?.toBooleanStrictOrNull()
                 ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_fibre" },
             micronutrientCount = foodRows.count { row ->
                 row.metadata["diaryEntryId"] == entryId && !row.metadata["nutrientId"].isNullOrBlank()
             },
-            barcode = kcal.metadata["barcode"].orEmpty(),
-            sourceName = kcal.metadata["sourceName"].orEmpty(),
-            mealGroupId = kcal.metadata["mealGroupId"].orEmpty(),
-            mealGroupName = kcal.metadata["mealGroupName"].orEmpty()
+            barcode = anchor.metadata["barcode"].orEmpty(),
+            sourceName = anchor.metadata["sourceName"].orEmpty(),
+            mealGroupId = anchor.metadata["mealGroupId"].orEmpty(),
+            mealGroupName = anchor.metadata["mealGroupName"].orEmpty()
         )
     }.sortedByDescending { it.timestamp }
 
