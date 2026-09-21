@@ -32,7 +32,8 @@ internal object NutritionIntegrity {
         fat: Double,
         proteinKnown: Boolean,
         carbsKnown: Boolean,
-        fatKnown: Boolean
+        fatKnown: Boolean,
+        kcalKnown: Boolean = true
     ): MacroIntegrityResult {
         val p = protein.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
         val c = carbs.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
@@ -41,7 +42,7 @@ internal object NutritionIntegrity {
         var cKnown = carbsKnown && carbs.isFinite() && carbs >= 0.0
         var fKnown = fatKnown && fat.isFinite() && fat >= 0.0
 
-        if (!kcal.isFinite() || kcal <= 0.0) {
+        if (!kcalKnown || !kcal.isFinite() || kcal < 0.0) {
             return MacroIntegrityResult(p, c, f, pKnown, cKnown, fKnown)
         }
 
