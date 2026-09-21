@@ -307,42 +307,73 @@ internal object NativeDataHub {
      * Open Food Facts micronutrients become first-class time-series metrics ready for future
      * correlations (for example magnesium vs. sleep), instead of being trapped in UI metadata.
      */
+    /** Legacy mass-entry overload kept for older callers. */
     suspend fun saveFood(
         food: NativeFood,
         grams: Double,
         meal: String = "Snack",
         timestampEpochMs: Long = System.currentTimeMillis()
+    ) {
+        saveFood(
+            food = food,
+            amount = grams,
+            inputUnit = FoodUnit.G,
+            meal = meal,
+            timestampEpochMs = timestampEpochMs
+        )
+    }
+
+    suspend fun saveFood(
+        food: NativeFood,
+        amount: Double,
+        inputUnit: FoodUnit,
+        meal: String = "Snack",
+        timestampEpochMs: Long = System.currentTimeMillis()
     ) = withContext(Dispatchers.IO) {
-        val safeGrams = grams.coerceIn(1.0, 5_000.0)
+        val safeAmount = amount.coerceIn(0.001, 100_000.0)
+        val conversion = FoodUnitSystem.convert(food, safeAmount, inputUnit)
+            ?: return@withContext
+
         val now = timestampEpochMs
         val foodHash = abs(food.id.hashCode().toLong())
-        val entryId = "nutrition-$now-$foodHash-${(safeGrams * 10.0).roundToInt()}"
-        val protein = NutritionMath.scalePer100(food.protein, safeGrams)
-        val carbs = NutritionMath.scalePer100(food.carbs, safeGrams)
-        val fat = NutritionMath.scalePer100(food.fat, safeGrams)
-        val fibre = NutritionMath.scalePer100(food.fibre, safeGrams)
-        val sugar = NutritionMath.scalePer100(food.sugar, safeGrams)
+        val entryId = "nutrition-$now-$foodHash-${(safeAmount * 100.0).roundToInt()}-${inputUnit.name.lowercase()}"
+        val factor = conversion.factor
+        val protein = food.protein * factor
+        val carbs = food.carbs * factor
+        val fat = food.fat * factor
+        val fibre = food.fibre * factor
+        val sugar = food.sugar * factor
 
-        val common = mapOf(
-            "diaryEntryId" to entryId,
-            "foodId" to food.id,
-            "name" to food.name,
-            "grams" to safeGrams.toString(),
-            "meal" to meal,
-            "sourceName" to food.source,
-            "barcode" to (food.barcode ?: ""),
-            "brand" to food.brand,
-            "quantity" to food.quantity,
-            "servingSize" to food.servingSize,
-            "protein" to protein.toString(),
-            "carbs" to carbs.toString(),
-            "fat" to fat.toString(),
-            "fibre" to if (food.fibreKnown) fibre.toString() else "",
-            "sugar" to if (food.sugarKnown) sugar.toString() else "",
-            "fibreKnown" to food.fibreKnown.toString(),
-            "sugarKnown" to food.sugarKnown.toString(),
-            "micronutrientCount" to food.micronutrients.size.toString()
-        )
+        val common = buildMap {
+            put("diaryEntryId", entryId)
+            put("foodId", food.id)
+            put("name", food.name)
+            put("amount", safeAmount.toString())
+            put("amountUnit", inputUnit.symbol)
+            put("basisAmount", conversion.basisAmount.toString())
+            put("basisUnit", conversion.basisUnit.symbol)
+            conversion.grams?.let { put("grams", it.toString()) }
+            conversion.millilitres?.let { put("millilitres", it.toString()) }
+            put("meal", meal)
+            put("sourceName", food.source)
+            put("barcode", food.barcode ?: "")
+            put("brand", food.brand)
+            put("quantity", food.quantity)
+            put("servingSize", food.servingSize)
+            put("protein", protein.toString())
+            put("carbs", carbs.toString())
+            put("fat", fat.toString())
+            put("fibre", if (food.fibreKnown) fibre.toString() else "")
+            put("sugar", if (food.sugarKnown) sugar.toString() else "")
+            put("fibreKnown", food.fibreKnown.toString())
+            put("sugarKnown", food.sugarKnown.toString())
+            put("micronutrientCount", food.micronutrients.size.toString())
+            put("unitSystemVersion", "2")
+            food.densityGPerMl?.let {
+                put("densityGPerMl", it.toString())
+                put("densityApproximate", food.densityApproximate.toString())
+            }
+        }
 
         fun row(metric: String, value: Double, unit: String, extra: Map<String, String> = emptyMap()): HealthValue =
             HealthValue(
@@ -356,7 +387,7 @@ internal object NativeDataHub {
             )
 
         val values = buildList {
-            add(row("food_kcal", NutritionMath.scalePer100(food.kcal, safeGrams), "kcal"))
+            add(row("food_kcal", food.kcal * factor, "kcal"))
             add(row("food_protein", protein, "g"))
             add(row("food_carbs", carbs, "g"))
             add(row("food_fat", fat, "g"))
@@ -372,12 +403,14 @@ internal object NativeDataHub {
                 add(
                     row(
                         metric = "food_${metricId}_$suffix",
-                        value = NutritionMath.scalePer100(nutrient.valuePer100, safeGrams),
+                        value = nutrient.valuePer100 * factor,
                         unit = nutrient.unit,
                         extra = mapOf(
                             "nutrientId" to nutrient.id,
                             "nutrientLabel" to nutrient.label,
-                            "per100" to nutrient.valuePer100.toString()
+                            "perBasis" to nutrient.valuePer100.toString(),
+                            "perBasisAmount" to food.basisAmount.toString(),
+                            "perBasisUnit" to food.basisUnit.symbol
                         )
                     )
                 )
@@ -387,4 +420,5 @@ internal object NativeDataHub {
         ingestion.ingestValues(values)
         Unit
     }
+
 }
