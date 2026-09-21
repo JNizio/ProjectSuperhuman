@@ -772,9 +772,8 @@ internal object LargeLocalFoodDatabase {
               AND sugar_known = 1
               AND saturated_fat_known = 1
               AND sodium_known = 1
-              AND essential_micronutrient_count >= ?
             """.trimIndent(),
-            arrayOf(CORE_MIN_MICRONUTRIENTS.toString())
+            null
         ).use { cursor ->
             while (cursor.moveToNext()) {
                 candidates += CoreCandidate(
@@ -819,14 +818,15 @@ internal object LargeLocalFoodDatabase {
             return score
         }
 
+        val comparator = compareByDescending<CoreCandidate> { it.essentialCount >= CORE_MIN_MICRONUTRIENTS }
+            .thenByDescending { commonnessScore(it) }
+            .thenByDescending { it.essentialCount }
+            .thenByDescending { it.microCount }
+            .thenBy { it.name.length }
+            .thenBy { it.name }
+
         val selected = candidates
-            .sortedWith(
-                compareByDescending<CoreCandidate> { commonnessScore(it) }
-                    .thenByDescending { it.essentialCount }
-                    .thenByDescending { it.microCount }
-                    .thenBy { it.name.length }
-                    .thenBy { it.name }
-            )
+            .sortedWith(comparator)
             .take(CORE_FOOD_TARGET)
 
         db.execSQL("UPDATE food_reference SET core_rank = NULL")
@@ -837,8 +837,13 @@ internal object LargeLocalFoodDatabase {
             update.bindString(2, candidate.id)
             update.executeUpdateDelete()
         }
+
+        val strictCount = selected.count { it.essentialCount >= CORE_MIN_MICRONUTRIENTS }
         putMeta(db, "project_superhuman_core_food_count", selected.size.toString())
-        putMeta(db, "project_superhuman_core_food_schema", "1")
+        putMeta(db, "project_superhuman_core_food_strict_count", strictCount.toString())
+        putMeta(db, "project_superhuman_core_food_schema", "2")
+        putMeta(db, "project_superhuman_core_food_min_essential", CORE_MIN_MICRONUTRIENTS.toString())
+        putMeta(db, "project_superhuman_core_food_essential_total", CORE_MICRONUTRIENTS.size.toString())
     }
 
     private fun putMeta(db: SQLiteDatabase, key: String, value: String) {
