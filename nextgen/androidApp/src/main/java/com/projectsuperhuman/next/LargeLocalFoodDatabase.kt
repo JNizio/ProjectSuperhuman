@@ -102,6 +102,7 @@ internal object LargeLocalFoodDatabase {
                 helper.readableDatabase.rawQuery(
                     """
                     SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
+                           protein_known, carbs_known, fat_known, fibre_known, sugar_known,
                            unit, source, search_text, brand, micronutrients_json
                     FROM food_reference
                     WHERE normalized_name LIKE ? OR search_text LIKE ?
@@ -131,11 +132,16 @@ internal object LargeLocalFoodDatabase {
                                     fat = cursor.getDouble(6),
                                     fibre = cursor.getDouble(7),
                                     sugar = cursor.getDouble(8),
-                                    unit = cursor.getString(9),
-                                    source = cursor.getString(10),
-                                    searchText = cursor.getString(11),
-                                    brand = cursor.getString(12),
-                                    micronutrients = decodeMicros(cursor.getString(13))
+                                    proteinKnown = cursor.getInt(9) != 0,
+                                    carbsKnown = cursor.getInt(10) != 0,
+                                    fatKnown = cursor.getInt(11) != 0,
+                                    fibreKnown = cursor.getInt(12) != 0,
+                                    sugarKnown = cursor.getInt(13) != 0,
+                                    unit = cursor.getString(14),
+                                    source = cursor.getString(15),
+                                    searchText = cursor.getString(16),
+                                    brand = cursor.getString(17),
+                                    micronutrients = decodeMicros(cursor.getString(18))
                                 )
                             )
                         }
@@ -472,6 +478,11 @@ internal object LargeLocalFoodDatabase {
             fat = fat,
             fibre = nutrients.fibre ?: 0.0,
             sugar = nutrients.sugar ?: 0.0,
+            proteinKnown = true,
+            carbsKnown = true,
+            fatKnown = true,
+            fibreKnown = nutrients.fibre != null,
+            sugarKnown = nutrients.sugar != null,
             unit = "100 g",
             source = "$sourceLabel · FDC $id",
             searchText = "${description.lowercase(Locale.ROOT)} usda fooddata central fdc $id",
@@ -621,6 +632,11 @@ internal object LargeLocalFoodDatabase {
             put("fat", food.fat)
             put("fibre", food.fibre)
             put("sugar", food.sugar)
+            put("protein_known", if (food.proteinKnown) 1 else 0)
+            put("carbs_known", if (food.carbsKnown) 1 else 0)
+            put("fat_known", if (food.fatKnown) 1 else 0)
+            put("fibre_known", if (food.fibreKnown) 1 else 0)
+            put("sugar_known", if (food.sugarKnown) 1 else 0)
             put("unit", food.unit)
             put("source", food.source)
             put("search_text", normalize("${food.name} ${food.searchText} ${food.brand}"))
@@ -765,7 +781,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    1
+    2
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -781,6 +797,11 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 fat REAL NOT NULL,
                 fibre REAL NOT NULL,
                 sugar REAL NOT NULL,
+                protein_known INTEGER NOT NULL,
+                carbs_known INTEGER NOT NULL,
+                fat_known INTEGER NOT NULL,
+                fibre_known INTEGER NOT NULL,
+                sugar_known INTEGER NOT NULL,
                 unit TEXT NOT NULL,
                 source TEXT NOT NULL,
                 search_text TEXT NOT NULL,
@@ -802,5 +823,12 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
         )
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        // Reference data is reproducible from bundled priority rows + USDA archives. Rebuilding is
+        // safer than carrying forward rows where missing fibre/sugar had previously been stored as
+        // known zero.
+        db.execSQL("DROP TABLE IF EXISTS food_reference")
+        db.execSQL("DROP TABLE IF EXISTS food_reference_meta")
+        onCreate(db)
+    }
 }
