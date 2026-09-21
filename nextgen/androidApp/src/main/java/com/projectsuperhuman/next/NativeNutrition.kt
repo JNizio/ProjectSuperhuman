@@ -133,7 +133,7 @@ fun NativeNutritionPage(onBack: () -> Unit) {
         barcode = digits
         lookupInProgress = true
         status = "Looking up $digits in Open Food Facts…"
-        val product = NativeFoodCatalog.lookupBarcode(digits)
+        val product = NativeFoodCatalog.lookupBarcode(context, digits)
         lookupInProgress = false
         if (product == null) {
             status = "Product not found in Open Food Facts, or the network is unavailable"
