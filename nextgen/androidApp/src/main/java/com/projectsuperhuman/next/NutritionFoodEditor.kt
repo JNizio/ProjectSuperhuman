@@ -115,7 +115,7 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
 
     suspend fun refreshSelectedFromSource(food: NativeFood) {
         val fresh = if (!food.barcode.isNullOrBlank()) {
-            NativeFoodCatalog.lookupBarcode(food.barcode)
+            NativeFoodCatalog.lookupBarcode(context, food.barcode.orEmpty())
         } else {
             NativeFoodCatalog.search(context, food.name, limit = 36).foods.firstOrNull { it.id == food.id }
         }
@@ -180,7 +180,7 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                                     return@launch
                                 }
                                 lookingUp = true
-                                val food = NativeFoodCatalog.lookupBarcode(digits)
+                                val food = NativeFoodCatalog.lookupBarcode(context, digits)
                                 lookingUp = false
                                 if (food == null) status = "Product not found"
                                 else { results = listOf(food); load(food); status = "" }
@@ -317,7 +317,7 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                         micronutrients = microMap,
                         nutritionIntegrityWarning = null
                     )
-                    FoodNutritionOverrideStore.save(context, edited)
+                    FoodNutritionOverrideStore.save(context, selected ?: edited, edited)
                     val applied = FoodNutritionOverrideStore.applyAll(context, listOf(edited)).first()
                     load(applied)
                     results = results.map { if (sameFood(it, applied)) applied else it }
