@@ -96,6 +96,7 @@ private data class N2Entry(
     val proteinKnown: Boolean,
     val carbs: Double,
     val carbsKnown: Boolean,
+    val carbohydrateDefinition: CarbohydrateDefinition,
     val fat: Double,
     val fatKnown: Boolean,
     val fibre: Double,
@@ -127,7 +128,11 @@ private data class N2Day(
 ) {
     val kcalComplete: Boolean get() = entries.all { it.kcalKnown }
     val proteinComplete: Boolean get() = entries.all { it.proteinKnown }
-    val carbsComplete: Boolean get() = entries.all { it.carbsKnown }
+    val carbsComplete: Boolean get() {
+        if (!entries.all { it.carbsKnown }) return false
+        val definitions = entries.map { it.carbohydrateDefinition }.toSet()
+        return CarbohydrateDefinition.UNKNOWN !in definitions && definitions.size <= 1
+    }
     val fatComplete: Boolean get() = entries.all { it.fatKnown }
     val fibreComplete: Boolean get() = entries.all { it.fibreKnown }
 }
@@ -1695,6 +1700,9 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             carbs = metric(entryId, "food_carbs", "carbs"),
             carbsKnown = kcal.metadata["carbsKnown"]?.toBooleanStrictOrNull()
                 ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_carbs" },
+            carbohydrateDefinition = kcal.metadata["carbohydrateDefinition"]
+                ?.let { runCatching { CarbohydrateDefinition.valueOf(it) }.getOrNull() }
+                ?: CarbohydrateDefinition.UNKNOWN,
             fat = metric(entryId, "food_fat", "fat"),
             fatKnown = kcal.metadata["fatKnown"]?.toBooleanStrictOrNull()
                 ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_fat" },
