@@ -143,7 +143,8 @@ internal object LargeLocalFoodDatabase {
                         """
                         SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
                                protein_known, carbs_known, fat_known, fibre_known, sugar_known,
-                               unit, source, search_text, brand, micronutrients_json, core_rank
+                               unit, source, search_text, brand, micronutrients_json, core_rank,
+                               saturated_fat, saturated_fat_known, sodium_mg, sodium_known
                         FROM food_reference
                         WHERE normalized_name LIKE ? OR search_text LIKE ?
                         ORDER BY
@@ -194,7 +195,13 @@ internal object LargeLocalFoodDatabase {
                                         source = cursor.getString(15),
                                         searchText = cursor.getString(16),
                                         brand = cursor.getString(17),
-                                        micronutrients = decodeMicros(cursor.getString(18))
+                                        micronutrients = decodeMicros(cursor.getString(18)),
+                                        saturatedFat = cursor.getDouble(20),
+                                        saturatedFatKnown = cursor.getInt(21) != 0,
+                                        sodiumMg = cursor.getDouble(22),
+                                        sodiumKnown = cursor.getInt(23) != 0,
+                                        salt = if (cursor.getInt(23) != 0) NutritionIntegrity.sodiumMgToSaltG(cursor.getDouble(22)) else 0.0,
+                                        saltKnown = cursor.getInt(23) != 0
                                     )
                                 )
                             }
@@ -543,13 +550,19 @@ internal object LargeLocalFoodDatabase {
             carbs = carbs,
             carbohydrateDefinition = CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE,
             fat = fat,
+            saturatedFat = nutrients.saturatedFat ?: 0.0,
             fibre = nutrients.fibre ?: 0.0,
             sugar = nutrients.sugar ?: 0.0,
+            sodiumMg = nutrients.sodiumMg ?: 0.0,
+            salt = nutrients.sodiumMg?.let(NutritionIntegrity::sodiumMgToSaltG) ?: 0.0,
             proteinKnown = true,
             carbsKnown = true,
             fatKnown = true,
+            saturatedFatKnown = nutrients.saturatedFat != null,
             fibreKnown = nutrients.fibre != null,
             sugarKnown = nutrients.sugar != null,
+            sodiumKnown = nutrients.sodiumMg != null,
+            saltKnown = nutrients.sodiumMg != null,
             unit = "100 g",
             source = "$sourceLabel · FDC $id",
             searchText = "${description.lowercase(Locale.ROOT)} usda fooddata central fdc $id",
@@ -613,6 +626,8 @@ internal object LargeLocalFoodDatabase {
         var protein: Double? = null
         var carbs: Double? = null
         var fat: Double? = null
+        var saturatedFat: Double? = null
+        var sodiumMg: Double? = null
         var fibre: Double? = null
         var sugar: Double? = null
         val micros = linkedMapOf<String, NativeNutrient>()
@@ -633,6 +648,8 @@ internal object LargeLocalFoodDatabase {
                     carbs = convertUnit(rawAmount, unit, "g")
                 id == 1004 || name == "total lipid (fat)" || name == "total fat" ->
                     fat = convertUnit(rawAmount, unit, "g")
+                id == 1258 || name.startsWith("fatty acids, total saturated") || name == "saturated fat" ->
+                    saturatedFat = convertUnit(rawAmount, unit, "g")
                 id == 1079 || name.startsWith("fiber, total dietary") || name.startsWith("fibre, total") ->
                     fibre = convertUnit(rawAmount, unit, "g")
                 id == 2000 || name == "total sugars" || name.startsWith("sugars, total") ->
@@ -648,13 +665,17 @@ internal object LargeLocalFoodDatabase {
                 name == "phosphorus, p" -> putMicro("phosphorus", "Phosphorus", "mg", rawAmount, unit)
                 name == "potassium, k" -> putMicro("potassium", "Potassium", "mg", rawAmount, unit)
                 name == "selenium, se" -> putMicro("selenium", "Selenium", "µg", rawAmount, unit)
-                name == "sodium, na" -> putMicro("sodium", "Sodium", "mg", rawAmount, unit)
+                name == "sodium, na" -> {
+                    sodiumMg = convertUnit(rawAmount, unit, "mg")
+                    putMicro("sodium", "Sodium", "mg", rawAmount, unit)
+                }
                 name == "zinc, zn" -> putMicro("zinc", "Zinc", "mg", rawAmount, unit)
                 name == "vitamin a, rae" -> putMicro("vitamin_a", "Vitamin A", "µg", rawAmount, unit)
                 name == "thiamin" -> putMicro("vitamin_b1", "Vitamin B1", "mg", rawAmount, unit)
                 name == "riboflavin" -> putMicro("vitamin_b2", "Vitamin B2", "mg", rawAmount, unit)
                 name == "niacin" -> putMicro("niacin", "Niacin (B3)", "mg", rawAmount, unit)
                 name == "pantothenic acid" -> putMicro("pantothenic_acid", "Pantothenic acid (B5)", "mg", rawAmount, unit)
+                name == "biotin" -> putMicro("biotin", "Biotin (B7)", "µg", rawAmount, unit)
                 name == "vitamin b-6" || name == "vitamin b6" ->
                     putMicro("vitamin_b6", "Vitamin B6", "mg", rawAmount, unit)
                 name == "folate, total" -> putMicro("folate", "Folate (B9)", "µg", rawAmount, unit)
@@ -699,11 +720,15 @@ internal object LargeLocalFoodDatabase {
             put("fat", food.fat)
             put("fibre", food.fibre)
             put("sugar", food.sugar)
+            put("saturated_fat", food.saturatedFat)
+            put("sodium_mg", food.sodiumMg)
             put("protein_known", if (food.proteinKnown) 1 else 0)
             put("carbs_known", if (food.carbsKnown) 1 else 0)
             put("fat_known", if (food.fatKnown) 1 else 0)
             put("fibre_known", if (food.fibreKnown) 1 else 0)
             put("sugar_known", if (food.sugarKnown) 1 else 0)
+            put("saturated_fat_known", if (food.saturatedFatKnown) 1 else 0)
+            put("sodium_known", if (food.sodiumKnown) 1 else 0)
             put("unit", food.unit)
             put("source", food.source)
             put("search_text", normalize("${food.name} ${food.searchText} ${food.brand}"))
@@ -943,7 +968,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    3
+    4
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -959,11 +984,15 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 fat REAL NOT NULL,
                 fibre REAL NOT NULL,
                 sugar REAL NOT NULL,
+                saturated_fat REAL NOT NULL DEFAULT 0,
+                sodium_mg REAL NOT NULL DEFAULT 0,
                 protein_known INTEGER NOT NULL,
                 carbs_known INTEGER NOT NULL,
                 fat_known INTEGER NOT NULL,
                 fibre_known INTEGER NOT NULL,
                 sugar_known INTEGER NOT NULL,
+                saturated_fat_known INTEGER NOT NULL DEFAULT 0,
+                sodium_known INTEGER NOT NULL DEFAULT 0,
                 unit TEXT NOT NULL,
                 source TEXT NOT NULL,
                 search_text TEXT NOT NULL,
