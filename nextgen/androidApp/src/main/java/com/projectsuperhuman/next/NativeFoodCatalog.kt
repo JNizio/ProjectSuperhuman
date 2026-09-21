@@ -227,7 +227,21 @@ internal object NativeFoodCatalog {
             emptyList()
         }
 
-        val localCandidates = (bundledLocal + expandedLocal)
+        val nutrientRichCore = expandedLocal.filter { food ->
+            food.id.startsWith("core:") && food.micronutrients.isNotEmpty()
+        }
+        val bundledVisible = if (nutrientRichCore.isEmpty()) {
+            bundledLocal
+        } else {
+            val coreTokens = nutrientRichCore.flatMap { normalizeFoodTokens(it.name) }.toSet()
+            bundledLocal.filterNot { legacy ->
+                legacy.micronutrients.isEmpty() &&
+                    normalizeFoodTokens(legacy.name).any { it in coreTokens } &&
+                    foodSearchRank(legacy, q.lowercase()) <= 1
+            }
+        }
+
+        val localCandidates = (nutrientRichCore + expandedLocal + bundledVisible)
             .map(FoodEvidenceEngine::enrich)
             .sortedWith(foodComparator(q))
             .distinctBy(FoodEvidenceEngine::dedupKey)
@@ -707,8 +721,16 @@ internal object NativeFoodCatalog {
         ).any { it in warning }
     }
 
+    private fun normalizeFoodTokens(value: String): List<String> =
+        value.lowercase()
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .trim()
+            .split(' ')
+            .filter { it.length > 2 }
+
     private fun foodComparator(query: String): Comparator<NativeFood> =
         compareBy<NativeFood> { foodSearchRank(it, query) }
+            .thenBy { if (it.id.startsWith("core:") && it.micronutrients.isNotEmpty()) 0 else 1 }
             .thenBy { if (it.nutritionIntegrityWarning.isNullOrBlank()) 0 else 1 }
             .thenBy { if (it.nutritionApproximate) 1 else 0 }
             .thenBy(::sourcePriority)
