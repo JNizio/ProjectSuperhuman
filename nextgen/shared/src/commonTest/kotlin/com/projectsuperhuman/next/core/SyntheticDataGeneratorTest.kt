@@ -88,7 +88,10 @@ class SyntheticDataGeneratorTest {
 
         assertEquals(365, metric(HealthDomain.EXERCISE, "steps").size)
         assertEquals(365, metric(HealthDomain.EXERCISE, "active_calories_kcal").size)
-        assertEquals(365 * 3, metric(HealthDomain.NUTRITION, "food_kcal").size)
+        val nutritionKcal = metric(HealthDomain.NUTRITION, "food_kcal")
+        assertTrue(nutritionKcal.size in (365 * 9)..(365 * 12))
+        assertEquals(365 * 3, nutritionKcal.mapNotNull { it.metadata["mealGroupId"] }.distinct().size)
+        assertTrue(nutritionKcal.all { it.metadata["entryType"] == "INGREDIENT" })
         assertEquals(365, metric(HealthDomain.HYDRATION, "water_total_l").size)
         assertEquals(365, metric(HealthDomain.MINDFULNESS, "mood_score").size)
     }
