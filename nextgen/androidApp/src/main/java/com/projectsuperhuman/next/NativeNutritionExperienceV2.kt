@@ -899,36 +899,86 @@ private fun N2Button(label: String, accent: Color, modifier: Modifier, enabled: 
 @Composable
 private fun N2Results(foods: List<NativeFood>, selectedId: String?, onSelect: (NativeFood) -> Unit) {
     Column(
-        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(SuperhumanLayout.cardPadding),
-        verticalArrangement = Arrangement.spacedBy(7.dp)
+        Modifier.fillMaxWidth()
+            .background(N2Surface, RoundedCornerShape(22.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(22.dp))
+            .padding(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
-        Text("Results", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        foods.take(10).forEach { food ->
-            Row(
-                Modifier.fillMaxWidth().background(if (food.id == selectedId) N2SoftGreen else N2RowBg, RoundedCornerShape(14.dp))
-                    .clickable { onSelect(food) }.padding(SuperhumanLayout.compactCardPadding),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(food.name, color = N2Ink, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
-                    if (food.hasVerifiedEnglishName && food.originalName.isNotBlank() && !food.originalName.equals(food.name, ignoreCase = true)) {
-                        Text(food.originalName, color = N2Muted, fontSize = 8.sp, maxLines = 1)
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Results", color = N2Ink, fontSize = 15.sp, fontWeight = FontWeight.Black)
+            Text(
+                foods.size.toString() + if (foods.size == 1) " match" else " matches",
+                color = N2Muted,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Row(
+            Modifier.fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(9.dp)
+        ) {
+            foods.take(8).forEach { food ->
+                val selected = food.id == selectedId
+                Column(
+                    Modifier.width(220.dp)
+                        .background(if (selected) N2SoftGreen else N2RowBg, RoundedCornerShape(16.dp))
+                        .border(
+                            1.dp,
+                            if (selected) N2Green.copy(alpha = .55f) else N2Border,
+                            RoundedCornerShape(16.dp)
+                        )
+                        .superhumanClickable { onSelect(food) }
+                        .padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                food.name,
+                                color = N2Ink,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                maxLines = 2
+                            )
+                            Text(
+                                food.brand.ifBlank { FoodEvidenceEngine.userFacingSourceLabel(food) },
+                                color = N2Muted,
+                                fontSize = 9.sp,
+                                maxLines = 1
+                            )
+                        }
+                        Text(
+                            if (selected) "✓" else "+",
+                            color = if (selected) N2Green else N2Blue,
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Black
+                        )
                     }
+
                     Text(
-                        buildString {
-                            if (food.brand.isNotBlank()) append(food.brand).append(" · ")
-                            append(FoodEvidenceEngine.userFacingSourceLabel(food))
-                        }, color = N2Muted, fontSize = 9.sp
+                        (if (food.kcalKnown) food.kcal.roundToInt().toString() + " kcal" else "— kcal") +
+                            " · " + (if (food.proteinKnown) n2One(food.protein) + "g P" else "— P"),
+                        color = N2Ink,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold
                     )
                     Text(
-                        (if (food.kcalKnown) "${food.kcal.roundToInt()} kcal" else "— kcal") + " · " +
-                            (if (food.proteinKnown) "${n2One(food.protein)}P" else "—P") + " · " +
-                            (if (food.carbsKnown) "${n2One(food.carbs)}C" else "—C") + " · " +
-                            (if (food.fatKnown) "${n2One(food.fat)}F" else "—F") + " per ${food.unit}",
-                        color = N2Muted, fontSize = 9.sp
+                        (if (food.carbsKnown) n2One(food.carbs) + "g C" else "— C") +
+                            " · " + (if (food.fatKnown) n2One(food.fat) + "g F" else "— F") +
+                            " · per " + food.unit,
+                        color = N2Muted,
+                        fontSize = 9.sp,
+                        maxLines = 1
                     )
                 }
-                Text("+", color = N2Green, fontSize = 22.sp, fontWeight = FontWeight.Black)
             }
         }
     }
