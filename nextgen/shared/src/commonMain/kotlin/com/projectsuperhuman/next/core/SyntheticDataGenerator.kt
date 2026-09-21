@@ -211,8 +211,9 @@ class SyntheticDataGenerator(
             val steps = (
                 3_500.0 + activity * 9_000.0 + recovery * 1_200.0 - stress * 650.0 + random.centered(900.0)
                 ).coerceIn(1_800.0, 19_000.0)
-            val strengthWorkoutDay = dayIndex % 7 in setOf(0, 2, 4, 5) && recovery > 0.28
-            val cardioWorkoutDay = dayIndex % 7 in setOf(1, 4, 6) && recovery > 0.25
+            val isLatestGeneratedDay = dayIndex == config.days - 1
+            val strengthWorkoutDay = (dayIndex % 7 in setOf(0, 2, 4, 5) || isLatestGeneratedDay) && recovery > 0.28
+            val cardioWorkoutDay = (dayIndex % 7 in setOf(1, 4, 6) || isLatestGeneratedDay) && recovery > 0.25
             // Preserve the established generic activity/strength stream. Cardio sessions are
             // generated independently below so adding Cardio coverage does not distort existing
             // cross-module correlations or legacy synthetic expectations.
