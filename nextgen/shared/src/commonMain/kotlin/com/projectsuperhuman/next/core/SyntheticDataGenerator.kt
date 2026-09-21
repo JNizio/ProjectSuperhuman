@@ -49,15 +49,28 @@ private data class SyntheticMealTemplate(
  * to discover. Every row is tagged with [SYNTHETIC_DATA_SOURCE], so the complete generated history
  * can be removed without touching genuine user data.
  *
- * Nutrition is intentionally represented as real-looking diary meals rather than anonymous daily
- * totals. Each breakfast/lunch/dinner carries linked calories, macros, fibre/sugar and a broad
- * micronutrient panel. Values are approximate testing data, never a nutrition claim about a real
- * product.
+ * Nutrition is intentionally represented as ingredient-level diary data grouped into realistic
+ * meals. The meal name remains available as presentation metadata, while each ingredient is stored
+ * as its own diary entry so Nutrition, Trudy and n-of-1 analysis can reason at ingredient level.
+ * Values are approximate testing data, never a nutrition claim about a real product.
  */
 class SyntheticDataGenerator(
     private val ingestion: DataIngestionPipeline,
     private val nowEpochMs: () -> Long
 ) {
+    private fun ingredientBreakdown(template: SyntheticMealTemplate): List<Pair<String, Double>> = when (template.id) {
+        "skyr-oats-berries" -> listOf("Skyr" to 0.46, "Oats" to 0.32, "Mixed berries" to 0.22)
+        "eggs-avocado-sourdough" -> listOf("Eggs" to 0.34, "Avocado" to 0.28, "Sourdough bread" to 0.38)
+        "greek-yoghurt-banana-granola" -> listOf("Greek yoghurt" to 0.48, "Banana" to 0.27, "Granola" to 0.25)
+        "chicken-rice-broccoli" -> listOf("Chicken breast" to 0.34, "Rice" to 0.43, "Broccoli" to 0.23)
+        "lentil-feta-wholegrain" -> listOf("Lentils" to 0.46, "Feta" to 0.18, "Wholegrain rice" to 0.36)
+        "tuna-potato-salad" -> listOf("Tuna" to 0.28, "Potatoes" to 0.48, "Salad vegetables" to 0.24)
+        "salmon-potatoes-spinach" -> listOf("Salmon" to 0.31, "Potatoes" to 0.49, "Spinach" to 0.20)
+        "turkey-tomato-pasta" -> listOf("Turkey breast" to 0.30, "Pasta" to 0.43, "Tomato sauce" to 0.22, "Olive oil" to 0.05)
+        "chicken-curry-rice" -> listOf("Chicken breast" to 0.27, "Rice" to 0.40, "Curry vegetables" to 0.26, "Curry sauce" to 0.07)
+        else -> listOf(template.name to 1.0)
+    }
+
     suspend fun generate(config: SyntheticGenerationConfig = SyntheticGenerationConfig()): SyntheticGenerationResult {
         require(config.days in 1..MAX_DAYS) { "Synthetic history must be between 1 and $MAX_DAYS days" }
         require(config.batchSize in 100..5_000) { "Synthetic batch size must be between 100 and 5000" }
@@ -531,7 +544,7 @@ class SyntheticDataGenerator(
                 add(dayIndex, anchor, HealthDomain.EXERCISE, "workout_volume", workoutVolume, "kg-reps", activityTs)
             }
 
-            // Nutrition: exactly three realistic diary meals per day, with linked macros + micros.
+            // Nutrition: three meal containers per day, persisted as ingredient-level diary entries.
             val targetDailyKcal = (
                 2_050.0 + activeCalories * 0.72 + if (workoutDay) 180.0 else 0.0 + random.centered(180.0)
                 ).coerceIn(1_700.0, 3_650.0)
@@ -548,57 +561,68 @@ class SyntheticDataGenerator(
 
             chosenMeals.forEachIndexed { mealIndex, template ->
                 val mealScale = (dayScale * (1.0 + random.centered(0.045))).coerceIn(0.72, 1.50)
-                val grams = template.baseGrams * mealScale
-                val kcal = template.kcal * mealScale
-                val protein = template.protein * mealScale
-                val carbs = template.carbs * mealScale
-                val fat = template.fat * mealScale
-                val fibre = template.fibre * mealScale
-                val sugar = template.sugar * mealScale
-                dailyKcal += kcal
+                dailyKcal += template.kcal * mealScale
                 val minuteJitter = random.nextInt(-18, 19)
                 val mealTs = dayStart + (mealMinutes[mealIndex] + minuteJitter) * MINUTE_MS
                 val dayToken = anchor / DAY_MS
-                val diaryEntryId = "synthetic-meal:${config.seed}:$dayToken:$mealIndex"
-                val commonMeta = mapOf(
-                    "diaryEntryId" to diaryEntryId,
-                    "foodId" to "synthetic:${template.id}",
-                    "name" to template.name,
-                    "grams" to roundedText(grams),
-                    "meal" to template.meal,
-                    "sourceName" to "Synthetic realistic meal model",
-                    "nutritionEstimate" to "approximate-testing-data",
-                    "protein" to roundedText(protein),
-                    "carbs" to roundedText(carbs),
-                    "fat" to roundedText(fat),
-                    "fibre" to roundedText(fibre),
-                    "sugar" to roundedText(sugar),
-                    "micronutrientCount" to template.micros.size.toString()
-                )
-                val ordinalBase = mealIndex * 100
-                add(dayIndex, anchor, HealthDomain.NUTRITION, "food_kcal", kcal, "kcal", mealTs, ordinalBase, commonMeta)
-                add(dayIndex, anchor, HealthDomain.NUTRITION, "food_protein", protein, "g", mealTs, ordinalBase + 1, commonMeta)
-                add(dayIndex, anchor, HealthDomain.NUTRITION, "food_carbs", carbs, "g", mealTs, ordinalBase + 2, commonMeta)
-                add(dayIndex, anchor, HealthDomain.NUTRITION, "food_fat", fat, "g", mealTs, ordinalBase + 3, commonMeta)
-                add(dayIndex, anchor, HealthDomain.NUTRITION, "food_fibre", fibre, "g", mealTs, ordinalBase + 4, commonMeta)
-                add(dayIndex, anchor, HealthDomain.NUTRITION, "food_sugar", sugar, "g", mealTs, ordinalBase + 5, commonMeta)
+                val groupId = "synthetic-meal-group:${config.seed}:$dayToken:$mealIndex"
+                val ingredients = ingredientBreakdown(template)
 
-                template.micros.entries.forEachIndexed { microIndex, (id, nutrient) ->
-                    add(
-                        dayIndex = dayIndex,
-                        anchor = anchor,
-                        domain = HealthDomain.NUTRITION,
-                        metric = "food_micro_$id",
-                        value = nutrient.value * mealScale,
-                        unit = nutrient.unit,
-                        timestamp = mealTs,
-                        ordinal = ordinalBase + 10 + microIndex,
-                        metadata = commonMeta + mapOf(
-                            "nutrientId" to id,
-                            "nutrientLabel" to nutrientLabel(id),
-                            "syntheticPerMealBase" to nutrient.value.toString()
-                        )
+                ingredients.forEachIndexed { ingredientIndex, ingredient ->
+                    val ingredientName = ingredient.first
+                    val share = ingredient.second
+                    val grams = template.baseGrams * mealScale * share
+                    val kcal = template.kcal * mealScale * share
+                    val protein = template.protein * mealScale * share
+                    val carbs = template.carbs * mealScale * share
+                    val fat = template.fat * mealScale * share
+                    val fibre = template.fibre * mealScale * share
+                    val sugar = template.sugar * mealScale * share
+                    val diaryEntryId = "synthetic-ingredient:${config.seed}:$dayToken:$mealIndex:$ingredientIndex"
+                    val commonMeta = mapOf(
+                        "diaryEntryId" to diaryEntryId,
+                        "foodId" to "synthetic:${template.id}:ingredient:$ingredientIndex",
+                        "name" to ingredientName,
+                        "grams" to roundedText(grams),
+                        "meal" to template.meal,
+                        "mealGroupId" to groupId,
+                        "mealGroupName" to template.name,
+                        "entryType" to "INGREDIENT",
+                        "sourceName" to "Synthetic ingredient meal model",
+                        "nutritionEstimate" to "approximate-testing-data",
+                        "protein" to roundedText(protein),
+                        "carbs" to roundedText(carbs),
+                        "fat" to roundedText(fat),
+                        "fibre" to roundedText(fibre),
+                        "sugar" to roundedText(sugar),
+                        "micronutrientCount" to template.micros.size.toString()
                     )
+                    val ordinalBase = mealIndex * 200 + ingredientIndex * 40
+                    val ingredientTs = mealTs + ingredientIndex * 1_000L
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_kcal", kcal, "kcal", ingredientTs, ordinalBase, commonMeta)
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_protein", protein, "g", ingredientTs, ordinalBase + 1, commonMeta)
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_carbs", carbs, "g", ingredientTs, ordinalBase + 2, commonMeta)
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_fat", fat, "g", ingredientTs, ordinalBase + 3, commonMeta)
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_fibre", fibre, "g", ingredientTs, ordinalBase + 4, commonMeta)
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_sugar", sugar, "g", ingredientTs, ordinalBase + 5, commonMeta)
+
+                    template.micros.entries.forEachIndexed { microIndex, (id, nutrient) ->
+                        add(
+                            dayIndex = dayIndex,
+                            anchor = anchor,
+                            domain = HealthDomain.NUTRITION,
+                            metric = "food_micro_$id",
+                            value = nutrient.value * mealScale * share,
+                            unit = nutrient.unit,
+                            timestamp = ingredientTs,
+                            ordinal = ordinalBase + 10 + microIndex,
+                            metadata = commonMeta + mapOf(
+                                "nutrientId" to id,
+                                "nutrientLabel" to nutrientLabel(id),
+                                "syntheticPerMealBase" to nutrient.value.toString()
+                            )
+                        )
+                    }
                 }
             }
 
