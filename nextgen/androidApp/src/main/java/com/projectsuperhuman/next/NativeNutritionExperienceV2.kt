@@ -94,7 +94,9 @@ private data class N2Entry(
     val fibre: Double,
     val micronutrientCount: Int,
     val barcode: String,
-    val sourceName: String
+    val sourceName: String,
+    val mealGroupId: String,
+    val mealGroupName: String
 )
 
 private data class N2Micro(
@@ -216,13 +218,14 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     }
 
     suspend fun repeatEntry(entry: N2Entry) {
-        val food = if (entry.barcode.isNotBlank()) {
-            NativeFoodCatalog.lookupBarcode(entry.barcode)
-        } else {
-            NativeFoodCatalog.search(context, entry.name, limit = 10).foods.firstOrNull { it.id == entry.foodId }
+        val matching = day.records.filter { row ->
+            val id = row.metadata["diaryEntryId"]
+            if (entry.id.startsWith("legacy:")) {
+                id == null && row.timestampEpochMs == entry.timestamp && row.metadata["foodId"] == entry.foodId
+            } else id == entry.id
         }
-        if (food == null) {
-            status = "Couldn’t repeat " + entry.name + " because its source food is unavailable"
+        if (matching.isEmpty()) {
+            status = "Couldn’t repeat " + entry.name
             return
         }
         val zone = ZoneId.systemDefault()
@@ -231,9 +234,10 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
         } else {
             selectedDate.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
         }
-        NativeDataHub.saveFood(food, entry.grams, entry.meal, timestampEpochMs = timestamp)
+        NativeDataHub.duplicateNutritionEntry(matching, timestamp)
         status = "Added " + entry.name + " again"
         refresh()
+        refreshWeek()
         refreshNutrients()
     }
 
@@ -1419,7 +1423,9 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
                 row.metadata["diaryEntryId"] == entryId && !row.metadata["nutrientId"].isNullOrBlank()
             },
             barcode = kcal.metadata["barcode"].orEmpty(),
-            sourceName = kcal.metadata["sourceName"].orEmpty()
+            sourceName = kcal.metadata["sourceName"].orEmpty(),
+            mealGroupId = kcal.metadata["mealGroupId"].orEmpty(),
+            mealGroupName = kcal.metadata["mealGroupName"].orEmpty()
         )
     }.sortedByDescending { it.timestamp }
 
