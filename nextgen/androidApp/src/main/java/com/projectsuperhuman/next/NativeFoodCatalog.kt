@@ -273,7 +273,12 @@ internal object NativeFoodCatalog {
             ?: 0.0
         val productQuantityUnit = FoodUnit.fromSymbol(p.optString("product_quantity_unit"))
         val servingQuantityUnit = FoodUnit.fromSymbol(p.optString("serving_quantity_unit"))
-        val basisUnit = if (productQuantityUnit?.dimension == FoodMeasureDimension.VOLUME) FoodUnit.ML else FoodUnit.G
+        val basisUnit = when {
+            productQuantityUnit?.dimension == FoodMeasureDimension.VOLUME -> FoodUnit.ML
+            productQuantityUnit?.dimension == FoodMeasureDimension.MASS -> FoodUnit.G
+            servingQuantityUnit?.dimension == FoodMeasureDimension.VOLUME -> FoodUnit.ML
+            else -> FoodUnit.G
+        }
         val basis = if (basisUnit == FoodUnit.ML) "100 ml" else "100 g"
         val brand = p.optString("brands").trim()
         val country = p.optStringList("countries_tags").take(80)
