@@ -727,24 +727,45 @@ private fun N2LogCard(
         Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.contentGap)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("Add food", color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                Text("Search, scan or import a label", color = N2Muted, fontSize = 9.sp)
-            }
-            Text("FAST LOG", color = N2Blue, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+        Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text("Add food", color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text("Search foods, scan packaging or import a barcode photo.", color = N2Muted, fontSize = 10.sp)
         }
         OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Food, brand or meal") })
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            N2ActionButton("⌕", if (searching) "Searching" else "Search", N2Green, Modifier.weight(1f), !searching, onSearch)
-            N2ActionButton("▥", "Barcode", N2Blue, Modifier.weight(1f), true, onScan)
-            N2CameraActionButton("Photo", N2Purple, Modifier.weight(1f), onPhoto)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(SuperhumanLayout.compactGap)) {
+            N2IconActionButton(
+                iconRes = R.drawable.tabler_search,
+                label = if (searching) "Searching" else "Search",
+                accent = N2Green,
+                modifier = Modifier.weight(1f),
+                enabled = !searching,
+                onClick = onSearch
+            )
+            N2IconActionButton(
+                iconRes = R.drawable.tabler_barcode,
+                label = "Barcode",
+                accent = N2Blue,
+                modifier = Modifier.weight(1f),
+                enabled = true,
+                onClick = onScan
+            )
+            N2IconActionButton(
+                iconRes = R.drawable.tabler_camera,
+                label = "Photo",
+                accent = N2Purple,
+                modifier = Modifier.weight(1f),
+                enabled = true,
+                onClick = onPhoto
+            )
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Text(
                 if (showManualBarcode) "Hide manual barcode" else "Enter barcode manually",
-                color = N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clickable(onClick = onToggleManualBarcode).padding(vertical = 6.dp)
+                color = N2Muted,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.superhumanClickable(onClick = onToggleManualBarcode)
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
             )
         }
         if (showManualBarcode) {
@@ -757,37 +778,8 @@ private fun N2LogCard(
 }
 
 @Composable
-private fun N2CameraActionButton(
-    label: String,
-    accent: Color,
-    modifier: Modifier,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier.height(88.dp)
-            .background(accent.copy(alpha = .13f), RoundedCornerShape(16.dp))
-            .border(1.dp, accent.copy(alpha = .30f), RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Box(Modifier.height(30.dp), contentAlignment = Alignment.Center) {
-            Icon(
-                painter = painterResource(id = R.drawable.tabler_camera),
-                contentDescription = "Photo",
-                tint = accent,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(label, color = N2Ink, fontSize = 9.sp, fontWeight = FontWeight.Black)
-    }
-}
-
-@Composable
-private fun N2ActionButton(
-    icon: String,
+private fun N2IconActionButton(
+    iconRes: Int,
     label: String,
     accent: Color,
     modifier: Modifier,
@@ -798,16 +790,25 @@ private fun N2ActionButton(
         modifier.height(88.dp)
             .background(accent.copy(alpha = if (enabled) .13f else .05f), RoundedCornerShape(16.dp))
             .border(1.dp, accent.copy(alpha = if (enabled) .30f else .12f), RoundedCornerShape(16.dp))
-            .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 10.dp),
+            .superhumanClickable(enabled = enabled, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(Modifier.height(30.dp), contentAlignment = Alignment.Center) {
-            Text(icon, color = accent, fontSize = 20.sp, fontWeight = FontWeight.Black)
+        Box(Modifier.height(32.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = label,
+                tint = accent,
+                modifier = Modifier.size(23.dp)
+            )
         }
-        Spacer(Modifier.height(4.dp))
-        Text(label, color = if (enabled) N2Ink else N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(5.dp))
+        Text(
+            label,
+            color = if (enabled) N2Ink else N2Muted,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Black
+        )
     }
 }
 
@@ -833,8 +834,6 @@ private fun N2Results(foods: List<NativeFood>, selectedId: String?, onSelect: (N
                     .clickable { onSelect(food) }.padding(SuperhumanLayout.compactCardPadding),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                N2FoodThumb(food.name, 38)
-                Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(food.name, color = N2Ink, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
                     if (food.hasVerifiedEnglishName && food.originalName.isNotBlank() && !food.originalName.equals(food.name, ignoreCase = true)) {
@@ -872,16 +871,12 @@ private fun N2AddFoodCard(
         Modifier.fillMaxWidth().background(N2SoftGreen, RoundedCornerShape(24.dp)).border(1.dp, N2Green.copy(alpha = .24f), RoundedCornerShape(24.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            N2FoodThumb(food.name, 48)
-            Spacer(Modifier.width(11.dp))
-            Column(Modifier.weight(1f)) {
-                Text(food.name, color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                if (food.hasVerifiedEnglishName && food.originalName.isNotBlank() && !food.originalName.equals(food.name, ignoreCase = true)) {
-                    Text(food.originalName, color = N2Muted, fontSize = 9.sp, maxLines = 1)
-                }
-                Text(food.brand.ifBlank { food.source }, color = N2Muted, fontSize = 10.sp)
+        Column {
+            Text(food.name, color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            if (food.hasVerifiedEnglishName && food.originalName.isNotBlank() && !food.originalName.equals(food.name, ignoreCase = true)) {
+                Text(food.originalName, color = N2Muted, fontSize = 10.sp, maxLines = 1)
             }
+            Text(food.brand.ifBlank { food.source }, color = N2Muted, fontSize = 10.sp)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             N2FoodStat((food.kcal * factor).roundToInt().toString(), "kcal", Modifier.weight(1f))
@@ -912,31 +907,6 @@ private fun N2FoodStat(value: String, label: String, modifier: Modifier) {
     }
 }
 
-private fun n2FoodEmoji(name: String): String {
-    val n = name.lowercase()
-    return when {
-        listOf("yoghurt", "yogurt", "milk", "cheese", "feta", "skyr").any { it in n } -> "🥛"
-        listOf("banana", "apple", "berry", "berries", "fruit", "kiwi", "orange").any { it in n } -> "🍎"
-        listOf("chicken", "turkey", "beef", "pork", "ham", "steak").any { it in n } -> "🍗"
-        listOf("salmon", "tuna", "fish", "shrimp").any { it in n } -> "🐟"
-        listOf("egg", "omelette").any { it in n } -> "🥚"
-        listOf("rice", "pasta", "noodle", "grain", "oat", "granola").any { it in n } -> "🍚"
-        listOf("bread", "toast", "sandwich", "wrap").any { it in n } -> "🥪"
-        listOf("lentil", "bean", "pea", "vegetable", "salad", "tomato").any { it in n } -> "🥗"
-        else -> "🍽"
-    }
-}
-
-@Composable
-private fun N2FoodThumb(name: String, sizeDp: Int) {
-    Box(
-        Modifier.size(sizeDp.dp).background(N2SoftBlue, RoundedCornerShape((sizeDp / 3).dp)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(n2FoodEmoji(name), fontSize = (sizeDp / 2).sp)
-    }
-}
-
 @Composable
 private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -945,8 +915,8 @@ private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Quick repeat", color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.Black)
-            Text("Recent foods", color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text("Quick repeat", color = N2Ink, fontSize = 15.sp, fontWeight = FontWeight.Black)
+            Text("Recent foods", color = N2Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -958,19 +928,15 @@ private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
                         .border(1.dp, N2Border, RoundedCornerShape(16.dp))
                         .clickable { onRepeat(entry) }.padding(SuperhumanLayout.compactCardPadding)
                 ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        N2FoodThumb(entry.name, 34)
-                        Spacer(Modifier.width(8.dp))
-                        Text(entry.name, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2)
-                    }
-                    Spacer(Modifier.height(7.dp))
+                    Text(entry.name, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2)
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         entry.kcal.roundToInt().toString() + " kcal · " + n2One(entry.grams) + " g",
                         color = N2Muted,
-                        fontSize = 8.sp
+                        fontSize = 10.sp
                     )
-                    Spacer(Modifier.height(5.dp))
-                    Text("+ Add again", color = N2Blue, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Spacer(Modifier.height(7.dp))
+                    Text("+ Add again", color = N2Blue, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -1021,11 +987,11 @@ private fun N2Diary(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Diary", color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            Text("Diary", color = N2Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
             Text(
                 day.entries.size.toString() + " items · " + day.kcal.roundToInt().toString() + " kcal",
                 color = N2Muted,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -1056,20 +1022,20 @@ private fun N2MealCard(
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(
-            Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 2.dp),
+            Modifier.fillMaxWidth().superhumanClickable { expanded = !expanded }.padding(vertical = 3.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
-                Text(meal, color = N2Ink, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                Text(meal, color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 Text(
                     entries.size.toString() + " items · " + n2One(mealProtein) + " g protein",
                     color = N2Muted,
-                    fontSize = 8.sp
+                    fontSize = 10.sp
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(mealKcal.roundToInt().toString() + " kcal", color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text(mealKcal.roundToInt().toString() + " kcal", color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.Black)
                 Box(
                     Modifier.size(34.dp).background(N2RowBg, CircleShape),
                     contentAlignment = Alignment.Center
@@ -1130,16 +1096,24 @@ private fun N2MealCard(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(
-                                Modifier.weight(1f).clickable { editingGroupName = true }.padding(vertical = 3.dp)
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Text(groupName, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                                    Text("✎", color = N2Blue, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                            Column(Modifier.weight(1f).padding(vertical = 3.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Text(groupName, color = N2Ink, fontSize = 14.sp, fontWeight = FontWeight.Black)
+                                    Box(
+                                        Modifier.size(32.dp).superhumanClickable { editingGroupName = true },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(id = R.drawable.tabler_pencil),
+                                            contentDescription = "Edit meal name",
+                                            tint = N2Blue,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
                                 }
-                                Text(groupEntries.size.toString() + " ingredients", color = N2Muted, fontSize = 7.sp)
+                                Text(groupEntries.size.toString() + " ingredients", color = N2Muted, fontSize = 9.sp)
                             }
-                            Text(groupKcal.roundToInt().toString() + " kcal", color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                            Text(groupKcal.roundToInt().toString() + " kcal", color = N2Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
@@ -1150,31 +1124,29 @@ private fun N2MealCard(
                             .padding(horizontal = 11.dp, vertical = 9.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        N2FoodThumb(entry.name, 34)
-                        Spacer(Modifier.width(9.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(entry.name, color = N2Ink, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                            Text(entry.name, color = N2Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                             Text(
                                 n2One(entry.grams) + " g · " + entry.kcal.roundToInt().toString() + " kcal · " +
                                     n2One(entry.protein) + "P · " + n2One(entry.carbs) + "C · " + n2One(entry.fat) + "F",
                                 color = N2Muted,
-                                fontSize = 8.sp,
+                                fontSize = 10.sp,
                                 maxLines = 1
                             )
                         }
                         Text(
                             "＋",
                             color = N2Blue,
-                            fontSize = 16.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Black,
-                            modifier = Modifier.clickable { onDuplicate(entry) }.padding(7.dp)
+                            modifier = Modifier.superhumanClickable { onDuplicate(entry) }.padding(8.dp)
                         )
                         Text(
                             "×",
                             color = N2Muted,
-                            fontSize = 17.sp,
+                            fontSize = 21.sp,
                             fontWeight = FontWeight.Bold,
-                            modifier = Modifier.clickable { onRemove(entry) }.padding(7.dp)
+                            modifier = Modifier.superhumanClickable { onRemove(entry) }.padding(8.dp)
                         )
                     }
                     Spacer(Modifier.height(5.dp))
@@ -1356,8 +1328,6 @@ private fun N2FoodContributors(entries: List<N2Entry>) {
         }
         top.forEach { entry ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                N2FoodThumb(entry.name, 34)
-                Spacer(Modifier.width(9.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(entry.name, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, modifier = Modifier.weight(1f))
