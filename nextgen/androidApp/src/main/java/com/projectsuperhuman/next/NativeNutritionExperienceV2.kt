@@ -53,7 +53,9 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -392,6 +394,32 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                         },
                         meal = meal,
                         onMealChange = { meal = it },
+                        onFoodCorrected = { corrected ->
+                            selected = corrected
+                            results = results.map { if (it.id == corrected.id) corrected else it }
+                            status = "Using your corrected nutrition"
+                        },
+                        onRemoveCorrection = {
+                            scope.launch {
+                                withContext(Dispatchers.IO) {
+                                    FoodNutritionOverrideStore.remove(context, food)
+                                }
+                                val restored = if (!food.barcode.isNullOrBlank()) {
+                                    NativeFoodCatalog.lookupBarcode(context, food.barcode.orEmpty())
+                                } else {
+                                    NativeFoodCatalog.search(context, food.name)
+                                        .foods
+                                        .firstOrNull { it.id == food.id }
+                                }
+                                if (restored != null) {
+                                    selected = restored
+                                    results = results.map { if (it.id == restored.id) restored else it }
+                                    portionUnit = FoodUnitSystem.defaultUnit(restored)
+                                    portion = n2Editable(FoodUnitSystem.defaultAmount(restored))
+                                }
+                                status = "Using original source nutrition"
+                            }
+                        },
                         onAdd = {
                             scope.launch {
                                 val amount = portion.toDoubleOrNull()?.coerceIn(1.0, 5000.0) ?: 100.0
@@ -915,12 +943,35 @@ private fun N2AddFoodCard(
     onPortionUnitChange: (FoodUnit) -> Unit,
     meal: String,
     onMealChange: (String) -> Unit,
+    onFoodCorrected: (NativeFood) -> Unit,
+    onRemoveCorrection: () -> Unit,
     onAdd: () -> Unit
 ) {
     val amount = portion.toDoubleOrNull()?.coerceAtLeast(0.0) ?: 0.0
     val conversion = FoodUnitSystem.convert(food, amount, portionUnit)
     val factor = conversion?.factor ?: 0.0
     val availableUnits = FoodUnitSystem.availableUnits(food)
+    val context = LocalContext.current
+    val correctionScope = rememberCoroutineScope()
+    var editingNutrition by remember(food.id, food.sourceRevision) { mutableStateOf(false) }
+    var kcalText by remember(food.id, food.sourceRevision) {
+        mutableStateOf(if (food.kcalKnown) n2Editable(food.kcal) else "")
+    }
+    var proteinText by remember(food.id, food.sourceRevision) {
+        mutableStateOf(if (food.proteinKnown) n2Editable(food.protein) else "")
+    }
+    var carbsText by remember(food.id, food.sourceRevision) {
+        mutableStateOf(if (food.carbsKnown) n2Editable(food.carbs) else "")
+    }
+    var fatText by remember(food.id, food.sourceRevision) {
+        mutableStateOf(if (food.fatKnown) n2Editable(food.fat) else "")
+    }
+    var fibreText by remember(food.id, food.sourceRevision) {
+        mutableStateOf(if (food.fibreKnown) n2Editable(food.fibre) else "")
+    }
+    var sugarText by remember(food.id, food.sourceRevision) {
+        mutableStateOf(if (food.sugarKnown) n2Editable(food.sugar) else "")
+    }
     Column(
         Modifier.fillMaxWidth().background(N2SoftGreen, RoundedCornerShape(24.dp)).border(1.dp, N2Green.copy(alpha = .24f), RoundedCornerShape(24.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(11.dp)
@@ -987,6 +1038,100 @@ private fun N2AddFoodCard(
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Bold
             )
+        }
+
+        Text(
+            if (editingNutrition) "Hide nutrition correction" else "Correct nutrition data",
+            color = N2Blue,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.superhumanClickable { editingNutrition = !editingNutrition }.padding(vertical = 4.dp)
+        )
+
+        if (editingNutrition) {
+            Column(
+                Modifier.fillMaxWidth()
+                    .background(N2Surface, RoundedCornerShape(16.dp))
+                    .border(1.dp, N2Border, RoundedCornerShape(16.dp))
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Enter values for the food's " + FoodUnitSystem.describeBasis(food) + ". Leave a field blank if it is unknown.",
+                    color = N2Muted,
+                    fontSize = 9.sp
+                )
+                val correctionFields = listOf(
+                    Triple("Calories", kcalText, { value: String -> kcalText = value }),
+                    Triple("Protein (g)", proteinText, { value: String -> proteinText = value }),
+                    Triple("Carbs (g)", carbsText, { value: String -> carbsText = value }),
+                    Triple("Fat (g)", fatText, { value: String -> fatText = value }),
+                    Triple("Fibre (g)", fibreText, { value: String -> fibreText = value }),
+                    Triple("Sugars (g)", sugarText, { value: String -> sugarText = value })
+                )
+                correctionFields.forEach { (label, value, setter) ->
+                    OutlinedTextField(
+                        value = value,
+                        onValueChange = { raw ->
+                            setter(raw.filter { ch -> ch.isDigit() || ch == '.' || ch == ',' }.replace(',', '.').take(8))
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        label = { Text(label) }
+                    )
+                }
+
+                val correctionValues = listOf(kcalText, proteinText, carbsText, fatText, fibreText, sugarText)
+                val invalidCorrection = correctionValues.any { raw ->
+                    raw.isNotBlank() && (raw.toDoubleOrNull()?.let { it.isFinite() && it >= 0.0 } != true)
+                }
+
+                N2Button(
+                    "Save correction",
+                    N2Blue,
+                    Modifier.fillMaxWidth(),
+                    !invalidCorrection
+                ) {
+                    if (invalidCorrection) return@N2Button
+                    val corrected = food.copy(
+                        kcal = kcalText.toDoubleOrNull() ?: 0.0,
+                        kcalKnown = kcalText.isNotBlank(),
+                        protein = proteinText.toDoubleOrNull() ?: 0.0,
+                        proteinKnown = proteinText.isNotBlank(),
+                        carbs = carbsText.toDoubleOrNull() ?: 0.0,
+                        carbsKnown = carbsText.isNotBlank(),
+                        fat = fatText.toDoubleOrNull() ?: 0.0,
+                        fatKnown = fatText.isNotBlank(),
+                        fibre = fibreText.toDoubleOrNull() ?: 0.0,
+                        fibreKnown = fibreText.isNotBlank(),
+                        sugar = sugarText.toDoubleOrNull() ?: 0.0,
+                        sugarKnown = sugarText.isNotBlank(),
+                        nutritionIntegrityWarning = null,
+                        sourceWarnings = emptyList()
+                    )
+                    correctionScope.launch {
+                        val applied = withContext(Dispatchers.IO) {
+                            FoodNutritionOverrideStore.save(context, corrected)
+                            FoodNutritionOverrideStore.applyIfAttached(food)
+                        }
+                        onFoodCorrected(applied)
+                        editingNutrition = false
+                    }
+                }
+
+                if (food.sourceType == FoodDataSourceType.USER_CORRECTED) {
+                    Text(
+                        "Use original source data",
+                        color = N2Amber,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.superhumanClickable {
+                            editingNutrition = false
+                            onRemoveCorrection()
+                        }.padding(vertical = 5.dp)
+                    )
+                }
+            }
         }
 
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
