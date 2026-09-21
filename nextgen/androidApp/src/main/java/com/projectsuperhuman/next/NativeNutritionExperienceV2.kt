@@ -671,9 +671,9 @@ private fun N2LogCard(
         }
         OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Food, brand or meal") })
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            N2Button(if (searching) "Searching…" else "Search", N2Green, Modifier.weight(1.2f), !searching, onSearch)
-            N2Button("Barcode", N2Blue, Modifier.weight(1f), true, onScan)
-            N2Button("Photo", N2Purple, Modifier.weight(.9f), true, onPhoto)
+            N2ActionButton("⌕", if (searching) "Searching" else "Search", N2Green, Modifier.weight(1f), !searching, onSearch)
+            N2ActionButton("▥", "Barcode", N2Blue, Modifier.weight(1f), true, onScan)
+            N2ActionButton("▣", "Photo", N2Purple, Modifier.weight(1f), true, onPhoto)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Text(
@@ -688,6 +688,28 @@ private fun N2LogCard(
                 N2Button(if (lookingUp) "…" else "Lookup", N2Blue, Modifier.width(84.dp), !lookingUp, onBarcodeLookup)
             }
         }
+    }
+}
+
+@Composable
+private fun N2ActionButton(
+    icon: String,
+    label: String,
+    accent: Color,
+    modifier: Modifier,
+    enabled: Boolean,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier.background(accent.copy(alpha = if (enabled) .13f else .05f), RoundedCornerShape(16.dp))
+            .border(1.dp, accent.copy(alpha = if (enabled) .30f else .12f), RoundedCornerShape(16.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(vertical = 11.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(icon, color = accent, fontSize = 20.sp, fontWeight = FontWeight.Black)
+        Text(label, color = if (enabled) N2Ink else N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Black)
     }
 }
 
