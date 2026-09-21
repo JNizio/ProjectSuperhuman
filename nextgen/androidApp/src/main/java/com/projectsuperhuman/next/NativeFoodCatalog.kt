@@ -191,7 +191,7 @@ internal object NativeFoodCatalog {
     suspend fun lookupBarcode(code: String): NativeFood? = withContext(Dispatchers.IO) {
         val digits = code.filter(Char::isDigit)
         if (!NutritionMath.isValidBarcode(digits)) return@withContext null
-        val fields = "code,lang,languages_tags,product_name,product_name_en,product_name_fr,generic_name,generic_name_en,generic_name_fr,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
+        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
         val conn = openConnection("https://world.openfoodfacts.org/api/v2/product/$digits.json?fields=$fields")
         try {
             if (conn.responseCode !in 200..299) return@withContext null
@@ -229,7 +229,7 @@ internal object NativeFoodCatalog {
 
         // Open Food Facts currently keeps full-text search on the v1 CGI endpoint.
         val encoded = URLEncoder.encode(query.trim(), "UTF-8")
-        val fields = "code,lang,languages_tags,product_name,product_name_en,product_name_fr,generic_name,generic_name_en,generic_name_fr,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
+        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
         val url = "https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&search_simple=1&action=process&json=1&page_size=$limit&fields=$fields"
         val conn = openConnection(url)
         try {
@@ -326,9 +326,10 @@ internal object NativeFoodCatalog {
             )
         }
 
-        // French-only products intentionally keep the authentic French packaging name.
-        // The same conservative fallback is used for other languages when OFF has no verified
-        // English field: correctness beats a guessed machine translation.
+        // For any non-English source language, keep the authentic packaging name when OFF does
+        // not provide an explicit English field. This applies equally to Polish, French, German,
+        // Spanish, Italian, Japanese, Korean and every other supported source language.
+        // Correct product identity beats a guessed machine translation.
         return LocalizedProductName(
             displayName = original,
             originalName = original,
