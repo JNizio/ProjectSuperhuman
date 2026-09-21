@@ -265,10 +265,20 @@ internal fun selectHomeVitalsSnapshot(
 }
 
 private suspend fun loadHomeVitalsSnapshot(): HomeVitalsSnapshot {
-    val heartRows = NativeDomainData.forDomain(HealthDomain.EXERCISE).latestState()
-    val bloodPressureRows = NativeDomainData.forDomain(HealthDomain.BLOOD_PRESSURE).latestState()
+    val exercise = NativeDomainData.forDomain(HealthDomain.EXERCISE)
+    val bloodPressure = NativeDomainData.forDomain(HealthDomain.BLOOD_PRESSURE)
     val location = HomeVitalsDataContract.bodyTemperature
-    val temperatureRows = listOfNotNull(NativeDomainData.forDomain(location.domain).latest(location.metric))
+    val body = NativeDomainData.forDomain(location.domain)
+
+    val heartRows = listOfNotNull(
+        exercise.latest(HomeVitalsDataContract.HEART_RATE),
+        exercise.latest(HomeVitalsDataContract.HEART_RATE_AVERAGE)
+    )
+    val bloodPressureRows = listOfNotNull(
+        bloodPressure.latest(HomeVitalsDataContract.BLOOD_PRESSURE_SYSTOLIC),
+        bloodPressure.latest(HomeVitalsDataContract.BLOOD_PRESSURE_DIASTOLIC)
+    )
+    val temperatureRows = listOfNotNull(body.latest(location.metric))
     return selectHomeVitalsSnapshot(heartRows, bloodPressureRows, temperatureRows)
 }
 
