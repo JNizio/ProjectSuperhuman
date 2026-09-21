@@ -204,14 +204,14 @@ internal object NativeFoodCatalog {
         FoodNutritionOverrideStore.attach(context)
         startLargeLocalSafely(context)
         val q = query.trim()
-        if (q.length < 2) return NativeFoodSearchResult(emptyList(), remoteAvailable = true, remoteCount = 0)
+        if (q.length < 2) return@withContext NativeFoodSearchResult(emptyList(), remoteAvailable = true, remoteCount = 0)
 
         // A pasted/scanned GTIN is an exact identity query and must outrank fuzzy text search.
         val typedDigits = q.filter(Char::isDigit)
         val barcodeLike = q.all { it.isDigit() || it.isWhitespace() || it == '-' }
         if (barcodeLike && NutritionMath.isValidBarcode(typedDigits)) {
             lookupBarcode(context, typedDigits)?.let { exact ->
-                return NativeFoodSearchResult(
+                return@withContext NativeFoodSearchResult(
                     foods = listOf(exact),
                     remoteAvailable = true,
                     remoteCount = if (exact.sourceType == FoodDataSourceType.OPEN_FOOD_FACTS) 1 else 0
@@ -250,7 +250,7 @@ internal object NativeFoodCatalog {
                 .distinctBy(FoodEvidenceEngine::dedupKey)
         ).take(requested)
 
-        return NativeFoodSearchResult(
+        NativeFoodSearchResult(
             foods = merged,
             remoteAvailable = remoteResult.second,
             remoteCount = remoteResult.first.size
@@ -765,8 +765,8 @@ internal object NativeFoodCatalog {
 
     private fun openConnection(url: String): HttpURLConnection =
         (URL(url).openConnection() as HttpURLConnection).apply {
-            connectTimeout = 5_000
-            readTimeout = 7_000
+            connectTimeout = 3_000
+            readTimeout = 4_500
             requestMethod = "GET"
             useCaches = true
             setRequestProperty("Accept", "application/json")
