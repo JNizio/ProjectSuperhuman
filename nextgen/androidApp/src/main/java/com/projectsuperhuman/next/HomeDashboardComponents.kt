@@ -630,17 +630,12 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
                 TrainingSummaryColumn(
                     title = "STRENGTH",
                     accent = strengthAccent,
-                    primary = when {
-                        snapshot.strengthWorkoutsToday > 0 && !snapshot.latestStrengthWorkoutName.isNullOrBlank() ->
-                            snapshot.latestStrengthWorkoutName
-                        snapshot.strengthWorkoutsToday > 0 -> "${snapshot.strengthWorkoutsToday} session${if (snapshot.strengthWorkoutsToday == 1) "" else "s"}"
-                        else -> "No strength today"
-                    },
-                    secondary = if (snapshot.strengthWorkoutsToday > 0) {
-                        "${snapshot.workoutSetsToday} sets · $volumeLabel"
+                    primary = if (snapshot.strengthWorkoutsToday > 0) {
+                        "${snapshot.strengthWorkoutsToday} session${if (snapshot.strengthWorkoutsToday == 1) "" else "s"}"
                     } else {
-                        "Routines · PRs · history"
+                        "No session"
                     },
+                    secondary = "",
                     modifier = Modifier.weight(1f)
                 )
 
@@ -652,20 +647,12 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
                 TrainingSummaryColumn(
                     title = "CARDIO",
                     accent = cardioAccent,
-                    primary = when {
-                        snapshot.cardioWorkoutsToday > 0 && !snapshot.latestCardioActivityName.isNullOrBlank() ->
-                            snapshot.latestCardioActivityName
-                        snapshot.cardioWorkoutsToday > 0 -> "${snapshot.cardioWorkoutsToday} session${if (snapshot.cardioWorkoutsToday == 1) "" else "s"}"
-                        else -> "No cardio today"
-                    },
-                    secondary = if (snapshot.cardioWorkoutsToday > 0) {
-                        listOfNotNull(
-                            distanceLabel.takeIf { snapshot.cardioDistanceTodayKm > 0.0 },
-                            "${snapshot.cardioMinutesToday} min".takeIf { snapshot.cardioMinutesToday > 0 }
-                        ).joinToString(" · ").ifBlank { "Session logged" }
+                    primary = if (snapshot.cardioWorkoutsToday > 0) {
+                        "${snapshot.cardioWorkoutsToday} session${if (snapshot.cardioWorkoutsToday == 1) "" else "s"}"
                     } else {
-                        "Run · walk · cycle"
+                        "No session"
                     },
+                    secondary = "",
                     modifier = Modifier.weight(1f).padding(start = 14.dp)
                 )
             }
