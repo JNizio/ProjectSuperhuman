@@ -268,7 +268,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
             }
             Spacer(Modifier.height(7.dp))
             Text(
-                "Build correlated fake history for dashboards, trends, Data Vault aggregation and the Interpretation Engine. Nutrition uses realistic named breakfast, lunch and dinner entries with calories, macros and micronutrients. Generation uses the normal ingestion pipeline; genuine user records are never overwritten or cleared.",
+                "Build correlated fake history for dashboards, trends, Data Vault aggregation and the Interpretation Engine. Nutrition uses realistic breakfast, lunch and dinner meals drawn from the local food library when available, including calories, macros, fibre, saturated fat, salt/sodium, micronutrients and Nutrition goals. Generation uses the normal ingestion pipeline; genuine user records are never overwritten or cleared.",
                 color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp
             )
             Spacer(Modifier.height(12.dp))
@@ -288,7 +288,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
             Spacer(Modifier.height(10.dp))
             VaultButton(
                 if (syntheticBusy) "Generating synthetic history…" else "Generate $syntheticDays days",
-                "Sleep, real-looking meals + nutrients, body, exercise, mindfulness, hydration, clinical and wearable-style metrics",
+                "Sleep, local-food meals + full nutrition/goals, body, exercise, mindfulness, hydration, clinical and wearable-style metrics",
                 SettingsBlue
             ) {
                 if (!syntheticBusy) scope.launch {
