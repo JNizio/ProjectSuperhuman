@@ -91,6 +91,7 @@ private data class N2Entry(
     val amountUnit: String,
     val meal: String,
     val kcal: Double,
+    val kcalKnown: Boolean,
     val protein: Double,
     val proteinKnown: Boolean,
     val carbs: Double,
@@ -98,6 +99,7 @@ private data class N2Entry(
     val fat: Double,
     val fatKnown: Boolean,
     val fibre: Double,
+    val fibreKnown: Boolean,
     val micronutrientCount: Int,
     val barcode: String,
     val sourceName: String,
@@ -122,7 +124,13 @@ private data class N2Day(
     val entries: List<N2Entry> = emptyList(),
     val micros: List<N2Micro> = emptyList(),
     val records: List<HealthValue> = emptyList()
-)
+) {
+    val kcalComplete: Boolean get() = entries.all { it.kcalKnown }
+    val proteinComplete: Boolean get() = entries.all { it.proteinKnown }
+    val carbsComplete: Boolean get() = entries.all { it.carbsKnown }
+    val fatComplete: Boolean get() = entries.all { it.fatKnown }
+    val fibreComplete: Boolean get() = entries.all { it.fibreKnown }
+}
 
 private data class N2Goals(
     val kcal: Double? = null,
@@ -600,13 +608,13 @@ private fun N2Hero(
             horizontalArrangement = Arrangement.spacedBy(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            N2CalorieRing(day.kcal, goals.kcal)
+            N2CalorieRing(day.kcal, goals.kcal, day.kcalComplete)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
                 Text("Today's intake", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                N2MacroBar("Protein", day.protein, goals.protein, N2Blue)
-                N2MacroBar("Carbs", day.carbs, goals.carbs, N2Cyan)
-                N2MacroBar("Fat", day.fat, goals.fat, N2Amber)
-                N2MacroBar("Fibre", day.fibre, goals.fibre, N2Green)
+                N2MacroBar("Protein", day.protein, goals.protein, N2Blue, day.proteinComplete)
+                N2MacroBar("Carbs", day.carbs, goals.carbs, N2Cyan, day.carbsComplete)
+                N2MacroBar("Fat", day.fat, goals.fat, N2Amber, day.fatComplete)
+                N2MacroBar("Fibre", day.fibre, goals.fibre, N2Green, day.fibreComplete)
             }
         }
 
@@ -617,7 +625,7 @@ private fun N2Hero(
 }
 
 @Composable
-private fun N2CalorieRing(value: Double, target: Double?) {
+private fun N2CalorieRing(value: Double, target: Double?, complete: Boolean) {
     val fraction = if (target != null && target > 0.0) (value / target).toFloat().coerceIn(0f, 1f) else 0f
     Box(Modifier.size(112.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
@@ -640,8 +648,13 @@ private fun N2CalorieRing(value: Double, target: Double?) {
             }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(value.roundToInt().toString(), color = N2Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
-            Text("kcal", color = N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text(
+                (if (complete) "" else "~") + value.roundToInt().toString(),
+                color = N2Ink,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(if (complete) "kcal" else "kcal · partial", color = N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             if (target != null) {
                 Text("of " + target.roundToInt(), color = N2Muted, fontSize = 8.sp)
             }
@@ -650,13 +663,14 @@ private fun N2CalorieRing(value: Double, target: Double?) {
 }
 
 @Composable
-private fun N2MacroBar(label: String, value: Double, target: Double?, accent: Color) {
+private fun N2MacroBar(label: String, value: Double, target: Double?, accent: Color, complete: Boolean) {
     val fraction = if (target != null && target > 0.0) (value / target).toFloat().coerceIn(0f, 1f) else 0f
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(label, color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
             Text(
-                if (target != null) n2One(value) + " / " + n2One(target) + " g" else n2One(value) + " g",
+                (if (complete) "" else "~") +
+                    (if (target != null) n2One(value) + " / " + n2One(target) + " g" else n2One(value) + " g"),
                 color = N2Ink,
                 fontSize = 8.sp,
                 fontWeight = FontWeight.ExtraBold
@@ -694,7 +708,7 @@ private fun N2WeekChart(
                 val logged = days.count { it.entries.isNotEmpty() }
                 Text(logged.toString() + " of 7 days logged", color = N2Muted, fontSize = 8.sp)
             }
-            val average = days.filter { it.entries.isNotEmpty() }.map { it.kcal }.average().takeIf { !it.isNaN() }
+            val average = days.filter { it.entries.isNotEmpty() && it.kcalComplete }.map { it.kcal }.average().takeIf { !it.isNaN() }
             if (average != null) {
                 Text(average.roundToInt().toString() + " avg", color = N2Blue, fontSize = 9.sp, fontWeight = FontWeight.Black)
             }
@@ -715,7 +729,11 @@ private fun N2WeekChart(
                     Box(
                         Modifier.fillMaxWidth().height(h.dp)
                             .background(
-                                if (index == days.lastIndex) N2Blue else N2Cyan.copy(alpha = .55f),
+                                when {
+                                    !item.kcalComplete -> N2Amber.copy(alpha = .55f)
+                                    index == days.lastIndex -> N2Blue
+                                    else -> N2Cyan.copy(alpha = .55f)
+                                },
                                 RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp)
                             )
                     )
@@ -1096,6 +1114,8 @@ private fun N2MealCard(
     var expanded by remember(meal, entries.size) { mutableStateOf(true) }
     val mealKcal = entries.sumOf { it.kcal }
     val mealProtein = entries.sumOf { it.protein }
+    val mealKcalComplete = entries.all { it.kcalKnown }
+    val mealProteinComplete = entries.all { it.proteinKnown }
 
     Column(
         Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(20.dp))
@@ -1110,13 +1130,19 @@ private fun N2MealCard(
             Column {
                 Text(meal, color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
                 Text(
-                    entries.size.toString() + " items · " + n2One(mealProtein) + " g protein",
+                    entries.size.toString() + " items · " +
+                        (if (mealProteinComplete) "" else "~") + n2One(mealProtein) + " g protein",
                     color = N2Muted,
                     fontSize = 10.sp
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(mealKcal.roundToInt().toString() + " kcal", color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                Text(
+                    (if (mealKcalComplete) "" else "~") + mealKcal.roundToInt().toString() + " kcal",
+                    color = N2Ink,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Black
+                )
                 Box(
                     Modifier.size(34.dp).background(N2RowBg, CircleShape),
                     contentAlignment = Alignment.Center
@@ -1141,6 +1167,7 @@ private fun N2MealCard(
                 val groupName = groupEntries.firstOrNull()?.mealGroupName.orEmpty()
                 if (groupEntries.size > 1 && groupName.isNotBlank()) {
                     val groupKcal = groupEntries.sumOf { it.kcal }
+                    val groupKcalComplete = groupEntries.all { it.kcalKnown }
                     var editingGroupName by remember(groupEntries.first().mealGroupId, groupName) { mutableStateOf(false) }
                     var groupNameDraft by remember(groupEntries.first().mealGroupId, groupName) { mutableStateOf(groupName) }
 
@@ -1194,7 +1221,12 @@ private fun N2MealCard(
                                 }
                                 Text(groupEntries.size.toString() + " ingredients", color = N2Muted, fontSize = 9.sp)
                             }
-                            Text(groupKcal.roundToInt().toString() + " kcal", color = N2Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                (if (groupKcalComplete) "" else "~") + groupKcal.roundToInt().toString() + " kcal",
+                                color = N2Muted,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
@@ -1208,7 +1240,8 @@ private fun N2MealCard(
                         Column(Modifier.weight(1f)) {
                             Text(entry.name, color = N2Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                             Text(
-                                n2One(entry.amount) + " " + entry.amountUnit + " · " + entry.kcal.roundToInt().toString() + " kcal · " +
+                                n2One(entry.amount) + " " + entry.amountUnit + " · " +
+                                    (if (entry.kcalKnown) entry.kcal.roundToInt().toString() + " kcal" else "— kcal") + " · " +
                                     (if (entry.proteinKnown) n2One(entry.protein) + "P" else "—P") + " · " +
                                     (if (entry.carbsKnown) n2One(entry.carbs) + "C" else "—C") + " · " +
                                     (if (entry.fatKnown) n2One(entry.fat) + "F" else "—F"),
@@ -1654,6 +1687,7 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
                 ?: if (kcal.metadata["grams"] != null) "g" else "g",
             meal = kcal.metadata["meal"] ?: "Other",
             kcal = kcal.value,
+            kcalKnown = kcal.metadata["kcalKnown"]?.toBooleanStrictOrNull() ?: true,
             protein = metric(entryId, "food_protein"),
             proteinKnown = kcal.metadata["proteinKnown"]?.toBooleanStrictOrNull()
                 ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_protein" },
@@ -1664,6 +1698,8 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             fatKnown = kcal.metadata["fatKnown"]?.toBooleanStrictOrNull()
                 ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_fat" },
             fibre = metric(entryId, "food_fibre", "fibre"),
+            fibreKnown = kcal.metadata["fibreKnown"]?.toBooleanStrictOrNull()
+                ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_fibre" },
             micronutrientCount = foodRows.count { row ->
                 row.metadata["diaryEntryId"] == entryId && !row.metadata["nutrientId"].isNullOrBlank()
             },
