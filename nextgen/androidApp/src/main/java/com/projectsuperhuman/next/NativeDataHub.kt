@@ -202,6 +202,32 @@ internal object NativeDataHub {
         targets.forEach(repository::delete)
     }
 
+    /**
+     * Duplicate one stored nutrition diary item without depending on the original catalogue source.
+     * This preserves the exact ingredient/product evidence, including micronutrients and provenance.
+     */
+    suspend fun duplicateNutritionEntry(
+        rows: List<HealthValue>,
+        timestampEpochMs: Long = System.currentTimeMillis()
+    ): IngestionResult = withContext(Dispatchers.IO) {
+        if (rows.isEmpty()) return@withContext IngestionResult(accepted = 0, rejected = 0, deduplicated = 0)
+        val originalId = rows.firstNotNullOfOrNull { it.metadata["diaryEntryId"] }.orEmpty()
+        val foodId = rows.firstNotNullOfOrNull { it.metadata["foodId"] }.orEmpty()
+        val newEntryId = "nutrition-$timestampEpochMs-${abs((originalId + foodId).hashCode().toLong())}"
+        val copied = rows.mapIndexed { index, row ->
+            val metricRecordId = "nutrition:$newEntryId:${row.metric}:$index"
+            row.copy(
+                timestampEpochMs = timestampEpochMs + index,
+                source = if (row.source == SYNTHETIC_DATA_SOURCE) "native-nutrition-repeat" else row.source,
+                metadata = row.metadata +
+                    ("diaryEntryId" to newEntryId) +
+                    ("sourceRecordId" to metricRecordId) +
+                    ("repeatedFromEntryId" to originalId)
+            )
+        }
+        ingestion.ingestValues(copied)
+    }
+
     suspend fun clearDomain(domain: HealthDomain) = withContext(Dispatchers.IO) {
         repository.clearDomain(domain)
     }
