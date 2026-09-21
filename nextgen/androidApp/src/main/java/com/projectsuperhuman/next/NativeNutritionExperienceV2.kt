@@ -980,38 +980,60 @@ private fun N2MealCard(
         }
 
         if (expanded) {
-            entries.sortedBy { it.timestamp }.forEach { entry ->
-                Row(
-                    Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(13.dp))
-                        .padding(horizontal = 11.dp, vertical = 9.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    N2FoodThumb(entry.name, 34)
-                    Spacer(Modifier.width(9.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(entry.name, color = N2Ink, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+            val grouped = entries.sortedBy { it.timestamp }.groupBy { entry ->
+                entry.mealGroupId.ifBlank { "entry:" + entry.id }
+            }
+            grouped.values.forEach { groupEntries ->
+                val groupName = groupEntries.firstOrNull()?.mealGroupName.orEmpty()
+                if (groupEntries.size > 1 && groupName.isNotBlank()) {
+                    val groupKcal = groupEntries.sumOf { it.kcal }
+                    Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 3.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(groupName, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                            Text(groupEntries.size.toString() + " ingredients", color = N2Muted, fontSize = 7.sp)
+                        }
+                        Text(groupKcal.roundToInt().toString() + " kcal", color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                groupEntries.forEach { entry ->
+                    Row(
+                        Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(13.dp))
+                            .padding(horizontal = 11.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        N2FoodThumb(entry.name, 34)
+                        Spacer(Modifier.width(9.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(entry.name, color = N2Ink, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                            Text(
+                                n2One(entry.grams) + " g · " + entry.kcal.roundToInt().toString() + " kcal · " +
+                                    n2One(entry.protein) + "P · " + n2One(entry.carbs) + "C · " + n2One(entry.fat) + "F",
+                                color = N2Muted,
+                                fontSize = 8.sp,
+                                maxLines = 1
+                            )
+                        }
                         Text(
-                            n2One(entry.grams) + " g · " + entry.kcal.roundToInt().toString() + " kcal · " +
-                                n2One(entry.protein) + "P · " + n2One(entry.carbs) + "C · " + n2One(entry.fat) + "F",
+                            "＋",
+                            color = N2Blue,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.clickable { onDuplicate(entry) }.padding(7.dp)
+                        )
+                        Text(
+                            "×",
                             color = N2Muted,
-                            fontSize = 8.sp,
-                            maxLines = 1
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.clickable { onRemove(entry) }.padding(7.dp)
                         )
                     }
-                    Text(
-                        "＋",
-                        color = N2Blue,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Black,
-                        modifier = Modifier.clickable { onDuplicate(entry) }.padding(7.dp)
-                    )
-                    Text(
-                        "×",
-                        color = N2Muted,
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clickable { onRemove(entry) }.padding(7.dp)
-                    )
+                    Spacer(Modifier.height(5.dp))
                 }
             }
         }
