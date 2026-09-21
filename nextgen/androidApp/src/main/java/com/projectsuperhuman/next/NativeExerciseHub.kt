@@ -38,6 +38,7 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -291,28 +292,31 @@ private fun NativeExerciseLandingPage(
                 .fillMaxWidth()
                 .background(softSurface, RoundedCornerShape(16.dp))
                 .border(1.dp, border, RoundedCornerShape(16.dp))
-                .padding(vertical = 11.dp, horizontal = 8.dp),
-            horizontalArrangement = Arrangement.SpaceEvenly
+                .padding(vertical = 12.dp, horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             ExerciseCompactMetric(
                 value = weekWorkoutCount.toString(),
                 label = "WORKOUTS",
                 ink = ink,
-                muted = muted
+                muted = muted,
+                modifier = Modifier.weight(1f)
             )
             ExerciseMetricDivider(border)
             ExerciseCompactMetric(
                 value = weekMinutes.toString(),
                 label = "MINUTES",
                 ink = ink,
-                muted = muted
+                muted = muted,
+                modifier = Modifier.weight(1f)
             )
             ExerciseMetricDivider(border)
             ExerciseCompactMetric(
                 value = weekActiveDays.toString(),
                 label = "ACTIVE DAYS",
                 ink = ink,
-                muted = muted
+                muted = muted,
+                modifier = Modifier.weight(1f)
             )
         }
 
@@ -610,20 +614,32 @@ private fun ExerciseCompactMetric(
     value: String,
     label: String,
     ink: Color,
-    muted: Color
+    muted: Color,
+    modifier: Modifier = Modifier
 ) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
         Text(
             value,
             color = ink,
             fontSize = 17.sp,
-            fontWeight = FontWeight.Black
+            lineHeight = 20.sp,
+            fontWeight = FontWeight.Black,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
+        Spacer(Modifier.height(3.dp))
         Text(
             label,
             color = muted,
             fontSize = 7.sp,
-            fontWeight = FontWeight.Bold
+            lineHeight = 9.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
