@@ -510,56 +510,136 @@ private fun N2Tab(label: String, selected: Boolean, modifier: Modifier, onClick:
 }
 
 @Composable
-private fun N2Hero(day: N2Day, goals: N2Goals) {
-    Box(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(
-            Brush.linearGradient(listOf(N2Blue, N2Cyan))
-        )
+private fun N2Hero(day: N2Day, goals: N2Goals, weekDays: List<N2Day>) {
+    Column(
+        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Column(Modifier.padding(horizontal = 20.dp, vertical = 19.dp), verticalArrangement = Arrangement.spacedBy(15.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-                Column {
-                    Text("TODAY", color = Color.White.copy(alpha = .72f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                    Row(verticalAlignment = Alignment.Bottom) {
-                        Text(day.kcal.roundToInt().toString(), color = Color.White, fontSize = 35.sp, fontWeight = FontWeight.Black)
-                        Spacer(Modifier.width(6.dp))
-                        Text("kcal", color = Color.White.copy(alpha = .78f), fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
-                    }
-                }
-                goals.kcal?.let {
-                    Column(horizontalAlignment = Alignment.End) {
-                        Text("TARGET", color = Color.White.copy(alpha = .62f), fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                        Text(it.roundToInt().toString(), color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                    }
-                }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            N2CalorieRing(day.kcal, goals.kcal)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
+                Text("Today's intake", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                N2MacroBar("Protein", day.protein, goals.protein, N2Blue)
+                N2MacroBar("Carbs", day.carbs, goals.carbs, N2Cyan)
+                N2MacroBar("Fat", day.fat, goals.fat, N2Amber)
+                N2MacroBar("Fibre", day.fibre, goals.fibre, N2Green)
             }
+        }
 
-            goals.kcal?.let { N2HeroProgress(day.kcal, it) }
+        if (weekDays.any { it.entries.isNotEmpty() }) {
+            N2WeekChart(weekDays, goals.kcal)
+        }
+    }
+}
 
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                N2HeroMacro("PROTEIN", day.protein, goals.protein)
-                N2HeroMacro("CARBS", day.carbs, goals.carbs)
-                N2HeroMacro("FAT", day.fat, goals.fat)
-                N2HeroMacro("FIBRE", day.fibre, goals.fibre)
+@Composable
+private fun N2CalorieRing(value: Double, target: Double?) {
+    val fraction = if (target != null && target > 0.0) (value / target).toFloat().coerceIn(0f, 1f) else 0f
+    Box(Modifier.size(112.dp), contentAlignment = Alignment.Center) {
+        Canvas(Modifier.fillMaxSize()) {
+            val stroke = 9.dp.toPx()
+            drawArc(
+                color = N2Border,
+                startAngle = -90f,
+                sweepAngle = 360f,
+                useCenter = false,
+                style = Stroke(width = stroke, cap = StrokeCap.Round)
+            )
+            if (fraction > 0f) {
+                drawArc(
+                    brush = Brush.sweepGradient(listOf(N2Blue, N2Cyan, N2Blue)),
+                    startAngle = -90f,
+                    sweepAngle = 360f * fraction,
+                    useCenter = false,
+                    style = Stroke(width = stroke, cap = StrokeCap.Round)
+                )
+            }
+        }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(value.roundToInt().toString(), color = N2Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
+            Text("kcal", color = N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            if (target != null) {
+                Text("of " + target.roundToInt(), color = N2Muted, fontSize = 8.sp)
             }
         }
     }
 }
 
 @Composable
-private fun N2HeroProgress(value: Double, target: Double) {
-    val f = if (target > 0) (value / target).toFloat().coerceIn(0f, 1f) else 0f
-    Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(Color.White.copy(alpha = .20f))) {
-        if (f > 0f) Box(Modifier.fillMaxWidth(f).height(5.dp).background(Color.White))
+private fun N2MacroBar(label: String, value: Double, target: Double?, accent: Color) {
+    val fraction = if (target != null && target > 0.0) (value / target).toFloat().coerceIn(0f, 1f) else 0f
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(label, color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text(
+                if (target != null) n2One(value) + " / " + n2One(target) + " g" else n2One(value) + " g",
+                color = N2Ink,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.ExtraBold
+            )
+        }
+        Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(N2Border)) {
+            if (target != null && fraction > 0f) {
+                Box(Modifier.fillMaxWidth(fraction).height(5.dp).background(accent, CircleShape))
+            } else if (value > 0.0) {
+                Box(Modifier.fillMaxWidth(.35f).height(5.dp).background(accent.copy(alpha = .7f), CircleShape))
+            }
+        }
     }
 }
 
 @Composable
-private fun N2HeroMacro(label: String, value: Double, target: Double?) {
-    Column(Modifier.width(72.dp)) {
-        Text(label, color = Color.White.copy(alpha = .62f), fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .7.sp, maxLines = 1)
-        Text("${n2One(value)}g", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
-        if (target != null) Text("/ ${n2One(target)}", color = Color.White.copy(alpha = .58f), fontSize = 8.sp)
+private fun N2WeekChart(days: List<N2Day>, target: Double?) {
+    val maxValue = maxOf(
+        days.maxOfOrNull { it.kcal } ?: 0.0,
+        target ?: 0.0,
+        1.0
+    )
+    Column(
+        Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(18.dp)).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("7-day intake", color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                val logged = days.count { it.entries.isNotEmpty() }
+                Text(logged.toString() + " of 7 days logged", color = N2Muted, fontSize = 8.sp)
+            }
+            val average = days.filter { it.entries.isNotEmpty() }.map { it.kcal }.average().takeIf { !it.isNaN() }
+            if (average != null) {
+                Text(average.roundToInt().toString() + " avg", color = N2Blue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        Row(
+            Modifier.fillMaxWidth().height(74.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            days.forEachIndexed { index, item ->
+                val h = ((item.kcal / maxValue).coerceIn(0.0, 1.0) * 52.0).coerceAtLeast(if (item.kcal > 0) 5.0 else 2.0)
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                    Box(
+                        Modifier.fillMaxWidth().height(h.dp)
+                            .background(
+                                if (index == days.lastIndex) N2Blue else N2Cyan.copy(alpha = .55f),
+                                RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp)
+                            )
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        listOf("M","T","W","T","F","S","S")[index],
+                        color = if (index == days.lastIndex) N2Ink else N2Muted,
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
     }
 }
 
