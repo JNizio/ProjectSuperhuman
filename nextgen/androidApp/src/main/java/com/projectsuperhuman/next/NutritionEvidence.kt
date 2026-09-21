@@ -536,19 +536,19 @@ internal object FoodEvidenceEngine {
     fun inferPreparationState(raw: String): FoodPreparationState {
         val s = raw.lowercase(Locale.ROOT)
         return when {
-            Regex("\breconstitut(ed|ed from|ion)?\b").containsMatchIn(s) -> FoodPreparationState.RECONSTITUTED
-            Regex("\bdrained\b").containsMatchIn(s) -> FoodPreparationState.DRAINED
-            Regex("\b(canned|tinned)\b").containsMatchIn(s) -> FoodPreparationState.CANNED
-            Regex("\bfrozen\b").containsMatchIn(s) -> FoodPreparationState.FROZEN
-            Regex("\b(dried|dry)\b").containsMatchIn(s) -> FoodPreparationState.DRIED
-            Regex("\bsteamed\b").containsMatchIn(s) -> FoodPreparationState.STEAMED
-            Regex("\bboiled\b").containsMatchIn(s) -> FoodPreparationState.BOILED
-            Regex("\bgrilled\b").containsMatchIn(s) -> FoodPreparationState.GRILLED
-            Regex("\broasted\b").containsMatchIn(s) -> FoodPreparationState.ROASTED
-            Regex("\bbaked\b").containsMatchIn(s) -> FoodPreparationState.BAKED
-            Regex("\bfried\b").containsMatchIn(s) -> FoodPreparationState.FRIED
-            Regex("\bcooked\b").containsMatchIn(s) -> FoodPreparationState.COOKED
-            Regex("\braw\b").containsMatchIn(s) -> FoodPreparationState.RAW
+            Regex("""\breconstitut(ed|ed from|ion)?\b""").containsMatchIn(s) -> FoodPreparationState.RECONSTITUTED
+            Regex("""\bdrained\b""").containsMatchIn(s) -> FoodPreparationState.DRAINED
+            Regex("""\b(canned|tinned)\b""").containsMatchIn(s) -> FoodPreparationState.CANNED
+            Regex("""\bfrozen\b""").containsMatchIn(s) -> FoodPreparationState.FROZEN
+            Regex("""\b(dried|dry)\b""").containsMatchIn(s) -> FoodPreparationState.DRIED
+            Regex("""\bsteamed\b""").containsMatchIn(s) -> FoodPreparationState.STEAMED
+            Regex("""\bboiled\b""").containsMatchIn(s) -> FoodPreparationState.BOILED
+            Regex("""\bgrilled\b""").containsMatchIn(s) -> FoodPreparationState.GRILLED
+            Regex("""\broasted\b""").containsMatchIn(s) -> FoodPreparationState.ROASTED
+            Regex("""\bbaked\b""").containsMatchIn(s) -> FoodPreparationState.BAKED
+            Regex("""\bfried\b""").containsMatchIn(s) -> FoodPreparationState.FRIED
+            Regex("""\bcooked\b""").containsMatchIn(s) -> FoodPreparationState.COOKED
+            Regex("""\braw\b""").containsMatchIn(s) -> FoodPreparationState.RAW
             else -> FoodPreparationState.UNSPECIFIED
         }
     }
@@ -565,7 +565,7 @@ internal object FoodEvidenceEngine {
         .replace('ż', 'z')
         .replace(Regex("[^a-z0-9]+"), " ")
         .trim()
-        .replace(Regex("\s+"), " ")
+        .replace(Regex("""\s+"""), " ")
 
     private fun singularize(word: String): String = when {
         word == "bananas" -> "banana"
