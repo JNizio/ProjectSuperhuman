@@ -372,7 +372,7 @@ internal object NativeFoodCatalog {
         val q = query.trim().lowercase()
         if (q.length < 2) return 99
         val name = food.name.lowercase()
-        val haystack = "$name ${food.searchText.lowercase()} ${food.country.lowercase()} ${food.brand.lowercase()}"
+        val haystack = "$name ${food.originalName.lowercase()} ${food.searchText.lowercase()} ${food.country.lowercase()} ${food.brand.lowercase()}"
         return when {
             name == q -> 0
             name.startsWith(q) -> 1
