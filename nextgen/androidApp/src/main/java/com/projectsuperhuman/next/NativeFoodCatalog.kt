@@ -37,7 +37,10 @@ internal data class NativeFood(
     val servingSize: String = "",
     val micronutrients: Map<String, NativeNutrient> = emptyMap(),
     val fibreKnown: Boolean = true,
-    val sugarKnown: Boolean = true
+    val sugarKnown: Boolean = true,
+    val originalName: String = "",
+    val displayLanguage: String = "",
+    val hasVerifiedEnglishName: Boolean = false
 )
 
 internal data class NativeFoodSearchResult(
@@ -188,7 +191,7 @@ internal object NativeFoodCatalog {
     suspend fun lookupBarcode(code: String): NativeFood? = withContext(Dispatchers.IO) {
         val digits = code.filter(Char::isDigit)
         if (!NutritionMath.isValidBarcode(digits)) return@withContext null
-        val fields = "code,product_name,generic_name,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
+        val fields = "code,lang,languages_tags,product_name,product_name_en,product_name_fr,generic_name,generic_name_en,generic_name_fr,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
         val conn = openConnection("https://world.openfoodfacts.org/api/v2/product/$digits.json?fields=$fields")
         try {
             if (conn.responseCode !in 200..299) return@withContext null
@@ -226,7 +229,7 @@ internal object NativeFoodCatalog {
 
         // Open Food Facts currently keeps full-text search on the v1 CGI endpoint.
         val encoded = URLEncoder.encode(query.trim(), "UTF-8")
-        val fields = "code,product_name,generic_name,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
+        val fields = "code,lang,languages_tags,product_name,product_name_en,product_name_fr,generic_name,generic_name_en,generic_name_fr,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
         val url = "https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&search_simple=1&action=process&json=1&page_size=$limit&fields=$fields"
         val conn = openConnection(url)
         try {
@@ -252,10 +255,8 @@ internal object NativeFoodCatalog {
     private fun parseOpenFoodFactsProduct(p: JSONObject, fallbackCode: String): NativeFood? {
         val code = p.optString("code").ifBlank { fallbackCode }.filter(Char::isDigit)
         val nutriments = p.optJSONObject("nutriments") ?: JSONObject()
-        val name = p.optString("product_name")
-            .ifBlank { p.optString("generic_name") }
-            .ifBlank { p.optString("brands") }
-            .ifBlank { if (code.isNotBlank()) "Product $code" else "" }
+        val localizedName = resolveOpenFoodFactsDisplayName(p, code)
+        val name = localizedName.displayName
         if (name.isBlank()) return null
 
         val kcal = nutriments.optDoubleSafe("energy-kcal_100g").takeIf { it > 0.0 }
@@ -286,7 +287,53 @@ internal object NativeFoodCatalog {
             servingSize = p.optString("serving_size"),
             micronutrients = extractMicronutrients(nutriments),
             fibreKnown = nutriments.hasFiniteNumber("fiber_100g"),
-            sugarKnown = nutriments.hasFiniteNumber("sugars_100g")
+            sugarKnown = nutriments.hasFiniteNumber("sugars_100g"),
+            originalName = localizedName.originalName,
+            displayLanguage = localizedName.displayLanguage,
+            hasVerifiedEnglishName = localizedName.hasVerifiedEnglishName
+        )
+    }
+
+    private data class LocalizedProductName(
+        val displayName: String,
+        val originalName: String,
+        val displayLanguage: String,
+        val hasVerifiedEnglishName: Boolean
+    )
+
+    /**
+     * Prefer Open Food Facts' own language-specific English fields instead of machine translating.
+     * Product/brand names with no verified English label remain in the packaging language so we
+     * never invent awkward or misleading translations.
+     */
+    private fun resolveOpenFoodFactsDisplayName(p: JSONObject, code: String): LocalizedProductName {
+        val brand = p.optString("brands").trim()
+        val mainLanguage = p.optString("lang").trim().lowercase()
+        val original = p.optString("product_name").trim()
+            .ifBlank { p.optString("generic_name").trim() }
+            .ifBlank { brand }
+            .ifBlank { if (code.isNotBlank()) "Product $code" else "" }
+
+        val english = p.optString("product_name_en").trim()
+            .ifBlank { p.optString("generic_name_en").trim() }
+
+        if (english.isNotBlank()) {
+            return LocalizedProductName(
+                displayName = english,
+                originalName = original,
+                displayLanguage = "en",
+                hasVerifiedEnglishName = true
+            )
+        }
+
+        // French-only products intentionally keep the authentic French packaging name.
+        // The same conservative fallback is used for other languages when OFF has no verified
+        // English field: correctness beats a guessed machine translation.
+        return LocalizedProductName(
+            displayName = original,
+            originalName = original,
+            displayLanguage = mainLanguage.ifBlank { "source" },
+            hasVerifiedEnglishName = false
         )
     }
 
