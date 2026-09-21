@@ -64,6 +64,7 @@ internal object FoodNutritionOverrideStore {
                 put("barcode", food.barcode.orEmpty())
                 put("name", food.name)
                 put("kcal", food.kcal)
+                put("kcal_known", if (food.kcalKnown) 1 else 0)
                 put("protein", food.protein)
                 put("carbs", food.carbs)
                 put("fat", food.fat)
@@ -127,7 +128,7 @@ internal object FoodNutritionOverrideStore {
         db.rawQuery(
             """
             SELECT kcal, protein, carbs, fat, fibre, sugar,
-                   protein_known, carbs_known, fat_known, fibre_known, sugar_known,
+                   kcal_known, protein_known, carbs_known, fat_known, fibre_known, sugar_known,
                    micronutrients_json
             FROM food_nutrition_override
             WHERE identity_key = ?
@@ -136,7 +137,7 @@ internal object FoodNutritionOverrideStore {
             arrayOf(identityKey(food))
         ).use { cursor ->
             if (!cursor.moveToFirst()) return food
-            val micros = decodeMicros(cursor.getString(11))
+            val micros = decodeMicros(cursor.getString(12))
             val editedSource = if (food.source.contains("edited locally", ignoreCase = true)) {
                 food.source
             } else {
@@ -144,16 +145,17 @@ internal object FoodNutritionOverrideStore {
             }
             return food.copy(
                 kcal = cursor.getDouble(0),
+                kcalKnown = cursor.getInt(6) != 0,
                 protein = cursor.getDouble(1),
                 carbs = cursor.getDouble(2),
                 fat = cursor.getDouble(3),
                 fibre = cursor.getDouble(4),
                 sugar = cursor.getDouble(5),
-                proteinKnown = cursor.getInt(6) != 0,
-                carbsKnown = cursor.getInt(7) != 0,
-                fatKnown = cursor.getInt(8) != 0,
-                fibreKnown = cursor.getInt(9) != 0,
-                sugarKnown = cursor.getInt(10) != 0,
+                proteinKnown = cursor.getInt(7) != 0,
+                carbsKnown = cursor.getInt(8) != 0,
+                fatKnown = cursor.getInt(9) != 0,
+                fibreKnown = cursor.getInt(10) != 0,
+                sugarKnown = cursor.getInt(11) != 0,
                 micronutrients = micros,
                 nutritionIntegrityWarning = null,
                 source = editedSource
@@ -211,7 +213,7 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
     context,
     "superhuman_food_nutrition_overrides.db",
     null,
-    2
+    3
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -222,6 +224,7 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
                 barcode TEXT NOT NULL,
                 name TEXT NOT NULL,
                 kcal REAL NOT NULL,
+                kcal_known INTEGER NOT NULL DEFAULT 1,
                 protein REAL NOT NULL,
                 carbs REAL NOT NULL,
                 fat REAL NOT NULL,
@@ -250,6 +253,9 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
             db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN fat_known INTEGER NOT NULL DEFAULT 1")
             db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN fibre_known INTEGER NOT NULL DEFAULT 1")
             db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN sugar_known INTEGER NOT NULL DEFAULT 1")
+        }
+        if (oldVersion < 3) {
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN kcal_known INTEGER NOT NULL DEFAULT 1")
         }
     }
 }
