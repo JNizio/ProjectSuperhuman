@@ -196,6 +196,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     var portionUnit by remember { mutableStateOf(FoodUnit.G) }
     var meal by remember { mutableStateOf("Breakfast") }
     var searching by remember { mutableStateOf(false) }
+    var foodSearchOpen by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
     var showManualBarcode by remember { mutableStateOf(false) }
     var barcode by remember { mutableStateOf("") }
@@ -309,6 +310,46 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     LaunchedEffect(selectedDate) { refresh(); refreshWeek(); refreshNutrients() }
     LaunchedEffect(selectedDate, nutrientRange) { refreshNutrients() }
 
+    if (foodSearchOpen) {
+        N2FoodSearchScreen(
+            query = query,
+            onQueryChange = { query = it },
+            foods = results,
+            searching = searching,
+            status = status,
+            onBack = {
+                foodSearchOpen = false
+                status = ""
+            },
+            onSearch = {
+                scope.launch {
+                    if (query.trim().length < 2) {
+                        status = "Type at least two characters"
+                        return@launch
+                    }
+                    searching = true
+                    status = "Searching…"
+                    val found = NativeFoodCatalog.search(context, query)
+                    results = found.foods
+                    searching = false
+                    status = when {
+                        results.isEmpty() -> "No matching foods found"
+                        !found.remoteAvailable -> "Local results shown · Open Food Facts unavailable"
+                        else -> ""
+                    }
+                }
+            },
+            onSelect = { food ->
+                selected = food
+                portionUnit = FoodUnitSystem.defaultUnit(food)
+                portion = n2Editable(FoodUnitSystem.defaultAmount(food))
+                foodSearchOpen = false
+                status = ""
+            }
+        )
+        return
+    }
+
     Column(
         Modifier.fillMaxSize().background(N2Bg).verticalScroll(rememberScrollState())
             .padding(horizontal = SuperhumanLayout.pageHorizontal, vertical = SuperhumanLayout.pageVertical),
@@ -345,6 +386,8 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                     onBarcodeChange = { barcode = it.filter(Char::isDigit).take(14) },
                     lookingUp = lookingUp,
                     onSearch = {
+                        foodSearchOpen = true
+                        selected = null
                         scope.launch {
                             if (query.trim().length < 2) {
                                 status = "Type at least two characters"
@@ -354,7 +397,6 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                             status = "Searching…"
                             val found = NativeFoodCatalog.search(context, query)
                             results = found.foods
-                            selected = null
                             searching = false
                             status = when {
                                 results.isEmpty() -> "No matching foods found"
@@ -369,12 +411,6 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                     onPhoto = { imagePicker.launch("image/*") },
                     onBarcodeLookup = { scope.launch { lookupBarcode(barcode) } }
                 )
-
-                if (results.isNotEmpty()) N2Results(results, selected?.id) { food ->
-                    selected = food
-                    portionUnit = FoodUnitSystem.defaultUnit(food)
-                    portion = n2Editable(FoodUnitSystem.defaultAmount(food))
-                }
 
                 selected?.let { food ->
                     N2AddFoodCard(
@@ -897,90 +933,159 @@ private fun N2Button(label: String, accent: Color, modifier: Modifier, enabled: 
 }
 
 @Composable
-private fun N2Results(foods: List<NativeFood>, selectedId: String?, onSelect: (NativeFood) -> Unit) {
+private fun N2FoodSearchScreen(
+    query: String,
+    onQueryChange: (String) -> Unit,
+    foods: List<NativeFood>,
+    searching: Boolean,
+    status: String,
+    onBack: () -> Unit,
+    onSearch: () -> Unit,
+    onSelect: (NativeFood) -> Unit
+) {
     Column(
-        Modifier.fillMaxWidth()
-            .background(N2Surface, RoundedCornerShape(22.dp))
-            .border(1.dp, N2Border, RoundedCornerShape(22.dp))
-            .padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp)
+        Modifier.fillMaxSize()
+            .background(N2Bg)
+            .padding(horizontal = SuperhumanLayout.pageHorizontal, vertical = SuperhumanLayout.pageVertical)
     ) {
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Results", color = N2Ink, fontSize = 15.sp, fontWeight = FontWeight.Black)
-            Text(
-                foods.size.toString() + if (foods.size == 1) " match" else " matches",
-                color = N2Muted,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold
+            Box(
+                Modifier.size(SuperhumanLayout.iconTouchTarget)
+                    .background(N2Surface, RoundedCornerShape(14.dp))
+                    .border(1.dp, N2Border, RoundedCornerShape(14.dp))
+                    .superhumanClickable(onClick = onBack),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.tabler_arrow_left),
+                    contentDescription = "Back",
+                    tint = N2Navy,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Search foods", color = N2Ink, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                Text("Choose a food to return to your diary.", color = N2Muted, fontSize = 10.sp)
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = query,
+                onValueChange = onQueryChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                label = { Text("Food or brand") }
+            )
+            N2Button(
+                if (searching) "…" else "Search",
+                N2Green,
+                Modifier.width(88.dp),
+                !searching,
+                onSearch
             )
         }
 
-        Row(
-            Modifier.fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(9.dp)
-        ) {
-            foods.take(8).forEach { food ->
-                val selected = food.id == selectedId
-                Column(
-                    Modifier.width(220.dp)
-                        .background(if (selected) N2SoftGreen else N2RowBg, RoundedCornerShape(16.dp))
-                        .border(
-                            1.dp,
-                            if (selected) N2Green.copy(alpha = .55f) else N2Border,
-                            RoundedCornerShape(16.dp)
-                        )
-                        .superhumanClickable { onSelect(food) }
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                food.name,
-                                color = N2Ink,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.ExtraBold,
-                                maxLines = 2
-                            )
-                            Text(
-                                food.brand.ifBlank { FoodEvidenceEngine.userFacingSourceLabel(food) },
-                                color = N2Muted,
-                                fontSize = 9.sp,
-                                maxLines = 1
-                            )
-                        }
-                        Text(
-                            if (selected) "✓" else "+",
-                            color = if (selected) N2Green else N2Blue,
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
+        if (status.isNotBlank()) {
+            Spacer(Modifier.height(8.dp))
+            Text(status, color = N2Muted, fontSize = 10.sp)
+        }
 
-                    Text(
-                        (if (food.kcalKnown) food.kcal.roundToInt().toString() + " kcal" else "— kcal") +
-                            " · " + (if (food.proteinKnown) n2One(food.protein) + "g P" else "— P"),
-                        color = N2Ink,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        (if (food.carbsKnown) n2One(food.carbs) + "g C" else "— C") +
-                            " · " + (if (food.fatKnown) n2One(food.fat) + "g F" else "— F") +
-                            " · per " + food.unit,
-                        color = N2Muted,
-                        fontSize = 9.sp,
-                        maxLines = 1
-                    )
-                }
+        Spacer(Modifier.height(14.dp))
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Results", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
+            if (foods.isNotEmpty()) {
+                Text(
+                    foods.size.toString() + if (foods.size == 1) " match" else " matches",
+                    color = N2Muted,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
+
+        Spacer(Modifier.height(7.dp))
+
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            foods.take(8).forEach { food ->
+                N2FoodSearchStrip(food = food, onSelect = { onSelect(food) })
+            }
+            Spacer(Modifier.height(18.dp))
+        }
+    }
+}
+
+@Composable
+private fun N2FoodSearchStrip(food: NativeFood, onSelect: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(N2Surface, RoundedCornerShape(14.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(14.dp))
+            .superhumanClickable(onClick = onSelect)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                food.name,
+                color = N2Ink,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1
+            )
+            Text(
+                buildString {
+                    if (food.brand.isNotBlank()) append(food.brand).append(" · ")
+                    append(FoodEvidenceEngine.userFacingSourceLabel(food))
+                },
+                color = N2Muted,
+                fontSize = 9.sp,
+                maxLines = 1
+            )
+        }
+
+        Spacer(Modifier.width(10.dp))
+
+        Column(
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                if (food.kcalKnown) food.kcal.roundToInt().toString() + " kcal" else "— kcal",
+                color = N2Ink,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                (if (food.proteinKnown) n2One(food.protein) + "P" else "—P") + " · " +
+                    (if (food.carbsKnown) n2One(food.carbs) + "C" else "—C") + " · " +
+                    (if (food.fatKnown) n2One(food.fat) + "F" else "—F"),
+                color = N2Muted,
+                fontSize = 9.sp,
+                maxLines = 1
+            )
+        }
+
+        Spacer(Modifier.width(8.dp))
+        Text("›", color = N2Blue, fontSize = 24.sp, fontWeight = FontWeight.Bold)
     }
 }
 
