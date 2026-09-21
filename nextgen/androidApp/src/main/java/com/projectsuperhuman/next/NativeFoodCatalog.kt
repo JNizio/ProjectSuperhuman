@@ -65,7 +65,7 @@ internal data class NativeFoodSearchResult(
 )
 
 internal object NativeFoodCatalog {
-    private const val USER_AGENT = "ProjectSuperhuman/11.2.9 (Android; https://github.com/JNizio/ProjectSuperhuman)"
+    private const val USER_AGENT = "ProjectSuperhuman/11.3 (Android; https://github.com/JNizio/ProjectSuperhuman)"
     private const val FAST_RESULT_COUNT = 8
     private const val MAX_RESULT_COUNT = 10
 
