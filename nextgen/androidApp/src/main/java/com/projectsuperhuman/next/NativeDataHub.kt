@@ -387,8 +387,13 @@ internal object NativeDataHub {
             put("nutritionIntegrityWarning", evidenceFood.nutritionIntegrityWarning.orEmpty())
             put("nutritionApproximate", evidenceFood.nutritionApproximate.toString())
             put("unitSystemVersion", "4")
-            putAll(FoodEvidenceEngine.snapshotMetadata(evidenceFood, safeAmount, inputUnit, conversion))
         }
+        val immutableSnapshot = FoodEvidenceEngine.snapshotMetadata(
+            evidenceFood,
+            safeAmount,
+            inputUnit,
+            conversion
+        )
 
         fun row(
             metric: String,
@@ -407,7 +412,7 @@ internal object NativeDataHub {
 
         val values = buildList {
             // Always persist a neutral entry anchor. Unknown nutrition remains absent rather than 0.
-            add(row("food_entry", 1.0, "count"))
+            add(row("food_entry", 1.0, "count", immutableSnapshot))
             if (evidenceFood.kcalKnown) {
                 add(row("food_kcal", evidenceFood.kcal * factor, "kcal", FoodEvidenceEngine.nutrientMetadata(evidenceFood, "energy_kcal")))
             }
