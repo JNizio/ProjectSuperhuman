@@ -125,6 +125,12 @@ internal object LargeLocalFoodDatabase {
                             WHEN normalized_name LIKE ? THEN 1
                             ELSE 2
                         END,
+                        CASE
+                            WHEN source LIKE 'USDA Foundation Foods%' THEN 0
+                            WHEN source LIKE 'USDA FNDDS%' THEN 1
+                            WHEN source LIKE 'USDA SR Legacy%' THEN 2
+                            ELSE 3
+                        END,
                         micronutrient_count DESC,
                         length(name),
                         name COLLATE NOCASE
