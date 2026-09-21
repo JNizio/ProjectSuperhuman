@@ -11,7 +11,8 @@ const val SYNTHETIC_DATA_SCENARIO = "correlated-lifestyle-cardio-v3"
 data class SyntheticGenerationConfig(
     val days: Int = 90,
     val seed: Int = 20260811,
-    val batchSize: Int = 2_000
+    val batchSize: Int = 2_000,
+    val includeNutrition: Boolean = true
 )
 
 data class SyntheticGenerationResult(
@@ -611,7 +612,9 @@ class SyntheticDataGenerator(
             val targetDailyKcal = (
                 2_050.0 + activeCalories * 0.72 + if (workoutDay) 180.0 else 0.0 + random.centered(180.0)
                 ).coerceIn(1_700.0, 3_650.0)
-            val chosenMeals = listOf(
+            var dailyKcal = targetDailyKcal
+            if (config.includeNutrition) {
+                val chosenMeals = listOf(
                 breakfastMeals[random.nextInt(breakfastMeals.size)],
                 lunchMeals[random.nextInt(lunchMeals.size)],
                 dinnerMeals[random.nextInt(dinnerMeals.size)]
@@ -624,9 +627,9 @@ class SyntheticDataGenerator(
             val dayScale = (targetDailyKcal / baseTotal).coerceIn(0.78, 1.42)
             val dayStart = anchor - positiveModulo(anchor, DAY_MS)
             val mealMinutes = intArrayOf(8 * 60, 13 * 60, 19 * 60)
-            var dailyKcal = 0.0
+                dailyKcal = 0.0
 
-            chosenMeals.forEachIndexed { mealIndex, template ->
+                chosenMeals.forEachIndexed { mealIndex, template ->
                 val mealScale = (dayScale * (1.0 + random.centered(0.045))).coerceIn(0.72, 1.50)
                 val minuteJitter = random.nextInt(-18, 19)
                 val mealTs = dayStart + (mealMinutes[mealIndex] + minuteJitter) * MINUTE_MS
@@ -737,6 +740,8 @@ class SyntheticDataGenerator(
                 add(dayIndex, anchor, HealthDomain.NUTRITION, "nutrition_goal_carbs_g", carbGoal, "g", goalTs, 902, goalMeta)
                 add(dayIndex, anchor, HealthDomain.NUTRITION, "nutrition_goal_fat_g", fatGoal, "g", goalTs, 903, goalMeta)
                 add(dayIndex, anchor, HealthDomain.NUTRITION, "nutrition_goal_fibre_g", 30.0, "g", goalTs, 904, goalMeta)
+            }
+
             }
 
             // Body: slow energy-balance drift plus a complete BIA-style reading each day.
