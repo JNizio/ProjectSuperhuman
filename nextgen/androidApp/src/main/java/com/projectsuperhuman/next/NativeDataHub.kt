@@ -330,24 +330,29 @@ internal object NativeDataHub {
         meal: String = "Snack",
         timestampEpochMs: Long = System.currentTimeMillis()
     ) = withContext(Dispatchers.IO) {
+        val evidenceFood = FoodEvidenceEngine.enrich(food)
         val safeAmount = amount.coerceIn(0.001, 100_000.0)
-        val conversion = FoodUnitSystem.convert(food, safeAmount, inputUnit)
+        val conversion = FoodUnitSystem.convert(evidenceFood, safeAmount, inputUnit)
             ?: return@withContext
 
         val now = timestampEpochMs
-        val foodHash = abs(food.id.hashCode().toLong())
-        val entryId = "nutrition-$now-$foodHash-${(safeAmount * 100.0).roundToInt()}-${inputUnit.name.lowercase()}"
+        val foodHash = abs(evidenceFood.id.hashCode().toLong())
+        val entryId = "nutrition-" + now + "-" + foodHash + "-" +
+            (safeAmount * 100.0).roundToInt() + "-" + inputUnit.name.lowercase()
         val factor = conversion.factor
-        val protein = food.protein * factor
-        val carbs = food.carbs * factor
-        val fat = food.fat * factor
-        val fibre = food.fibre * factor
-        val sugar = food.sugar * factor
+        val protein = evidenceFood.protein * factor
+        val carbs = evidenceFood.carbs * factor
+        val fat = evidenceFood.fat * factor
+        val saturatedFat = evidenceFood.saturatedFat * factor
+        val fibre = evidenceFood.fibre * factor
+        val sugar = evidenceFood.sugar * factor
+        val salt = evidenceFood.salt * factor
+        val sodiumMg = evidenceFood.sodiumMg * factor
 
         val common = buildMap {
             put("diaryEntryId", entryId)
-            put("foodId", food.id)
-            put("name", food.name)
+            put("foodId", evidenceFood.id)
+            put("name", evidenceFood.name)
             put("amount", safeAmount.toString())
             put("amountUnit", inputUnit.symbol)
             put("basisAmount", conversion.basisAmount.toString())
@@ -355,73 +360,114 @@ internal object NativeDataHub {
             conversion.grams?.let { put("grams", it.toString()) }
             conversion.millilitres?.let { put("millilitres", it.toString()) }
             put("meal", meal)
-            put("sourceName", food.source)
-            put("barcode", food.barcode ?: "")
-            put("brand", food.brand)
-            put("quantity", food.quantity)
-            put("servingSize", food.servingSize)
-            put("kcalKnown", food.kcalKnown.toString())
-            put("protein", if (food.proteinKnown) protein.toString() else "")
-            put("carbs", if (food.carbsKnown) carbs.toString() else "")
-            put("carbohydrateDefinition", food.carbohydrateDefinition.name)
-            put("fat", if (food.fatKnown) fat.toString() else "")
-            put("proteinKnown", food.proteinKnown.toString())
-            put("carbsKnown", food.carbsKnown.toString())
-            put("fatKnown", food.fatKnown.toString())
-            put("fibre", if (food.fibreKnown) fibre.toString() else "")
-            put("sugar", if (food.sugarKnown) sugar.toString() else "")
-            put("fibreKnown", food.fibreKnown.toString())
-            put("sugarKnown", food.sugarKnown.toString())
-            put("micronutrientCount", food.micronutrients.size.toString())
-            put("nutritionIntegrityWarning", food.nutritionIntegrityWarning.orEmpty())
-            put("nutritionApproximate", food.nutritionApproximate.toString())
-            put("unitSystemVersion", "2")
-            food.densityGPerMl?.let {
-                put("densityGPerMl", it.toString())
-                put("densityApproximate", food.densityApproximate.toString())
-            }
+            put("sourceName", evidenceFood.source)
+            put("barcode", evidenceFood.barcode ?: "")
+            put("brand", evidenceFood.brand)
+            put("quantity", evidenceFood.quantity)
+            put("servingSize", evidenceFood.servingSize)
+            put("kcalKnown", evidenceFood.kcalKnown.toString())
+            put("protein", if (evidenceFood.proteinKnown) protein.toString() else "")
+            put("carbs", if (evidenceFood.carbsKnown) carbs.toString() else "")
+            put("carbohydrateDefinition", evidenceFood.carbohydrateDefinition.name)
+            put("fat", if (evidenceFood.fatKnown) fat.toString() else "")
+            put("saturatedFat", if (evidenceFood.saturatedFatKnown) saturatedFat.toString() else "")
+            put("proteinKnown", evidenceFood.proteinKnown.toString())
+            put("carbsKnown", evidenceFood.carbsKnown.toString())
+            put("fatKnown", evidenceFood.fatKnown.toString())
+            put("saturatedFatKnown", evidenceFood.saturatedFatKnown.toString())
+            put("fibre", if (evidenceFood.fibreKnown) fibre.toString() else "")
+            put("sugar", if (evidenceFood.sugarKnown) sugar.toString() else "")
+            put("salt", if (evidenceFood.saltKnown) salt.toString() else "")
+            put("sodiumMg", if (evidenceFood.sodiumKnown) sodiumMg.toString() else "")
+            put("fibreKnown", evidenceFood.fibreKnown.toString())
+            put("sugarKnown", evidenceFood.sugarKnown.toString())
+            put("saltKnown", evidenceFood.saltKnown.toString())
+            put("sodiumKnown", evidenceFood.sodiumKnown.toString())
+            put("micronutrientCount", evidenceFood.micronutrients.size.toString())
+            put("nutritionIntegrityWarning", evidenceFood.nutritionIntegrityWarning.orEmpty())
+            put("nutritionApproximate", evidenceFood.nutritionApproximate.toString())
+            put("unitSystemVersion", "4")
+            putAll(FoodEvidenceEngine.snapshotMetadata(evidenceFood, safeAmount, inputUnit, conversion))
         }
 
-        fun row(metric: String, value: Double, unit: String, extra: Map<String, String> = emptyMap()): HealthValue =
-            HealthValue(
-                domain = HealthDomain.NUTRITION,
-                metric = metric,
-                value = value,
-                unit = unit,
-                timestampEpochMs = now,
-                source = "native-nutrition",
-                metadata = common + extra + ("sourceRecordId" to "nutrition:$entryId:$metric")
-            )
+        fun row(
+            metric: String,
+            value: Double,
+            unit: String,
+            extra: Map<String, String> = emptyMap()
+        ): HealthValue = HealthValue(
+            domain = HealthDomain.NUTRITION,
+            metric = metric,
+            value = value,
+            unit = unit,
+            timestampEpochMs = now,
+            source = "native-nutrition",
+            metadata = common + extra + ("sourceRecordId" to ("nutrition:" + entryId + ":" + metric))
+        )
 
         val values = buildList {
-            add(row("food_kcal", food.kcal * factor, "kcal"))
-            if (food.proteinKnown) add(row("food_protein", protein, "g"))
-            if (food.carbsKnown) add(row("food_carbs", carbs, "g"))
-            if (food.fatKnown) add(row("food_fat", fat, "g"))
-            if (food.fibreKnown) add(row("food_fibre", fibre, "g"))
-            if (food.sugarKnown) add(row("food_sugar", sugar, "g"))
+            // Always persist a neutral entry anchor. Unknown nutrition remains absent rather than 0.
+            add(row("food_entry", 1.0, "count"))
+            if (evidenceFood.kcalKnown) {
+                add(row("food_kcal", evidenceFood.kcal * factor, "kcal", FoodEvidenceEngine.nutrientMetadata(evidenceFood, "energy_kcal")))
+            }
+            if (evidenceFood.proteinKnown) {
+                add(row("food_protein", protein, "g", FoodEvidenceEngine.nutrientMetadata(evidenceFood, "protein")))
+            }
+            if (evidenceFood.carbsKnown) {
+                add(row("food_carbs", carbs, "g", FoodEvidenceEngine.nutrientMetadata(evidenceFood, "carbohydrate")))
+            }
+            if (evidenceFood.fatKnown) {
+                add(row("food_fat", fat, "g", FoodEvidenceEngine.nutrientMetadata(evidenceFood, "fat")))
+            }
+            if (evidenceFood.saturatedFatKnown) {
+                add(row("food_saturated_fat", saturatedFat, "g", FoodEvidenceEngine.nutrientMetadata(evidenceFood, "saturated_fat")))
+            }
+            if (evidenceFood.fibreKnown) {
+                add(row("food_fibre", fibre, "g", FoodEvidenceEngine.nutrientMetadata(evidenceFood, "fibre")))
+            }
+            if (evidenceFood.sugarKnown) {
+                add(row("food_sugar", sugar, "g", FoodEvidenceEngine.nutrientMetadata(evidenceFood, "sugars")))
+            }
+            if (evidenceFood.saltKnown) {
+                add(row("food_salt", salt, "g", FoodEvidenceEngine.nutrientMetadata(evidenceFood, "salt")))
+            }
+            if (evidenceFood.sodiumKnown) {
+                add(row("food_sodium", sodiumMg, "mg", FoodEvidenceEngine.nutrientMetadata(evidenceFood, "sodium")))
+            }
 
-            food.micronutrients.values.forEach { nutrient ->
-                val suffix = when (nutrient.unit) {
-                    "µg", "μg", "mcg" -> "ug"
-                    else -> nutrient.unit.lowercase().replace("%", "pct")
-                }
-                val metricId = nutrient.id.lowercase().replace('-', '_').replace(' ', '_')
-                add(
-                    row(
-                        metric = "food_${metricId}_$suffix",
-                        value = nutrient.valuePer100 * factor,
-                        unit = nutrient.unit,
-                        extra = mapOf(
-                            "nutrientId" to nutrient.id,
-                            "nutrientLabel" to nutrient.label,
-                            "perBasis" to nutrient.valuePer100.toString(),
-                            "perBasisAmount" to food.basisAmount.toString(),
-                            "perBasisUnit" to food.basisUnit.symbol
+            evidenceFood.micronutrients.values
+                .filterNot { it.id.equals("sodium", ignoreCase = true) && evidenceFood.sodiumKnown }
+                .forEach { nutrient ->
+                    val suffix = when (nutrient.unit) {
+                        "µg", "μg", "mcg" -> "ug"
+                        else -> nutrient.unit.lowercase().replace("%", "pct")
+                    }
+                    val metricId = nutrient.id.lowercase().replace('-', '_').replace(' ', '_')
+                    val evidenceKind = nutrient.evidenceKind.takeUnless { it == NutrientEvidenceKind.UNSPECIFIED }
+                        ?: FoodEvidenceEngine.evidenceKindForSource(
+                            evidenceFood.sourceType,
+                            evidenceFood.nutritionApproximate
+                        )
+                    add(
+                        row(
+                            metric = "food_" + metricId + "_" + suffix,
+                            value = nutrient.valuePer100 * factor,
+                            unit = nutrient.unit,
+                            extra = mapOf(
+                                "nutrientId" to nutrient.id,
+                                "nutrientLabel" to nutrient.label,
+                                "perBasis" to nutrient.valuePer100.toString(),
+                                "perBasisAmount" to evidenceFood.basisAmount.toString(),
+                                "perBasisUnit" to evidenceFood.basisUnit.symbol,
+                                "nutrientEvidenceKind" to evidenceKind.name,
+                                "nutrientEvidenceSource" to nutrient.source.ifBlank { evidenceFood.source },
+                                "nutrientSourceRecordId" to nutrient.sourceRecordId.ifBlank { evidenceFood.sourceRecordId },
+                                "nutrientDerivedFrom" to nutrient.derivedFrom
+                            )
                         )
                     )
-                )
-            }
+                }
         }
 
         ingestion.ingestValues(values)
