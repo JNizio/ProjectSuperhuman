@@ -3,7 +3,6 @@ package com.projectsuperhuman.next
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,10 +39,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -907,11 +904,7 @@ private fun N2WeekChart(
         ) {
             Column {
                 Text("7-day nutrition", color = N2Ink, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                Text(
-                    "Tap a day to open its diary",
-                    color = N2Muted,
-                    fontSize = 8.sp
-                )
+                Text("Tap a day to open its diary", color = N2Muted, fontSize = 8.sp)
             }
             Text(
                 loggedDays.toString() + "/7 logged",
@@ -942,19 +935,7 @@ private fun N2WeekChart(
                 .height(chartHeight)
                 .background(N2Surface, RoundedCornerShape(14.dp))
         ) {
-            Canvas(
-                Modifier.fillMaxSize()
-                    .pointerInput(dates, selectedDate) {
-                        detectTapGestures { tap ->
-                            if (dates.isEmpty()) return@detectTapGestures
-                            val sidePad = 12.dp.toPx()
-                            val usable = (size.width - sidePad * 2f).coerceAtLeast(1f)
-                            val step = if (dates.size > 1) usable / (dates.size - 1) else usable
-                            val index = ((tap.x - sidePad) / step).roundToInt().coerceIn(0, dates.lastIndex)
-                            onSelectDate(dates[index])
-                        }
-                    }
-            ) {
+            Canvas(Modifier.fillMaxSize()) {
                 val left = 12.dp.toPx()
                 val right = 12.dp.toPx()
                 val top = 12.dp.toPx()
@@ -976,53 +957,49 @@ private fun N2WeekChart(
                 series.forEach { metric ->
                     val observedMax = metric.values.maxOrNull()?.takeIf { it > 0.0 } ?: 1.0
                     val scaleMax = max(metric.target ?: 0.0, observedMax).coerceAtLeast(1.0)
-                    val path = Path()
-                    var started = false
 
+                    var previousPoint: Offset? = null
                     metric.values.forEachIndexed { index, value ->
-                        if (days[index].entries.isEmpty()) return@forEachIndexed
-                        val x = left + xStep * index
-                        val fraction = (value / scaleMax).toFloat().coerceIn(0f, 1f)
-                        val y = top + chartH * (1f - fraction)
-
-                        if (!started) {
-                            path.moveTo(x, y)
-                            started = true
+                        if (days[index].entries.isEmpty()) {
+                            previousPoint = null
                         } else {
-                            path.lineTo(x, y)
+                            val x = left + xStep * index
+                            val fraction = (value / scaleMax).toFloat().coerceIn(0f, 1f)
+                            val y = top + chartH * (1f - fraction)
+                            val point = Offset(x, y)
+
+                            previousPoint?.let { previous ->
+                                drawLine(
+                                    color = metric.color,
+                                    start = previous,
+                                    end = point,
+                                    strokeWidth = 2.3.dp.toPx(),
+                                    cap = StrokeCap.Round
+                                )
+                            }
+
+                            drawCircle(
+                                color = if (metric.complete[index]) metric.color else metric.color.copy(alpha = .55f),
+                                radius = 3.2.dp.toPx(),
+                                center = point
+                            )
+                            previousPoint = point
                         }
                     }
-
-                    if (started) {
-                        drawPath(
-                            path = path,
-                            color = metric.color,
-                            style = Stroke(width = 2.3.dp.toPx(), cap = StrokeCap.Round)
-                        )
-                    }
-
-                    metric.values.forEachIndexed { index, value ->
-                        if (days[index].entries.isEmpty()) return@forEachIndexed
-                        val x = left + xStep * index
-                        val fraction = (value / scaleMax).toFloat().coerceIn(0f, 1f)
-                        val y = top + chartH * (1f - fraction)
-                        drawCircle(
-                            color = if (metric.complete[index]) metric.color else metric.color.copy(alpha = .55f),
-                            radius = 3.2.dp.toPx(),
-                            center = Offset(x, y)
-                        )
-                    }
                 }
+            }
 
-                dates.forEachIndexed { index, date ->
-                    val x = left + xStep * index
-                    if (date == selectedDate) {
-                        drawCircle(
-                            color = N2Blue.copy(alpha = .14f),
-                            radius = 9.dp.toPx(),
-                            center = Offset(x, size.height - 12.dp.toPx())
-                        )
-                    }
+            Row(
+                Modifier.fillMaxSize()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                dates.forEach { date ->
+                    Box(
+                        Modifier.weight(1f)
+                            .fillMaxSize()
+                            .superhumanClickable { onSelectDate(date) }
+                    )
                 }
             }
 
@@ -1044,12 +1021,6 @@ private fun N2WeekChart(
                 }
             }
         }
-
-        Text(
-            "Each line is scaled to its own 7-day range so calories and gram-based macros remain readable together.",
-            color = N2Muted,
-            fontSize = 7.sp
-        )
     }
 }
 
