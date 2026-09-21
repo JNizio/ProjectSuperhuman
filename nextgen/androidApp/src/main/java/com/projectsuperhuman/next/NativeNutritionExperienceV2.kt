@@ -364,9 +364,15 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                         portion = portion,
                         onPortionChange = { portion = it.filter { c -> c.isDigit() || c == '.' }.take(7) },
                         portionUnit = portionUnit,
-                        onPortionUnitChange = {
-                            portionUnit = it
-                            portion = n2Editable(if (it == FoodUnit.SERVING || it == FoodUnit.PACKAGE || it == FoodUnit.PIECE) 1.0 else FoodUnitSystem.defaultAmount(food).takeIf { default -> FoodUnitSystem.defaultUnit(food) == it } ?: 100.0)
+                        onPortionUnitChange = { unit ->
+                            portionUnit = unit
+                            portion = n2Editable(
+                                if (unit == FoodUnit.SERVING || unit == FoodUnit.PACKAGE || unit == FoodUnit.PIECE) {
+                                    1.0
+                                } else {
+                                    FoodUnitSystem.amountForBasis(food, unit) ?: FoodUnitSystem.defaultAmount(food)
+                                }
+                            )
                         },
                         meal = meal,
                         onMealChange = { meal = it },
