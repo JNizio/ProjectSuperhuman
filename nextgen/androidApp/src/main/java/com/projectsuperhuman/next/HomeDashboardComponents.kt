@@ -587,15 +587,15 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
                     letterSpacing = 1.15.sp
                 )
                 Box(
-                    Modifier.background(Color.White.copy(alpha = .09f), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                    Modifier.width(36.dp).height(36.dp)
+                        .background(Color.White.copy(alpha = .09f), CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "OPEN  →",
-                        color = Color.White.copy(alpha = .86f),
-                        fontSize = 7.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = .35.sp
+                        "→",
+                        color = Color.White.copy(alpha = .88f),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             }
@@ -653,27 +653,50 @@ private fun TrainingModuleTile(
     accent: Color,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier.height(68.dp)
-            .background(Color.White.copy(alpha = .075f), RoundedCornerShape(16.dp))
-            .border(1.dp, accent.copy(alpha = .20f), RoundedCornerShape(16.dp))
-            .padding(horizontal = 11.dp, vertical = 9.dp)
+    Row(
+        modifier.height(72.dp)
+            .background(Color.White.copy(alpha = .075f), RoundedCornerShape(17.dp))
+            .border(1.dp, accent.copy(alpha = .20f), RoundedCornerShape(17.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(6.dp).height(6.dp).background(accent, CircleShape))
-            Spacer(Modifier.width(6.dp))
+        Box(
+            Modifier.width(9.dp).height(9.dp)
+                .background(accent, CircleShape)
+        )
+        Spacer(Modifier.width(9.dp))
+        Column(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center
+        ) {
             Text(
                 title,
                 color = accent,
                 fontSize = 7.sp,
                 fontWeight = FontWeight.Black,
-                letterSpacing = .6.sp,
+                letterSpacing = .65.sp,
                 maxLines = 1
             )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                value,
+                color = Color.White,
+                fontSize = 13.sp,
+                lineHeight = 15.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 1
+            )
+            if (detail.isNotBlank()) {
+                Spacer(Modifier.height(1.dp))
+                Text(
+                    detail,
+                    color = Color.White.copy(alpha = .50f),
+                    fontSize = 6.5.sp,
+                    lineHeight = 8.sp,
+                    maxLines = 1
+                )
+            }
         }
-        Spacer(Modifier.height(4.dp))
-        Text(value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 1)
-        Text(detail, color = Color.White.copy(alpha = .50f), fontSize = 7.sp, maxLines = 1)
     }
 }
 
@@ -895,10 +918,11 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                     letterSpacing = 1.15.sp
                 )
                 Box(
-                    Modifier.background(accent.copy(alpha = .12f), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                    Modifier.width(34.dp).height(34.dp)
+                        .background(accent.copy(alpha = .12f), CircleShape),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Text("OPEN  →", color = accent, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .35.sp)
+                    Text("→", color = accent, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
