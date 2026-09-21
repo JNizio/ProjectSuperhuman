@@ -360,6 +360,7 @@ internal object NativeDataHub {
             put("brand", food.brand)
             put("quantity", food.quantity)
             put("servingSize", food.servingSize)
+            put("kcalKnown", food.kcalKnown.toString())
             put("protein", if (food.proteinKnown) protein.toString() else "")
             put("carbs", if (food.carbsKnown) carbs.toString() else "")
             put("fat", if (food.fatKnown) fat.toString() else "")
