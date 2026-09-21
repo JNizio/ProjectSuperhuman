@@ -51,10 +51,11 @@ internal object LargeLocalFoodDatabase {
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val bootstrapStarted = AtomicBoolean(false)
+    private val prioritySeeded = AtomicBoolean(false)
 
     fun ensureStarted(context: Context) {
         val app = context.applicationContext
-        seedPriorityFoods(app)
+        seedPriorityFoodsOnce(app)
         if (sourcesComplete(app)) return
         if (!bootstrapStarted.compareAndSet(false, true)) return
 
@@ -97,7 +98,7 @@ internal object LargeLocalFoodDatabase {
     }
 
     suspend fun count(context: Context): Int = withContext(Dispatchers.IO) {
-        seedPriorityFoods(context.applicationContext)
+        seedPriorityFoodsOnce(context.applicationContext)
         countBlocking(context.applicationContext)
     }
 
@@ -188,6 +189,12 @@ internal object LargeLocalFoodDatabase {
             "SELECT value FROM food_reference_meta WHERE key = ? LIMIT 1",
             arrayOf(key)
         ).use { cursor -> cursor.moveToFirst() && cursor.getString(0) == "1" }
+    }
+
+    private fun seedPriorityFoodsOnce(context: Context) {
+        if (!prioritySeeded.compareAndSet(false, true)) return
+        runCatching { seedPriorityFoods(context) }
+            .onFailure { prioritySeeded.set(false) }
     }
 
     private fun seedPriorityFoods(context: Context) {
