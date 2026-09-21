@@ -40,7 +40,16 @@ internal data class NativeFood(
     val sugarKnown: Boolean = true,
     val originalName: String = "",
     val displayLanguage: String = "",
-    val hasVerifiedEnglishName: Boolean = false
+    val hasVerifiedEnglishName: Boolean = false,
+    val basisAmount: Double = 100.0,
+    val basisUnit: FoodUnit = FoodUnit.G,
+    val densityGPerMl: Double? = null,
+    val densityApproximate: Boolean = false,
+    val productQuantity: Double? = null,
+    val productQuantityUnit: FoodUnit? = null,
+    val servingQuantity: Double? = null,
+    val servingQuantityUnit: FoodUnit? = null,
+    val servingLabel: String = ""
 )
 
 internal data class NativeFoodSearchResult(
@@ -191,7 +200,7 @@ internal object NativeFoodCatalog {
     suspend fun lookupBarcode(code: String): NativeFood? = withContext(Dispatchers.IO) {
         val digits = code.filter(Char::isDigit)
         if (!NutritionMath.isValidBarcode(digits)) return@withContext null
-        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
+        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,nutriments"
         val conn = openConnection("https://world.openfoodfacts.org/api/v2/product/$digits.json?fields=$fields")
         try {
             if (conn.responseCode !in 200..299) return@withContext null
@@ -229,7 +238,7 @@ internal object NativeFoodCatalog {
 
         // Open Food Facts currently keeps full-text search on the v1 CGI endpoint.
         val encoded = URLEncoder.encode(query.trim(), "UTF-8")
-        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
+        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,nutriments"
         val url = "https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&search_simple=1&action=process&json=1&page_size=$limit&fields=$fields"
         val conn = openConnection(url)
         try {
@@ -262,8 +271,10 @@ internal object NativeFoodCatalog {
         val kcal = nutriments.optDoubleSafe("energy-kcal_100g").takeIf { it > 0.0 }
             ?: (nutriments.optDoubleSafe("energy-kj_100g") / 4.184).takeIf { it > 0.0 }
             ?: 0.0
-        val productUnit = p.optString("product_quantity_unit").lowercase()
-        val basis = if (productUnit in setOf("ml", "l", "cl", "dl")) "100 ml" else "100 g"
+        val productQuantityUnit = FoodUnit.fromSymbol(p.optString("product_quantity_unit"))
+        val servingQuantityUnit = FoodUnit.fromSymbol(p.optString("serving_quantity_unit"))
+        val basisUnit = if (productQuantityUnit?.dimension == FoodMeasureDimension.VOLUME) FoodUnit.ML else FoodUnit.G
+        val basis = if (basisUnit == FoodUnit.ML) "100 ml" else "100 g"
         val brand = p.optString("brands").trim()
         val country = p.optStringList("countries_tags").take(80)
         val categories = p.optString("categories").take(180)
@@ -290,7 +301,16 @@ internal object NativeFoodCatalog {
             sugarKnown = nutriments.hasFiniteNumber("sugars_100g"),
             originalName = localizedName.originalName,
             displayLanguage = localizedName.displayLanguage,
-            hasVerifiedEnglishName = localizedName.hasVerifiedEnglishName
+            hasVerifiedEnglishName = localizedName.hasVerifiedEnglishName,
+            basisAmount = 100.0,
+            basisUnit = basisUnit,
+            densityGPerMl = null,
+            densityApproximate = false,
+            productQuantity = p.optNullableDouble("product_quantity"),
+            productQuantityUnit = productQuantityUnit,
+            servingQuantity = p.optNullableDouble("serving_quantity"),
+            servingQuantityUnit = servingQuantityUnit,
+            servingLabel = p.optString("serving_size")
         )
     }
 
@@ -406,7 +426,11 @@ internal object NativeFoodCatalog {
                         unit = j.optString("unit", "100 g"),
                         source = j.optString("source", "Project Superhuman reference"),
                         searchText = j.optString("salt") + " " + j.optString("aliases") + " " + j.optString("brand"),
-                        brand = j.optString("brand", "")
+                        brand = j.optString("brand", ""),
+                        basisAmount = FoodUnitSystem.parseBasis(j.optString("unit", "100 g"))?.first ?: 100.0,
+                        basisUnit = FoodUnitSystem.parseBasis(j.optString("unit", "100 g"))?.second ?: FoodUnit.G,
+                        densityGPerMl = j.optNullableDouble("density_g_ml"),
+                        densityApproximate = j.optBoolean("density_approx", false)
                     )
                 )
             }
@@ -422,6 +446,17 @@ internal object NativeFoodCatalog {
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", USER_AGENT)
         }
+
+    private fun JSONObject.optNullableDouble(key: String): Double? {
+        if (!has(key) || isNull(key)) return null
+        val value = opt(key) ?: return null
+        val parsed = when (value) {
+            is Number -> value.toDouble()
+            is String -> value.toDoubleOrNull()
+            else -> null
+        }
+        return parsed?.takeIf { it.isFinite() && it > 0.0 }
+    }
 
     private fun JSONObject.hasFiniteNumber(key: String): Boolean {
         if (!has(key) || isNull(key)) return false
