@@ -868,59 +868,110 @@ private fun N2WeekChart(
     selectedDate: LocalDate,
     onSelectDate: (LocalDate) -> Unit
 ) {
-    val maxValue = maxOf(
-        days.maxOfOrNull { it.kcal } ?: 0.0,
-        target ?: 0.0,
-        1.0
-    )
+    val loggedDays = days.count { it.entries.isNotEmpty() }
+    val completeDays = days.filter { it.entries.isNotEmpty() && it.kcalComplete }
+    val average = completeDays.map { it.kcal }.average().takeIf { !it.isNaN() }
+
     Column(
-        Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(18.dp)).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.compactGap)
+        Modifier.fillMaxWidth()
+            .background(N2RowBg, RoundedCornerShape(18.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column {
-                Text("7-day intake", color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                val logged = days.count { it.entries.isNotEmpty() }
-                Text(logged.toString() + " of 7 days logged", color = N2Muted, fontSize = 8.sp)
+                Text("Recent days", color = N2Ink, fontSize = 13.sp, fontWeight = FontWeight.Black)
+                Text(
+                    loggedDays.toString() + " of 7 days logged",
+                    color = N2Muted,
+                    fontSize = 8.sp
+                )
             }
-            val average = days.filter { it.entries.isNotEmpty() && it.kcalComplete }.map { it.kcal }.average().takeIf { !it.isNaN() }
             if (average != null) {
-                Text(average.roundToInt().toString() + " avg", color = N2Blue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text(
+                    average.roundToInt().toString() + " kcal avg",
+                    color = N2Blue,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black
+                )
             }
         }
+
         Row(
-            Modifier.fillMaxWidth().height(74.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.Bottom
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             days.forEachIndexed { index, item ->
-                val h = ((item.kcal / maxValue).coerceIn(0.0, 1.0) * 52.0).coerceAtLeast(if (item.kcal > 0) 5.0 else 2.0)
-                val chartDate = selectedDate.minusDays((days.lastIndex - index).toLong())
+                val date = selectedDate.minusDays((days.lastIndex - index).toLong())
+                val selected = date == selectedDate
+                val hasData = item.entries.isNotEmpty()
+                val kcalLabel = when {
+                    !hasData -> "—"
+                    item.kcalComplete -> item.kcal.roundToInt().toString()
+                    else -> "~" + item.kcal.roundToInt().toString()
+                }
+
                 Column(
-                    Modifier.weight(1f).clickable { onSelectDate(chartDate) }.padding(horizontal = 1.dp),
+                    Modifier.weight(1f)
+                        .background(
+                            if (selected) N2Blue.copy(alpha = .18f) else N2Surface,
+                            RoundedCornerShape(13.dp)
+                        )
+                        .border(
+                            1.dp,
+                            if (selected) N2Blue else N2Border,
+                            RoundedCornerShape(13.dp)
+                        )
+                        .superhumanClickable { onSelectDate(date) }
+                        .padding(vertical = 9.dp, horizontal = 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Bottom
+                    verticalArrangement = Arrangement.spacedBy(3.dp)
                 ) {
-                    Box(
-                        Modifier.fillMaxWidth().height(h.dp)
-                            .background(
-                                when {
-                                    !item.kcalComplete -> N2Amber.copy(alpha = .55f)
-                                    index == days.lastIndex -> N2Blue
-                                    else -> N2Cyan.copy(alpha = .55f)
-                                },
-                                RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp)
-                            )
-                    )
-                    Spacer(Modifier.height(4.dp))
                     Text(
-                        chartDate.dayOfWeek.name.take(1),
-                        color = if (index == days.lastIndex) N2Ink else N2Muted,
+                        date.dayOfWeek.name.take(3).lowercase().replaceFirstChar { it.uppercase() },
+                        color = if (selected) N2Blue else N2Muted,
                         fontSize = 7.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
+                    )
+                    Text(
+                        date.dayOfMonth.toString(),
+                        color = N2Ink,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Text(
+                        kcalLabel,
+                        color = when {
+                            selected -> N2Blue
+                            !hasData -> N2Muted
+                            !item.kcalComplete -> N2Amber
+                            else -> N2Ink
+                        },
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1
                     )
                 }
             }
+        }
+
+        if (target != null && target > 0.0 && days.any { it.entries.isNotEmpty() }) {
+            Text(
+                "Tap a day to view its diary · kcal values shown below each date",
+                color = N2Muted,
+                fontSize = 8.sp
+            )
+        } else {
+            Text(
+                "Tap a day to view its diary",
+                color = N2Muted,
+                fontSize = 8.sp
+            )
         }
     }
 }
