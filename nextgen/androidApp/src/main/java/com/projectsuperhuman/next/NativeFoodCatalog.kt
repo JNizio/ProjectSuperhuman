@@ -106,8 +106,8 @@ internal data class NativeFoodSearchResult(
 internal object NativeFoodCatalog {
     private const val USER_AGENT = "ProjectSuperhuman/11.4 (Android; https://github.com/JNizio/ProjectSuperhuman)"
     private const val OFF_FIELDS = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,data_quality_errors_tags,data_quality_warnings_tags,nutriments,ingredients_text,allergens_tags,additives_tags,nova_group,image_url,image_front_url,image_nutrition_url,image_ingredients_url,last_modified_t,last_modified_datetime"
-    private const val FAST_RESULT_COUNT = 8
-    private const val MAX_RESULT_COUNT = 10
+    private const val FAST_RESULT_COUNT = 6
+    private const val MAX_RESULT_COUNT = 8
 
     @Volatile private var cached: List<NativeFood>? = null
 
@@ -232,12 +232,12 @@ internal object NativeFoodCatalog {
             .sortedWith(foodComparator(q))
             .distinctBy(FoodEvidenceEngine::dedupKey)
 
-        // Broad/common searches stay completely local when we already have enough good candidates.
-        // Multi-word queries are more likely to be a specific branded product, so OFF remains useful.
-        val specificProductQuery = q.length >= 6 && q.any(Char::isWhitespace)
-        val shouldQueryRemote = localCandidates.size < FAST_RESULT_COUNT || specificProductQuery
+        // Stay local when we already have enough strong matches. Network search is the fallback,
+        // not a tax paid on every multi-word query.
+        val strongLocalMatch = localCandidates.any { foodSearchRank(it, q.lowercase()) <= 1 }
+        val shouldQueryRemote = localCandidates.size < FAST_RESULT_COUNT || !strongLocalMatch
         val remoteResult = if (shouldQueryRemote) {
-            searchOpenFoodFacts(context, q, limit = 12)
+            searchOpenFoodFacts(context, q, limit = MAX_RESULT_COUNT)
         } else {
             emptyList<NativeFood>() to true
         }
