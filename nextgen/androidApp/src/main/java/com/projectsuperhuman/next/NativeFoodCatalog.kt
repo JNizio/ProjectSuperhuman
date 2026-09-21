@@ -410,6 +410,7 @@ internal object NativeFoodCatalog {
             proteinKnown = macroIntegrity.proteinKnown,
             carbs = macroIntegrity.carbs,
             carbsKnown = macroIntegrity.carbsKnown,
+            carbohydrateDefinition = CarbohydrateDefinition.AVAILABLE_EXCLUDING_FIBRE,
             fat = macroIntegrity.fat,
             fatKnown = macroIntegrity.fatKnown,
             saturatedFat = saturatedFatRaw,
@@ -448,7 +449,16 @@ internal object NativeFoodCatalog {
             .filter { warning -> warning.isNotBlank() && isNutritionQualityWarning(warning) }
             .distinct()
 
-        val sourceWarnings = (offWarnings + integrity.warnings + listOfNotNull(macroIntegrity.warning))
+        val servingWarnings = validateOffServingConsistency(
+            nutriments = nutriments,
+            servingQuantity = p.optNullableDouble("serving_quantity"),
+            servingUnit = servingQuantityUnit,
+            productQuantity = p.optNullableDouble("product_quantity"),
+            productUnit = productQuantityUnit,
+            basisUnit = basisUnit
+        )
+
+        val sourceWarnings = (offWarnings + integrity.warnings + servingWarnings + listOfNotNull(macroIntegrity.warning))
             .filter(String::isNotBlank)
             .distinct()
 
@@ -617,6 +627,55 @@ internal object NativeFoodCatalog {
             }
         }
         return out
+    }
+
+    private fun validateOffServingConsistency(
+        nutriments: JSONObject,
+        servingQuantity: Double?,
+        servingUnit: FoodUnit?,
+        productQuantity: Double?,
+        productUnit: FoodUnit?,
+        basisUnit: FoodUnit
+    ): List<String> {
+        val q = servingQuantity?.takeIf { it.isFinite() && it > 0.0 } ?: return emptyList()
+        val unit = servingUnit ?: return emptyList()
+        if (unit.dimension != basisUnit.dimension || unit.dimension == FoodMeasureDimension.DERIVED) {
+            return emptyList()
+        }
+
+        val basisQuantity = q * unit.toBase / basisUnit.toBase
+        val factor = basisQuantity / 100.0
+        val warnings = mutableListOf<String>()
+        val pairs = listOf(
+            Triple("energy-kcal_100g", "energy-kcal_serving", 2.0),
+            Triple("proteins_100g", "proteins_serving", 0.2),
+            Triple("carbohydrates_100g", "carbohydrates_serving", 0.2),
+            Triple("fat_100g", "fat_serving", 0.2),
+            Triple("sugars_100g", "sugars_serving", 0.2)
+        )
+        pairs.forEach { (per100Key, servingKey, absoluteTolerance) ->
+            if (!nutriments.hasNonNegativeNumber(per100Key) || !nutriments.hasNonNegativeNumber(servingKey)) {
+                return@forEach
+            }
+            val expected = nutriments.optDoubleSafe(per100Key) * factor
+            val reported = nutriments.optDoubleSafe(servingKey)
+            val tolerance = maxOf(absoluteTolerance, expected * 0.15)
+            if (kotlin.math.abs(reported - expected) > tolerance) {
+                warnings += "Serving nutrition disagrees with per-100 basis"
+            }
+        }
+
+        if (productQuantity != null && productUnit != null &&
+            productUnit.dimension == unit.dimension &&
+            productUnit.dimension != FoodMeasureDimension.DERIVED
+        ) {
+            val packageBase = productQuantity * productUnit.toBase
+            val servingBase = q * unit.toBase
+            if (servingBase > packageBase * 1.05) {
+                warnings += "Serving quantity exceeds package quantity"
+            }
+        }
+        return warnings.distinct()
     }
 
     private fun isNutritionQualityWarning(raw: String): Boolean {
