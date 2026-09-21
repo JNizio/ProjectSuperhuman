@@ -58,8 +58,13 @@ internal object FoodNutritionOverrideStore {
     fun save(context: Context, food: NativeFood) {
         attach(context)
         FoodNutritionOverrideDb(context.applicationContext).use { helper ->
+            val key = identityKey(food)
+            val revision = helper.readableDatabase.rawQuery(
+                "SELECT revision FROM food_nutrition_override WHERE identity_key = ? LIMIT 1",
+                arrayOf(key)
+            ).use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) + 1 else 1 }
             val values = ContentValues().apply {
-                put("identity_key", identityKey(food))
+                put("identity_key", key)
                 put("food_id", food.id)
                 put("barcode", food.barcode.orEmpty())
                 put("name", food.name)
@@ -77,6 +82,7 @@ internal object FoodNutritionOverrideStore {
                 put("sugar_known", if (food.sugarKnown) 1 else 0)
                 put("micronutrients_json", encodeMicros(food.micronutrients))
                 put("updated_epoch_ms", System.currentTimeMillis())
+                put("revision", revision)
             }
             helper.writableDatabase.insertWithOnConflict(
                 "food_nutrition_override",
@@ -129,7 +135,7 @@ internal object FoodNutritionOverrideStore {
             """
             SELECT kcal, protein, carbs, fat, fibre, sugar,
                    kcal_known, protein_known, carbs_known, fat_known, fibre_known, sugar_known,
-                   micronutrients_json
+                   micronutrients_json, updated_epoch_ms, revision
             FROM food_nutrition_override
             WHERE identity_key = ?
             LIMIT 1
@@ -137,7 +143,15 @@ internal object FoodNutritionOverrideStore {
             arrayOf(identityKey(food))
         ).use { cursor ->
             if (!cursor.moveToFirst()) return food
-            val micros = decodeMicros(cursor.getString(12))
+            val correctionEpochMs = cursor.getLong(13)
+            val revision = cursor.getInt(14)
+            val micros = decodeMicros(cursor.getString(12)).mapValues { (_, nutrient) ->
+                nutrient.copy(
+                    evidenceKind = NutrientEvidenceKind.USER_ENTERED,
+                    source = "User correction",
+                    sourceRecordId = identityKey(food)
+                )
+            }
             val editedSource = if (food.source.contains("edited locally", ignoreCase = true)) {
                 food.source
             } else {
@@ -159,7 +173,21 @@ internal object FoodNutritionOverrideStore {
                 micronutrients = micros,
                 nutritionIntegrityWarning = null,
                 nutritionApproximate = false,
-                source = editedSource
+                source = editedSource,
+                sourceType = FoodDataSourceType.USER_CORRECTED,
+                sourceRevision = "user-correction-v" + revision,
+                verificationState = FoodVerificationState.USER_CORRECTED,
+                confidence = FoodDataConfidence.HIGH,
+                energyEvidence = if (cursor.getInt(6) != 0) EnergyEvidenceKind.USER_ENTERED else food.energyEvidence,
+                nutrientEvidence = buildMap {
+                    if (cursor.getInt(6) != 0) put("energy_kcal", NutrientEvidenceKind.USER_ENTERED)
+                    if (cursor.getInt(7) != 0) put("protein", NutrientEvidenceKind.USER_ENTERED)
+                    if (cursor.getInt(8) != 0) put("carbohydrate", NutrientEvidenceKind.USER_ENTERED)
+                    if (cursor.getInt(9) != 0) put("fat", NutrientEvidenceKind.USER_ENTERED)
+                    if (cursor.getInt(10) != 0) put("fibre", NutrientEvidenceKind.USER_ENTERED)
+                    if (cursor.getInt(11) != 0) put("sugars", NutrientEvidenceKind.USER_ENTERED)
+                },
+                sourceWarnings = emptyList()
             )
         }
     }
@@ -214,7 +242,7 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
     context,
     "superhuman_food_nutrition_overrides.db",
     null,
-    3
+    4
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -237,7 +265,8 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
                 fibre_known INTEGER NOT NULL DEFAULT 1,
                 sugar_known INTEGER NOT NULL DEFAULT 1,
                 micronutrients_json TEXT NOT NULL,
-                updated_epoch_ms INTEGER NOT NULL
+                updated_epoch_ms INTEGER NOT NULL,
+                revision INTEGER NOT NULL DEFAULT 1
             )
             """.trimIndent()
         )
@@ -257,6 +286,9 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
         }
         if (oldVersion < 3) {
             db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN kcal_known INTEGER NOT NULL DEFAULT 1")
+        }
+        if (oldVersion < 4) {
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN revision INTEGER NOT NULL DEFAULT 1")
         }
     }
 }
