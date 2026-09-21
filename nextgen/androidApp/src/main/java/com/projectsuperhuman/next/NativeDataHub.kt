@@ -94,6 +94,18 @@ internal object NativeDataHub {
         gateway.module(domain).between(metric, fromEpochMs, toEpochMs)
     }
 
+    /** Indexed newest-first range read with a hard row cap for UI/history hot paths. */
+    suspend fun boundedBetween(
+        domain: HealthDomain,
+        metric: String,
+        fromEpochMs: Long,
+        toEpochMs: Long,
+        limit: Int
+    ): List<HealthValue> = withContext(Dispatchers.IO) {
+        require(limit > 0) { "limit must be positive" }
+        repository.boundedBetween(domain, metric, fromEpochMs, toEpochMs, limit.toLong())
+    }
+
     suspend fun domainBetween(
         domain: HealthDomain,
         fromEpochMs: Long,
