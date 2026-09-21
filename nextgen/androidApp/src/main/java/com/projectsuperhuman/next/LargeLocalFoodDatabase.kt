@@ -131,7 +131,16 @@ internal object LargeLocalFoodDatabase {
         }
     }
 
-    suspend fun coreReady(context: Context): Boolean = coreCount(context) >= CORE_FOOD_TARGET
+    suspend fun coreReady(context: Context): Boolean = withContext(Dispatchers.IO) {
+        seedPriorityFoodsOnce(context.applicationContext)
+        LargeFoodDb(context.applicationContext).use { helper ->
+            DatabaseUtils.longForQuery(
+                helper.readableDatabase,
+                "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%' AND micronutrient_count >= 4",
+                null
+            ) >= CORE_FOOD_TARGET
+        }
+    }
 
     suspend fun search(context: Context, query: String, limit: Int = 28): List<NativeFood> =
         withContext(Dispatchers.IO) {
@@ -1077,6 +1086,7 @@ internal object LargeLocalFoodDatabase {
               AND sugar_known = 1
               AND saturated_fat_known = 1
               AND sodium_known = 1
+              AND micronutrient_count >= 4
             """.trimIndent(),
             null
         ).use { cursor ->
@@ -1214,7 +1224,7 @@ internal object LargeLocalFoodDatabase {
 
         putMeta(db, "project_superhuman_core_food_count", materializedCount.toString())
         putMeta(db, "project_superhuman_core_food_strict_count", strictCount.toString())
-        putMeta(db, "project_superhuman_core_food_schema", "5")
+        putMeta(db, "project_superhuman_core_food_schema", "6")
         putMeta(db, "project_superhuman_core_food_storage", "materialized-local-snapshot")
         putMeta(db, "project_superhuman_core_food_min_essential", CORE_MIN_MICRONUTRIENTS.toString())
         putMeta(db, "project_superhuman_core_food_essential_total", CORE_MICRONUTRIENTS.size.toString())
@@ -1358,7 +1368,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    8
+    9
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
