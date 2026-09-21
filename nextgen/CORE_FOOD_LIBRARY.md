@@ -94,7 +94,7 @@ After import:
 - the app does not require a network connection to search already imported foods;
 - long-tail USDA records remain available in the same database.
 
-Database schema version 4 stores:
+Database schema version 8 stores:
 
 - common macro fields;
 - saturated fat;
@@ -124,3 +124,29 @@ Core foods sort ahead of long-tail reference foods while preserving:
 - nutrient completeness.
 
 This means common searches should return useful generic foods before obscure database entries while still keeping the larger USDA library accessible.
+
+
+## Materialized offline nutrition snapshots
+
+The 3,000 generated Project Superhuman core foods are materialized as independent local records with stable `core:usda:<fdcId>` identifiers.
+
+Each core snapshot stores locally:
+
+- energy;
+- protein;
+- carbohydrate;
+- total fat;
+- saturated fat;
+- fibre;
+- sugars;
+- sodium;
+- salt;
+- every available vitamin and mineral value imported from the authoritative source;
+- nutrient units;
+- nutrient evidence metadata;
+- source/FDC record provenance;
+- an explicit list of essential micronutrients for which the source has no reported value.
+
+Search and diary logging do not need to resolve back to the raw USDA row to obtain nutrition values.
+
+The underlying USDA row remains in the long-tail reference database for provenance and source inspection. A missing nutrient in the source is represented as unknown rather than zero.
