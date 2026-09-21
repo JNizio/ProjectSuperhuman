@@ -262,17 +262,21 @@ internal object NativeDataHub {
      * Open Food Facts micronutrients become first-class time-series metrics ready for future
      * correlations (for example magnesium vs. sleep), instead of being trapped in UI metadata.
      */
-    suspend fun saveFood(food: NativeFood, grams: Double, meal: String = "Snack") = withContext(Dispatchers.IO) {
+    suspend fun saveFood(
+        food: NativeFood,
+        grams: Double,
+        meal: String = "Snack",
+        timestampEpochMs: Long = System.currentTimeMillis()
+    ) = withContext(Dispatchers.IO) {
         val safeGrams = grams.coerceIn(1.0, 5_000.0)
-        val factor = safeGrams / 100.0
-        val now = System.currentTimeMillis()
+        val now = timestampEpochMs
         val foodHash = abs(food.id.hashCode().toLong())
         val entryId = "nutrition-$now-$foodHash-${(safeGrams * 10.0).roundToInt()}"
-        val protein = food.protein * factor
-        val carbs = food.carbs * factor
-        val fat = food.fat * factor
-        val fibre = food.fibre * factor
-        val sugar = food.sugar * factor
+        val protein = NutritionMath.scalePer100(food.protein, safeGrams)
+        val carbs = NutritionMath.scalePer100(food.carbs, safeGrams)
+        val fat = NutritionMath.scalePer100(food.fat, safeGrams)
+        val fibre = NutritionMath.scalePer100(food.fibre, safeGrams)
+        val sugar = NutritionMath.scalePer100(food.sugar, safeGrams)
 
         val common = mapOf(
             "diaryEntryId" to entryId,
@@ -288,8 +292,10 @@ internal object NativeDataHub {
             "protein" to protein.toString(),
             "carbs" to carbs.toString(),
             "fat" to fat.toString(),
-            "fibre" to fibre.toString(),
-            "sugar" to sugar.toString(),
+            "fibre" to if (food.fibreKnown) fibre.toString() else "",
+            "sugar" to if (food.sugarKnown) sugar.toString() else "",
+            "fibreKnown" to food.fibreKnown.toString(),
+            "sugarKnown" to food.sugarKnown.toString(),
             "micronutrientCount" to food.micronutrients.size.toString()
         )
 
@@ -305,12 +311,12 @@ internal object NativeDataHub {
             )
 
         val values = buildList {
-            add(row("food_kcal", food.kcal * factor, "kcal"))
+            add(row("food_kcal", NutritionMath.scalePer100(food.kcal, safeGrams), "kcal"))
             add(row("food_protein", protein, "g"))
             add(row("food_carbs", carbs, "g"))
             add(row("food_fat", fat, "g"))
-            add(row("food_fibre", fibre, "g"))
-            add(row("food_sugar", sugar, "g"))
+            if (food.fibreKnown) add(row("food_fibre", fibre, "g"))
+            if (food.sugarKnown) add(row("food_sugar", sugar, "g"))
 
             food.micronutrients.values.forEach { nutrient ->
                 val suffix = when (nutrient.unit) {
@@ -321,7 +327,7 @@ internal object NativeDataHub {
                 add(
                     row(
                         metric = "food_${metricId}_$suffix",
-                        value = nutrient.valuePer100 * factor,
+                        value = NutritionMath.scalePer100(nutrient.valuePer100, safeGrams),
                         unit = nutrient.unit,
                         extra = mapOf(
                             "nutrientId" to nutrient.id,
