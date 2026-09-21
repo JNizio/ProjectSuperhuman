@@ -668,22 +668,29 @@ private fun N2Hero(
     onSelectDate: (LocalDate) -> Unit
 ) {
     Column(
-        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp))
-            .border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
+        Modifier.fillMaxWidth()
+            .background(N2Surface, RoundedCornerShape(24.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(24.dp))
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        Text("Today's intake", color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
+
         Row(
             Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            N2CalorieRing(day.kcal, goals.kcal, day.kcalComplete)
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                Text("Today's intake", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                N2MacroBar("Protein", day.protein, goals.protein, N2Blue, day.proteinComplete)
-                N2MacroBar("Carbs", day.carbs, goals.carbs, N2Cyan, day.carbsComplete)
-                N2MacroBar("Fat", day.fat, goals.fat, N2Amber, day.fatComplete)
-                N2MacroBar("Fibre", day.fibre, goals.fibre, N2Green, day.fibreComplete)
+            N2NutritionRing(day = day, goals = goals)
+
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                N2MacroValue("Protein", day.protein, goals.protein, N2Blue, day.proteinComplete)
+                N2MacroValue("Carbs", day.carbs, goals.carbs, N2Cyan, day.carbsComplete)
+                N2MacroValue("Fat", day.fat, goals.fat, N2Amber, day.fatComplete)
+                N2MacroValue("Fibre", day.fibre, goals.fibre, N2Green, day.fibreComplete)
             }
         }
 
@@ -693,65 +700,164 @@ private fun N2Hero(
     }
 }
 
+private data class N2RingMetric(
+    val value: Double,
+    val target: Double?,
+    val color: Color,
+    val complete: Boolean
+)
+
 @Composable
-private fun N2CalorieRing(value: Double, target: Double?, complete: Boolean) {
-    val fraction = if (target != null && target > 0.0) (value / target).toFloat().coerceIn(0f, 1f) else 0f
-    Box(Modifier.size(112.dp), contentAlignment = Alignment.Center) {
+private fun N2NutritionRing(day: N2Day, goals: N2Goals) {
+    val calorieFraction = if (goals.kcal != null && goals.kcal > 0.0) {
+        (day.kcal / goals.kcal).toFloat().coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+    val macroMetrics = listOf(
+        N2RingMetric(day.protein, goals.protein, N2Blue, day.proteinComplete),
+        N2RingMetric(day.carbs, goals.carbs, N2Cyan, day.carbsComplete),
+        N2RingMetric(day.fat, goals.fat, N2Amber, day.fatComplete),
+        N2RingMetric(day.fibre, goals.fibre, N2Green, day.fibreComplete)
+    )
+
+    Box(Modifier.size(148.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
-            val stroke = 9.dp.toPx()
+            val calorieStroke = 10.dp.toPx()
+            val macroStroke = 5.dp.toPx()
+            val calorieInset = 18.dp.toPx()
+            val macroInset = 4.dp.toPx()
+
             drawArc(
                 color = N2Border,
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
-                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                topLeft = Offset(calorieInset, calorieInset),
+                size = androidx.compose.ui.geometry.Size(
+                    size.width - calorieInset * 2,
+                    size.height - calorieInset * 2
+                ),
+                style = Stroke(width = calorieStroke, cap = StrokeCap.Round)
             )
-            if (fraction > 0f) {
+
+            if (calorieFraction > 0f) {
                 drawArc(
                     brush = Brush.sweepGradient(listOf(N2Blue, N2Cyan, N2Blue)),
                     startAngle = -90f,
-                    sweepAngle = 360f * fraction,
+                    sweepAngle = 360f * calorieFraction,
                     useCenter = false,
-                    style = Stroke(width = stroke, cap = StrokeCap.Round)
+                    topLeft = Offset(calorieInset, calorieInset),
+                    size = androidx.compose.ui.geometry.Size(
+                        size.width - calorieInset * 2,
+                        size.height - calorieInset * 2
+                    ),
+                    style = Stroke(width = calorieStroke, cap = StrokeCap.Round)
                 )
             }
+
+            val gap = 8f
+            val segmentSweep = (360f - gap * 4f) / 4f
+            macroMetrics.forEachIndexed { index, metric ->
+                val start = -90f + index * (segmentSweep + gap)
+                val target = metric.target
+                val fraction = if (target != null && target > 0.0) {
+                    (metric.value / target).toFloat().coerceIn(0f, 1f)
+                } else if (metric.value > 0.0) {
+                    .35f
+                } else {
+                    0f
+                }
+                val activeColor = if (metric.complete) metric.color else metric.color.copy(alpha = .55f)
+
+                drawArc(
+                    color = N2Border.copy(alpha = .82f),
+                    startAngle = start,
+                    sweepAngle = segmentSweep,
+                    useCenter = false,
+                    topLeft = Offset(macroInset, macroInset),
+                    size = androidx.compose.ui.geometry.Size(
+                        size.width - macroInset * 2,
+                        size.height - macroInset * 2
+                    ),
+                    style = Stroke(width = macroStroke, cap = StrokeCap.Round)
+                )
+
+                if (fraction > 0f) {
+                    drawArc(
+                        color = activeColor,
+                        startAngle = start,
+                        sweepAngle = segmentSweep * fraction,
+                        useCenter = false,
+                        topLeft = Offset(macroInset, macroInset),
+                        size = androidx.compose.ui.geometry.Size(
+                            size.width - macroInset * 2,
+                            size.height - macroInset * 2
+                        ),
+                        style = Stroke(width = macroStroke, cap = StrokeCap.Round)
+                    )
+                }
+            }
         }
+
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                (if (complete) "" else "~") + value.roundToInt().toString(),
+                (if (day.kcalComplete) "" else "~") + day.kcal.roundToInt().toString(),
                 color = N2Ink,
-                fontSize = 24.sp,
+                fontSize = 27.sp,
                 fontWeight = FontWeight.Black
             )
-            Text(if (complete) "kcal" else "kcal · partial", color = N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-            if (target != null) {
-                Text("of " + target.roundToInt(), color = N2Muted, fontSize = 8.sp)
+            Text(
+                if (day.kcalComplete) "kcal" else "kcal · partial",
+                color = N2Muted,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+            if (goals.kcal != null) {
+                Text(
+                    "of " + goals.kcal.roundToInt().toString(),
+                    color = N2Muted,
+                    fontSize = 8.sp
+                )
             }
         }
     }
 }
 
 @Composable
-private fun N2MacroBar(label: String, value: Double, target: Double?, accent: Color, complete: Boolean) {
-    val fraction = if (target != null && target > 0.0) (value / target).toFloat().coerceIn(0f, 1f) else 0f
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(label, color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
-            Text(
-                (if (complete) "" else "~") +
-                    (if (target != null) n2One(value) + " / " + n2One(target) + " g" else n2One(value) + " g"),
-                color = N2Ink,
-                fontSize = 8.sp,
-                fontWeight = FontWeight.ExtraBold
+private fun N2MacroValue(
+    label: String,
+    value: Double,
+    target: Double?,
+    accent: Color,
+    complete: Boolean
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            Modifier.size(8.dp).background(
+                if (complete) accent else accent.copy(alpha = .55f),
+                CircleShape
             )
-        }
-        Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(N2Border)) {
-            if (target != null && fraction > 0f) {
-                Box(Modifier.fillMaxWidth(fraction).height(5.dp).background(accent, CircleShape))
-            } else if (value > 0.0) {
-                Box(Modifier.fillMaxWidth(.35f).height(5.dp).background(accent.copy(alpha = .7f), CircleShape))
-            }
-        }
+        )
+        Text(
+            label,
+            color = N2Muted,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            (if (complete) "" else "~") +
+                if (target != null) n2One(value) + " / " + n2One(target) + " g"
+                else n2One(value) + " g",
+            color = N2Ink,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
     }
 }
 
