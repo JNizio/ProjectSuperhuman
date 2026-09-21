@@ -23,6 +23,7 @@ internal data class NativeFood(
     val name: String,
     val country: String,
     val kcal: Double,
+    val kcalKnown: Boolean = true,
     val protein: Double,
     val carbs: Double,
     val fat: Double,
@@ -272,9 +273,14 @@ internal object NativeFoodCatalog {
         val name = localizedName.displayName
         if (name.isBlank()) return null
 
-        val kcal = nutriments.optDoubleSafe("energy-kcal_100g").takeIf { it > 0.0 }
-            ?: (nutriments.optDoubleSafe("energy-kj_100g") / 4.184).takeIf { it > 0.0 }
-            ?: 0.0
+        val kcalDirectKnown = nutriments.hasFiniteNumber("energy-kcal_100g")
+        val kjKnown = nutriments.hasFiniteNumber("energy-kj_100g")
+        val kcal = when {
+            kcalDirectKnown -> nutriments.optDoubleSafe("energy-kcal_100g")
+            kjKnown -> nutriments.optDoubleSafe("energy-kj_100g") / 4.184
+            else -> 0.0
+        }.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+        val kcalKnown = kcalDirectKnown || kjKnown
         val productQuantityUnit = FoodUnit.fromSymbol(p.optString("product_quantity_unit"))
         val servingQuantityUnit = FoodUnit.fromSymbol(p.optString("serving_quantity_unit"))
         val basisUnit = when {
@@ -311,6 +317,7 @@ internal object NativeFoodCatalog {
             name = name,
             country = country,
             kcal = kcal,
+            kcalKnown = kcalKnown,
             protein = macroIntegrity.protein,
             carbs = macroIntegrity.carbs,
             fat = macroIntegrity.fat,
