@@ -847,18 +847,48 @@ private fun N2MealCard(
 }
 
 @Composable
-private fun N2Nutrients(day: N2Day, showAll: Boolean, onToggleAll: () -> Unit) {
+private fun N2Nutrients(
+    day: N2Day,
+    showAll: Boolean,
+    range: N2Range,
+    onRangeChange: (N2Range) -> Unit,
+    onToggleAll: () -> Unit
+) {
     val entryCount = day.entries.size
     val withMicro = day.entries.count { it.micronutrientCount > 0 }
     val coverage = if (entryCount == 0) 0 else withMicro * 100 / entryCount
     val byId = day.micros.associateBy { it.id }
 
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(17.dp))
+                .border(1.dp, N2Border, RoundedCornerShape(17.dp)).padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            N2Range.entries.forEach { item ->
+                val active = item == range
+                Box(
+                    Modifier.weight(1f)
+                        .background(if (active) N2Blue else Color.Transparent, RoundedCornerShape(13.dp))
+                        .clickable { onRangeChange(item) }
+                        .padding(vertical = 9.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(item.label, color = if (active) Color.White else N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+
         Column(
             Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(17.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
-            Text("Nutrient coverage", color = N2Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
+            Text(
+                if (range == N2Range.DAY) "Nutrient coverage" else "Nutrient coverage · " + range.label,
+                color = N2Ink,
+                fontSize = 19.sp,
+                fontWeight = FontWeight.Black
+            )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 Text("$coverage%", color = N2Navy, fontSize = 30.sp, fontWeight = FontWeight.Black)
                 Text("foods with micronutrient data", color = N2Muted, fontSize = 9.sp, modifier = Modifier.padding(bottom = 5.dp))
@@ -871,8 +901,17 @@ private fun N2Nutrients(day: N2Day, showAll: Boolean, onToggleAll: () -> Unit) {
             Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Text("Focus today", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("A small set of useful nutrients, not the whole periodic table.", color = N2Muted, fontSize = 9.sp)
+            Text(
+                if (range == N2Range.DAY) "Focus today" else "Average per day",
+                color = N2Ink,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                if (range == N2Range.DAY) "Key nutrients from the foods you logged." else "Daily average across the selected window.",
+                color = N2Muted,
+                fontSize = 9.sp
+            )
 
             val focus = n2FocusIds.map { id -> id to byId[id] }
                 .sortedBy { (id, micro) ->
@@ -881,7 +920,7 @@ private fun N2Nutrients(day: N2Day, showAll: Boolean, onToggleAll: () -> Unit) {
                 .take(4)
             focus.forEach { (id, micro) ->
                 val ref = n2RefById[id] ?: return@forEach
-                if (micro == null) N2UnknownNutrient(ref) else N2NutrientRow(micro, entryCount)
+                if (micro == null) N2UnknownNutrient(ref) else N2NutrientRow(micro, entryCount, range.days.toInt())
             }
         }
 
@@ -918,9 +957,11 @@ private fun N2UnknownNutrient(ref: N2Reference) {
 }
 
 @Composable
-private fun N2NutrientRow(micro: N2Micro, entryCount: Int) {
+private fun N2NutrientRow(micro: N2Micro, entryCount: Int, referenceDays: Int = 1) {
     val ref = n2RefById[micro.id]
-    val pct = ref?.let { (micro.value / it.value * 100.0).roundToInt() }
+    val divisor = referenceDays.coerceAtLeast(1).toDouble()
+    val displayValue = micro.value / divisor
+    val pct = ref?.let { (displayValue / it.value * 100.0).roundToInt() }
     val dataCoverage = if (entryCount > 0) (micro.knownEntries * 100 / entryCount).coerceIn(0, 100) else 0
     val accent = when {
         pct == null -> N2Purple
@@ -932,11 +973,15 @@ private fun N2NutrientRow(micro: N2Micro, entryCount: Int) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text(micro.label, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-                Text("${n2Pretty(micro.value)} ${micro.unit} · data from $dataCoverage% of foods", color = N2Muted, fontSize = 9.sp)
+                Text(
+                    n2Pretty(displayValue) + " " + micro.unit + " · data from " + dataCoverage + "% of foods",
+                    color = N2Muted,
+                    fontSize = 9.sp
+                )
             }
             Text(pct?.let { "$it%" } ?: "Tracked", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
-        ref?.let { N2Progress(micro.value, it.value, accent) }
+        ref?.let { N2Progress(displayValue, it.value, accent) }
     }
 }
 
