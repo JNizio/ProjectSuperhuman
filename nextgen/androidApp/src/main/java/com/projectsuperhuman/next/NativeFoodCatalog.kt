@@ -534,7 +534,7 @@ internal object NativeFoodCatalog {
         val value = opt(key) ?: return false
         val parsed = when (value) {
             is Number -> value.toDouble()
-            is String -> value.toDoubleOrNull()
+            is String -> value.trim().replace(',', '.').toDoubleOrNull()
             else -> null
         }
         return parsed?.isFinite() == true
@@ -544,7 +544,7 @@ internal object NativeFoodCatalog {
         val value = opt(key) ?: return 0.0
         return when (value) {
             is Number -> value.toDouble()
-            is String -> value.toDoubleOrNull() ?: 0.0
+            is String -> value.trim().replace(',', '.').toDoubleOrNull() ?: 0.0
             else -> 0.0
         }
     }
