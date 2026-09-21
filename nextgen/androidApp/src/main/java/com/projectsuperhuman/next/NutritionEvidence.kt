@@ -168,6 +168,7 @@ internal data class CanonicalFoodRecord(
     val energyEvidence: EnergyEvidenceKind,
     val densityGPerMl: Double?,
     val densitySource: DensityEvidenceSource,
+    val imageReferences: Map<String, String>,
     val nutrients: Map<String, CanonicalNutrientEvidence>,
     val integrityWarnings: List<String>,
     val canonicalSchemaVersion: Int = NUTRITION_CANONICAL_SCHEMA_VERSION
@@ -346,6 +347,7 @@ internal object FoodEvidenceEngine {
             energyEvidence = f.energyEvidence,
             densityGPerMl = f.densityGPerMl,
             densitySource = f.densitySource,
+            imageReferences = f.imageReferences,
             nutrients = nutrients,
             integrityWarnings = f.sourceWarnings,
             canonicalSchemaVersion = f.canonicalSchemaVersion
@@ -479,6 +481,9 @@ internal object FoodEvidenceEngine {
             if (f.allergens.isNotEmpty()) put("allergens", f.allergens.joinToString("|"))
             if (f.additives.isNotEmpty()) put("additives", f.additives.joinToString("|"))
             f.novaGroup?.let { put("novaGroup", it.toString()) }
+            if (f.imageReferences.isNotEmpty()) {
+                put("imageReferences", f.imageReferences.entries.joinToString("|") { it.key + "=" + it.value })
+            }
             if (f.sourceWarnings.isNotEmpty()) put("sourceWarnings", f.sourceWarnings.joinToString("|"))
             put("nutritionApproximate", f.nutritionApproximate.toString())
         }
