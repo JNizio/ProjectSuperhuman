@@ -13,16 +13,21 @@ internal data class MacroIntegrityResult(
     val warning: String? = null
 )
 
+internal data class NutritionIntegrityReport(
+    val warnings: List<String> = emptyList(),
+    val conflicted: Boolean = false,
+    val derivedSodiumMg: Double? = null,
+    val derivedSaltG: Double? = null
+) {
+    val warningText: String? get() = warnings.distinct().joinToString(" · ").ifBlank { null }
+}
+
 /**
- * Conservative nutrition-label sanity checks.
+ * Conservative nutrition-evidence validation.
  *
- * We do not try to "correct" food labels from heuristics. We only suppress one macro when the
- * declared energy is impossible with all reported macros and removing exactly one field restores
- * strong energy consistency. This catches corrupt source records such as a drink with 37 kcal,
- * 9 g carbohydrate and an erroneous 9 g fat per 100 ml.
- *
- * Cases where declared energy is HIGHER than macro energy are left alone because alcohol,
- * polyols, fibre and organic acids can legitimately contribute energy not represented by P/C/F.
+ * Source values are preserved unless there is a narrowly defensible reason to suppress one corrupt
+ * macro. Wider inconsistencies lower confidence and stay visible as evidence warnings; they are not
+ * silently "fixed" into invented nutrition.
  */
 internal object NutritionIntegrity {
     fun sanitizeMacros(
@@ -54,6 +59,7 @@ internal object NutritionIntegrity {
         val implied = contributions.sumOf { it.second }
 
         // Only challenge records whose macros imply substantially MORE energy than declared.
+        // Higher declared energy can legitimately include alcohol, fibre, polyols and organic acids.
         val impossibleTolerance = max(20.0, kcal * 0.25)
         if (implied <= kcal + impossibleTolerance) {
             return MacroIntegrityResult(p, c, f, pKnown, cKnown, fKnown)
@@ -86,7 +92,148 @@ internal object NutritionIntegrity {
             proteinKnown = pKnown,
             carbsKnown = cKnown,
             fatKnown = fKnown,
-            warning = "Suppressed inconsistent ${best.first} value from source data"
+            warning = "Suppressed inconsistent " + best.first + " value from source data"
         )
     }
+
+    fun validateFoodValues(
+        basisAmount: Double,
+        basisUnit: FoodUnit,
+        kcal: Double,
+        kcalKnown: Boolean,
+        protein: Double,
+        proteinKnown: Boolean,
+        carbs: Double,
+        carbsKnown: Boolean,
+        fat: Double,
+        fatKnown: Boolean,
+        saturatedFat: Double,
+        saturatedFatKnown: Boolean,
+        fibre: Double,
+        fibreKnown: Boolean,
+        sugar: Double,
+        sugarKnown: Boolean,
+        saltG: Double,
+        saltKnown: Boolean,
+        sodiumMg: Double,
+        sodiumKnown: Boolean,
+        servingQuantity: Double? = null,
+        productQuantity: Double? = null
+    ): NutritionIntegrityReport {
+        val warnings = mutableListOf<String>()
+        var conflicted = false
+
+        fun invalidKnown(value: Double, known: Boolean, label: String) {
+            if (known && (!value.isFinite() || value < 0.0)) {
+                warnings += "$label is invalid"
+                conflicted = true
+            }
+        }
+
+        invalidKnown(kcal, kcalKnown, "Energy")
+        invalidKnown(protein, proteinKnown, "Protein")
+        invalidKnown(carbs, carbsKnown, "Carbohydrate")
+        invalidKnown(fat, fatKnown, "Fat")
+        invalidKnown(saturatedFat, saturatedFatKnown, "Saturated fat")
+        invalidKnown(fibre, fibreKnown, "Fibre")
+        invalidKnown(sugar, sugarKnown, "Sugars")
+        invalidKnown(saltG, saltKnown, "Salt")
+        invalidKnown(sodiumMg, sodiumKnown, "Sodium")
+
+        val per100PhysicalBasis =
+            basisAmount in 99.0..101.0 &&
+                (basisUnit.dimension == FoodMeasureDimension.MASS || basisUnit.dimension == FoodMeasureDimension.VOLUME)
+
+        if (per100PhysicalBasis) {
+            listOf(
+                "protein" to (protein to proteinKnown),
+                "carbohydrate" to (carbs to carbsKnown),
+                "fat" to (fat to fatKnown),
+                "saturated fat" to (saturatedFat to saturatedFatKnown),
+                "fibre" to (fibre to fibreKnown),
+                "sugars" to (sugar to sugarKnown)
+            ).forEach { (label, pair) ->
+                if (pair.second && pair.first > 100.5) {
+                    warnings += "$label exceeds a plausible per-100 basis"
+                    conflicted = true
+                }
+            }
+        }
+
+        if (sugarKnown && carbsKnown) {
+            val tolerance = max(0.5, carbs * 0.05)
+            if (sugar > carbs + tolerance) {
+                warnings += "Sugars exceed reported carbohydrate"
+                conflicted = true
+            }
+        }
+
+        if (saturatedFatKnown && fatKnown) {
+            val tolerance = max(0.2, fat * 0.03)
+            if (saturatedFat > fat + tolerance) {
+                warnings += "Saturated fat exceeds total fat"
+                conflicted = true
+            }
+        }
+
+        var derivedSodium: Double? = null
+        var derivedSalt: Double? = null
+        when {
+            saltKnown && sodiumKnown -> {
+                val expectedSalt = sodiumMgToSaltG(sodiumMg)
+                val tolerance = max(0.15, expectedSalt * 0.18)
+                if (abs(saltG - expectedSalt) > tolerance) {
+                    warnings += "Salt and sodium values disagree"
+                    conflicted = true
+                }
+            }
+            saltKnown && saltG.isFinite() && saltG >= 0.0 -> {
+                derivedSodium = saltGToSodiumMg(saltG)
+            }
+            sodiumKnown && sodiumMg.isFinite() && sodiumMg >= 0.0 -> {
+                derivedSalt = sodiumMgToSaltG(sodiumMg)
+            }
+        }
+
+        servingQuantity?.let {
+            if (!it.isFinite() || it <= 0.0 || it > 100_000.0) {
+                warnings += "Serving quantity is implausible"
+                conflicted = true
+            }
+        }
+        productQuantity?.let {
+            if (!it.isFinite() || it <= 0.0 || it > 1_000_000.0) {
+                warnings += "Package quantity is implausible"
+                conflicted = true
+            }
+        }
+
+        // Energy disagreement is checked conservatively. We do not expect P/C/F alone to explain
+        // all calories, but substantially more macro energy than label energy is suspicious.
+        val macroResult = sanitizeMacros(
+            kcal = kcal,
+            protein = protein,
+            carbs = carbs,
+            fat = fat,
+            proteinKnown = proteinKnown,
+            carbsKnown = carbsKnown,
+            fatKnown = fatKnown,
+            kcalKnown = kcalKnown
+        )
+        macroResult.warning?.let {
+            if (!it.startsWith("Suppressed inconsistent")) warnings += it
+            if ("inconsistent" in it.lowercase()) conflicted = true
+        }
+
+        return NutritionIntegrityReport(
+            warnings = warnings.distinct(),
+            conflicted = conflicted,
+            derivedSodiumMg = derivedSodium,
+            derivedSaltG = derivedSalt
+        )
+    }
+
+    fun saltGToSodiumMg(saltG: Double): Double = saltG * 1_000.0 / 2.5
+
+    fun sodiumMgToSaltG(sodiumMg: Double): Double = sodiumMg / 1_000.0 * 2.5
 }
