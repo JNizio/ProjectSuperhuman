@@ -383,7 +383,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                         onPortionUnitChange = { unit ->
                             portionUnit = unit
                             portion = n2Editable(
-                                if (unit == FoodUnit.SERVING || unit == FoodUnit.PACKAGE || unit == FoodUnit.PIECE) {
+                                if (unit.dimension == FoodMeasureDimension.DERIVED) {
                                     1.0
                                 } else {
                                     FoodUnitSystem.amountForBasis(food, unit) ?: FoodUnitSystem.defaultAmount(food)
