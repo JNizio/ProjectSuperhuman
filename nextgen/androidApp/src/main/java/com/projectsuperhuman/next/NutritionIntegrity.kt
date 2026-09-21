@@ -105,6 +105,7 @@ internal object NutritionIntegrity {
         proteinKnown: Boolean,
         carbs: Double,
         carbsKnown: Boolean,
+        carbohydrateDefinition: CarbohydrateDefinition = CarbohydrateDefinition.UNKNOWN,
         fat: Double,
         fatKnown: Boolean,
         saturatedFat: Double,
@@ -172,6 +173,20 @@ internal object NutritionIntegrity {
             val tolerance = max(0.2, fat * 0.03)
             if (saturatedFat > fat + tolerance) {
                 warnings += "Saturated fat exceeds total fat"
+                conflicted = true
+            }
+        }
+
+        if (per100PhysicalBasis && proteinKnown && carbsKnown && fatKnown) {
+            val carbohydrateMass = when (carbohydrateDefinition) {
+                CarbohydrateDefinition.AVAILABLE_EXCLUDING_FIBRE ->
+                    carbs + if (fibreKnown) fibre else 0.0
+                CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE,
+                CarbohydrateDefinition.UNKNOWN -> carbs
+            }
+            val majorMass = protein + carbohydrateMass + fat
+            if (majorMass > 105.0) {
+                warnings += "Major nutrients exceed a plausible per-100 mass"
                 conflicted = true
             }
         }
