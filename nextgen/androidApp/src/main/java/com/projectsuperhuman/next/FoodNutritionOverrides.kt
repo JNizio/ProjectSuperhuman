@@ -158,6 +158,7 @@ internal object FoodNutritionOverrideStore {
                 sugarKnown = cursor.getInt(11) != 0,
                 micronutrients = micros,
                 nutritionIntegrityWarning = null,
+                nutritionApproximate = false,
                 source = editedSource
             )
         }
