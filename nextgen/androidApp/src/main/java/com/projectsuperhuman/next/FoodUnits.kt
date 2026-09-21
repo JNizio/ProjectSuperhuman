@@ -105,6 +105,7 @@ internal object FoodUnitSystem {
             out += FoodUnit.SERVING
             servingSpecificUnit(food)?.let(out::add)
         }
+        inferredPiecePhysical(food)?.let { out += FoodUnit.PIECE }
         if (canResolveDerived(food.productQuantity, food.productQuantityUnit, food)) {
             out += FoodUnit.PACKAGE
             packageSpecificUnit(food)?.let(out::add)
@@ -112,8 +113,16 @@ internal object FoodUnitSystem {
         return out.toList()
     }
 
-    fun defaultUnit(food: NativeFood): FoodUnit =
-        if (FoodUnit.SERVING in availableUnits(food)) FoodUnit.SERVING else food.basisUnit
+    fun defaultUnit(food: NativeFood): FoodUnit {
+        val units = availableUnits(food)
+        val specific = servingSpecificUnit(food)
+        return when {
+            specific != null && specific in units -> specific
+            inferredPiecePhysical(food) != null && FoodUnit.PIECE in units -> FoodUnit.PIECE
+            FoodUnit.SERVING in units -> FoodUnit.SERVING
+            else -> food.basisUnit
+        }
+    }
 
     fun defaultAmount(food: NativeFood): Double =
         if (defaultUnit(food).dimension == FoodMeasureDimension.DERIVED) 1.0 else basisAmount(food)
@@ -128,7 +137,7 @@ internal object FoodUnitSystem {
         if (!amount.isFinite() || amount <= 0.0) return null
         return when (unit) {
             FoodUnit.SERVING -> convertServing(food, amount)
-            FoodUnit.PIECE,
+            FoodUnit.PIECE -> convertPiece(food, amount)
             FoodUnit.SLICE,
             FoodUnit.SCOOP,
             FoodUnit.BAR -> {
@@ -145,6 +154,20 @@ internal object FoodUnitSystem {
         }
     }
 
+    fun displayUnit(food: NativeFood, unit: FoodUnit): String = when {
+        unit == FoodUnit.PIECE && isEggFood(food) -> "egg"
+        else -> unit.symbol
+    }
+
+    fun unitContext(food: NativeFood, unit: FoodUnit): String? {
+        if (unit == FoodUnit.PIECE) {
+            inferredPiecePhysical(food)?.let { (quantity, physicalUnit) ->
+                return "1 " + displayUnit(food, unit) + " ≈ " + formatAmount(quantity, physicalUnit)
+            }
+        }
+        return null
+    }
+
     fun formatAmount(amount: Double, unit: FoodUnit): String {
         val n = if (abs(amount - amount.toInt()) < 0.0001) amount.toInt().toString()
         else ((amount * 10.0).toInt() / 10.0).toString()
@@ -153,6 +176,14 @@ internal object FoodUnitSystem {
 
     fun describeBasis(food: NativeFood): String =
         formatAmount(basisAmount(food), food.basisUnit) + " basis"
+
+    private fun convertPiece(food: NativeFood, amount: Double): FoodConversion? {
+        if (servingSpecificUnit(food) == FoodUnit.PIECE) {
+            return convertServing(food, amount)
+        }
+        val inferred = inferredPiecePhysical(food) ?: return null
+        return convertPhysical(food, amount * inferred.first, inferred.second)
+    }
 
     private fun convertServing(food: NativeFood, amount: Double): FoodConversion? {
         val q = food.servingQuantity ?: return null
@@ -205,6 +236,27 @@ internal object FoodUnitSystem {
     private fun canResolveDerived(quantity: Double?, unit: FoodUnit?, food: NativeFood): Boolean {
         if (quantity == null || quantity <= 0.0 || unit == null || unit.dimension == FoodMeasureDimension.DERIVED) return false
         return convertPhysical(food, quantity, unit) != null
+    }
+
+    private fun inferredPiecePhysical(food: NativeFood): Pair<Double, FoodUnit>? {
+        if (!isEggFood(food)) return null
+        val text = (food.name + " " + food.searchText + " " + food.servingLabel).lowercase()
+        val grams = when {
+            Regex("""\b(jumbo)\b""").containsMatchIn(text) -> 63.0
+            Regex("""\b(extra[- ]?large|x[- ]?large|xl)\b""").containsMatchIn(text) -> 56.0
+            Regex("""\blarge\b""").containsMatchIn(text) -> 50.0
+            Regex("""\bmedium\b""").containsMatchIn(text) -> 44.0
+            Regex("""\bsmall\b""").containsMatchIn(text) -> 38.0
+            Regex("""\b(peewee|pee wee)\b""").containsMatchIn(text) -> 35.0
+            else -> 50.0
+        }
+        return grams to FoodUnit.G
+    }
+
+    private fun isEggFood(food: NativeFood): Boolean {
+        val text = (food.name + " " + food.searchText + " " + food.servingLabel).lowercase()
+        return Regex("""\beggs?\b""").containsMatchIn(text) &&
+            !Regex("""\beggplant\b""").containsMatchIn(text)
     }
 
     private fun servingSpecificUnit(food: NativeFood): FoodUnit? {
