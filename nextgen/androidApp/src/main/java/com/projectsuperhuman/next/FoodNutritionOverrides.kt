@@ -264,18 +264,24 @@ internal object FoodNutritionOverrideStore {
             }
             val coreFields = setOf("energy_kcal", "protein", "carbohydrate", "fat")
             val remainingApproximate = food.nutritionApproximate && !editedFields.containsAll(coreFields)
+            val combinedWarnings = (food.sourceWarnings + integrity.warnings).distinct()
+            val conflicted = integrity.conflicted || combinedWarnings.isNotEmpty()
+            val correctionRevision = buildString {
+                append("user-correction-v").append(revision).append("@").append(correctionEpochMs)
+                if (food.sourceRevision.isNotBlank()) append("|base=").append(food.sourceRevision)
+            }
 
             return resolved.copy(
-                nutritionIntegrityWarning = integrity.warningText,
+                nutritionIntegrityWarning = combinedWarnings.joinToString(" · ").ifBlank { null },
                 source = editedSource,
                 sourceType = FoodDataSourceType.USER_CORRECTED,
-                sourceRevision = "user-correction-v" + revision + "@" + correctionEpochMs,
-                verificationState = if (integrity.conflicted) {
+                sourceRevision = correctionRevision,
+                verificationState = if (conflicted) {
                     FoodVerificationState.CONFLICTED
                 } else {
                     FoodVerificationState.USER_CORRECTED
                 },
-                confidence = if (integrity.conflicted) {
+                confidence = if (conflicted) {
                     FoodDataConfidence.CONFLICTED
                 } else if (remainingApproximate) {
                     FoodDataConfidence.MEDIUM
@@ -289,7 +295,7 @@ internal object FoodNutritionOverrideStore {
                 },
                 nutrientEvidence = evidence,
                 correctedFields = editedFields,
-                sourceWarnings = integrity.warnings,
+                sourceWarnings = combinedWarnings,
                 nutritionApproximate = remainingApproximate
             )
         }
