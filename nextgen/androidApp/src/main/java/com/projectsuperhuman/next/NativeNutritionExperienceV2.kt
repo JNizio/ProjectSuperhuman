@@ -269,7 +269,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
         }
         lookingUp = true
         status = "Looking up product…"
-        val product = NativeFoodCatalog.lookupBarcode(digits)
+        val product = NativeFoodCatalog.lookupBarcode(context, digits)
         lookingUp = false
         if (product == null) {
             status = "Product not found, or Open Food Facts is unavailable"
