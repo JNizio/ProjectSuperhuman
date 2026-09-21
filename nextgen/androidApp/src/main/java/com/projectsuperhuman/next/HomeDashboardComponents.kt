@@ -416,26 +416,159 @@ private fun LegacyCardHeader(label: String) {
 
 @Composable
 internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
-    Box(Modifier.fillMaxWidth().height(132.dp).clip(RoundedCornerShape(24.dp)).background(HomeCard).border(1.dp, HomeBorder, RoundedCornerShape(24.dp)).clickable(onClick = onClick)) {
-        LegacyAssetImage("dashboard_nutrition.png", Modifier.width(235.dp).fillMaxSize().align(Alignment.CenterEnd), alpha = if (SuperhumanAppearance.darkMode) .28f else .72f)
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(HomeCard, HomeCard.copy(alpha = .96f), HomeCard.copy(alpha = .35f), Color.Transparent))))
-        Column(Modifier.fillMaxSize().padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("NUTRITION", color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("→", color = HomeMuted, fontSize = 19.sp)
+    val hasFood = snapshot.nutritionEntriesToday > 0
+    val nutritionGradient = if (SuperhumanAppearance.darkMode) {
+        listOf(Color(0xFF071824), Color(0xFF0B2530), Color(0xFF12353A))
+    } else {
+        listOf(Color(0xFFF7FBFA), Color(0xFFEFF7F4), Color(0xFFE7F1EC))
+    }
+    val accent = if (SuperhumanAppearance.darkMode) Color(0xFF67D4C0) else Color(0xFF167C6B)
+    val statSurface = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .075f) else Color.White.copy(alpha = .72f)
+    val statBorder = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .08f) else Color(0xFF1D6F62).copy(alpha = .10f)
+
+    Box(
+        Modifier.fillMaxWidth()
+            .height(184.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(Brush.linearGradient(nutritionGradient))
+            .border(1.dp, accent.copy(alpha = if (SuperhumanAppearance.darkMode) .20f else .13f), RoundedCornerShape(28.dp))
+            .clickable(onClick = onClick)
+    ) {
+        // Treat the food photography as atmosphere rather than a separate image panel.
+        // It fills the tile, then two scrims dissolve it into the surface so no hard image edge is visible.
+        LegacyAssetImage(
+            "dashboard_nutrition.png",
+            Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            alpha = if (SuperhumanAppearance.darkMode) .20f else .30f
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.horizontalGradient(
+                    listOf(
+                        nutritionGradient.first(),
+                        nutritionGradient.first().copy(alpha = .98f),
+                        nutritionGradient[1].copy(alpha = .83f),
+                        nutritionGradient.last().copy(alpha = .34f),
+                        Color.Transparent
+                    )
+                )
+            )
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.Transparent,
+                        nutritionGradient.first().copy(alpha = .18f),
+                        nutritionGradient.first().copy(alpha = .58f)
+                    )
+                )
+            )
+        )
+
+        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "NUTRITION",
+                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .67f) else HomeMuted,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.15.sp
+                )
+                Box(
+                    Modifier.background(accent.copy(alpha = .12f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text("OPEN  →", color = accent, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .35.sp)
+                }
             }
-            Spacer(Modifier.height(7.dp))
-            Text("${snapshot.caloriesToday} kcal", color = HomeNavy, fontSize = 21.sp, fontWeight = FontWeight.Black)
-            Text(if (snapshot.caloriesToday > 0) "${snapshot.proteinToday} g protein logged today" else "Estimated daily energy target", color = HomeMuted, fontSize = 9.sp)
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { NutritionChip("MACRO"); NutritionChip("MICRO"); NutritionChip("COMPOUNDS") }
+
+            Spacer(Modifier.height(9.dp))
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    snapshot.caloriesToday.toString(),
+                    color = if (SuperhumanAppearance.darkMode) Color.White else HomeNavy,
+                    fontSize = 29.sp,
+                    lineHeight = 31.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    "kcal",
+                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .65f) else HomeMuted,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+            }
+            Text(
+                if (hasFood) "Logged today" else "No food logged yet",
+                color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .55f) else HomeMuted,
+                fontSize = 9.sp
+            )
+
+            Spacer(Modifier.height(13.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                NutritionStat(
+                    label = "PROTEIN",
+                    value = if (hasFood) "${snapshot.proteinToday} g" else "—",
+                    accent = accent,
+                    surface = statSurface,
+                    border = statBorder,
+                    modifier = Modifier.weight(1f)
+                )
+                NutritionStat(
+                    label = "FOODS",
+                    value = if (hasFood) snapshot.nutritionEntriesToday.toString() else "0",
+                    accent = accent,
+                    surface = statSurface,
+                    border = statBorder,
+                    modifier = Modifier.weight(1f)
+                )
+                NutritionStat(
+                    label = "STATUS",
+                    value = if (hasFood) "Active" else "Start",
+                    accent = accent,
+                    surface = statSurface,
+                    border = statBorder,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun NutritionChip(label: String) {
-    Box(Modifier.background(superhumanSurfaceSoft, RoundedCornerShape(12.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) { Text(label, color = HomeNavy, fontSize = 7.sp, fontWeight = FontWeight.Black) }
+private fun NutritionStat(
+    label: String,
+    value: String,
+    accent: Color,
+    surface: Color,
+    border: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier.height(46.dp)
+            .background(surface, RoundedCornerShape(14.dp))
+            .border(1.dp, border, RoundedCornerShape(14.dp))
+            .padding(horizontal = 10.dp, vertical = 7.dp)
+    ) {
+        Text(
+            label,
+            color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .46f) else HomeMuted,
+            fontSize = 6.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = .55.sp,
+            maxLines = 1
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(value, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1)
+    }
 }
 
 @Composable
