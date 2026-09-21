@@ -145,6 +145,11 @@ SELECT * FROM health_value
 WHERE source = ?
 ORDER BY timestamp_epoch_ms ASC;
 
+valueBySourceRecordId:
+SELECT * FROM health_value
+WHERE source = ? AND source_record_id = ?
+LIMIT 1;
+
 latestForDomain:
 SELECT hv.* FROM health_value hv
 JOIN (
