@@ -199,7 +199,8 @@ internal object NativeFoodCatalog {
      * product query. The UI therefore gets the most useful 8-10 results quickly; typing a more
      * specific query is the cheap way to drill further into the catalogue.
      */
-    suspend fun search(context: Context, query: String, limit: Int = MAX_RESULT_COUNT): NativeFoodSearchResult {
+    suspend fun search(context: Context, query: String, limit: Int = MAX_RESULT_COUNT): NativeFoodSearchResult =
+        withContext(Dispatchers.IO) {
         FoodNutritionOverrideStore.attach(context)
         startLargeLocalSafely(context)
         val q = query.trim()
@@ -254,8 +255,7 @@ internal object NativeFoodCatalog {
             remoteAvailable = remoteResult.second,
             remoteCount = remoteResult.first.size
         )
-    }
-
+        }
     suspend fun lookupBarcode(context: Context, code: String): NativeFood? = withContext(Dispatchers.IO) {
         FoodNutritionOverrideStore.attach(context)
         val digits = code.filter(Char::isDigit)
