@@ -300,7 +300,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 
         when (view) {
             N2View.DIARY -> {
-                N2Hero(day, goals, weekDays)
+                N2Hero(day, goals, weekDays, selectedDate)
                 N2LogCard(
                     query = query,
                     onQueryChange = { query = it },
@@ -510,7 +510,7 @@ private fun N2Tab(label: String, selected: Boolean, modifier: Modifier, onClick:
 }
 
 @Composable
-private fun N2Hero(day: N2Day, goals: N2Goals, weekDays: List<N2Day>) {
+private fun N2Hero(day: N2Day, goals: N2Goals, weekDays: List<N2Day>, selectedDate: LocalDate) {
     Column(
         Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp))
             .border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
@@ -532,7 +532,7 @@ private fun N2Hero(day: N2Day, goals: N2Goals, weekDays: List<N2Day>) {
         }
 
         if (weekDays.any { it.entries.isNotEmpty() }) {
-            N2WeekChart(weekDays, goals.kcal)
+            N2WeekChart(weekDays, goals.kcal, selectedDate)
         }
     }
 }
@@ -594,7 +594,7 @@ private fun N2MacroBar(label: String, value: Double, target: Double?, accent: Co
 }
 
 @Composable
-private fun N2WeekChart(days: List<N2Day>, target: Double?) {
+private fun N2WeekChart(days: List<N2Day>, target: Double?, selectedDate: LocalDate) {
     val maxValue = maxOf(
         days.maxOfOrNull { it.kcal } ?: 0.0,
         target ?: 0.0,
@@ -631,8 +631,9 @@ private fun N2WeekChart(days: List<N2Day>, target: Double?) {
                             )
                     )
                     Spacer(Modifier.height(4.dp))
+                    val chartDate = selectedDate.minusDays((days.lastIndex - index).toLong())
                     Text(
-                        listOf("M","T","W","T","F","S","S")[index],
+                        chartDate.dayOfWeek.name.take(1),
                         color = if (index == days.lastIndex) N2Ink else N2Muted,
                         fontSize = 7.sp,
                         fontWeight = FontWeight.Bold
