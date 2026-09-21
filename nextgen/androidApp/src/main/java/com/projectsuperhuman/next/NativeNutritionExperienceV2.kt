@@ -219,8 +219,8 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 
     suspend fun lookupBarcode(raw: String) {
         val digits = raw.filter(Char::isDigit)
-        if (digits.length !in setOf(8, 12, 13, 14)) {
-            status = "Barcode not recognised"
+        if (!NutritionMath.isValidBarcode(digits)) {
+            status = "Barcode is invalid or has a bad check digit"
             return
         }
         lookingUp = true
@@ -344,6 +344,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                                 query = ""
                                 status = "Added to $meal"
                                 refresh()
+                                refreshNutrients()
                             }
                         }
                     )
