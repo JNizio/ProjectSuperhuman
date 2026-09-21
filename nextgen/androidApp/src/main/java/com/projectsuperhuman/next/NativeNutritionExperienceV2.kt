@@ -937,13 +937,15 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             carbs = metric(entryId, "food_carbs", "carbs"),
             fat = metric(entryId, "food_fat", "fat"),
             fibre = metric(entryId, "food_fibre", "fibre"),
-            micronutrientCount = foodRows.count { row -> row.metadata["diaryEntryId"] == entryId && row.metric.startsWith("food_micro_") }
+            micronutrientCount = foodRows.count { row ->
+                row.metadata["diaryEntryId"] == entryId && !row.metadata["nutrientId"].isNullOrBlank()
+            }
         )
     }.sortedByDescending { it.timestamp }
 
-    val microRows = foodRows.filter { it.metric.startsWith("food_micro_") }
-    val micros = microRows.groupBy { it.metric }.map { (metric, nutrientRows) ->
-        val id = metric.removePrefix("food_micro_")
+    val microRows = foodRows.filter { !it.metadata["nutrientId"].isNullOrBlank() }
+    val micros = microRows.groupBy { it.metadata["nutrientId"].orEmpty() }.mapNotNull { (id, nutrientRows) ->
+        if (id.isBlank()) return@mapNotNull null
         val ref = n2RefById[id]
         N2Micro(
             id = id,
