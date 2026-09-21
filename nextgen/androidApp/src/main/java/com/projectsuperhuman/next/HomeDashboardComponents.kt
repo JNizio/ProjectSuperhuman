@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -112,34 +113,316 @@ private fun HeroSignal(label: String, value: String) {
 
 @Composable
 internal fun LegacyHydrationCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
-    val ml = (snapshot.waterLitres * 1000).roundToInt()
-    val pct = ((snapshot.waterLitres / 3.6) * 100).roundToInt().coerceIn(0, 100)
-    Box(Modifier.fillMaxWidth().height(145.dp).clip(RoundedCornerShape(25.dp)).background(HomeCard).border(1.dp, HomeBorder, RoundedCornerShape(25.dp)).clickable(onClick = onClick)) {
-        LegacyAssetImage("dashboard_water.png", Modifier.width(170.dp).fillMaxSize().align(Alignment.CenterEnd), alpha = if (SuperhumanAppearance.darkMode) .32f else .88f)
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(HomeCard, HomeCard.copy(alpha = .96f), Color.Transparent))))
-        Row(Modifier.fillMaxSize().padding(18.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.width(102.dp)) {
-                Text("HYDRATION", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-                Spacer(Modifier.height(10.dp))
-                Box(Modifier.width(82.dp).height(82.dp), contentAlignment = Alignment.Center) {
-                    Canvas(Modifier.fillMaxSize()) {
-                        drawCircle(superhumanSurfaceSoft, style = Stroke(width = 9.dp.toPx()))
-                        if (pct > 0) drawArc(HomeBlue, -90f, pct * 3.6f, false, style = Stroke(width = 9.dp.toPx()))
-                    }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("$pct%", color = HomeNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
-                        Text("today", color = HomeMuted, fontSize = 8.sp)
+    val goalMl = snapshot.waterGoalMl.coerceIn(1500, 6000)
+    val currentMl = (snapshot.waterLitres * 1000).roundToInt().coerceIn(0, goalMl)
+    val remainingMl = (goalMl - currentMl).coerceAtLeast(0)
+    val progress = (currentMl / goalMl.toFloat()).coerceIn(0f, 1f)
+    val pct = (progress * 100).roundToInt()
+
+    val accent = Color(0xFF6FD9FF)
+    val deepBlue = Color(0xFF061825)
+    val middleBlue = Color(0xFF092A3E)
+    val waterBlue = Color(0xFF0D5269)
+
+    fun hydrationAmountLabel(ml: Int): String {
+        return if (ml >= 1000 && ml % 100 == 0) {
+            String.format(Locale.US, "%.1f L", ml / 1000f)
+        } else {
+            "$ml ml"
+        }
+    }
+
+    val goalLabel = hydrationAmountLabel(goalMl)
+    val remainingLabel = hydrationAmountLabel(remainingMl)
+    val status = when {
+        currentMl == 0 -> "No water logged yet"
+        progress >= 1f -> "Daily goal reached"
+        else -> "$remainingLabel remaining"
+    }
+
+    Box(
+        Modifier.fillMaxWidth()
+            .height(188.dp)
+            .clip(RoundedCornerShape(29.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        deepBlue,
+                        middleBlue,
+                        waterBlue
+                    )
+                )
+            )
+            .border(1.dp, accent.copy(alpha = .22f), RoundedCornerShape(29.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val centre = Offset(size.width * .87f, size.height * .38f)
+            drawCircle(
+                color = Color.White.copy(alpha = .035f),
+                radius = size.width * .29f,
+                center = centre,
+                style = Stroke(width = 1.4f)
+            )
+            drawCircle(
+                color = Color.White.copy(alpha = .025f),
+                radius = size.width * .21f,
+                center = centre,
+                style = Stroke(width = 1.2f)
+            )
+        }
+
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.horizontalGradient(
+                    listOf(
+                        deepBlue,
+                        deepBlue.copy(alpha = .98f),
+                        middleBlue.copy(alpha = .90f),
+                        waterBlue.copy(alpha = .52f),
+                        Color.Transparent
+                    )
+                )
+            )
+        )
+
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(Modifier.weight(1f)) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "HYDRATION",
+                        color = Color.White.copy(alpha = .64f),
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.15.sp
+                    )
+                    Box(
+                        Modifier.background(accent.copy(alpha = .12f), RoundedCornerShape(14.dp))
+                            .padding(horizontal = 9.dp, vertical = 5.dp)
+                    ) {
+                        Text(
+                            "$pct%",
+                            color = accent,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black
+                        )
                     }
                 }
-            }
-            Spacer(Modifier.width(14.dp))
-            Column {
-                Text("$ml ml", color = HomeNavy, fontSize = 23.sp, fontWeight = FontWeight.Black)
-                Text("3,600 ml daily target", color = HomeMuted, fontSize = 10.sp)
+
+                Spacer(Modifier.height(9.dp))
+
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        currentMl.toString(),
+                        color = Color.White,
+                        fontSize = 29.sp,
+                        lineHeight = 31.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        "ml",
+                        color = Color.White.copy(alpha = .62f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
+
+                Text(
+                    "of $goalLabel daily goal",
+                    color = Color.White.copy(alpha = .54f),
+                    fontSize = 9.sp
+                )
+
+                Spacer(Modifier.height(5.dp))
+
+                Text(
+                    status,
+                    color = if (currentMl > 0) accent else Color.White.copy(alpha = .54f),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
                 Spacer(Modifier.height(12.dp))
-                Box(Modifier.background(superhumanAccentSoft, RoundedCornerShape(18.dp)).padding(horizontal = 14.dp, vertical = 9.dp)) { Text("Open tracker", color = HomeBlue, fontSize = 9.sp, fontWeight = FontWeight.Black) }
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    HydrationMiniStat(
+                        label = "GOAL",
+                        value = goalLabel,
+                        accent = accent,
+                        modifier = Modifier.weight(1f)
+                    )
+                    HydrationMiniStat(
+                        label = "LEFT",
+                        value = if (progress >= 1f) "0 ml" else remainingLabel,
+                        accent = accent,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(14.dp))
+
+            HydrationDroplet(
+                progress = progress,
+                accent = accent,
+                modifier = Modifier.width(92.dp).height(126.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun HydrationMiniStat(
+    label: String,
+    value: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier.height(45.dp)
+            .background(Color.White.copy(alpha = .07f), RoundedCornerShape(14.dp))
+            .border(1.dp, accent.copy(alpha = .15f), RoundedCornerShape(14.dp))
+            .padding(horizontal = 9.dp, vertical = 7.dp)
+    ) {
+        Text(
+            label,
+            color = Color.White.copy(alpha = .42f),
+            fontSize = 6.sp,
+            fontWeight = FontWeight.Black,
+            letterSpacing = .55.sp,
+            maxLines = 1
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            value,
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Black,
+            maxLines = 1
+        )
+    }
+}
+
+@Composable
+private fun HydrationDroplet(
+    progress: Float,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Canvas(modifier) {
+        val p = progress.coerceIn(0f, 1f)
+
+        val dropPath = Path().apply {
+            moveTo(size.width * .50f, 0f)
+            cubicTo(
+                size.width * .30f, size.height * .20f,
+                size.width * .10f, size.height * .43f,
+                size.width * .10f, size.height * .66f
+            )
+            cubicTo(
+                size.width * .10f, size.height * .88f,
+                size.width * .27f, size.height,
+                size.width * .50f, size.height
+            )
+            cubicTo(
+                size.width * .73f, size.height,
+                size.width * .90f, size.height * .88f,
+                size.width * .90f, size.height * .66f
+            )
+            cubicTo(
+                size.width * .90f, size.height * .43f,
+                size.width * .70f, size.height * .20f,
+                size.width * .50f, 0f
+            )
+            close()
+        }
+
+        drawPath(
+            path = dropPath,
+            brush = Brush.verticalGradient(
+                listOf(
+                    Color.White.copy(alpha = .09f),
+                    Color.White.copy(alpha = .025f)
+                )
+            )
+        )
+
+        clipPath(dropPath) {
+            val fillTop = size.height * (1f - p)
+
+            if (p > 0f) {
+                drawRect(
+                    brush = Brush.verticalGradient(
+                        listOf(
+                            Color(0xFF8CE8FF),
+                            accent,
+                            Color(0xFF159FCB)
+                        ),
+                        startY = fillTop,
+                        endY = size.height
+                    ),
+                    topLeft = Offset(0f, fillTop)
+                )
+
+                drawLine(
+                    color = Color.White.copy(alpha = .34f),
+                    start = Offset(size.width * .16f, fillTop),
+                    end = Offset(size.width * .84f, fillTop),
+                    strokeWidth = 2.5f
+                )
+
+                if (p > .18f) {
+                    drawCircle(
+                        color = Color.White.copy(alpha = .15f),
+                        radius = size.width * .045f,
+                        center = Offset(size.width * .37f, size.height * .73f)
+                    )
+                    drawCircle(
+                        color = Color.White.copy(alpha = .10f),
+                        radius = size.width * .032f,
+                        center = Offset(size.width * .61f, size.height * .58f)
+                    )
+                    drawCircle(
+                        color = Color.White.copy(alpha = .08f),
+                        radius = size.width * .023f,
+                        center = Offset(size.width * .48f, size.height * .43f)
+                    )
+                }
             }
         }
+
+        drawPath(
+            path = dropPath,
+            color = Color.White.copy(alpha = .19f),
+            style = Stroke(width = 2.2f)
+        )
+
+        val highlight = Path().apply {
+            moveTo(size.width * .38f, size.height * .20f)
+            quadraticTo(
+                size.width * .27f,
+                size.height * .34f,
+                size.width * .29f,
+                size.height * .48f
+            )
+        }
+        drawPath(
+            path = highlight,
+            color = Color.White.copy(alpha = .22f),
+            style = Stroke(width = 3f)
+        )
     }
 }
 
