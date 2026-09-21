@@ -131,7 +131,13 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
                         Text("Latest health readings", color = palette.textMuted, fontSize = 8.sp)
                     }
                 }
-                Text("OPEN  →", color = accentBlue, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .55.sp)
+                Box(
+                    Modifier.width(34.dp).height(34.dp)
+                        .background(accentBlue.copy(alpha = .10f), RoundedCornerShape(12.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("→", color = accentBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                }
             }
 
             Spacer(Modifier.height(14.dp))
