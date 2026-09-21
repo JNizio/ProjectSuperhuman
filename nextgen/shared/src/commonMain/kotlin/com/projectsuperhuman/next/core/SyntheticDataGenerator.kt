@@ -34,8 +34,11 @@ private data class SyntheticGenericFoodProfile(
     val proteinPer100: Double,
     val carbsPer100: Double,
     val fatPer100: Double,
+    val saturatedFatPer100: Double,
     val fibrePer100: Double,
     val sugarPer100: Double,
+    val sodiumMgPer100: Double,
+    val microsPer100: Map<String, SyntheticNutrient>,
     val unit: String = "100 g"
 )
 
@@ -639,8 +642,14 @@ class SyntheticDataGenerator(
                     val protein = food.proteinPer100 * factor
                     val carbs = food.carbsPer100 * factor
                     val fat = food.fatPer100 * factor
+                    val saturatedFat = food.saturatedFatPer100 * factor
                     val fibre = food.fibrePer100 * factor
                     val sugar = food.sugarPer100 * factor
+                    val sodiumMg = food.sodiumMgPer100 * factor
+                    val salt = sodiumMg * 2.5 / 1000.0
+                    val ingredientMicros = food.microsPer100.mapValues { (_, nutrient) ->
+                        SyntheticNutrient(nutrient.value * factor, nutrient.unit)
+                    }
                     dailyKcal += kcal
 
                     val diaryEntryId = "synthetic-ingredient:${config.seed}:$dayToken:$mealIndex:$ingredientIndex"
@@ -667,15 +676,21 @@ class SyntheticDataGenerator(
                         "proteinKnown" to "true",
                         "carbsKnown" to "true",
                         "fatKnown" to "true",
+                        "saturatedFatKnown" to "true",
                         "fibreKnown" to "true",
                         "sugarKnown" to "true",
+                        "sodiumKnown" to "true",
+                        "saltKnown" to "true",
                         "protein" to roundedText(protein),
                         "carbs" to roundedText(carbs),
                         "carbohydrateDefinition" to "TOTAL_INCLUDING_FIBRE",
                         "fat" to roundedText(fat),
+                        "saturatedFat" to roundedText(saturatedFat),
                         "fibre" to roundedText(fibre),
                         "sugar" to roundedText(sugar),
-                        "micronutrientCount" to "0"
+                        "sodiumMg" to roundedText(sodiumMg),
+                        "salt" to roundedText(salt),
+                        "micronutrientCount" to ingredientMicros.size.toString()
                     )
                     val ordinalBase = mealIndex * 200 + ingredientIndex * 40
                     val ingredientTs = mealTs + ingredientIndex * 1_000L
@@ -684,9 +699,44 @@ class SyntheticDataGenerator(
                     add(dayIndex, anchor, HealthDomain.NUTRITION, "food_protein", protein, "g", ingredientTs, ordinalBase + 1, commonMeta)
                     add(dayIndex, anchor, HealthDomain.NUTRITION, "food_carbs", carbs, "g", ingredientTs, ordinalBase + 2, commonMeta)
                     add(dayIndex, anchor, HealthDomain.NUTRITION, "food_fat", fat, "g", ingredientTs, ordinalBase + 3, commonMeta)
-                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_fibre", fibre, "g", ingredientTs, ordinalBase + 4, commonMeta)
-                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_sugar", sugar, "g", ingredientTs, ordinalBase + 5, commonMeta)
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_saturated_fat", saturatedFat, "g", ingredientTs, ordinalBase + 4, commonMeta)
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_fibre", fibre, "g", ingredientTs, ordinalBase + 5, commonMeta)
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_sugar", sugar, "g", ingredientTs, ordinalBase + 6, commonMeta)
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_sodium", sodiumMg, "mg", ingredientTs, ordinalBase + 7, commonMeta)
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_salt", salt, "g", ingredientTs, ordinalBase + 8, commonMeta)
+                    ingredientMicros.entries.forEachIndexed { microIndex, (nutrientId, nutrient) ->
+                        val suffix = when (nutrient.unit) {
+                            "µg", "μg", "mcg" -> "ug"
+                            else -> nutrient.unit.lowercase()
+                        }
+                        add(
+                            dayIndex, anchor, HealthDomain.NUTRITION,
+                            "food_" + nutrientId + "_" + suffix,
+                            nutrient.value, nutrient.unit, ingredientTs,
+                            ordinalBase + 10 + microIndex,
+                            commonMeta + mapOf(
+                                "nutrientId" to nutrientId,
+                                "nutrientLabel" to nutrientLabel(nutrientId),
+                                "nutrientEvidenceKind" to "REFERENCE_DATABASE",
+                                "nutrientEvidenceSource" to "Project Superhuman local reference"
+                            )
+                        )
+                    }
                 }
+            }
+
+            if (dayIndex == config.days - 1) {
+                val goalTs = (dayStart + 6L * HOUR_MS).coerceAtMost(now)
+                val proteinGoal = (weightKg * 1.6 / 5.0).roundToInt() * 5.0
+                val fatGoal = (weightKg * 0.8 / 5.0).roundToInt() * 5.0
+                val calorieGoal = (targetDailyKcal / 50.0).roundToInt() * 50.0
+                val carbGoal = ((calorieGoal - proteinGoal * 4.0 - fatGoal * 9.0).coerceAtLeast(200.0) / 4.0 / 5.0).roundToInt() * 5.0
+                val goalMeta = mapOf("enabled" to "true", "goalSource" to "synthetic-body-derived")
+                add(dayIndex, anchor, HealthDomain.NUTRITION, "nutrition_goal_kcal", calorieGoal, "kcal", goalTs, 900, goalMeta)
+                add(dayIndex, anchor, HealthDomain.NUTRITION, "nutrition_goal_protein_g", proteinGoal, "g", goalTs, 901, goalMeta)
+                add(dayIndex, anchor, HealthDomain.NUTRITION, "nutrition_goal_carbs_g", carbGoal, "g", goalTs, 902, goalMeta)
+                add(dayIndex, anchor, HealthDomain.NUTRITION, "nutrition_goal_fat_g", fatGoal, "g", goalTs, 903, goalMeta)
+                add(dayIndex, anchor, HealthDomain.NUTRITION, "nutrition_goal_fibre_g", 30.0, "g", goalTs, 904, goalMeta)
             }
 
             // Body: slow energy-balance drift plus a complete BIA-style reading each day.
@@ -858,33 +908,105 @@ class SyntheticDataGenerator(
             fat: Double,
             fibre: Double,
             sugar: Double,
+            saturatedFat: Double = 0.0,
+            sodiumMg: Double = 0.0,
+            micros: Map<String, SyntheticNutrient> = emptyMap(),
             unit: String = "100 g"
-        ) = SyntheticGenericFoodProfile(id, name, kcal, protein, carbs, fat, fibre, sugar, unit)
+        ) = SyntheticGenericFoodProfile(
+            id, name, kcal, protein, carbs, fat, saturatedFat, fibre, sugar, sodiumMg, micros, unit
+        )
 
         // Exact macro profiles mirrored from app/src/main/assets/food_db.js.
         private val GREEK_YOGHURT_2 = generic("f1", "Greek yoghurt, plain 2%", 73.0, 9.0, 4.0, 2.0, 0.0, 4.0)
         private val SKRYR_PLAIN = generic("f3", "Skyr, plain", 63.0, 11.0, 4.0, 0.3, 0.0, 4.0)
         private val FETA_CHEESE = generic("f16", "Feta cheese", 265.0, 14.0, 4.0, 21.0, 0.0, 4.0)
-        private val EGG_WHOLE = generic("f17", "Egg, whole", 143.0, 13.0, 0.7, 9.5, 0.0, 0.4)
-        private val CHICKEN_BREAST_COOKED = generic("f20", "Chicken breast, cooked", 165.0, 31.0, 0.0, 3.6, 0.0, 0.0)
+        private val EGG_WHOLE = generic(
+            "f17", "Egg, whole", 143.0, 13.0, 0.7, 9.5, 0.0, 0.4,
+            saturatedFat = 3.1, sodiumMg = 142.0,
+            micros = mapOf(
+                "calcium" to micro(56.0, "mg"), "iron" to micro(1.75, "mg"),
+                "phosphorus" to micro(198.0, "mg"), "potassium" to micro(138.0, "mg"),
+                "selenium" to micro(30.7, "µg"), "zinc" to micro(1.29, "mg"),
+                "vitamin_a" to micro(160.0, "µg"), "vitamin_b2" to micro(0.46, "mg"),
+                "vitamin_b12" to micro(0.89, "µg"), "vitamin_d" to micro(2.0, "µg"),
+                "folate" to micro(47.0, "µg"), "choline" to micro(294.0, "mg")
+            )
+        )
+        private val CHICKEN_BREAST_COOKED = generic(
+            "f20", "Chicken breast, cooked", 165.0, 31.0, 0.0, 3.6, 0.0, 0.0,
+            saturatedFat = 1.0, sodiumMg = 74.0,
+            micros = mapOf(
+                "phosphorus" to micro(220.0, "mg"), "potassium" to micro(256.0, "mg"),
+                "selenium" to micro(27.6, "µg"), "zinc" to micro(1.0, "mg"),
+                "vitamin_b3" to micro(13.7, "mg"), "vitamin_b6" to micro(0.6, "mg"),
+                "vitamin_b12" to micro(0.3, "µg")
+            )
+        )
         private val TURKEY_BREAST = generic("f22", "Turkey breast", 114.0, 24.0, 0.0, 1.5, 0.0, 0.0)
-        private val SALMON_ATLANTIC = generic("f29", "Salmon, Atlantic", 208.0, 20.0, 0.0, 13.0, 0.0, 0.0)
+        private val SALMON_ATLANTIC = generic(
+            "f29", "Salmon, Atlantic", 208.0, 20.0, 0.0, 13.0, 0.0, 0.0,
+            saturatedFat = 3.1, sodiumMg = 59.0,
+            micros = mapOf(
+                "phosphorus" to micro(252.0, "mg"), "potassium" to micro(363.0, "mg"),
+                "selenium" to micro(36.5, "µg"), "vitamin_b6" to micro(0.64, "mg"),
+                "vitamin_b12" to micro(3.2, "µg"), "vitamin_d" to micro(11.0, "µg")
+            )
+        )
         private val TUNA_DRAINED = generic("f30", "Tuna, canned in spring water, drained", 116.0, 26.0, 0.0, 1.0, 0.0, 0.0)
-        private val OATS_DRY = generic("f35", "Oats, dry", 379.0, 13.0, 68.0, 7.0, 10.0, 1.0)
+        private val OATS_DRY = generic(
+            "f35", "Oats, dry", 379.0, 13.0, 68.0, 7.0, 10.0, 1.0,
+            saturatedFat = 1.2, sodiumMg = 2.0,
+            micros = mapOf(
+                "calcium" to micro(52.0, "mg"), "iron" to micro(4.25, "mg"),
+                "magnesium" to micro(138.0, "mg"), "phosphorus" to micro(410.0, "mg"),
+                "potassium" to micro(362.0, "mg"), "zinc" to micro(3.64, "mg"),
+                "vitamin_b1" to micro(0.46, "mg"), "folate" to micro(56.0, "µg")
+            )
+        )
         private val WHITE_RICE_COOKED = generic("f37", "White rice, cooked", 130.0, 2.7, 28.0, 0.3, 0.4, 0.0)
         private val BROWN_RICE_COOKED = generic("f38", "Brown rice, cooked", 123.0, 2.7, 25.6, 1.0, 1.6, 0.0)
         private val PASTA_COOKED = generic("f40", "Pasta, cooked", 158.0, 5.8, 31.0, 0.9, 1.8, 0.6)
         private val SOURDOUGH_BREAD = generic("f50", "Sourdough bread", 250.0, 9.0, 49.0, 2.0, 3.0, 2.0)
         private val POTATO_BOILED = generic("f53", "Potato, boiled", 87.0, 1.9, 20.0, 0.1, 1.8, 1.0)
         private val LENTILS_COOKED = generic("f56", "Lentils, cooked", 116.0, 9.0, 20.0, 0.4, 7.9, 1.8)
-        private val BANANA = generic("f62", "Banana", 89.0, 1.1, 23.0, 0.3, 2.6, 12.0)
+        private val BANANA = generic(
+            "f62", "Banana", 89.0, 1.1, 23.0, 0.3, 2.6, 12.0,
+            saturatedFat = 0.11, sodiumMg = 1.0,
+            micros = mapOf(
+                "magnesium" to micro(27.0, "mg"), "potassium" to micro(358.0, "mg"),
+                "vitamin_b6" to micro(0.37, "mg"), "vitamin_c" to micro(8.7, "mg"),
+                "folate" to micro(20.0, "µg")
+            )
+        )
         private val BLUEBERRIES = generic("f69", "Blueberries", 57.0, 0.7, 14.5, 0.3, 2.4, 10.0)
         private val AVOCADO = generic("f74", "Avocado", 160.0, 2.0, 8.5, 14.7, 6.7, 0.7)
         private val TOMATO = generic("f75", "Tomato", 18.0, 0.9, 3.9, 0.2, 1.2, 2.6)
         private val CUCUMBER = generic("f76", "Cucumber", 15.0, 0.7, 3.6, 0.1, 0.5, 1.7)
-        private val BROCCOLI = generic("f78", "Broccoli", 34.0, 2.8, 6.6, 0.4, 2.6, 1.7)
-        private val SPINACH = generic("f80", "Spinach", 23.0, 2.9, 3.6, 0.4, 2.2, 0.4)
-        private val OLIVE_OIL = generic("f96", "Olive oil", 884.0, 0.0, 0.0, 100.0, 0.0, 0.0, "100 g")
+        private val BROCCOLI = generic(
+            "f78", "Broccoli", 34.0, 2.8, 6.6, 0.4, 2.6, 1.7,
+            saturatedFat = 0.04, sodiumMg = 33.0,
+            micros = mapOf(
+                "calcium" to micro(47.0, "mg"), "iron" to micro(0.73, "mg"),
+                "magnesium" to micro(21.0, "mg"), "potassium" to micro(316.0, "mg"),
+                "vitamin_a" to micro(31.0, "µg"), "vitamin_c" to micro(89.2, "mg"),
+                "vitamin_k" to micro(102.0, "µg"), "folate" to micro(63.0, "µg")
+            )
+        )
+        private val SPINACH = generic(
+            "f80", "Spinach", 23.0, 2.9, 3.6, 0.4, 2.2, 0.4,
+            saturatedFat = 0.06, sodiumMg = 79.0,
+            micros = mapOf(
+                "calcium" to micro(99.0, "mg"), "iron" to micro(2.71, "mg"),
+                "magnesium" to micro(79.0, "mg"), "potassium" to micro(558.0, "mg"),
+                "vitamin_a" to micro(469.0, "µg"), "vitamin_c" to micro(28.1, "mg"),
+                "vitamin_k" to micro(483.0, "µg"), "folate" to micro(194.0, "µg")
+            )
+        )
+        private val OLIVE_OIL = generic(
+            "f96", "Olive oil", 884.0, 0.0, 0.0, 100.0, 0.0, 0.0,
+            saturatedFat = 13.8, sodiumMg = 2.0,
+            micros = mapOf("vitamin_e" to micro(14.4, "mg"), "vitamin_k" to micro(60.2, "µg"))
+        )
         private val TOMATO_PASSATA = generic("f131", "Tomato passata", 29.0, 1.4, 5.0, 0.2, 1.5, 4.0)
         private val FROZEN_MIXED_VEGETABLES = generic("f134", "Frozen mixed vegetables", 55.0, 3.0, 9.0, 0.5, 3.5, 3.0)
         private val GRANOLA = generic("f138", "Granola", 450.0, 10.0, 64.0, 17.0, 8.0, 20.0)
