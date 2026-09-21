@@ -230,36 +230,167 @@ private fun ClinicalHomeStat(value: String, label: String, accent: Color, modifi
 @Composable
 internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val trained = snapshot.workoutsToday > 0
-    val volumeLabel = if (snapshot.workoutVolumeToday >= 1000) String.format(Locale.US, "%.1fk", snapshot.workoutVolumeToday / 1000.0) else snapshot.workoutVolumeToday.toString()
-    Box(Modifier.fillMaxWidth().height(178.dp).clip(RoundedCornerShape(27.dp)).background(Brush.linearGradient(listOf(Color(0xFF071D38), Color(0xFF0A3561), Color(0xFF0C5A7B)))).border(1.dp, Color(0xFF164E72), RoundedCornerShape(27.dp)).clickable(onClick = onClick)) {
-        LegacyAssetImage("dashboard_training.png", Modifier.width(250.dp).fillMaxSize().align(Alignment.CenterEnd), alpha = .34f)
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF071D38), Color(0xFF071D38).copy(alpha = .96f), Color(0xFF0A2F56).copy(alpha = .70f), Color.Transparent))))
-        Column(Modifier.fillMaxSize().padding(horizontal = 19.dp, vertical = 17.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("TRAINING", color = Color.White.copy(alpha = .66f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-                Box(Modifier.width(34.dp).height(34.dp).background(Color.White.copy(alpha = .10f), CircleShape), contentAlignment = Alignment.Center) { Text("→", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold) }
+    val strengthAccent = Color(0xFF67B8FF)
+    val cardioAccent = Color(0xFF66D7B7)
+    val volumeLabel = if (snapshot.workoutVolumeToday >= 1000) {
+        String.format(Locale.US, "%.1fk kg", snapshot.workoutVolumeToday / 1000.0)
+    } else {
+        "${snapshot.workoutVolumeToday} kg"
+    }
+    val headline = if (trained) {
+        "${snapshot.workoutsToday} session${if (snapshot.workoutsToday == 1) "" else "s"} today"
+    } else {
+        "Ready to train"
+    }
+
+    Box(
+        Modifier.fillMaxWidth()
+            .height(212.dp)
+            .clip(RoundedCornerShape(29.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color(0xFF061829),
+                        Color(0xFF092B43),
+                        Color(0xFF0C4B58)
+                    )
+                )
+            )
+            .border(1.dp, Color(0xFF2D6F83).copy(alpha = .62f), RoundedCornerShape(29.dp))
+            .clickable(onClick = onClick)
+    ) {
+        LegacyAssetImage(
+            "dashboard_training.png",
+            Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            alpha = .23f
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.horizontalGradient(
+                    listOf(
+                        Color(0xFF061829),
+                        Color(0xFF061829).copy(alpha = .97f),
+                        Color(0xFF08283D).copy(alpha = .83f),
+                        Color(0xFF0A4D57).copy(alpha = .40f),
+                        Color.Transparent
+                    )
+                )
+            )
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    listOf(
+                        Color.Transparent,
+                        Color(0xFF061829).copy(alpha = .16f),
+                        Color(0xFF061829).copy(alpha = .72f)
+                    )
+                )
+            )
+        )
+
+        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "TRAINING",
+                    color = Color.White.copy(alpha = .64f),
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.15.sp
+                )
+                Box(
+                    Modifier.background(Color.White.copy(alpha = .09f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 10.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        "OPEN  →",
+                        color = Color.White.copy(alpha = .86f),
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = .35.sp
+                    )
+                }
             }
-            Spacer(Modifier.height(3.dp))
-            Text(if (trained) "Workout complete" else "Ready to train", color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.Black)
-            Text(if (trained) "${snapshot.workoutsToday} workout${if (snapshot.workoutsToday == 1) "" else "s"} logged today" else "Start a workout, routine or exercise session", color = Color.White.copy(alpha = .67f), fontSize = 9.sp)
-            Spacer(Modifier.height(13.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                TrainingStat(snapshot.workoutsToday.toString(), "WORKOUTS", Modifier.weight(1f))
-                TrainingStat(snapshot.workoutSetsToday.toString(), "SETS", Modifier.weight(1f))
-                TrainingStat(volumeLabel, "VOLUME KG", Modifier.weight(1f))
+
+            Spacer(Modifier.height(7.dp))
+            Text(headline, color = Color.White, fontSize = 25.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black)
+            Text(
+                if (trained) "Strength and cardio activity" else "Strength and cardio",
+                color = Color.White.copy(alpha = .56f),
+                fontSize = 9.sp
+            )
+
+            Spacer(Modifier.height(14.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                TrainingModuleTile(
+                    title = "STRENGTH",
+                    value = if (snapshot.strengthWorkoutsToday > 0) {
+                        "${snapshot.strengthWorkoutsToday} session${if (snapshot.strengthWorkoutsToday == 1) "" else "s"}"
+                    } else {
+                        "No session"
+                    },
+                    detail = if (snapshot.strengthWorkoutsToday > 0) {
+                        "${snapshot.workoutSetsToday} sets · $volumeLabel"
+                    } else {
+                        "Routines · PRs · history"
+                    },
+                    accent = strengthAccent,
+                    modifier = Modifier.weight(1f)
+                )
+                TrainingModuleTile(
+                    title = "CARDIO",
+                    value = if (snapshot.cardioWorkoutsToday > 0) {
+                        "${snapshot.cardioWorkoutsToday} session${if (snapshot.cardioWorkoutsToday == 1) "" else "s"}"
+                    } else {
+                        "No session"
+                    },
+                    detail = if (snapshot.cardioWorkoutsToday > 0) {
+                        "Open cardio details"
+                    } else {
+                        "Run · walk · cycle · fitness"
+                    },
+                    accent = cardioAccent,
+                    modifier = Modifier.weight(1f)
+                )
             }
-            Spacer(Modifier.height(10.dp))
-            Box(Modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 7.dp)) { Text(if (trained) "View training hub  →" else "Start workout  →", color = Color(0xFF66DBC8), fontSize = 8.sp, fontWeight = FontWeight.Black) }
         }
     }
 }
 
 @Composable
-private fun TrainingStat(value: String, label: String, modifier: Modifier = Modifier) {
-    Column(modifier.background(Color.White.copy(alpha = .075f), RoundedCornerShape(13.dp)).padding(horizontal = 9.dp, vertical = 7.dp)) {
-        Text(label, color = Color.White.copy(alpha = .48f), fontSize = 6.sp, fontWeight = FontWeight.Black, letterSpacing = .55.sp, maxLines = 1)
-        Spacer(Modifier.height(2.dp))
-        Text(value, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black, maxLines = 1)
+private fun TrainingModuleTile(
+    title: String,
+    value: String,
+    detail: String,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier.height(68.dp)
+            .background(Color.White.copy(alpha = .075f), RoundedCornerShape(16.dp))
+            .border(1.dp, accent.copy(alpha = .20f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 11.dp, vertical = 9.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(6.dp).height(6.dp).background(accent, CircleShape))
+            Spacer(Modifier.width(6.dp))
+            Text(
+                title,
+                color = accent,
+                fontSize = 7.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = .6.sp,
+                maxLines = 1
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Black, maxLines = 1)
+        Text(detail, color = Color.White.copy(alpha = .50f), fontSize = 7.sp, maxLines = 1)
     }
 }
 
