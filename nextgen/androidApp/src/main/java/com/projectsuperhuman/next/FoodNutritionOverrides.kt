@@ -168,6 +168,7 @@ internal object FoodNutritionOverrideStore {
             arrayOf(identityKey(food))
         ).use { cursor ->
             if (!cursor.moveToFirst()) return food
+
             val correctionEpochMs = cursor.getLong(13)
             val revision = cursor.getInt(14)
             val editedFields = cursor.getString(21)
@@ -175,6 +176,8 @@ internal object FoodNutritionOverrideStore {
                 .map(String::trim)
                 .filter(String::isNotBlank)
                 .toSet()
+            fun use(id: String) = id in editedFields
+
             val correctedMicros = decodeMicros(cursor.getString(12)).mapValues { (_, nutrient) ->
                 nutrient.copy(
                     evidenceKind = NutrientEvidenceKind.USER_ENTERED,
@@ -182,53 +185,98 @@ internal object FoodNutritionOverrideStore {
                     sourceRecordId = identityKey(food)
                 )
             }
-            val micros = corrected.micronutrients + correctedMicros
-            val editedSource = if (corrected.source.contains("edited locally", ignoreCase = true)) {
-                corrected.source
+            val resolvedMicros = food.micronutrients + correctedMicros
+
+            val resolved = food.copy(
+                kcal = if (use("energy_kcal")) cursor.getDouble(0) else food.kcal,
+                kcalKnown = if (use("energy_kcal")) cursor.getInt(6) != 0 else food.kcalKnown,
+                protein = if (use("protein")) cursor.getDouble(1) else food.protein,
+                carbs = if (use("carbohydrate")) cursor.getDouble(2) else food.carbs,
+                fat = if (use("fat")) cursor.getDouble(3) else food.fat,
+                fibre = if (use("fibre")) cursor.getDouble(4) else food.fibre,
+                sugar = if (use("sugars")) cursor.getDouble(5) else food.sugar,
+                proteinKnown = if (use("protein")) cursor.getInt(7) != 0 else food.proteinKnown,
+                carbsKnown = if (use("carbohydrate")) cursor.getInt(8) != 0 else food.carbsKnown,
+                fatKnown = if (use("fat")) cursor.getInt(9) != 0 else food.fatKnown,
+                fibreKnown = if (use("fibre")) cursor.getInt(10) != 0 else food.fibreKnown,
+                sugarKnown = if (use("sugars")) cursor.getInt(11) != 0 else food.sugarKnown,
+                saturatedFat = if (use("saturated_fat")) cursor.getDouble(15) else food.saturatedFat,
+                salt = if (use("salt")) cursor.getDouble(16) else food.salt,
+                sodiumMg = if (use("sodium")) cursor.getDouble(17) else food.sodiumMg,
+                saturatedFatKnown = if (use("saturated_fat")) cursor.getInt(18) != 0 else food.saturatedFatKnown,
+                saltKnown = if (use("salt")) cursor.getInt(19) != 0 else food.saltKnown,
+                sodiumKnown = if (use("sodium")) cursor.getInt(20) != 0 else food.sodiumKnown,
+                micronutrients = resolvedMicros
+            )
+
+            val integrity = NutritionIntegrity.validateFoodValues(
+                basisAmount = resolved.basisAmount,
+                basisUnit = resolved.basisUnit,
+                kcal = resolved.kcal,
+                kcalKnown = resolved.kcalKnown,
+                protein = resolved.protein,
+                proteinKnown = resolved.proteinKnown,
+                carbs = resolved.carbs,
+                carbsKnown = resolved.carbsKnown,
+                carbohydrateDefinition = resolved.carbohydrateDefinition,
+                fat = resolved.fat,
+                fatKnown = resolved.fatKnown,
+                saturatedFat = resolved.saturatedFat,
+                saturatedFatKnown = resolved.saturatedFatKnown,
+                fibre = resolved.fibre,
+                fibreKnown = resolved.fibreKnown,
+                sugar = resolved.sugar,
+                sugarKnown = resolved.sugarKnown,
+                saltG = resolved.salt,
+                saltKnown = resolved.saltKnown,
+                sodiumMg = resolved.sodiumMg,
+                sodiumKnown = resolved.sodiumKnown,
+                servingQuantity = resolved.servingQuantity,
+                productQuantity = resolved.productQuantity
+            )
+
+            val editedSource = if (food.source.contains("edited locally", ignoreCase = true)) {
+                food.source
             } else {
-                "${corrected.source} · edited locally"
+                food.source + " · edited locally"
             }
-            fun use(id: String) = id in editedFields
-            return corrected.copy(
-                kcal = if (use("energy_kcal")) cursor.getDouble(0) else corrected.kcal,
-                kcalKnown = if (use("energy_kcal")) cursor.getInt(6) != 0 else corrected.kcalKnown,
-                protein = if (use("protein")) cursor.getDouble(1) else corrected.protein,
-                carbs = if (use("carbohydrate")) cursor.getDouble(2) else corrected.carbs,
-                fat = if (use("fat")) cursor.getDouble(3) else corrected.fat,
-                fibre = if (use("fibre")) cursor.getDouble(4) else corrected.fibre,
-                sugar = if (use("sugars")) cursor.getDouble(5) else corrected.sugar,
-                proteinKnown = if (use("protein")) cursor.getInt(7) != 0 else corrected.proteinKnown,
-                carbsKnown = if (use("carbohydrate")) cursor.getInt(8) != 0 else corrected.carbsKnown,
-                fatKnown = if (use("fat")) cursor.getInt(9) != 0 else corrected.fatKnown,
-                fibreKnown = if (use("fibre")) cursor.getInt(10) != 0 else corrected.fibreKnown,
-                sugarKnown = if (use("sugars")) cursor.getInt(11) != 0 else corrected.sugarKnown,
-                saturatedFat = if (use("saturated_fat")) cursor.getDouble(15) else corrected.saturatedFat,
-                salt = if (use("salt")) cursor.getDouble(16) else corrected.salt,
-                sodiumMg = if (use("sodium")) cursor.getDouble(17) else corrected.sodiumMg,
-                saturatedFatKnown = if (use("saturated_fat")) cursor.getInt(18) != 0 else corrected.saturatedFatKnown,
-                saltKnown = if (use("salt")) cursor.getInt(19) != 0 else corrected.saltKnown,
-                sodiumKnown = if (use("sodium")) cursor.getInt(20) != 0 else corrected.sodiumKnown,
-                micronutrients = micros,
-                nutritionIntegrityWarning = null,
-                nutritionApproximate = false,
+            val evidence = food.nutrientEvidence.toMutableMap().apply {
+                editedFields.forEach { put(it, NutrientEvidenceKind.USER_ENTERED) }
+            }
+
+            return resolved.copy(
+                nutritionIntegrityWarning = integrity.warningText,
                 source = editedSource,
                 sourceType = FoodDataSourceType.USER_CORRECTED,
                 sourceRevision = "user-correction-v" + revision + "@" + correctionEpochMs,
-                verificationState = FoodVerificationState.USER_CORRECTED,
-                confidence = FoodDataConfidence.HIGH,
-                energyEvidence = if (cursor.getInt(6) != 0) EnergyEvidenceKind.USER_ENTERED else corrected.energyEvidence,
-                nutrientEvidence = corrected.nutrientEvidence.toMutableMap().apply {
-                    editedFields.forEach { put(it, NutrientEvidenceKind.USER_ENTERED) }
+                verificationState = if (integrity.conflicted) {
+                    FoodVerificationState.CONFLICTED
+                } else {
+                    FoodVerificationState.USER_CORRECTED
                 },
+                confidence = if (integrity.conflicted) {
+                    FoodDataConfidence.CONFLICTED
+                } else if (food.nutritionApproximate && editedFields.size < 4) {
+                    FoodDataConfidence.MEDIUM
+                } else {
+                    FoodDataConfidence.HIGH
+                },
+                energyEvidence = if (use("energy_kcal") && resolved.kcalKnown) {
+                    EnergyEvidenceKind.USER_ENTERED
+                } else {
+                    food.energyEvidence
+                },
+                nutrientEvidence = evidence,
                 correctedFields = editedFields,
-                sourceWarnings = emptyList()
+                sourceWarnings = integrity.warnings,
+                nutritionApproximate = food.nutritionApproximate && editedFields.isEmpty()
             )
         }
     }
 
     private fun identityKey(food: NativeFood): String =
-        corrected.barcode?.filter(Char::isDigit)?.takeIf { it.isNotBlank() }?.let { "barcode:$it" }
-            ?: "food:${corrected.id}"
+        food.barcode?.filter(Char::isDigit)?.takeIf { it.isNotBlank() }?.let { "barcode:" + it }
+            ?: "food:" + food.id
 
     private fun encodeMicros(micros: Map<String, NativeNutrient>): String {
         val root = JSONObject()
@@ -342,7 +390,7 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
         if (oldVersion < 6) {
             db.execSQL(
                 "ALTER TABLE food_nutrition_override ADD COLUMN edited_fields TEXT NOT NULL DEFAULT " +
-                    "'energy_kcal|protein|carbohydrate|fat|fibre|sugars|saturated_fat|salt|sodium'"
+                    "'energy_kcal|protein|carbohydrate|fat|fibre|sugars'"
             )
         }
     }
