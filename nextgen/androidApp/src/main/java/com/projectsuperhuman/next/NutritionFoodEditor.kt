@@ -103,12 +103,12 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
     fun load(food: NativeFood) {
         selected = food
         barcode = food.barcode.orEmpty()
-        kcal = editNumber(food.kcal)
-        protein = editNumber(food.protein)
-        carbs = editNumber(food.carbs)
-        fat = editNumber(food.fat)
-        fibre = editNumber(food.fibre)
-        sugar = editNumber(food.sugar)
+        kcal = if (food.kcalKnown) editNumber(food.kcal) else ""
+        protein = if (food.proteinKnown) editNumber(food.protein) else ""
+        carbs = if (food.carbsKnown) editNumber(food.carbs) else ""
+        fat = if (food.fatKnown) editNumber(food.fat) else ""
+        fibre = if (food.fibreKnown) editNumber(food.fibre) else ""
+        sugar = if (food.sugarKnown) editNumber(food.sugar) else ""
         microValues = food.micronutrients.mapValues { editNumber(it.value.valuePer100) }
         microQuery = ""
     }
@@ -206,7 +206,14 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                         Column(Modifier.weight(1f)) {
                             Text(food.name, color = FoodEditInk, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
                             Text(listOf(food.brand, food.source).filter { it.isNotBlank() }.joinToString(" · "), color = FoodEditMuted, fontSize = 8.sp)
-                            Text("${food.kcal.roundToInt()} kcal · ${editNumber(food.protein)}P · ${editNumber(food.carbs)}C · ${editNumber(food.fat)}F / ${food.unit}", color = FoodEditMuted, fontSize = 8.sp)
+                            Text(
+                                (if (food.kcalKnown) "${food.kcal.roundToInt()} kcal" else "— kcal") + " · " +
+                                    (if (food.proteinKnown) "${editNumber(food.protein)}P" else "—P") + " · " +
+                                    (if (food.carbsKnown) "${editNumber(food.carbs)}C" else "—C") + " · " +
+                                    (if (food.fatKnown) "${editNumber(food.fat)}F" else "—F") + " / ${food.unit}",
+                                color = FoodEditMuted,
+                                fontSize = 8.sp
+                            )
                         }
                         Text("EDIT", color = FoodEditBlue, fontSize = 8.sp, fontWeight = FontWeight.Black)
                     }
@@ -288,9 +295,27 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                             put(id, NativeNutrient(id = id, label = def?.label ?: existing?.label ?: id, valuePer100 = value, unit = def?.unit ?: existing?.unit ?: "mg"))
                         }
                     }
+                    val kcalValue = safeNutritionNullable(kcal)
+                    val proteinValue = safeNutritionNullable(protein)
+                    val carbsValue = safeNutritionNullable(carbs)
+                    val fatValue = safeNutritionNullable(fat)
+                    val fibreValue = safeNutritionNullable(fibre)
+                    val sugarValue = safeNutritionNullable(sugar)
                     val edited = food.copy(
-                        kcal = safeNutritionNumber(kcal), protein = safeNutritionNumber(protein), carbs = safeNutritionNumber(carbs),
-                        fat = safeNutritionNumber(fat), fibre = safeNutritionNumber(fibre), sugar = safeNutritionNumber(sugar), micronutrients = microMap
+                        kcal = kcalValue ?: 0.0,
+                        kcalKnown = kcalValue != null,
+                        protein = proteinValue ?: 0.0,
+                        proteinKnown = proteinValue != null,
+                        carbs = carbsValue ?: 0.0,
+                        carbsKnown = carbsValue != null,
+                        fat = fatValue ?: 0.0,
+                        fatKnown = fatValue != null,
+                        fibre = fibreValue ?: 0.0,
+                        fibreKnown = fibreValue != null,
+                        sugar = sugarValue ?: 0.0,
+                        sugarKnown = sugarValue != null,
+                        micronutrients = microMap,
+                        nutritionIntegrityWarning = null
                     )
                     FoodNutritionOverrideStore.save(context, edited)
                     val applied = FoodNutritionOverrideStore.applyAll(context, listOf(edited)).first()
@@ -347,8 +372,8 @@ private fun sameFood(a: NativeFood, b: NativeFood): Boolean =
 
 private fun numericEdit(value: String): String = value.filter { it.isDigit() || it == '.' }.take(10)
 
-private fun safeNutritionNumber(value: String): Double =
-    value.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
+private fun safeNutritionNullable(value: String): Double? =
+    value.trim().takeIf { it.isNotEmpty() }?.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
 
 private fun editNumber(value: Double): String = when {
     !value.isFinite() -> "0"
