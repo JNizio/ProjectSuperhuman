@@ -2,6 +2,7 @@ package com.projectsuperhuman.next
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -31,10 +33,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -176,6 +181,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     var selectedDate by remember { mutableStateOf(LocalDate.now(ZoneId.systemDefault())) }
     var nutrientRange by remember { mutableStateOf(N2Range.DAY) }
     var nutrientDay by remember { mutableStateOf(N2Day()) }
+    var weekDays by remember { mutableStateOf<List<N2Day>>(emptyList()) }
     var lastRemoved by remember { mutableStateOf<N2Entry?>(null) }
 
     suspend fun refresh() {
@@ -185,6 +191,20 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
         val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
         day = n2BuildDay(NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to))
         goals = n2LoadGoals()
+    }
+
+    suspend fun refreshWeek() {
+        val zone = ZoneId.systemDefault()
+        val startDate = selectedDate.minusDays(6)
+        val from = startDate.atStartOfDay(zone).toInstant().toEpochMilli()
+        val to = selectedDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+        val rows = NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to)
+        weekDays = (0L..6L).map { offset ->
+            val date = startDate.plusDays(offset)
+            val dayFrom = date.atStartOfDay(zone).toInstant().toEpochMilli()
+            val dayTo = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+            n2BuildDay(rows.filter { it.timestampEpochMs in dayFrom..dayTo })
+        }
     }
 
     suspend fun refreshNutrients() {
@@ -259,7 +279,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 
     DisposableEffect(Unit) { onDispose { imageScanner.close() } }
     LaunchedEffect(Unit) { NativeFoodCatalog.all(context) }
-    LaunchedEffect(selectedDate) { refresh(); refreshNutrients() }
+    LaunchedEffect(selectedDate) { refresh(); refreshWeek(); refreshNutrients() }
     LaunchedEffect(selectedDate, nutrientRange) { refreshNutrients() }
 
     Column(
@@ -280,7 +300,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 
         when (view) {
             N2View.DIARY -> {
-                N2Hero(day, goals)
+                N2Hero(day, goals, weekDays)
                 N2LogCard(
                     query = query,
                     onQueryChange = { query = it },
