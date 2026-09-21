@@ -313,7 +313,13 @@ internal object NativeFoodCatalog {
         val offQualityWarnings = listOf(
             p.optStringList("data_quality_errors_tags"),
             p.optStringList("data_quality_warnings_tags")
-        ).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { null }
+        )
+            .flatMap { it.split(",") }
+            .map { it.trim() }
+            .filter { warning -> warning.isNotBlank() && isNutritionQualityWarning(warning) }
+            .distinct()
+            .joinToString(" · ")
+            .ifBlank { null }
 
         return NativeFood(
             id = if (code.isNotBlank()) "off:$code" else "off:${name.lowercase().hashCode()}",
@@ -429,8 +435,18 @@ internal object NativeFoodCatalog {
         return out
     }
 
+    private fun isNutritionQualityWarning(raw: String): Boolean {
+        val warning = raw.lowercase()
+        return listOf(
+            "nutrition", "nutrient", "energy", "kcal", "kj", "calorie",
+            "protein", "carbohydrate", "sugar", "fat", "fiber", "fibre",
+            "salt", "sodium", "serving"
+        ).any { it in warning }
+    }
+
     private fun foodComparator(query: String): Comparator<NativeFood> =
         compareBy<NativeFood> { foodSearchRank(it, query) }
+            .thenBy { if (it.nutritionIntegrityWarning.isNullOrBlank()) 0 else 1 }
             .thenBy { if (it.nutritionApproximate) 1 else 0 }
             .thenBy(::sourcePriority)
             .thenByDescending { it.micronutrients.size }
