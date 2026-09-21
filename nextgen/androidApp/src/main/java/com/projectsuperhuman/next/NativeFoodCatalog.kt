@@ -235,7 +235,13 @@ internal object NativeFoodCatalog {
         // Stay local when we already have enough strong matches. Network search is the fallback,
         // not a tax paid on every multi-word query.
         val strongLocalMatch = localCandidates.any { foodSearchRank(it, q.lowercase()) <= 1 }
-        val shouldQueryRemote = localCandidates.size < FAST_RESULT_COUNT || !strongLocalMatch
+        val queryTokens = q.lowercase().split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
+        val looksLikeGenericIngredient = queryTokens.isNotEmpty() &&
+            queryTokens.size <= 4 &&
+            queryTokens.none { token -> token.any(Char::isDigit) } &&
+            localCandidates.count { it.sourceType == FoodDataSourceType.USDA || it.sourceType == FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE } >= 4
+        val shouldQueryRemote = !looksLikeGenericIngredient &&
+            (localCandidates.size < FAST_RESULT_COUNT || !strongLocalMatch)
         val remoteResult = if (shouldQueryRemote) {
             searchOpenFoodFacts(context, q, limit = MAX_RESULT_COUNT)
         } else {
@@ -711,12 +717,30 @@ internal object NativeFoodCatalog {
     private fun foodSearchRank(food: NativeFood, query: String): Int {
         val q = query.trim().lowercase()
         if (q.length < 2) return 99
+
+        val normalizeTokens: (String) -> List<String> = { value ->
+            value.lowercase()
+                .replace(Regex("[^a-z0-9]+"), " ")
+                .trim()
+                .split(' ')
+                .filter { it.isNotBlank() }
+        }
+        val queryTokens = normalizeTokens(q)
         val name = food.name.lowercase()
-        val haystack = "$name ${food.originalName.lowercase()} ${food.searchText.lowercase()} ${food.country.lowercase()} ${food.brand.lowercase()}"
+        val nameTokens = normalizeTokens(food.name)
+        val haystack = (
+            food.name + " " + food.originalName + " " + food.searchText + " " +
+                food.country + " " + food.brand
+            ).lowercase()
+        val haystackTokens = normalizeTokens(haystack)
+
         return when {
             name == q -> 0
+            food.id.startsWith("alias:") && queryTokens.all { token -> token in nameTokens } -> 0
             name.startsWith(q) -> 1
-            name.split(' ', '-', '_').any { it.startsWith(q) } -> 2
+            queryTokens.isNotEmpty() && queryTokens.all { token -> nameTokens.any { it.startsWith(token) } } -> 1
+            queryTokens.isNotEmpty() && queryTokens.all { token -> token in haystackTokens } -> 2
+            nameTokens.any { token -> token.startsWith(q) } -> 2
             haystack.contains(q) -> 3
             else -> 99
         }
