@@ -394,10 +394,12 @@ internal object NativeFoodCatalog {
         micronutrientSpecs.forEach { spec ->
             // Several OFF taxonomy ids can map to one canonical nutrient (e.g. folate).
             if (out.containsKey(spec.id)) return@forEach
-            val grams = n.optDoubleSafe("${spec.offId}_100g")
-            if (grams <= 0.0 || !grams.isFinite()) return@forEach
+            val key = "${spec.offId}_100g"
+            if (!n.hasFiniteNumber(key)) return@forEach
+            val grams = n.optDoubleSafe(key)
+            if (grams < 0.0 || !grams.isFinite()) return@forEach
             val converted = grams * spec.multiplierFromGrams
-            if (converted <= 0.0 || !converted.isFinite()) return@forEach
+            if (converted < 0.0 || !converted.isFinite()) return@forEach
             out[spec.id] = NativeNutrient(spec.id, spec.label, converted, spec.unit)
         }
         return out
