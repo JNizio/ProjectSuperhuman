@@ -955,31 +955,31 @@ private fun N2AddFoodCard(
     val correctionScope = rememberCoroutineScope()
     var editingNutrition by remember(food.id, food.sourceRevision) { mutableStateOf(false) }
     var kcalText by remember(food.id, food.sourceRevision) {
-        mutableStateOf(if (food.kcalKnown) n2Editable(food.kcal) else "")
+        mutableStateOf(if (food.kcalKnown) n2CorrectionText(food.kcal) else "")
     }
     var proteinText by remember(food.id, food.sourceRevision) {
-        mutableStateOf(if (food.proteinKnown) n2Editable(food.protein) else "")
+        mutableStateOf(if (food.proteinKnown) n2CorrectionText(food.protein) else "")
     }
     var carbsText by remember(food.id, food.sourceRevision) {
-        mutableStateOf(if (food.carbsKnown) n2Editable(food.carbs) else "")
+        mutableStateOf(if (food.carbsKnown) n2CorrectionText(food.carbs) else "")
     }
     var fatText by remember(food.id, food.sourceRevision) {
-        mutableStateOf(if (food.fatKnown) n2Editable(food.fat) else "")
+        mutableStateOf(if (food.fatKnown) n2CorrectionText(food.fat) else "")
     }
     var fibreText by remember(food.id, food.sourceRevision) {
-        mutableStateOf(if (food.fibreKnown) n2Editable(food.fibre) else "")
+        mutableStateOf(if (food.fibreKnown) n2CorrectionText(food.fibre) else "")
     }
     var sugarText by remember(food.id, food.sourceRevision) {
-        mutableStateOf(if (food.sugarKnown) n2Editable(food.sugar) else "")
+        mutableStateOf(if (food.sugarKnown) n2CorrectionText(food.sugar) else "")
     }
     var saturatedFatText by remember(food.id, food.sourceRevision) {
-        mutableStateOf(if (food.saturatedFatKnown) n2Editable(food.saturatedFat) else "")
+        mutableStateOf(if (food.saturatedFatKnown) n2CorrectionText(food.saturatedFat) else "")
     }
     var saltText by remember(food.id, food.sourceRevision) {
-        mutableStateOf(if (food.saltKnown) n2Editable(food.salt) else "")
+        mutableStateOf(if (food.saltKnown) n2CorrectionText(food.salt) else "")
     }
     var sodiumText by remember(food.id, food.sourceRevision) {
-        mutableStateOf(if (food.sodiumKnown) n2Editable(food.sodiumMg) else "")
+        mutableStateOf(if (food.sodiumKnown) n2CorrectionText(food.sodiumMg) else "")
     }
     Column(
         Modifier.fillMaxWidth().background(N2SoftGreen, RoundedCornerShape(24.dp)).border(1.dp, N2Green.copy(alpha = .24f), RoundedCornerShape(24.dp)).padding(16.dp),
@@ -1134,7 +1134,7 @@ private fun N2AddFoodCard(
                     )
                     correctionScope.launch {
                         val applied = withContext(Dispatchers.IO) {
-                            FoodNutritionOverrideStore.save(context, corrected)
+                            FoodNutritionOverrideStore.save(context, food, corrected)
                             FoodNutritionOverrideStore.applyIfAttached(food)
                         }
                         onFoodCorrected(applied)
@@ -1262,7 +1262,8 @@ private fun N2Diary(
         ) {
             Text("Diary", color = N2Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
             Text(
-                day.entries.size.toString() + " items · " + day.kcal.roundToInt().toString() + " kcal",
+                day.entries.size.toString() + " items · " +
+                    (if (day.kcalComplete) "" else "~") + day.kcal.roundToInt().toString() + " kcal",
                 color = N2Muted,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold
@@ -1922,4 +1923,6 @@ private fun n2GoalText(value: String) = value.filter { it.isDigit() || it == '.'
 private fun n2One(value: Double) = ((value * 10.0).roundToInt() / 10.0).toString()
 private fun n2Pretty(value: Double) = if (value >= 100.0) value.roundToInt().toString() else n2One(value)
 private fun n2Editable(value: Double) = if (value % 1.0 == 0.0) value.roundToInt().toString() else n2One(value)
+private fun n2CorrectionText(value: Double) =
+    if (value % 1.0 == 0.0) value.roundToInt().toString() else value.toString()
 private fun String.n2FirstNumber(): Double? = Regex("([0-9]+(?:[.,][0-9]+)?)").find(this)?.groupValues?.getOrNull(1)?.replace(',', '.')?.toDoubleOrNull()
