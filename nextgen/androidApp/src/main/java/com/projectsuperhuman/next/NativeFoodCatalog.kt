@@ -35,7 +35,9 @@ internal data class NativeFood(
     val brand: String = "",
     val quantity: String = "",
     val servingSize: String = "",
-    val micronutrients: Map<String, NativeNutrient> = emptyMap()
+    val micronutrients: Map<String, NativeNutrient> = emptyMap(),
+    val fibreKnown: Boolean = true,
+    val sugarKnown: Boolean = true
 )
 
 internal data class NativeFoodSearchResult(
@@ -185,7 +187,7 @@ internal object NativeFoodCatalog {
 
     suspend fun lookupBarcode(code: String): NativeFood? = withContext(Dispatchers.IO) {
         val digits = code.filter(Char::isDigit)
-        if (digits.length !in setOf(8, 12, 13, 14)) return@withContext null
+        if (!NutritionMath.isValidBarcode(digits)) return@withContext null
         val fields = "code,product_name,generic_name,brands,countries_tags,categories,quantity,serving_size,product_quantity_unit,nutriments"
         val conn = openConnection("https://world.openfoodfacts.org/api/v2/product/$digits.json?fields=$fields")
         try {
@@ -282,7 +284,9 @@ internal object NativeFoodCatalog {
             brand = brand,
             quantity = p.optString("quantity"),
             servingSize = p.optString("serving_size"),
-            micronutrients = extractMicronutrients(nutriments)
+            micronutrients = extractMicronutrients(nutriments),
+            fibreKnown = nutriments.hasFiniteNumber("fiber_100g"),
+            sugarKnown = nutriments.hasFiniteNumber("sugars_100g")
         )
     }
 
@@ -370,6 +374,17 @@ internal object NativeFoodCatalog {
             setRequestProperty("Accept", "application/json")
             setRequestProperty("User-Agent", USER_AGENT)
         }
+
+    private fun JSONObject.hasFiniteNumber(key: String): Boolean {
+        if (!has(key) || isNull(key)) return false
+        val value = opt(key) ?: return false
+        val parsed = when (value) {
+            is Number -> value.toDouble()
+            is String -> value.toDoubleOrNull()
+            else -> null
+        }
+        return parsed?.isFinite() == true
+    }
 
     private fun JSONObject.optDoubleSafe(key: String): Double {
         val value = opt(key) ?: return 0.0
