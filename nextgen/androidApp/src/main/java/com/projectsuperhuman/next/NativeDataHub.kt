@@ -210,7 +210,7 @@ internal object NativeDataHub {
         rows: List<HealthValue>,
         timestampEpochMs: Long = System.currentTimeMillis()
     ): IngestionResult = withContext(Dispatchers.IO) {
-        if (rows.isEmpty()) return@withContext IngestionResult(accepted = 0, rejected = 0, deduplicated = 0)
+        if (rows.isEmpty()) return@withContext IngestionResult(accepted = 0, rejected = 0, deduplicated = 0, issues = emptyList())
         val originalId = rows.firstNotNullOfOrNull { it.metadata["diaryEntryId"] }.orEmpty()
         val foodId = rows.firstNotNullOfOrNull { it.metadata["foodId"] }.orEmpty()
         val newEntryId = "nutrition-$timestampEpochMs-${abs((originalId + foodId).hashCode().toLong())}"
