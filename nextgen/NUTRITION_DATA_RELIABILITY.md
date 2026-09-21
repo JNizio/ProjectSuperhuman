@@ -489,7 +489,7 @@ Existing in-memory search caching remains in place, and branded product source p
 
 ### User food-correction database
 
-`superhuman_food_nutrition_overrides.db` is upgraded to schema version 5.
+`superhuman_food_nutrition_overrides.db` is upgraded to schema version 6.
 
 Version 4 added:
 
@@ -502,7 +502,11 @@ Version 5 adds durable correction fields for:
 - sodium;
 - known/unknown flags for each.
 
-Existing correction rows are retained. Newly added v5 fields migrate as unknown rather than fabricated zero evidence.
+Version 6 adds:
+
+- `edited_fields`, recording exactly which common nutrient fields the user actually changed.
+
+Existing correction rows are retained. Newly added v5 nutrient fields migrate as unknown rather than fabricated zero evidence. Legacy correction rows preserve their earlier common-field overrides, while new 11.4 corrections keep untouched source fields and provenance intact.
 
 ### Branded product cache
 
