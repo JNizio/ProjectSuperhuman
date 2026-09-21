@@ -27,6 +27,23 @@ private data class SyntheticNutrient(
     val unit: String
 )
 
+private data class SyntheticGenericFoodProfile(
+    val catalogId: String,
+    val name: String,
+    val kcalPer100: Double,
+    val proteinPer100: Double,
+    val carbsPer100: Double,
+    val fatPer100: Double,
+    val fibrePer100: Double,
+    val sugarPer100: Double,
+    val unit: String = "100 g"
+)
+
+private data class SyntheticIngredientPortion(
+    val food: SyntheticGenericFoodProfile,
+    val gramShare: Double
+)
+
 private data class SyntheticMealTemplate(
     val id: String,
     val name: String,
@@ -58,18 +75,61 @@ class SyntheticDataGenerator(
     private val ingestion: DataIngestionPipeline,
     private val nowEpochMs: () -> Long
 ) {
-    private fun ingredientBreakdown(template: SyntheticMealTemplate): List<Pair<String, Double>> = when (template.id) {
-        "skyr-oats-berries" -> listOf("Skyr" to 0.46, "Oats" to 0.32, "Mixed berries" to 0.22)
-        "eggs-avocado-sourdough" -> listOf("Eggs" to 0.34, "Avocado" to 0.28, "Sourdough bread" to 0.38)
-        "greek-yoghurt-banana-granola" -> listOf("Greek yoghurt" to 0.48, "Banana" to 0.27, "Granola" to 0.25)
-        "chicken-rice-broccoli" -> listOf("Chicken breast" to 0.34, "Rice" to 0.43, "Broccoli" to 0.23)
-        "lentil-feta-wholegrain" -> listOf("Lentils" to 0.46, "Feta" to 0.18, "Wholegrain rice" to 0.36)
-        "tuna-potato-salad" -> listOf("Tuna" to 0.28, "Potatoes" to 0.48, "Salad vegetables" to 0.24)
-        "salmon-potatoes-spinach" -> listOf("Salmon" to 0.31, "Potatoes" to 0.49, "Spinach" to 0.20)
-        "turkey-tomato-pasta" -> listOf("Turkey breast" to 0.30, "Pasta" to 0.43, "Tomato sauce" to 0.22, "Olive oil" to 0.05)
-        "chicken-curry-rice" -> listOf("Chicken breast" to 0.27, "Rice" to 0.40, "Curry vegetables" to 0.26, "Curry sauce" to 0.07)
-        else -> listOf(template.name to 1.0)
+    private fun ingredientBreakdown(template: SyntheticMealTemplate): List<SyntheticIngredientPortion> = when (template.id) {
+        "skyr-oats-berries" -> listOf(
+            ingredient(SKRYR_PLAIN, 0.46),
+            ingredient(OATS_DRY, 0.32),
+            ingredient(BLUEBERRIES, 0.22)
+        )
+        "eggs-avocado-sourdough" -> listOf(
+            ingredient(EGG_WHOLE, 0.34),
+            ingredient(AVOCADO, 0.28),
+            ingredient(SOURDOUGH_BREAD, 0.38)
+        )
+        "greek-yoghurt-banana-granola" -> listOf(
+            ingredient(GREEK_YOGHURT_2, 0.48),
+            ingredient(BANANA, 0.27),
+            ingredient(GRANOLA, 0.25)
+        )
+        "chicken-rice-broccoli" -> listOf(
+            ingredient(CHICKEN_BREAST_COOKED, 0.34),
+            ingredient(WHITE_RICE_COOKED, 0.43),
+            ingredient(BROCCOLI, 0.23)
+        )
+        "lentil-feta-wholegrain" -> listOf(
+            ingredient(LENTILS_COOKED, 0.46),
+            ingredient(FETA_CHEESE, 0.18),
+            ingredient(BROWN_RICE_COOKED, 0.36)
+        )
+        "tuna-potato-salad" -> listOf(
+            ingredient(TUNA_DRAINED, 0.28),
+            ingredient(POTATO_BOILED, 0.46),
+            ingredient(TOMATO, 0.13),
+            ingredient(CUCUMBER, 0.13)
+        )
+        "salmon-potatoes-spinach" -> listOf(
+            ingredient(SALMON_ATLANTIC, 0.31),
+            ingredient(POTATO_BOILED, 0.49),
+            ingredient(SPINACH, 0.20)
+        )
+        "turkey-tomato-pasta" -> listOf(
+            ingredient(TURKEY_BREAST, 0.30),
+            ingredient(PASTA_COOKED, 0.43),
+            ingredient(TOMATO_PASSATA, 0.22),
+            ingredient(OLIVE_OIL, 0.05)
+        )
+        "chicken-curry-rice" -> listOf(
+            ingredient(CHICKEN_BREAST_COOKED, 0.27),
+            ingredient(WHITE_RICE_COOKED, 0.40),
+            ingredient(FROZEN_MIXED_VEGETABLES, 0.21),
+            ingredient(TOMATO_PASSATA, 0.07),
+            ingredient(OLIVE_OIL, 0.05)
+        )
+        else -> emptyList()
     }
+
+    private fun ingredient(food: SyntheticGenericFoodProfile, share: Double) =
+        SyntheticIngredientPortion(food = food, gramShare = share)
 
     suspend fun generate(config: SyntheticGenerationConfig = SyntheticGenerationConfig()): SyntheticGenerationResult {
         require(config.days in 1..MAX_DAYS) { "Synthetic history must be between 1 and $MAX_DAYS days" }
@@ -553,7 +613,11 @@ class SyntheticDataGenerator(
                 lunchMeals[random.nextInt(lunchMeals.size)],
                 dinnerMeals[random.nextInt(dinnerMeals.size)]
             )
-            val baseTotal = chosenMeals.sumOf { it.kcal }.coerceAtLeast(1.0)
+            val baseTotal = chosenMeals.sumOf { template ->
+                ingredientBreakdown(template).sumOf { part ->
+                    part.food.kcalPer100 * (template.baseGrams * part.gramShare) / 100.0
+                }
+            }.coerceAtLeast(1.0)
             val dayScale = (targetDailyKcal / baseTotal).coerceIn(0.78, 1.42)
             val dayStart = anchor - positiveModulo(anchor, DAY_MS)
             val mealMinutes = intArrayOf(8 * 60, 13 * 60, 19 * 60)
@@ -561,7 +625,6 @@ class SyntheticDataGenerator(
 
             chosenMeals.forEachIndexed { mealIndex, template ->
                 val mealScale = (dayScale * (1.0 + random.centered(0.045))).coerceIn(0.72, 1.50)
-                dailyKcal += template.kcal * mealScale
                 val minuteJitter = random.nextInt(-18, 19)
                 val mealTs = dayStart + (mealMinutes[mealIndex] + minuteJitter) * MINUTE_MS
                 val dayToken = anchor / DAY_MS
@@ -569,33 +632,36 @@ class SyntheticDataGenerator(
                 val ingredients = ingredientBreakdown(template)
 
                 ingredients.forEachIndexed { ingredientIndex, ingredient ->
-                    val ingredientName = ingredient.first
-                    val share = ingredient.second
-                    val grams = template.baseGrams * mealScale * share
-                    val kcal = template.kcal * mealScale * share
-                    val protein = template.protein * mealScale * share
-                    val carbs = template.carbs * mealScale * share
-                    val fat = template.fat * mealScale * share
-                    val fibre = template.fibre * mealScale * share
-                    val sugar = template.sugar * mealScale * share
+                    val food = ingredient.food
+                    val grams = template.baseGrams * mealScale * ingredient.gramShare
+                    val factor = grams / 100.0
+                    val kcal = food.kcalPer100 * factor
+                    val protein = food.proteinPer100 * factor
+                    val carbs = food.carbsPer100 * factor
+                    val fat = food.fatPer100 * factor
+                    val fibre = food.fibrePer100 * factor
+                    val sugar = food.sugarPer100 * factor
+                    dailyKcal += kcal
+
                     val diaryEntryId = "synthetic-ingredient:${config.seed}:$dayToken:$mealIndex:$ingredientIndex"
                     val commonMeta = mapOf(
                         "diaryEntryId" to diaryEntryId,
-                        "foodId" to "synthetic:${template.id}:ingredient:$ingredientIndex",
-                        "name" to ingredientName,
+                        "foodId" to "local:${food.catalogId}",
+                        "genericCatalogId" to food.catalogId,
+                        "name" to food.name,
                         "grams" to roundedText(grams),
                         "meal" to template.meal,
                         "mealGroupId" to groupId,
                         "mealGroupName" to template.name,
                         "entryType" to "INGREDIENT",
-                        "sourceName" to "Synthetic ingredient meal model",
-                        "nutritionEstimate" to "approximate-testing-data",
+                        "sourceName" to "Project Superhuman local reference",
+                        "nutritionEstimate" to "bundled-generic-per-100",
                         "protein" to roundedText(protein),
                         "carbs" to roundedText(carbs),
                         "fat" to roundedText(fat),
                         "fibre" to roundedText(fibre),
                         "sugar" to roundedText(sugar),
-                        "micronutrientCount" to template.micros.size.toString()
+                        "micronutrientCount" to "0"
                     )
                     val ordinalBase = mealIndex * 200 + ingredientIndex * 40
                     val ingredientTs = mealTs + ingredientIndex * 1_000L
@@ -605,24 +671,6 @@ class SyntheticDataGenerator(
                     add(dayIndex, anchor, HealthDomain.NUTRITION, "food_fat", fat, "g", ingredientTs, ordinalBase + 3, commonMeta)
                     add(dayIndex, anchor, HealthDomain.NUTRITION, "food_fibre", fibre, "g", ingredientTs, ordinalBase + 4, commonMeta)
                     add(dayIndex, anchor, HealthDomain.NUTRITION, "food_sugar", sugar, "g", ingredientTs, ordinalBase + 5, commonMeta)
-
-                    template.micros.entries.forEachIndexed { microIndex, (id, nutrient) ->
-                        add(
-                            dayIndex = dayIndex,
-                            anchor = anchor,
-                            domain = HealthDomain.NUTRITION,
-                            metric = "food_micro_$id",
-                            value = nutrient.value * mealScale * share,
-                            unit = nutrient.unit,
-                            timestamp = ingredientTs,
-                            ordinal = ordinalBase + 10 + microIndex,
-                            metadata = commonMeta + mapOf(
-                                "nutrientId" to id,
-                                "nutrientLabel" to nutrientLabel(id),
-                                "syntheticPerMealBase" to nutrient.value.toString()
-                            )
-                        )
-                    }
                 }
             }
 
@@ -785,6 +833,46 @@ class SyntheticDataGenerator(
         const val MAX_DAYS = 1_825
 
         fun micro(value: Double, unit: String) = SyntheticNutrient(value, unit)
+
+        private fun generic(
+            id: String,
+            name: String,
+            kcal: Double,
+            protein: Double,
+            carbs: Double,
+            fat: Double,
+            fibre: Double,
+            sugar: Double,
+            unit: String = "100 g"
+        ) = SyntheticGenericFoodProfile(id, name, kcal, protein, carbs, fat, fibre, sugar, unit)
+
+        // Exact macro profiles mirrored from app/src/main/assets/food_db.js.
+        private val GREEK_YOGHURT_2 = generic("f1", "Greek yoghurt, plain 2%", 73.0, 9.0, 4.0, 2.0, 0.0, 4.0)
+        private val SKRYR_PLAIN = generic("f3", "Skyr, plain", 63.0, 11.0, 4.0, 0.3, 0.0, 4.0)
+        private val FETA_CHEESE = generic("f16", "Feta cheese", 265.0, 14.0, 4.0, 21.0, 0.0, 4.0)
+        private val EGG_WHOLE = generic("f17", "Egg, whole", 143.0, 13.0, 0.7, 9.5, 0.0, 0.4)
+        private val CHICKEN_BREAST_COOKED = generic("f20", "Chicken breast, cooked", 165.0, 31.0, 0.0, 3.6, 0.0, 0.0)
+        private val TURKEY_BREAST = generic("f22", "Turkey breast", 114.0, 24.0, 0.0, 1.5, 0.0, 0.0)
+        private val SALMON_ATLANTIC = generic("f29", "Salmon, Atlantic", 208.0, 20.0, 0.0, 13.0, 0.0, 0.0)
+        private val TUNA_DRAINED = generic("f30", "Tuna, canned in spring water, drained", 116.0, 26.0, 0.0, 1.0, 0.0, 0.0)
+        private val OATS_DRY = generic("f35", "Oats, dry", 379.0, 13.0, 68.0, 7.0, 10.0, 1.0)
+        private val WHITE_RICE_COOKED = generic("f37", "White rice, cooked", 130.0, 2.7, 28.0, 0.3, 0.4, 0.0)
+        private val BROWN_RICE_COOKED = generic("f38", "Brown rice, cooked", 123.0, 2.7, 25.6, 1.0, 1.6, 0.0)
+        private val PASTA_COOKED = generic("f40", "Pasta, cooked", 158.0, 5.8, 31.0, 0.9, 1.8, 0.6)
+        private val SOURDOUGH_BREAD = generic("f50", "Sourdough bread", 250.0, 9.0, 49.0, 2.0, 3.0, 2.0)
+        private val POTATO_BOILED = generic("f53", "Potato, boiled", 87.0, 1.9, 20.0, 0.1, 1.8, 1.0)
+        private val LENTILS_COOKED = generic("f56", "Lentils, cooked", 116.0, 9.0, 20.0, 0.4, 7.9, 1.8)
+        private val BANANA = generic("f62", "Banana", 89.0, 1.1, 23.0, 0.3, 2.6, 12.0)
+        private val BLUEBERRIES = generic("f69", "Blueberries", 57.0, 0.7, 14.5, 0.3, 2.4, 10.0)
+        private val AVOCADO = generic("f74", "Avocado", 160.0, 2.0, 8.5, 14.7, 6.7, 0.7)
+        private val TOMATO = generic("f75", "Tomato", 18.0, 0.9, 3.9, 0.2, 1.2, 2.6)
+        private val CUCUMBER = generic("f76", "Cucumber", 15.0, 0.7, 3.6, 0.1, 0.5, 1.7)
+        private val BROCCOLI = generic("f78", "Broccoli", 34.0, 2.8, 6.6, 0.4, 2.6, 1.7)
+        private val SPINACH = generic("f80", "Spinach", 23.0, 2.9, 3.6, 0.4, 2.2, 0.4)
+        private val OLIVE_OIL = generic("f96", "Olive oil", 884.0, 0.0, 0.0, 100.0, 0.0, 0.0, "100 ml")
+        private val TOMATO_PASSATA = generic("f131", "Tomato passata", 29.0, 1.4, 5.0, 0.2, 1.5, 4.0)
+        private val FROZEN_MIXED_VEGETABLES = generic("f134", "Frozen mixed vegetables", 55.0, 3.0, 9.0, 0.5, 3.5, 3.0)
+        private val GRANOLA = generic("f138", "Granola", 450.0, 10.0, 64.0, 17.0, 8.0, 20.0)
 
         val breakfastMeals = listOf(
             SyntheticMealTemplate(
