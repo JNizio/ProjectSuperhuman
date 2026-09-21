@@ -106,6 +106,16 @@ internal object FoodUnitSystem {
     fun defaultAmount(food: NativeFood): Double =
         if (defaultUnit(food) == FoodUnit.SERVING) 1.0 else basisAmount(food)
 
+    /**
+     * Amount in [unit] that corresponds to exactly one nutrition basis quantity.
+     * Useful when the user changes units: 100 g olive oil becomes ~109.9 ml, not an arbitrary 100 ml.
+     */
+    fun amountForBasis(food: NativeFood, unit: FoodUnit): Double? {
+        val one = convert(food, 1.0, unit) ?: return null
+        if (one.factor <= 0.0) return null
+        return 1.0 / one.factor
+    }
+
     fun convert(food: NativeFood, amount: Double, unit: FoodUnit): FoodConversion? {
         if (!amount.isFinite() || amount <= 0.0) return null
 
