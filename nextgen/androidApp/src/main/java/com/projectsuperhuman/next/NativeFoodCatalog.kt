@@ -360,8 +360,16 @@ internal object NativeFoodCatalog {
         }.takeIf { it.isFinite() && it >= 0.0 } ?: 0.0
         val kcalKnown = kcalDirectKnown || kjKnown
 
+        val parsedProductQuantity = FoodUnitSystem.parseBasis(p.optString("quantity"))
+        val parsedServingQuantity = FoodUnitSystem.parseBasis(p.optString("serving_size"))
         val productQuantityUnit = FoodUnit.fromSymbol(p.optString("product_quantity_unit"))
+            ?: parsedProductQuantity?.second
         val servingQuantityUnit = FoodUnit.fromSymbol(p.optString("serving_quantity_unit"))
+            ?: parsedServingQuantity?.second
+        val productQuantity = p.optNullableDouble("product_quantity")
+            ?: parsedProductQuantity?.first
+        val servingQuantity = p.optNullableDouble("serving_quantity")
+            ?: parsedServingQuantity?.first
         val basisUnit = when {
             productQuantityUnit?.dimension == FoodMeasureDimension.VOLUME -> FoodUnit.ML
             productQuantityUnit?.dimension == FoodMeasureDimension.MASS -> FoodUnit.G
@@ -423,8 +431,8 @@ internal object NativeFoodCatalog {
             saltKnown = saltKnown,
             sodiumMg = sodiumRawMg,
             sodiumKnown = sodiumKnown,
-            servingQuantity = p.optNullableDouble("serving_quantity"),
-            productQuantity = p.optNullableDouble("product_quantity")
+            servingQuantity = servingQuantity,
+            productQuantity = productQuantity
         )
 
         val finalSodiumMg = when {
@@ -512,9 +520,9 @@ internal object NativeFoodCatalog {
             hasVerifiedEnglishName = localizedName.hasVerifiedEnglishName,
             basisAmount = 100.0,
             basisUnit = basisUnit,
-            productQuantity = p.optNullableDouble("product_quantity"),
+            productQuantity = productQuantity,
             productQuantityUnit = productQuantityUnit,
-            servingQuantity = p.optNullableDouble("serving_quantity"),
+            servingQuantity = servingQuantity,
             servingQuantityUnit = servingQuantityUnit,
             servingLabel = p.optString("serving_size"),
             identityKind = FoodIdentityKind.BRANDED_PRODUCT,
