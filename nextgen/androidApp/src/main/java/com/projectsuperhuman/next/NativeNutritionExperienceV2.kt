@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -78,7 +79,7 @@ private val N2SoftGreen get() = if (SuperhumanAppearance.darkMode) Color(0xFF102
 private val N2Surface get() = superhumanSurface
 private val N2RowBg get() = if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else N2Bg
 
-private enum class N2View { DIARY, NUTRIENTS, INSIGHTS }
+private enum class N2View { DIARY, NUTRIENTS, INSIGHTS, GOALS }
 private enum class N2Range(val label: String, val days: Long) {
     DAY("Day", 1),
     WEEK("7 days", 7),
@@ -148,6 +149,13 @@ private data class N2Goals(
     val fibre: Double? = null
 )
 
+private data class N2GoalRecommendation(
+    val goals: N2Goals,
+    val weightKg: Double,
+    val heightCm: Double?,
+    val method: String
+)
+
 private data class N2Reference(val id: String, val label: String, val value: Double, val unit: String)
 
 /* EU 1169/2011 Annex XIII adult NRVs: reference context, not personalised medical targets. */
@@ -203,7 +211,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     var barcode by remember { mutableStateOf("") }
     var lookingUp by remember { mutableStateOf(false) }
     var showAllNutrients by remember { mutableStateOf(false) }
-    var editingTargets by remember { mutableStateOf(false) }
+    var recommendation by remember { mutableStateOf<N2GoalRecommendation?>(null) }
     var selectedDate by remember { mutableStateOf(LocalDate.now(ZoneId.systemDefault())) }
     var nutrientRange by remember { mutableStateOf(N2Range.DAY) }
     var nutrientDay by remember { mutableStateOf(N2Day()) }
@@ -310,6 +318,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     LaunchedEffect(Unit) { NativeFoodCatalog.all(context) }
     LaunchedEffect(selectedDate) { refresh(); refreshWeek(); refreshNutrients() }
     LaunchedEffect(selectedDate, nutrientRange) { refreshNutrients() }
+    LaunchedEffect(Unit) { recommendation = n2LoadGoalRecommendation() }
 
     if (foodSearchOpen) {
         N2FoodSearchScreen(
@@ -358,15 +367,17 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     ) {
         N2Header(onBack, selectedDate)
         N2Tabs(view) { view = it }
-        N2DateNav(
-            date = selectedDate,
-            onPrevious = { selectedDate = selectedDate.minusDays(1) },
-            onToday = { selectedDate = LocalDate.now(ZoneId.systemDefault()) },
-            onNext = {
-                val today = LocalDate.now(ZoneId.systemDefault())
-                if (selectedDate.isBefore(today)) selectedDate = selectedDate.plusDays(1)
-            }
-        )
+        if (view != N2View.GOALS) {
+            N2DateNav(
+                date = selectedDate,
+                onPrevious = { selectedDate = selectedDate.minusDays(1) },
+                onToday = { selectedDate = LocalDate.now(ZoneId.systemDefault()) },
+                onNext = {
+                    val today = LocalDate.now(ZoneId.systemDefault())
+                    if (selectedDate.isBefore(today)) selectedDate = selectedDate.plusDays(1)
+                }
+            )
+        }
 
         when (view) {
             N2View.DIARY -> {
@@ -540,16 +551,15 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                 onToggleAll = { showAllNutrients = !showAllNutrients }
             )
 
-            N2View.INSIGHTS -> N2Insights(
-                day = day,
+            N2View.INSIGHTS -> N2Insights(day = day)
+
+            N2View.GOALS -> N2GoalsPage(
                 goals = goals,
-                editingTargets = editingTargets,
-                onToggleTargets = { editingTargets = !editingTargets },
-                onSaveTargets = { saved ->
+                recommendation = recommendation,
+                onSave = { saved ->
                     scope.launch {
                         n2SaveGoals(saved)
-                        editingTargets = false
-                        status = "Targets saved"
+                        status = "Goals saved"
                         refresh()
                     }
                 }
@@ -579,7 +589,7 @@ private fun N2Header(onBack: () -> Unit, date: LocalDate) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Nutrition", color = N2Ink, fontSize = 25.sp, fontWeight = FontWeight.Black)
-            Text("Diary · nutrients · personal patterns", color = N2Muted, fontSize = 10.sp)
+            Text("Diary · nutrients · insights · goals", color = N2Muted, fontSize = 10.sp)
         }
         Text(
             date.format(DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)),
@@ -647,6 +657,7 @@ private fun N2Tabs(view: N2View, onChange: (N2View) -> Unit) {
         N2Tab("Diary", view == N2View.DIARY, Modifier.weight(1f)) { onChange(N2View.DIARY) }
         N2Tab("Nutrients", view == N2View.NUTRIENTS, Modifier.weight(1f)) { onChange(N2View.NUTRIENTS) }
         N2Tab("Insights", view == N2View.INSIGHTS, Modifier.weight(1f)) { onChange(N2View.INSIGHTS) }
+        N2Tab("Goals", view == N2View.GOALS, Modifier.weight(1f)) { onChange(N2View.GOALS) }
     }
 }
 
