@@ -291,12 +291,7 @@ private fun ShellBottomNavigation(
         modifier
             .fillMaxWidth()
             .height(72.dp)
-            .background(ShellBg.copy(alpha = .98f))
-            .border(
-                width = 1.dp,
-                color = superhumanBorder.copy(alpha = .8f),
-                shape = RoundedCornerShape(0.dp)
-            )
+            .background(ShellBg)
             .padding(horizontal = 24.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
