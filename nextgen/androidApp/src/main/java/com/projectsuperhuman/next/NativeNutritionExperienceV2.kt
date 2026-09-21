@@ -888,7 +888,7 @@ private fun N2Results(foods: List<NativeFood>, selectedId: String?, onSelect: (N
                         }, color = N2Muted, fontSize = 9.sp
                     )
                     Text(
-                        "${food.kcal.roundToInt()} kcal · " +
+                        (if (food.kcalKnown) "${food.kcal.roundToInt()} kcal" else "— kcal") + " · " +
                             (if (food.proteinKnown) "${n2One(food.protein)}P" else "—P") + " · " +
                             (if (food.carbsKnown) "${n2One(food.carbs)}C" else "—C") + " · " +
                             (if (food.fatKnown) "${n2One(food.fat)}F" else "—F") + " per ${food.unit}",
@@ -928,7 +928,7 @@ private fun N2AddFoodCard(
             Text(food.brand.ifBlank { food.source }, color = N2Muted, fontSize = 10.sp)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            N2FoodStat((food.kcal * factor).roundToInt().toString(), "kcal", Modifier.weight(1f))
+            N2FoodStat(if (food.kcalKnown) (food.kcal * factor).roundToInt().toString() else "—", "kcal", Modifier.weight(1f))
             N2FoodStat(if (food.proteinKnown) "${n2One(food.protein * factor)}g" else "—", "protein", Modifier.weight(1f))
             N2FoodStat(if (food.carbsKnown) "${n2One(food.carbs * factor)}g" else "—", "carbs", Modifier.weight(1f))
             N2FoodStat(if (food.fatKnown) "${n2One(food.fat * factor)}g" else "—", "fat", Modifier.weight(1f))
@@ -1030,7 +1030,8 @@ private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
                     Text(entry.name, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2)
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        entry.kcal.roundToInt().toString() + " kcal · " + n2One(entry.amount) + " " + entry.amountUnit,
+                        (if (entry.kcalKnown) entry.kcal.roundToInt().toString() + " kcal" else "— kcal") +
+                            " · " + n2One(entry.amount) + " " + entry.amountUnit,
                         color = N2Muted,
                         fontSize = 10.sp
                     )
