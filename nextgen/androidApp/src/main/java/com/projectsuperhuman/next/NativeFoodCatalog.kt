@@ -91,6 +91,7 @@ internal data class NativeFood(
     val allergens: List<String> = emptyList(),
     val additives: List<String> = emptyList(),
     val novaGroup: Int? = null,
+    val imageReferences: Map<String, String> = emptyMap(),
     val sourceWarnings: List<String> = emptyList(),
     val canonicalSchemaVersion: Int = NUTRITION_CANONICAL_SCHEMA_VERSION
 )
@@ -103,7 +104,7 @@ internal data class NativeFoodSearchResult(
 
 internal object NativeFoodCatalog {
     private const val USER_AGENT = "ProjectSuperhuman/11.4 (Android; https://github.com/JNizio/ProjectSuperhuman)"
-    private const val OFF_FIELDS = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,data_quality_errors_tags,data_quality_warnings_tags,nutriments,ingredients_text,allergens_tags,additives_tags,nova_group,last_modified_t,last_modified_datetime"
+    private const val OFF_FIELDS = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,data_quality_errors_tags,data_quality_warnings_tags,nutriments,ingredients_text,allergens_tags,additives_tags,nova_group,image_url,image_front_url,image_nutrition_url,image_ingredients_url,last_modified_t,last_modified_datetime"
     private const val FAST_RESULT_COUNT = 8
     private const val MAX_RESULT_COUNT = 10
 
@@ -202,6 +203,19 @@ internal object NativeFoodCatalog {
         startLargeLocalSafely(context)
         val q = query.trim()
         if (q.length < 2) return NativeFoodSearchResult(emptyList(), remoteAvailable = true, remoteCount = 0)
+
+        // A pasted/scanned GTIN is an exact identity query and must outrank fuzzy text search.
+        val typedDigits = q.filter(Char::isDigit)
+        val barcodeLike = q.all { it.isDigit() || it.isWhitespace() || it == '-' }
+        if (barcodeLike && NutritionMath.isValidBarcode(typedDigits)) {
+            lookupBarcode(context, typedDigits)?.let { exact ->
+                return NativeFoodSearchResult(
+                    foods = listOf(exact),
+                    remoteAvailable = true,
+                    remoteCount = if (exact.sourceType == FoodDataSourceType.OPEN_FOOD_FACTS) 1 else 0
+                )
+            }
+        }
 
         val requested = limit.coerceIn(1, MAX_RESULT_COUNT)
         val bundledLocal = searchLocal(context, q, limit = 10)
@@ -509,6 +523,12 @@ internal object NativeFoodCatalog {
             allergens = p.optTagList("allergens_tags"),
             additives = p.optTagList("additives_tags"),
             novaGroup = p.optInt("nova_group", 0).takeIf { it in 1..4 },
+            imageReferences = buildMap {
+                p.optString("image_url").takeIf(String::isNotBlank)?.let { put("product", it) }
+                p.optString("image_front_url").takeIf(String::isNotBlank)?.let { put("front", it) }
+                p.optString("image_nutrition_url").takeIf(String::isNotBlank)?.let { put("nutrition", it) }
+                p.optString("image_ingredients_url").takeIf(String::isNotBlank)?.let { put("ingredients", it) }
+            },
             sourceWarnings = sourceWarnings
         )
     }
