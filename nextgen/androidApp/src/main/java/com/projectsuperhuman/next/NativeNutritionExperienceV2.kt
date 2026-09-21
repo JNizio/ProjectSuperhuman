@@ -1199,7 +1199,7 @@ private fun N2AddFoodCard(
             onPortionChange,
             Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text("Amount (${portionUnit.symbol})") }
+            label = { Text("Amount (" + FoodUnitSystem.displayUnit(food, portionUnit) + ")") }
         )
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -1214,7 +1214,7 @@ private fun N2AddFoodCard(
                         .padding(horizontal = 13.dp, vertical = 9.dp)
                 ) {
                     Text(
-                        unit.symbol,
+                        FoodUnitSystem.displayUnit(food, unit),
                         color = if (active) Color.White else N2Muted,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
@@ -1223,6 +1223,7 @@ private fun N2AddFoodCard(
             }
         }
         val unitContext = buildList {
+            FoodUnitSystem.unitContext(food, portionUnit)?.let(::add)
             if (food.servingQuantity != null && food.servingQuantityUnit != null) {
                 add("1 serving = " + FoodUnitSystem.formatAmount(food.servingQuantity, food.servingQuantityUnit))
             }
