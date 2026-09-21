@@ -239,8 +239,10 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     suspend fun refresh() {
         val now = System.currentTimeMillis()
         val lookback = 5L * 365L * 86400000L
-        recent = ExerciseData.between("exercise_set", now - lookback, now).sortedByDescending { it.timestampEpochMs }.take(5000)
-        sessionRows = ExerciseData.between("workout_session", now - lookback, now).sortedByDescending { it.timestampEpochMs }.take(1000)
+        recent = ExerciseData.boundedBetween("exercise_set", now - lookback, now, limit = 5000)
+            .sortedByDescending { it.timestampEpochMs }
+        sessionRows = ExerciseData.boundedBetween("workout_session", now - lookback, now, limit = 1000)
+            .sortedByDescending { it.timestampEpochMs }
     }
 
     fun writeActiveDraft() {
@@ -269,7 +271,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     }
 
     suspend fun persistSet(set: NativeWorkoutSet) {
-        NativeDataHub.saveValues(listOf(HealthValue(
+        val row = HealthValue(
             HealthDomain.EXERCISE, "exercise_set", set.volume, "kg-reps", set.timestamp, "repdb-exercise",
             mapOf(
                 "exerciseId" to set.exercise.id, "exerciseName" to set.exercise.name, "group" to set.exercise.group, "equipment" to set.exercise.equipment,
@@ -277,8 +279,12 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 "rir" to (set.rir?.toString() ?: ""), "rpe" to (set.rpe?.toString() ?: ""), "superset" to (set.supersetTag ?: ""),
                 "sessionId" to activeSessionId
             )
-        )))
-        refresh()
+        )
+        NativeDataHub.saveValues(listOf(row))
+        recent = (listOf(row) + recent.filterNot {
+            it.timestampEpochMs == row.timestampEpochMs &&
+                it.metadata["exerciseId"] == row.metadata["exerciseId"]
+        }).take(5000)
         feedbackMessage = "Set saved"
     }
 
@@ -375,7 +381,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     }
     LaunchedEffect(workoutPaused, startedAt) {
         while (startedAt > 0L) {
-            workoutNow = System.currentTimeMillis()
+            if (!workoutPaused) workoutNow = System.currentTimeMillis()
             delay(1000)
         }
     }
