@@ -243,6 +243,19 @@ internal object FoodEvidenceEngine {
             else -> DensityEvidenceSource.CURATED_GENERIC
         }
 
+        val energyEvidence = if (food.energyEvidence != EnergyEvidenceKind.UNKNOWN) {
+            food.energyEvidence
+        } else if (!food.kcalKnown) {
+            EnergyEvidenceKind.UNKNOWN
+        } else when (sourceType) {
+            FoodDataSourceType.USER_CREATED,
+            FoodDataSourceType.USER_CORRECTED -> EnergyEvidenceKind.USER_ENTERED
+            FoodDataSourceType.COMPOSITE_ESTIMATE -> EnergyEvidenceKind.GENERIC_ESTIMATE
+            FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE ->
+                if (food.nutritionApproximate) EnergyEvidenceKind.GENERIC_ESTIMATE else EnergyEvidenceKind.REPORTED_KCAL
+            else -> EnergyEvidenceKind.REPORTED_KCAL
+        }
+
         return food.copy(
             identityKind = identityKind,
             sourceType = sourceType,
@@ -255,6 +268,7 @@ internal object FoodEvidenceEngine {
             nutrientEvidence = evidence,
             micronutrients = enrichedMicros,
             densitySource = densitySource,
+            energyEvidence = energyEvidence,
             canonicalSchemaVersion = NUTRITION_CANONICAL_SCHEMA_VERSION
         )
     }
