@@ -153,13 +153,14 @@ internal object FoodNutritionOverrideStore {
             if (!cursor.moveToFirst()) return food
             val correctionEpochMs = cursor.getLong(13)
             val revision = cursor.getInt(14)
-            val micros = decodeMicros(cursor.getString(12)).mapValues { (_, nutrient) ->
+            val correctedMicros = decodeMicros(cursor.getString(12)).mapValues { (_, nutrient) ->
                 nutrient.copy(
                     evidenceKind = NutrientEvidenceKind.USER_ENTERED,
                     source = "User correction",
                     sourceRecordId = identityKey(food)
                 )
             }
+            val micros = food.micronutrients + correctedMicros
             val editedSource = if (food.source.contains("edited locally", ignoreCase = true)) {
                 food.source
             } else {
