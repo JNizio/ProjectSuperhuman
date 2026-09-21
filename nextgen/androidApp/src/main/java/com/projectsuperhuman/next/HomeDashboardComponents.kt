@@ -49,6 +49,7 @@ private val HomeMuted get() = superhumanTextMuted
 private val HomeGreen get() = superhumanGreen
 private val HomeRed get() = superhumanRed
 private val HomePurple get() = if (SuperhumanAppearance.darkMode) Color(0xFFA99BEA) else Color(0xFF7260BF)
+private val HomeAmber get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFB766) else Color(0xFFD98B2B)
 private val HomeCard get() = superhumanSurfaceElevated
 private val HomeBorder get() = superhumanBorder
 
@@ -861,33 +862,52 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
         listOf(Color(0xFFF7FBFA), Color(0xFFEFF7F4), Color(0xFFE7F1EC))
     }
     val accent = if (SuperhumanAppearance.darkMode) Color(0xFF67D4C0) else Color(0xFF167C6B)
-    val statSurface = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .075f) else Color.White.copy(alpha = .72f)
-    val statBorder = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .08f) else Color(0xFF1D6F62).copy(alpha = .10f)
+    val secondary = if (SuperhumanAppearance.darkMode) Color(0xFF68B5E8) else Color(0xFF2A79A9)
+    val muted = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .55f) else HomeMuted
+
+    val kcalProgress = if (snapshot.calorieGoal != null && snapshot.calorieGoal > 0) {
+        (snapshot.caloriesToday.toFloat() / snapshot.calorieGoal.toFloat()).coerceIn(0f, 1f)
+    } else 0f
+    val calorieMeta = when {
+        !hasFood -> "No food logged yet"
+        snapshot.calorieGoal != null && snapshot.calorieGoal > 0 -> {
+            val remaining = snapshot.calorieGoal - snapshot.caloriesToday
+            when {
+                remaining > 0 -> remaining.toString() + " kcal remaining"
+                remaining == 0 -> "Calorie target reached"
+                else -> kotlin.math.abs(remaining).toString() + " kcal over target"
+            }
+        }
+        else -> snapshot.nutritionEntriesToday.toString() +
+            if (snapshot.nutritionEntriesToday == 1) " food logged" else " foods logged"
+    }
 
     Box(
         Modifier.fillMaxWidth()
-            .height(184.dp)
+            .height(206.dp)
             .clip(RoundedCornerShape(28.dp))
             .background(Brush.linearGradient(nutritionGradient))
-            .border(1.dp, accent.copy(alpha = if (SuperhumanAppearance.darkMode) .20f else .13f), RoundedCornerShape(28.dp))
+            .border(
+                1.dp,
+                accent.copy(alpha = if (SuperhumanAppearance.darkMode) .20f else .13f),
+                RoundedCornerShape(28.dp)
+            )
             .clickable(onClick = onClick)
     ) {
-        // Treat the food photography as atmosphere rather than a separate image panel.
-        // It fills the tile, then two scrims dissolve it into the surface so no hard image edge is visible.
         LegacyAssetImage(
             "dashboard_nutrition.png",
             Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop,
-            alpha = if (SuperhumanAppearance.darkMode) .20f else .30f
+            alpha = if (SuperhumanAppearance.darkMode) .16f else .24f
         )
         Box(
             Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(
                     listOf(
                         nutritionGradient.first(),
-                        nutritionGradient.first().copy(alpha = .98f),
-                        nutritionGradient[1].copy(alpha = .83f),
-                        nutritionGradient.last().copy(alpha = .34f),
+                        nutritionGradient.first().copy(alpha = .99f),
+                        nutritionGradient[1].copy(alpha = .90f),
+                        nutritionGradient.last().copy(alpha = .48f),
                         Color.Transparent
                     )
                 )
@@ -899,83 +919,118 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                     listOf(
                         Color.Transparent,
                         nutritionGradient.first().copy(alpha = .18f),
-                        nutritionGradient.first().copy(alpha = .58f)
+                        nutritionGradient.first().copy(alpha = .72f)
                     )
                 )
             )
         )
 
-        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp)) {
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 15.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
             Row(
                 Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "NUTRITION",
-                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .67f) else HomeMuted,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.15.sp
-                )
+                Column {
+                    Text(
+                        "NUTRITION",
+                        color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.15.sp
+                    )
+                    if (snapshot.latestNutritionFoodName != null) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "Latest · " + snapshot.latestNutritionFoodName,
+                            color = muted,
+                            fontSize = 8.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
                 Box(
-                    Modifier.width(34.dp).height(34.dp)
+                    Modifier.width(36.dp).height(36.dp)
                         .background(accent.copy(alpha = .12f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("→", color = accent, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text("→", color = accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
-            Spacer(Modifier.height(9.dp))
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    snapshot.caloriesToday.toString(),
-                    color = if (SuperhumanAppearance.darkMode) Color.White else HomeNavy,
-                    fontSize = 29.sp,
-                    lineHeight = 31.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    "kcal",
-                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .65f) else HomeMuted,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-            }
-            Text(
-                if (hasFood) "Logged today" else "No food logged yet",
-                color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .55f) else HomeMuted,
-                fontSize = 9.sp
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        (if (snapshot.nutritionCaloriesComplete) "" else "~") + snapshot.caloriesToday,
+                        color = if (SuperhumanAppearance.darkMode) Color.White else HomeNavy,
+                        fontSize = 31.sp,
+                        lineHeight = 32.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (snapshot.calorieGoal != null) " / " + snapshot.calorieGoal + " kcal" else "kcal",
+                        color = muted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
 
-            Spacer(Modifier.height(13.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NutritionStat(
-                    label = "PROTEIN",
-                    value = if (hasFood) "${snapshot.proteinToday} g" else "—",
-                    accent = accent,
-                    surface = statSurface,
-                    border = statBorder,
-                    modifier = Modifier.weight(1f)
+                Text(calorieMeta, color = muted, fontSize = 9.sp)
+
+                if (snapshot.calorieGoal != null && snapshot.calorieGoal > 0) {
+                    Box(
+                        Modifier.fillMaxWidth(.68f)
+                            .height(5.dp)
+                            .clip(CircleShape)
+                            .background(if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .10f) else HomeBorder)
+                    ) {
+                        if (kcalProgress > 0f) {
+                            Box(
+                                Modifier.fillMaxWidth(kcalProgress)
+                                    .fillMaxSize()
+                                    .background(accent, CircleShape)
+                            )
+                        }
+                    }
+                }
+            }
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                HomeNutritionMetric(
+                    "Protein",
+                    snapshot.proteinToday,
+                    snapshot.proteinGoal,
+                    accent,
+                    Modifier.weight(1f)
                 )
-                NutritionStat(
-                    label = "FOODS",
-                    value = if (hasFood) snapshot.nutritionEntriesToday.toString() else "0",
-                    accent = accent,
-                    surface = statSurface,
-                    border = statBorder,
-                    modifier = Modifier.weight(1f)
+                HomeNutritionMetric(
+                    "Carbs",
+                    snapshot.carbsToday,
+                    snapshot.carbsGoal,
+                    secondary,
+                    Modifier.weight(1f)
                 )
-                NutritionStat(
-                    label = "STATUS",
-                    value = if (hasFood) "Active" else "Start",
-                    accent = accent,
-                    surface = statSurface,
-                    border = statBorder,
-                    modifier = Modifier.weight(1f)
+                HomeNutritionMetric(
+                    "Fat",
+                    snapshot.fatToday,
+                    snapshot.fatGoal,
+                    HomeAmber,
+                    Modifier.weight(1f)
+                )
+                HomeNutritionMetric(
+                    "Fibre",
+                    snapshot.fibreToday,
+                    snapshot.fibreGoal,
+                    HomePurple,
+                    Modifier.weight(1f)
                 )
             }
         }
@@ -983,30 +1038,53 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
 }
 
 @Composable
-private fun NutritionStat(
+private fun HomeNutritionMetric(
     label: String,
-    value: String,
+    value: Int,
+    target: Int?,
     accent: Color,
-    surface: Color,
-    border: Color,
     modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier.height(46.dp)
-            .background(surface, RoundedCornerShape(14.dp))
-            .border(1.dp, border, RoundedCornerShape(14.dp))
-            .padding(horizontal = 10.dp, vertical = 7.dp)
-    ) {
+    val progress = if (target != null && target > 0) {
+        (value.toFloat() / target.toFloat()).coerceIn(0f, 1f)
+    } else 0f
+
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
-            label,
-            color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .46f) else HomeMuted,
+            label.uppercase(),
+            color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .44f) else HomeMuted,
             fontSize = 6.sp,
             fontWeight = FontWeight.Black,
-            letterSpacing = .55.sp,
+            letterSpacing = .45.sp,
             maxLines = 1
         )
-        Spacer(Modifier.height(2.dp))
-        Text(value, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Black, maxLines = 1)
+        Text(
+            if (target != null) value.toString() + " / " + target + " g" else value.toString() + " g",
+            color = if (SuperhumanAppearance.darkMode) Color.White else HomeInk,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.ExtraBold,
+            maxLines = 1
+        )
+        Box(
+            Modifier.fillMaxWidth()
+                .height(3.dp)
+                .clip(CircleShape)
+                .background(if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .09f) else HomeBorder)
+        ) {
+            if (target != null && progress > 0f) {
+                Box(
+                    Modifier.fillMaxWidth(progress)
+                        .fillMaxSize()
+                        .background(accent, CircleShape)
+                )
+            } else if (value > 0) {
+                Box(
+                    Modifier.fillMaxWidth(.34f)
+                        .fillMaxSize()
+                        .background(accent.copy(alpha = .72f), CircleShape)
+                )
+            }
+        }
     }
 }
 
