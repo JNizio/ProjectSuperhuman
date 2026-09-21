@@ -4,7 +4,7 @@
 
 Project Superhuman 11.4 maintains a persistent local reference database for common foods and ingredients.
 
-The core layer targets **1,000 foods** and is designed to rank ahead of the long-tail USDA reference library in normal Nutrition searches.
+The core layer targets **2,000 foods** and is designed to rank ahead of the long-tail USDA reference library in normal Nutrition searches.
 
 It is not a branded-product database. Branded foods continue to use barcode/Open Food Facts flows.
 
@@ -20,7 +20,7 @@ Each stored record keeps the USDA/FDC source identity in its source metadata.
 
 ## Core-food selection
 
-A food can enter the 1,000-food core candidate pool only when these common values are known:
+A food can enter the 2,000-food core candidate pool only when these common values are known:
 
 - energy
 - protein
@@ -72,7 +72,7 @@ The core selector ranks:
 
 Niche records such as infant foods, institutional foods and highly specialized formulations are penalized.
 
-If fewer than 1,000 strict-tier foods exist in the available USDA releases, the remaining slots are filled using the highest-coverage candidates. Missing nutrients stay unknown.
+If fewer than 2,000 strict-tier foods exist in the available USDA releases, the remaining slots are filled using the highest-coverage candidates. Missing nutrients stay unknown.
 
 ## Unknown is not zero
 
