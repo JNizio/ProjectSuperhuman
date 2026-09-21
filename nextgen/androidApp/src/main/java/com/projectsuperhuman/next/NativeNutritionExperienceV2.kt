@@ -972,6 +972,15 @@ private fun N2AddFoodCard(
     var sugarText by remember(food.id, food.sourceRevision) {
         mutableStateOf(if (food.sugarKnown) n2Editable(food.sugar) else "")
     }
+    var saturatedFatText by remember(food.id, food.sourceRevision) {
+        mutableStateOf(if (food.saturatedFatKnown) n2Editable(food.saturatedFat) else "")
+    }
+    var saltText by remember(food.id, food.sourceRevision) {
+        mutableStateOf(if (food.saltKnown) n2Editable(food.salt) else "")
+    }
+    var sodiumText by remember(food.id, food.sourceRevision) {
+        mutableStateOf(if (food.sodiumKnown) n2Editable(food.sodiumMg) else "")
+    }
     Column(
         Modifier.fillMaxWidth().background(N2SoftGreen, RoundedCornerShape(24.dp)).border(1.dp, N2Green.copy(alpha = .24f), RoundedCornerShape(24.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(11.dp)
@@ -1067,7 +1076,10 @@ private fun N2AddFoodCard(
                     Triple("Carbs (g)", carbsText, { value: String -> carbsText = value }),
                     Triple("Fat (g)", fatText, { value: String -> fatText = value }),
                     Triple("Fibre (g)", fibreText, { value: String -> fibreText = value }),
-                    Triple("Sugars (g)", sugarText, { value: String -> sugarText = value })
+                    Triple("Sugars (g)", sugarText, { value: String -> sugarText = value }),
+                    Triple("Saturated fat (g)", saturatedFatText, { value: String -> saturatedFatText = value }),
+                    Triple("Salt (g)", saltText, { value: String -> saltText = value }),
+                    Triple("Sodium (mg)", sodiumText, { value: String -> sodiumText = value })
                 )
                 correctionFields.forEach { (label, value, setter) ->
                     OutlinedTextField(
@@ -1081,7 +1093,10 @@ private fun N2AddFoodCard(
                     )
                 }
 
-                val correctionValues = listOf(kcalText, proteinText, carbsText, fatText, fibreText, sugarText)
+                val correctionValues = listOf(
+                    kcalText, proteinText, carbsText, fatText, fibreText, sugarText,
+                    saturatedFatText, saltText, sodiumText
+                )
                 val invalidCorrection = correctionValues.any { raw ->
                     raw.isNotBlank() && (raw.toDoubleOrNull()?.let { it.isFinite() && it >= 0.0 } != true)
                 }
@@ -1106,6 +1121,12 @@ private fun N2AddFoodCard(
                         fibreKnown = fibreText.isNotBlank(),
                         sugar = sugarText.toDoubleOrNull() ?: 0.0,
                         sugarKnown = sugarText.isNotBlank(),
+                        saturatedFat = saturatedFatText.toDoubleOrNull() ?: 0.0,
+                        saturatedFatKnown = saturatedFatText.isNotBlank(),
+                        salt = saltText.toDoubleOrNull() ?: 0.0,
+                        saltKnown = saltText.isNotBlank(),
+                        sodiumMg = sodiumText.toDoubleOrNull() ?: 0.0,
+                        sodiumKnown = sodiumText.isNotBlank(),
                         nutritionIntegrityWarning = null,
                         sourceWarnings = emptyList()
                     )
