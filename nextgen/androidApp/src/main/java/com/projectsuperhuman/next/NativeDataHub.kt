@@ -175,6 +175,282 @@ internal object NativeDataHub {
         )
     }
 
+    private data class SyntheticMealIngredient(val query: String, val grams: Double)
+    private data class SyntheticMealPlan(
+        val name: String,
+        val meal: String,
+        val hour: Int,
+        val ingredients: List<SyntheticMealIngredient>
+    )
+
+    private suspend fun generateSyntheticNutritionFromLocalFoods(
+        days: Int,
+        seed: Int
+    ): SyntheticGenerationResult {
+        val bundled = NativeFoodCatalog.all(appContext)
+
+        suspend fun resolve(query: String): NativeFood? {
+            val expanded = runCatching {
+                LargeLocalFoodDatabase.search(appContext, query, limit = 6)
+            }.getOrDefault(emptyList())
+            if (expanded.isNotEmpty()) return expanded.first()
+            val q = query.lowercase()
+            return bundled.firstOrNull { food ->
+                food.name.lowercase().contains(q) || food.searchText.lowercase().contains(q)
+            }
+        }
+
+        val breakfasts = listOf(
+            SyntheticMealPlan("Skyr, oats & banana", "Breakfast", 8, listOf(
+                SyntheticMealIngredient("skyr", 250.0),
+                SyntheticMealIngredient("oats", 65.0),
+                SyntheticMealIngredient("banana", 120.0)
+            )),
+            SyntheticMealPlan("Eggs, avocado & sourdough", "Breakfast", 8, listOf(
+                SyntheticMealIngredient("egg", 110.0),
+                SyntheticMealIngredient("avocado", 90.0),
+                SyntheticMealIngredient("sourdough", 100.0)
+            ))
+        )
+        val lunches = listOf(
+            SyntheticMealPlan("Chicken, rice & broccoli", "Lunch", 13, listOf(
+                SyntheticMealIngredient("chicken breast cooked", 190.0),
+                SyntheticMealIngredient("white rice cooked", 240.0),
+                SyntheticMealIngredient("broccoli", 150.0)
+            )),
+            SyntheticMealPlan("Lentil, feta & rice bowl", "Lunch", 13, listOf(
+                SyntheticMealIngredient("lentils cooked", 240.0),
+                SyntheticMealIngredient("feta", 70.0),
+                SyntheticMealIngredient("brown rice cooked", 180.0)
+            )),
+            SyntheticMealPlan("Tuna potato salad", "Lunch", 13, listOf(
+                SyntheticMealIngredient("tuna", 150.0),
+                SyntheticMealIngredient("potato boiled", 280.0),
+                SyntheticMealIngredient("tomato", 120.0),
+                SyntheticMealIngredient("cucumber", 120.0)
+            ))
+        )
+        val dinners = listOf(
+            SyntheticMealPlan("Salmon, potatoes & spinach", "Dinner", 19, listOf(
+                SyntheticMealIngredient("salmon", 180.0),
+                SyntheticMealIngredient("potato boiled", 300.0),
+                SyntheticMealIngredient("spinach", 140.0)
+            )),
+            SyntheticMealPlan("Chicken tomato pasta", "Dinner", 19, listOf(
+                SyntheticMealIngredient("chicken breast cooked", 170.0),
+                SyntheticMealIngredient("pasta cooked", 250.0),
+                SyntheticMealIngredient("tomato", 180.0),
+                SyntheticMealIngredient("olive oil", 15.0)
+            ))
+        )
+
+        val allPlans = breakfasts + lunches + dinners
+        val foodsByQuery = mutableMapOf<String, NativeFood>()
+        allPlans.flatMap { it.ingredients }.map { it.query }.distinct().forEach { query ->
+            resolve(query)?.let { foodsByQuery[query] = FoodEvidenceEngine.enrich(it) }
+        }
+
+        val random = Random(seed)
+        val now = System.currentTimeMillis()
+        val dayMs = 86_400_000L
+        val hourMs = 3_600_000L
+        val firstDay = now - (days - 1L) * dayMs
+        val rows = ArrayList<HealthValue>(days * 120)
+
+        fun addFoodRows(
+            dayIndex: Int,
+            food: NativeFood,
+            grams: Double,
+            plan: SyntheticMealPlan,
+            groupId: String,
+            timestamp: Long,
+            ingredientIndex: Int
+        ) {
+            val conversion = FoodUnitSystem.convert(food, grams, FoodUnit.G) ?: return
+            val factor = conversion.factor
+            val entryId = "synthetic-nutrition:" + seed + ":" + dayIndex + ":" + plan.meal + ":" + ingredientIndex + ":" + food.id
+            val protein = food.protein * factor
+            val carbs = food.carbs * factor
+            val fat = food.fat * factor
+            val saturatedFat = food.saturatedFat * factor
+            val fibre = food.fibre * factor
+            val sugar = food.sugar * factor
+            val sodiumMg = food.sodiumMg * factor
+            val salt = if (food.saltKnown) food.salt * factor else sodiumMg * 2.5 / 1000.0
+
+            val common = buildMap {
+                put("synthetic", "true")
+                put("syntheticGenerator", "android-local-nutrition-v1")
+                put("syntheticScenario", "realistic-local-food-meals-v1")
+                put("syntheticSeed", seed.toString())
+                put("syntheticDayIndex", dayIndex.toString())
+                put("diaryEntryId", entryId)
+                put("foodId", food.id)
+                put("name", food.name)
+                put("amount", grams.toString())
+                put("amountUnit", "g")
+                put("basisAmount", conversion.basisAmount.toString())
+                put("basisUnit", conversion.basisUnit.symbol)
+                put("grams", grams.toString())
+                put("meal", plan.meal)
+                put("mealGroupId", groupId)
+                put("mealGroupName", plan.name)
+                put("entryType", "INGREDIENT")
+                put("sourceName", food.source)
+                put("sourceType", food.sourceType.name)
+                put("sourceRecordIdFood", food.sourceRecordId)
+                put("verificationState", food.verificationState.name)
+                put("foodDataConfidence", food.confidence.name)
+                put("preparationState", food.preparationState.name)
+                put("nutritionApproximate", food.nutritionApproximate.toString())
+                put("kcalKnown", food.kcalKnown.toString())
+                put("proteinKnown", food.proteinKnown.toString())
+                put("carbsKnown", food.carbsKnown.toString())
+                put("fatKnown", food.fatKnown.toString())
+                put("saturatedFatKnown", food.saturatedFatKnown.toString())
+                put("fibreKnown", food.fibreKnown.toString())
+                put("sugarKnown", food.sugarKnown.toString())
+                put("sodiumKnown", food.sodiumKnown.toString())
+                put("saltKnown", (food.saltKnown || food.sodiumKnown).toString())
+                put("protein", if (food.proteinKnown) protein.toString() else "")
+                put("carbs", if (food.carbsKnown) carbs.toString() else "")
+                put("carbohydrateDefinition", food.carbohydrateDefinition.name)
+                put("fat", if (food.fatKnown) fat.toString() else "")
+                put("saturatedFat", if (food.saturatedFatKnown) saturatedFat.toString() else "")
+                put("fibre", if (food.fibreKnown) fibre.toString() else "")
+                put("sugar", if (food.sugarKnown) sugar.toString() else "")
+                put("sodiumMg", if (food.sodiumKnown) sodiumMg.toString() else "")
+                put("salt", if (food.saltKnown || food.sodiumKnown) salt.toString() else "")
+                put("micronutrientCount", food.micronutrients.size.toString())
+                put("nutritionSnapshotVersion", "4")
+                put("canonicalFoodSchemaVersion", food.canonicalSchemaVersion.toString())
+            }
+
+            fun row(metric: String, value: Double, unit: String, ordinal: Int, extra: Map<String, String> = emptyMap()) {
+                rows += HealthValue(
+                    domain = HealthDomain.NUTRITION,
+                    metric = metric,
+                    value = value,
+                    unit = unit,
+                    timestampEpochMs = timestamp,
+                    source = SYNTHETIC_DATA_SOURCE,
+                    metadata = common + extra + mapOf(
+                        "sourceRecordId" to (
+                            "synthetic-local:" + seed + ":" + dayIndex + ":" + groupId + ":" +
+                                ingredientIndex + ":" + metric + ":" + ordinal
+                            )
+                    )
+                )
+            }
+
+            row("food_entry", 1.0, "count", 0)
+            if (food.kcalKnown) row("food_kcal", food.kcal * factor, "kcal", 1)
+            if (food.proteinKnown) row("food_protein", protein, "g", 2)
+            if (food.carbsKnown) row("food_carbs", carbs, "g", 3)
+            if (food.fatKnown) row("food_fat", fat, "g", 4)
+            if (food.saturatedFatKnown) row("food_saturated_fat", saturatedFat, "g", 5)
+            if (food.fibreKnown) row("food_fibre", fibre, "g", 6)
+            if (food.sugarKnown) row("food_sugar", sugar, "g", 7)
+            if (food.sodiumKnown) row("food_sodium", sodiumMg, "mg", 8)
+            if (food.saltKnown || food.sodiumKnown) row("food_salt", salt, "g", 9)
+
+            food.micronutrients.values
+                .filterNot { it.id.equals("sodium", ignoreCase = true) && food.sodiumKnown }
+                .forEachIndexed { microIndex, nutrient ->
+                    val suffix = when (nutrient.unit) {
+                        "µg", "μg", "mcg" -> "ug"
+                        else -> nutrient.unit.lowercase().replace("%", "pct")
+                    }
+                    val metricId = nutrient.id.lowercase().replace('-', '_').replace(' ', '_')
+                    row(
+                        "food_" + metricId + "_" + suffix,
+                        nutrient.valuePer100 * factor,
+                        nutrient.unit,
+                        20 + microIndex,
+                        mapOf(
+                            "nutrientId" to nutrient.id,
+                            "nutrientLabel" to nutrient.label,
+                            "nutrientEvidenceKind" to nutrient.evidenceKind.name,
+                            "nutrientEvidenceSource" to nutrient.source.ifBlank { food.source },
+                            "nutrientSourceRecordId" to nutrient.sourceRecordId.ifBlank { food.sourceRecordId }
+                        )
+                    )
+                }
+        }
+
+        for (dayIndex in 0 until days) {
+            val dayAnchor = firstDay + dayIndex * dayMs
+            val dayStart = dayAnchor - ((dayAnchor % dayMs + dayMs) % dayMs)
+            val plans = listOf(
+                breakfasts[random.nextInt(breakfasts.size)],
+                lunches[random.nextInt(lunches.size)],
+                dinners[random.nextInt(dinners.size)]
+            )
+            plans.forEachIndexed { mealIndex, plan ->
+                val groupId = "synthetic-local-meal:" + seed + ":" + dayIndex + ":" + mealIndex
+                val jitter = random.nextInt(-20, 21) * 60_000L
+                val mealTs = (dayStart + plan.hour * hourMs + jitter).coerceAtMost(now)
+                val scale = 0.90 + random.nextDouble() * 0.22
+                plan.ingredients.forEachIndexed ingredientLoop@{ ingredientIndex, ingredient ->
+                    val food = foodsByQuery[ingredient.query] ?: return@ingredientLoop
+                    addFoodRows(
+                        dayIndex,
+                        food,
+                        ingredient.grams * scale,
+                        plan,
+                        groupId,
+                        mealTs + ingredientIndex * 1_000L,
+                        ingredientIndex
+                    )
+                }
+            }
+        }
+
+        val latestWeight = repository.latest("body_weight_kg")?.value ?: 82.0
+        val proteinGoal = ((latestWeight * 1.6) / 5.0).roundToInt() * 5.0
+        val fatGoal = ((latestWeight * 0.8) / 5.0).roundToInt() * 5.0
+        val calorieGoal = ((latestWeight * 30.0) / 50.0).roundToInt() * 50.0
+        val carbGoal = (((calorieGoal - proteinGoal * 4.0 - fatGoal * 9.0).coerceAtLeast(200.0) / 4.0) / 5.0)
+            .roundToInt() * 5.0
+        val goalMeta = mapOf(
+            "synthetic" to "true",
+            "syntheticGenerator" to "android-local-nutrition-v1",
+            "syntheticScenario" to "realistic-local-food-meals-v1",
+            "enabled" to "true",
+            "goalSource" to "synthetic-body-derived"
+        )
+
+        fun goal(metric: String, value: Double, unit: String, ordinal: Int) {
+            rows += HealthValue(
+                domain = HealthDomain.NUTRITION,
+                metric = metric,
+                value = value,
+                unit = unit,
+                timestampEpochMs = now,
+                source = SYNTHETIC_DATA_SOURCE,
+                metadata = goalMeta + (
+                    "sourceRecordId" to ("synthetic-goal:" + seed + ":" + metric + ":" + ordinal)
+                    )
+            )
+        }
+        goal("nutrition_goal_kcal", calorieGoal, "kcal", 1)
+        goal("nutrition_goal_protein_g", proteinGoal, "g", 2)
+        goal("nutrition_goal_carbs_g", carbGoal, "g", 3)
+        goal("nutrition_goal_fat_g", fatGoal, "g", 4)
+        goal("nutrition_goal_fibre_g", 30.0, "g", 5)
+
+        if (rows.isEmpty()) return SyntheticGenerationResult(days, 0, 0, 0, 0)
+        val result = ingestion.ingestValues(rows)
+        return SyntheticGenerationResult(
+            requestedDays = days,
+            generated = rows.size,
+            accepted = result.accepted,
+            rejected = result.rejected,
+            deduplicated = result.deduplicated
+        )
+    }
+
+
     /** Cheap indexed count for Settings diagnostics; no synthetic rows are materialised. */
     suspend fun syntheticTestDataCount(): Long = withContext(Dispatchers.IO) {
         repository.countSource(SYNTHETIC_DATA_SOURCE)
