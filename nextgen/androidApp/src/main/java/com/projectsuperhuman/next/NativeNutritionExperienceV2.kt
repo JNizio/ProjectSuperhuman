@@ -809,23 +809,27 @@ private fun N2NutritionRing(day: N2Day, goals: N2Goals) {
             }
         }
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier.size(88.dp).background(Color.White, CircleShape),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             Text(
                 (if (day.kcalComplete) "" else "~") + day.kcal.roundToInt().toString(),
-                color = N2Ink,
+                color = Color(0xFF0A1A26),
                 fontSize = 27.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
                 if (day.kcalComplete) "kcal" else "kcal · partial",
-                color = N2Muted,
+                color = Color(0xFF566572),
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold
             )
             if (goals.kcal != null) {
                 Text(
                     "of " + goals.kcal.roundToInt().toString(),
-                    color = N2Muted,
+                    color = Color(0xFF6E7A84),
                     fontSize = 8.sp
                 )
             }
@@ -1893,65 +1897,37 @@ private fun N2Progress(value: Double, target: Double, accent: Color) {
 }
 
 @Composable
-private fun N2Insights(
-    day: N2Day,
-    goals: N2Goals,
-    editingTargets: Boolean,
-    onToggleTargets: () -> Unit,
-    onSaveTargets: (N2Goals) -> Unit
-) {
+private fun N2Insights(day: N2Day) {
     val entryCount = day.entries.size
     val microCoverage = if (entryCount == 0) 0 else day.entries.count { it.micronutrientCount > 0 } * 100 / entryCount
 
     Column(verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.sectionGap)) {
         Column(
-            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp))
+                .border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             Text("Today", color = N2Ink, fontSize = 19.sp, fontWeight = FontWeight.Black)
             N2Insight(
-                if (entryCount == 0) "Start with one meal" else "$entryCount foods logged",
+                if (entryCount == 0) "Start with one meal" else entryCount.toString() + " foods logged",
                 if (entryCount == 0) "Your food diary is the evidence layer for future cross-module patterns."
-                else (if (day.kcalComplete) "" else "~") + "${day.kcal.roundToInt()} kcal · " +
-                    (if (day.proteinComplete) "" else "~") + "${n2One(day.protein)} g protein · " +
-                    (if (day.fibreComplete) "" else "~") + "${n2One(day.fibre)} g fibre",
+                else (if (day.kcalComplete) "" else "~") + day.kcal.roundToInt().toString() + " kcal · " +
+                    (if (day.proteinComplete) "" else "~") + n2One(day.protein) + " g protein · " +
+                    (if (day.fibreComplete) "" else "~") + n2One(day.fibre) + " g fibre",
                 N2Blue
             )
             N2Insight(
                 if (microCoverage >= 75) "Micronutrient data present" else "Micronutrient data is sparse",
-                "$microCoverage% of today's foods contain at least one reported micronutrient value. This does not mean every micronutrient is known.",
+                microCoverage.toString() + "% of today’s foods contain reported micronutrient data.",
                 if (microCoverage >= 75) N2Green else N2Amber
             )
-        }
-
-        Column(
-            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.contentGap)
-        ) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Column {
-                    Text("Daily targets", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                    Text(if (goals.kcal == null) "Optional · nothing assumed" else "Your own targets", color = N2Muted, fontSize = 9.sp)
-                }
-                Text(if (editingTargets) "Close" else "Edit", color = N2Blue, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable(onClick = onToggleTargets).padding(8.dp))
-            }
-
-            if (!editingTargets) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    N2TargetSummary("Calories", goals.kcal?.roundToInt()?.toString() ?: "—", "kcal", Modifier.weight(1f))
-                    N2TargetSummary("Protein", goals.protein?.let(::n2One) ?: "—", "g", Modifier.weight(1f))
-                    N2TargetSummary("Fibre", goals.fibre?.let(::n2One) ?: "—", "g", Modifier.weight(1f))
-                }
-            } else {
-                N2TargetEditor(goals, onSaveTargets)
-            }
         }
 
         Column(Modifier.fillMaxWidth().background(N2SoftBlue, RoundedCornerShape(20.dp)).padding(SuperhumanLayout.cardPadding)) {
             Text("Project Superhuman view", color = N2Blue, fontSize = 14.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(4.dp))
             Text(
-                "Over time, nutrition can be compared with sleep, training and recovery. Those relationships should appear here only when there is enough data and with a clear confidence level.",
+                "Over time, nutrition can be compared with sleep, training and recovery when enough data exists.",
                 color = N2Muted, fontSize = 9.sp, lineHeight = 14.sp
             )
         }
@@ -1960,7 +1936,10 @@ private fun N2Insights(
 
 @Composable
 private fun N2Insight(title: String, detail: String, accent: Color) {
-    Row(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(SuperhumanLayout.compactCardPadding), verticalAlignment = Alignment.Top) {
+    Row(
+        Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(SuperhumanLayout.compactCardPadding),
+        verticalAlignment = Alignment.Top
+    ) {
         Box(Modifier.width(6.dp).height(34.dp).background(accent, RoundedCornerShape(99.dp)))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
@@ -1971,51 +1950,135 @@ private fun N2Insight(title: String, detail: String, accent: Color) {
 }
 
 @Composable
-private fun N2TargetSummary(label: String, value: String, unit: String, modifier: Modifier) {
-    Column(
-        modifier.height(68.dp).background(N2RowBg, RoundedCornerShape(14.dp))
-            .padding(SuperhumanLayout.compactCardPadding),
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(label.uppercase(), color = N2Muted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, color = N2Navy, fontSize = 15.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.width(3.dp))
-            Text(unit, color = N2Muted, fontSize = 8.sp, modifier = Modifier.padding(bottom = 2.dp))
+private fun N2GoalsPage(goals: N2Goals, recommendation: N2GoalRecommendation?, onSave: (N2Goals) -> Unit) {
+    val recGoals = recommendation?.goals
+    var kcal by remember(goals, recommendation) { mutableStateOf((goals.kcal ?: recGoals?.kcal ?: 2200.0).toFloat()) }
+    var protein by remember(goals, recommendation) { mutableStateOf((goals.protein ?: recGoals?.protein ?: 120.0).toFloat()) }
+    var carbs by remember(goals, recommendation) { mutableStateOf((goals.carbs ?: recGoals?.carbs ?: 250.0).toFloat()) }
+    var fat by remember(goals, recommendation) { mutableStateOf((goals.fat ?: recGoals?.fat ?: 70.0).toFloat()) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.sectionGap)) {
+        Column(
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp))
+                .border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(13.dp)
+        ) {
+            Text("Daily goals", color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text("These targets drive Nutrition and the Home dashboard.", color = N2Muted, fontSize = 10.sp)
+            N2GoalSlider("Calories", kcal, 1200f..5000f, 50, "kcal", N2Blue) { kcal = it }
+            N2GoalSlider("Protein", protein, 40f..300f, 5, "g", N2Green) { protein = it }
+            N2GoalSlider("Carbs", carbs, 50f..600f, 5, "g", N2Cyan) { carbs = it }
+            N2GoalSlider("Fat", fat, 30f..200f, 5, "g", N2Amber) { fat = it }
+            N2Button("Save goals", N2Blue, Modifier.fillMaxWidth(), true) {
+                onSave(N2Goals(
+                    kcal = kcal.roundToInt().toDouble(),
+                    protein = protein.roundToInt().toDouble(),
+                    carbs = carbs.roundToInt().toDouble(),
+                    fat = fat.roundToInt().toDouble(),
+                    fibre = goals.fibre
+                ))
+            }
+        }
+
+        Column(
+            Modifier.fillMaxWidth().background(N2SoftBlue, RoundedCornerShape(22.dp))
+                .border(1.dp, N2Blue.copy(alpha = .22f), RoundedCornerShape(22.dp)).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Recommended starting point", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
+            if (recommendation == null) {
+                Text("Add your current weight in Body to generate starting targets.", color = N2Muted, fontSize = 10.sp, lineHeight = 14.sp)
+            } else {
+                val bodyLine = n2One(recommendation.weightKg) + " kg" +
+                    (recommendation.heightCm?.let { " · " + it.roundToInt().toString() + " cm" } ?: "")
+                Text(bodyLine, color = N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    N2GoalRecommendationValue("Calories", recommendation.goals.kcal, "kcal", Modifier.weight(1f))
+                    N2GoalRecommendationValue("Protein", recommendation.goals.protein, "g", Modifier.weight(1f))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    N2GoalRecommendationValue("Carbs", recommendation.goals.carbs, "g", Modifier.weight(1f))
+                    N2GoalRecommendationValue("Fat", recommendation.goals.fat, "g", Modifier.weight(1f))
+                }
+                Text(recommendation.method, color = N2Muted, fontSize = 8.sp, lineHeight = 12.sp)
+                N2Button("Use recommended", N2Green, Modifier.fillMaxWidth(), true) {
+                    recommendation.goals.kcal?.let { kcal = it.toFloat() }
+                    recommendation.goals.protein?.let { protein = it.toFloat() }
+                    recommendation.goals.carbs?.let { carbs = it.toFloat() }
+                    recommendation.goals.fat?.let { fat = it.toFloat() }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun N2TargetEditor(goals: N2Goals, onSave: (N2Goals) -> Unit) {
-    var kcal by remember(goals) { mutableStateOf(goals.kcal?.let(::n2Editable) ?: "") }
-    var protein by remember(goals) { mutableStateOf(goals.protein?.let(::n2Editable) ?: "") }
-    var carbs by remember(goals) { mutableStateOf(goals.carbs?.let(::n2Editable) ?: "") }
-    var fat by remember(goals) { mutableStateOf(goals.fat?.let(::n2Editable) ?: "") }
-    var fibre by remember(goals) { mutableStateOf(goals.fibre?.let(::n2Editable) ?: "") }
-
-    Column(verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.compactGap)) {
-        OutlinedTextField(kcal, { kcal = n2GoalText(it) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Calories (kcal)") })
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(protein, { protein = n2GoalText(it) }, Modifier.weight(1f), singleLine = true, label = { Text("Protein (g)") })
-            OutlinedTextField(carbs, { carbs = n2GoalText(it) }, Modifier.weight(1f), singleLine = true, label = { Text("Carbs (g)") })
+private fun N2GoalSlider(
+    label: String, value: Float, range: ClosedFloatingPointRange<Float>, step: Int,
+    unit: String, accent: Color, onChange: (Float) -> Unit
+) {
+    val snapped = ((value / step).roundToInt() * step).toFloat().coerceIn(range.start, range.endInclusive)
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(7.dp).background(accent, CircleShape))
+                Spacer(Modifier.width(7.dp))
+                Text(label, color = N2Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(snapped.roundToInt().toString() + " " + unit, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.Black)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(fat, { fat = n2GoalText(it) }, Modifier.weight(1f), singleLine = true, label = { Text("Fat (g)") })
-            OutlinedTextField(fibre, { fibre = n2GoalText(it) }, Modifier.weight(1f), singleLine = true, label = { Text("Fibre (g)") })
-        }
-        N2Button("Save targets", N2Blue, Modifier.fillMaxWidth(), true) {
-            onSave(
-                N2Goals(
-                    kcal.toDoubleOrNull()?.takeIf { it > 0 },
-                    protein.toDoubleOrNull()?.takeIf { it > 0 },
-                    carbs.toDoubleOrNull()?.takeIf { it > 0 },
-                    fat.toDoubleOrNull()?.takeIf { it > 0 },
-                    fibre.toDoubleOrNull()?.takeIf { it > 0 }
-                )
-            )
-        }
+        Slider(
+            value = snapped,
+            onValueChange = { raw ->
+                onChange(((raw / step).roundToInt() * step).toFloat().coerceIn(range.start, range.endInclusive))
+            },
+            valueRange = range
+        )
     }
+}
+
+@Composable
+private fun N2GoalRecommendationValue(label: String, value: Double?, unit: String, modifier: Modifier) {
+    Column(modifier.background(N2Surface.copy(alpha = .72f), RoundedCornerShape(14.dp)).padding(horizontal = 11.dp, vertical = 9.dp)) {
+        Text(label.uppercase(), color = N2Muted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .5.sp)
+        Spacer(Modifier.height(2.dp))
+        Text(value?.roundToInt()?.let { it.toString() + " " + unit } ?: "—", color = N2Ink, fontSize = 13.sp, fontWeight = FontWeight.Black)
+    }
+}
+
+private suspend fun n2LoadGoalRecommendation(): N2GoalRecommendation? {
+    val weight = NativeDataHub.latest(HealthDomain.BODY, "body_weight_kg")?.value?.takeIf { it in 30.0..300.0 } ?: return null
+    val height = NativeDataHub.latest(HealthDomain.BODY, "body_height_cm")?.value?.takeIf { it in 120.0..230.0 }
+    val age = NativeDataHub.latest(HealthDomain.BODY, "body_age_years")?.value?.takeIf { it in 14.0..100.0 }
+    val male = NativeDataHub.latest(HealthDomain.BODY, "body_sex_code")?.value?.let { it >= .5 }
+
+    val calories = if (height != null && age != null && male != null) {
+        val resting = 10.0 * weight + 6.25 * height - 5.0 * age + if (male) 5.0 else -161.0
+        ((resting * 1.4) / 50.0).roundToInt() * 50.0
+    } else {
+        ((weight * 30.0) / 50.0).roundToInt() * 50.0
+    }.coerceIn(1200.0, 5000.0)
+
+    val protein = ((weight * 1.6) / 5.0).roundToInt() * 5.0
+    val fat = ((weight * 0.8) / 5.0).roundToInt() * 5.0
+    val carbs = (((calories - protein * 4.0 - fat * 9.0).coerceAtLeast(200.0) / 4.0) / 5.0).roundToInt() * 5.0
+    val method = if (height != null && age != null && male != null) {
+        "Uses your Body profile for an estimated resting energy need with a light-activity starting factor. Protein and fat use body-weight based starting points. Adjust for your actual goal and activity."
+    } else {
+        "Uses current weight as a simple starting estimate. Add height, age and sex in Body for a more individual calorie estimate."
+    }
+
+    return N2GoalRecommendation(
+        goals = N2Goals(
+            kcal = calories,
+            protein = protein.coerceIn(40.0, 300.0),
+            carbs = carbs.coerceIn(50.0, 600.0),
+            fat = fat.coerceIn(30.0, 200.0)
+        ),
+        weightKg = weight,
+        heightCm = height,
+        method = method
+    )
 }
 
 private suspend fun n2LoadGoals(): N2Goals = N2Goals(
