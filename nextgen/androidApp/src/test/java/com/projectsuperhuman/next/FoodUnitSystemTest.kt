@@ -97,4 +97,42 @@ class FoodUnitSystemTest {
         assertNotNull(conversion)
         assertEquals(1.0, conversion.factor, 0.0001)
     }
+
+    @Test
+    fun supportsMilligramsFluidOuncesAndResolvableNamedProductUnits() {
+        val massFood = food("100 g", FoodUnit.G)
+        val mg = FoodUnitSystem.convert(massFood, 50_000.0, FoodUnit.MG)
+        assertNotNull(mg)
+        assertEquals(50.0, mg.grams!!, 0.0001)
+
+        val drink = food("100 ml", FoodUnit.ML)
+        val fluidOunce = FoodUnitSystem.convert(drink, 1.0, FoodUnit.FL_OZ)
+        assertNotNull(fluidOunce)
+        assertEquals(29.5735295625, fluidOunce.millilitres!!, 0.000001)
+
+        val slice = food(
+            unit = "100 g",
+            basisUnit = FoodUnit.G,
+            servingQuantity = 32.0,
+            servingUnit = FoodUnit.G
+        ).copy(servingLabel = "1 slice (32 g)")
+        assertTrue(FoodUnit.SLICE in FoodUnitSystem.availableUnits(slice))
+        assertEquals(
+            FoodUnitSystem.convert(slice, 1.0, FoodUnit.SERVING)?.factor,
+            FoodUnitSystem.convert(slice, 1.0, FoodUnit.SLICE)?.factor
+        )
+    }
+
+    @Test
+    fun derivedUnitsAreHiddenWhenPhysicalQuantityCannotBeResolved() {
+        val unresolved = food("100 g", FoodUnit.G).copy(
+            servingQuantity = 1.0,
+            servingQuantityUnit = FoodUnit.PIECE,
+            servingLabel = "1 piece"
+        )
+        assertFalse(FoodUnit.SERVING in FoodUnitSystem.availableUnits(unresolved))
+        assertFalse(FoodUnit.PIECE in FoodUnitSystem.availableUnits(unresolved))
+        assertNull(FoodUnitSystem.convert(unresolved, 1.0, FoodUnit.PIECE))
+    }
+
 }
