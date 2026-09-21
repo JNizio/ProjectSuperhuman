@@ -104,6 +104,9 @@ class SqlHealthRepository(
     ): List<HealthValue> =
         q.valuesForMetricPage(domain.name, metric, limit, offset, ::mapHealthValue).executeAsList()
 
+    suspend fun valueBySourceRecordId(source: String, sourceRecordId: String): HealthValue? =
+        q.valueBySourceRecordId(source, sourceRecordId, ::mapHealthValue).executeAsOneOrNull()
+
     override suspend fun latestForDomain(domain: HealthDomain): List<HealthValue> =
         q.latestForDomain(domain.name, domain.name, ::mapHealthValue).executeAsList()
 
