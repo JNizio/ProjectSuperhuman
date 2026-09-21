@@ -103,12 +103,18 @@ object CoreMetricRegistry : MetricRegistry {
 
         // Nutrition. Food diary nutrients are first-class rows so later experiments can correlate
         // meal composition and timing against sleep, mood, body and performance outcomes.
+        // food_entry is an evidence anchor, not nutrition. It keeps incomplete foods addressable
+        // without fabricating a zero for an unknown nutrient such as energy.
+        MetricDefinition("food_entry", HealthDomain.NUTRITION, "count", aggregation = MetricAggregation.NONE, minAccepted = 1.0, maxAccepted = 1.0),
         MetricDefinition("food_kcal", HealthDomain.NUTRITION, "kcal", aliases = setOf("calories_kcal", "nutrition_kcal"), aggregation = MetricAggregation.SUM, minAccepted = 0.0),
         MetricDefinition("food_protein", HealthDomain.NUTRITION, "g", aliases = setOf("protein_g"), aggregation = MetricAggregation.SUM, minAccepted = 0.0),
         MetricDefinition("food_carbs", HealthDomain.NUTRITION, "g", aliases = setOf("carbs_g", "carbohydrate_g"), aggregation = MetricAggregation.SUM, minAccepted = 0.0),
         MetricDefinition("food_fat", HealthDomain.NUTRITION, "g", aliases = setOf("fat_g"), aggregation = MetricAggregation.SUM, minAccepted = 0.0),
+        MetricDefinition("food_saturated_fat", HealthDomain.NUTRITION, "g", aliases = setOf("saturated_fat_g"), aggregation = MetricAggregation.SUM, minAccepted = 0.0),
         MetricDefinition("food_fibre", HealthDomain.NUTRITION, "g", aliases = setOf("fibre_g", "fiber_g"), aggregation = MetricAggregation.SUM, minAccepted = 0.0),
         MetricDefinition("food_sugar", HealthDomain.NUTRITION, "g", aliases = setOf("sugar_g"), aggregation = MetricAggregation.SUM, minAccepted = 0.0),
+        MetricDefinition("food_salt", HealthDomain.NUTRITION, "g", aliases = setOf("salt_g"), aggregation = MetricAggregation.SUM, minAccepted = 0.0),
+        MetricDefinition("food_sodium", HealthDomain.NUTRITION, "mg", aliases = setOf("sodium_mg"), aggregation = MetricAggregation.SUM, minAccepted = 0.0),
 
         // Body / scale. These are stable metrics emitted by the native smart-scale path.
         MetricDefinition("body_weight_kg", HealthDomain.BODY, "kg", aliases = setOf("weight_kg"), aggregation = MetricAggregation.AVERAGE, minAccepted = 20.0, maxAccepted = 400.0),
