@@ -70,6 +70,11 @@ data class NativeHomeSnapshot(
     val cardioWorkoutsToday: Int = 0,
     val workoutSetsToday: Int = 0,
     val workoutVolumeToday: Int = 0,
+    val trainingMinutesToday: Int = 0,
+    val latestStrengthWorkoutName: String? = null,
+    val cardioDistanceTodayKm: Double = 0.0,
+    val cardioMinutesToday: Int = 0,
+    val latestCardioActivityName: String? = null,
     val bodyWeightKg: Double? = null,
     val bodyWeightChange30d: Double? = null,
     val bodyWeightTrend: List<Double> = emptyList(),
@@ -473,6 +478,16 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val cardioSessions = exerciseData.between("cardio_session", start, now)
     val sets = exerciseData.between("exercise_set", start, now)
     val volumes = exerciseData.between("workout_volume", start, now)
+    val strengthMinutes = workouts.sumOf { it.metadata["durationMin"]?.toIntOrNull() ?: 0 }
+    val cardioMinutes = cardioSessions.sumOf { row ->
+        row.metadata["durationSeconds"]?.toIntOrNull()?.div(60)
+            ?: row.value.roundToInt()
+    }
+    val cardioDistanceKm = cardioSessions.sumOf { it.metadata["distanceKm"]?.toDoubleOrNull() ?: 0.0 }
+    val latestStrengthName = workouts.maxByOrNull { it.timestampEpochMs }?.metadata?.get("workoutName")
+    val latestCardioName = cardioSessions.maxByOrNull { it.timestampEpochMs }?.metadata?.get("activityName")
+        ?: cardioSessions.maxByOrNull { it.timestampEpochMs }?.metadata?.get("activityType")
+            ?.lowercase()?.replace('_', ' ')?.replaceFirstChar { ch -> ch.uppercase() }
     val mindfulness = mindfulnessData.latestState()
     val bodyHistory = bodyData.between("body_weight_kg", thirtyDaysAgo, now).sortedBy { it.timestampEpochMs }
 
@@ -504,6 +519,11 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         cardioWorkoutsToday = cardioSessions.size,
         workoutSetsToday = sets.size,
         workoutVolumeToday = volumes.sumOf { it.value }.roundToInt(),
+        trainingMinutesToday = strengthMinutes + cardioMinutes,
+        latestStrengthWorkoutName = latestStrengthName,
+        cardioDistanceTodayKm = cardioDistanceKm,
+        cardioMinutesToday = cardioMinutes,
+        latestCardioActivityName = latestCardioName,
         bodyWeightKg = bodyMetric("body_weight_kg"),
         bodyWeightChange30d = weightChange,
         bodyWeightTrend = trend,
