@@ -680,55 +680,167 @@ private fun N2FoodStat(value: String, label: String, modifier: Modifier) {
 }
 
 @Composable
-private fun N2Diary(day: N2Day, onRemove: (N2Entry) -> Unit) {
-    if (day.entries.isEmpty()) {
-        Column(
-            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(22.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Your diary is empty", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(4.dp))
-            Text("Search or scan your first food above.", color = N2Muted, fontSize = 10.sp, textAlign = TextAlign.Center)
+            Text("Quick repeat", color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.Black)
+            Text("Recent foods", color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
         }
-        return
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        n2Meals.forEach { meal ->
-            val entries = day.entries.filter { it.meal.equals(meal, ignoreCase = true) }
-            if (entries.isNotEmpty()) N2MealCard(meal, entries, onRemove)
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            entries.distinctBy { it.foodId }.take(4).forEach { entry ->
+                Column(
+                    Modifier.width(138.dp).background(N2Surface, RoundedCornerShape(16.dp))
+                        .border(1.dp, N2Border, RoundedCornerShape(16.dp))
+                        .clickable { onRepeat(entry) }.padding(11.dp)
+                ) {
+                    Text(entry.name, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                    Text(
+                        entry.kcal.roundToInt().toString() + " kcal · " + n2One(entry.grams) + " g",
+                        color = N2Muted,
+                        fontSize = 8.sp
+                    )
+                    Spacer(Modifier.height(5.dp))
+                    Text("+ Add again", color = N2Blue, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                }
+            }
         }
-        val other = day.entries.filter { e -> n2Meals.none { it.equals(e.meal, ignoreCase = true) } }
-        if (other.isNotEmpty()) N2MealCard("Other", other, onRemove)
     }
 }
 
 @Composable
-private fun N2MealCard(meal: String, entries: List<N2Entry>, onRemove: (N2Entry) -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+private fun N2UndoBar(name: String, onUndo: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().background(N2Ink, RoundedCornerShape(15.dp))
+            .padding(horizontal = 13.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(meal, color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
-            Text("${entries.sumOf { it.kcal }.roundToInt()} kcal", color = N2Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        Text(name + " removed", color = Color.White, fontSize = 9.sp, modifier = Modifier.weight(1f), maxLines = 1)
+        Text(
+            "UNDO",
+            color = N2Cyan,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.clickable(onClick = onUndo).padding(horizontal = 8.dp, vertical = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun N2Diary(
+    day: N2Day,
+    onDuplicate: (N2Entry) -> Unit,
+    onRemove: (N2Entry) -> Unit
+) {
+    if (day.entries.isEmpty()) {
+        Column(
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(22.dp))
+                .border(1.dp, N2Border, RoundedCornerShape(22.dp)).padding(22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text("Nothing logged yet", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
+            Spacer(Modifier.height(4.dp))
+            Text("Search, scan or add a recent food above.", color = N2Muted, fontSize = 9.sp, textAlign = TextAlign.Center)
         }
-        entries.sortedBy { it.timestamp }.forEach { entry ->
-            Row(
-                Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(11.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(entry.name, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+        return
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Diary", color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
+            Text(
+                day.entries.size.toString() + " items · " + day.kcal.roundToInt().toString() + " kcal",
+                color = N2Muted,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        n2Meals.forEach { meal ->
+            val entries = day.entries.filter { it.meal.equals(meal, ignoreCase = true) }
+            if (entries.isNotEmpty()) N2MealCard(meal, entries, onDuplicate, onRemove)
+        }
+        val other = day.entries.filter { e -> n2Meals.none { it.equals(e.meal, ignoreCase = true) } }
+        if (other.isNotEmpty()) N2MealCard("Other", other, onDuplicate, onRemove)
+    }
+}
+
+@Composable
+private fun N2MealCard(
+    meal: String,
+    entries: List<N2Entry>,
+    onDuplicate: (N2Entry) -> Unit,
+    onRemove: (N2Entry) -> Unit
+) {
+    var expanded by remember(meal, entries.size) { mutableStateOf(true) }
+    val mealKcal = entries.sumOf { it.kcal }
+    val mealProtein = entries.sumOf { it.protein }
+
+    Column(
+        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(20.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(20.dp)).padding(13.dp),
+        verticalArrangement = Arrangement.spacedBy(7.dp)
+    ) {
+        Row(
+            Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(meal, color = N2Ink, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                Text(
+                    entries.size.toString() + " items · " + n2One(mealProtein) + " g protein",
+                    color = N2Muted,
+                    fontSize = 8.sp
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(mealKcal.roundToInt().toString() + " kcal", color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text(if (expanded) "⌃" else "⌄", color = N2Muted, fontSize = 15.sp, fontWeight = FontWeight.Black)
+            }
+        }
+
+        if (expanded) {
+            entries.sortedBy { it.timestamp }.forEach { entry ->
+                Row(
+                    Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(13.dp))
+                        .padding(horizontal = 11.dp, vertical = 9.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(entry.name, color = N2Ink, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                        Text(
+                            n2One(entry.grams) + " g · " + entry.kcal.roundToInt().toString() + " kcal · " +
+                                n2One(entry.protein) + "P · " + n2One(entry.carbs) + "C · " + n2One(entry.fat) + "F",
+                            color = N2Muted,
+                            fontSize = 8.sp,
+                            maxLines = 1
+                        )
+                    }
                     Text(
-                        "${n2One(entry.grams)} g · ${entry.kcal.roundToInt()} kcal · ${n2One(entry.protein)}P · ${n2One(entry.carbs)}C · ${n2One(entry.fat)}F",
-                        color = N2Muted, fontSize = 9.sp
+                        "＋",
+                        color = N2Blue,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Black,
+                        modifier = Modifier.clickable { onDuplicate(entry) }.padding(7.dp)
+                    )
+                    Text(
+                        "×",
+                        color = N2Muted,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { onRemove(entry) }.padding(7.dp)
                     )
                 }
-                Box(
-                    Modifier.width(30.dp).height(30.dp).background(N2Surface, RoundedCornerShape(10.dp)).clickable { onRemove(entry) },
-                    contentAlignment = Alignment.Center
-                ) { Text("×", color = N2Muted, fontSize = 17.sp, fontWeight = FontWeight.Bold) }
             }
         }
     }
