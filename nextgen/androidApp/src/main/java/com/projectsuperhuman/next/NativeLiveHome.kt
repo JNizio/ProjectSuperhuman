@@ -64,7 +64,17 @@ data class NativeHomeSnapshot(
     val waterGoalMl: Int = 3600,
     val caloriesToday: Int = 0,
     val proteinToday: Int = 0,
+    val carbsToday: Int = 0,
+    val fatToday: Int = 0,
+    val fibreToday: Int = 0,
+    val calorieGoal: Int? = null,
+    val proteinGoal: Int? = null,
+    val carbsGoal: Int? = null,
+    val fatGoal: Int? = null,
+    val fibreGoal: Int? = null,
     val nutritionEntriesToday: Int = 0,
+    val nutritionCaloriesComplete: Boolean = true,
+    val latestNutritionFoodName: String? = null,
     val workoutsToday: Int = 0,
     val strengthWorkoutsToday: Int = 0,
     val cardioWorkoutsToday: Int = 0,
@@ -461,8 +471,27 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val body = bodyData.latestState()
     val clinical = clinicalData.latestState()
     val kcalRows = nutritionData.between("food_kcal", start, now)
+    val foodEntryRows = nutritionData.between("food_entry", start, now)
+    val anchorRows = if (foodEntryRows.isNotEmpty()) foodEntryRows else kcalRows
     val kcal = kcalRows.sumOf { it.value }.roundToInt()
     val protein = nutritionData.between("food_protein", start, now).sumOf { it.value }.roundToInt()
+    val carbs = nutritionData.between("food_carbs", start, now).sumOf { it.value }.roundToInt()
+    val fat = nutritionData.between("food_fat", start, now).sumOf { it.value }.roundToInt()
+    val fibre = nutritionData.between("food_fibre", start, now).sumOf { it.value }.roundToInt()
+    val nutritionEntryCount = anchorRows
+        .map { it.metadata["diaryEntryId"] ?: "legacy:" + it.timestampEpochMs + ":" + it.metadata["foodId"].orEmpty() }
+        .distinct()
+        .size
+    val latestNutritionFood = anchorRows.maxByOrNull { it.timestampEpochMs }?.metadata?.get("name")
+    val caloriesComplete = nutritionEntryCount == 0 || kcalRows
+        .map { it.metadata["diaryEntryId"] ?: "legacy:" + it.timestampEpochMs + ":" + it.metadata["foodId"].orEmpty() }
+        .distinct()
+        .size >= nutritionEntryCount
+    val calorieGoal = nutritionData.latest("nutrition_goal_kcal")?.value?.takeIf { it > 0 }?.roundToInt()
+    val proteinGoal = nutritionData.latest("nutrition_goal_protein_g")?.value?.takeIf { it > 0 }?.roundToInt()
+    val carbsGoal = nutritionData.latest("nutrition_goal_carbs_g")?.value?.takeIf { it > 0 }?.roundToInt()
+    val fatGoal = nutritionData.latest("nutrition_goal_fat_g")?.value?.takeIf { it > 0 }?.roundToInt()
+    val fibreGoal = nutritionData.latest("nutrition_goal_fibre_g")?.value?.takeIf { it > 0 }?.roundToInt()
     val waterGoalMl = hydrationData.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
     val waterEvents = hydrationData.between("water_intake_ml", start, now)
     val rawWaterLitres = if (waterEvents.isNotEmpty()) {
@@ -513,7 +542,17 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         waterGoalMl = waterGoalMl,
         caloriesToday = kcal,
         proteinToday = protein,
-        nutritionEntriesToday = kcalRows.size,
+        carbsToday = carbs,
+        fatToday = fat,
+        fibreToday = fibre,
+        calorieGoal = calorieGoal,
+        proteinGoal = proteinGoal,
+        carbsGoal = carbsGoal,
+        fatGoal = fatGoal,
+        fibreGoal = fibreGoal,
+        nutritionEntriesToday = nutritionEntryCount,
+        nutritionCaloriesComplete = caloriesComplete,
+        latestNutritionFoodName = latestNutritionFood,
         workoutsToday = workouts.size + cardioSessions.size,
         strengthWorkoutsToday = workouts.size,
         cardioWorkoutsToday = cardioSessions.size,
