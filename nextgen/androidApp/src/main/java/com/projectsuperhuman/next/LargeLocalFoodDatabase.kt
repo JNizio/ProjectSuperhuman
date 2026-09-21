@@ -36,14 +36,17 @@ import java.util.zip.ZipInputStream
 internal object LargeLocalFoodDatabase {
     const val MINIMUM_FOOD_TARGET = 10_000
 
+    private const val FOUNDATION_URL =
+        "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip"
     private const val FNDDS_URL =
         "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip"
     private const val SR_LEGACY_URL =
         "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_sr_legacy_food_json_2018-04.zip"
 
+    private const val FOUNDATION_META = "usda_foundation_2026_04_complete"
     private const val FNDDS_META = "usda_fndds_2021_2023_complete"
     private const val SR_META = "usda_sr_legacy_complete"
-    private const val USER_AGENT = "ProjectSuperhuman/11.2 (Android food reference importer)"
+    private const val USER_AGENT = "ProjectSuperhuman/11.3 (Android food reference importer)"
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val bootstrapStarted = AtomicBoolean(false)
@@ -56,6 +59,16 @@ internal object LargeLocalFoodDatabase {
 
         bootstrapScope.launch {
             try {
+                if (!metaFlag(app, FOUNDATION_META)) {
+                    runCatching {
+                        importArchive(
+                            app,
+                            FOUNDATION_URL,
+                            sourceLabel = "USDA Foundation Foods 2026-04",
+                            completionKey = FOUNDATION_META
+                        )
+                    }
+                }
                 if (!metaFlag(app, FNDDS_META)) {
                     runCatching {
                         importArchive(
@@ -151,7 +164,7 @@ internal object LargeLocalFoodDatabase {
         }
 
     private fun sourcesComplete(context: Context): Boolean =
-        metaFlag(context, FNDDS_META) && metaFlag(context, SR_META)
+        metaFlag(context, FOUNDATION_META) && metaFlag(context, FNDDS_META) && metaFlag(context, SR_META)
 
     private fun countBlocking(context: Context): Int = LargeFoodDb(context).use { helper ->
         DatabaseUtils.queryNumEntries(helper.readableDatabase, "food_reference")
