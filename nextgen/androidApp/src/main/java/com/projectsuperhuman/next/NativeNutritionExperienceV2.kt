@@ -1429,15 +1429,28 @@ private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
 
 @Composable
 private fun N2UndoBar(name: String, onUndo: () -> Unit) {
+    val snackbarBackground = Color(0xFF10202C)
+    val snackbarText = Color(0xFFF3F7FA)
+    val undoAccent = Color(0xFF63D2C3)
+
     Row(
-        Modifier.fillMaxWidth().background(N2Ink, RoundedCornerShape(15.dp))
+        Modifier.fillMaxWidth()
+            .background(snackbarBackground, RoundedCornerShape(15.dp))
+            .border(1.dp, Color.White.copy(alpha = .10f), RoundedCornerShape(15.dp))
             .padding(horizontal = 13.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(name + " removed", color = Color.White, fontSize = 9.sp, modifier = Modifier.weight(1f), maxLines = 1)
+        Text(
+            name + " removed",
+            color = snackbarText,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.weight(1f),
+            maxLines = 1
+        )
         Text(
             "UNDO",
-            color = N2Cyan,
+            color = undoAccent,
             fontSize = 9.sp,
             fontWeight = FontWeight.Black,
             modifier = Modifier.clickable(onClick = onUndo).padding(horizontal = 8.dp, vertical = 4.dp)
