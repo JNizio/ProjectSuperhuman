@@ -74,6 +74,8 @@ internal object FoodNutritionOverrideStore {
                 changed("salt", original.salt, original.saltKnown, corrected.salt, corrected.saltKnown)
                 changed("sodium", original.sodiumMg, original.sodiumKnown, corrected.sodiumMg, corrected.sodiumKnown)
             }
+            if (editedFields.isEmpty()) return@use
+
             val revision = helper.readableDatabase.rawQuery(
                 "SELECT revision FROM food_nutrition_override WHERE identity_key = ? LIMIT 1",
                 arrayOf(key)
@@ -240,9 +242,28 @@ internal object FoodNutritionOverrideStore {
             } else {
                 food.source + " · edited locally"
             }
-            val evidence = food.nutrientEvidence.toMutableMap().apply {
-                editedFields.forEach { put(it, NutrientEvidenceKind.USER_ENTERED) }
+            fun resolvedKnown(id: String): Boolean = when (id) {
+                "energy_kcal" -> resolved.kcalKnown
+                "protein" -> resolved.proteinKnown
+                "carbohydrate" -> resolved.carbsKnown
+                "fat" -> resolved.fatKnown
+                "fibre" -> resolved.fibreKnown
+                "sugars" -> resolved.sugarKnown
+                "saturated_fat" -> resolved.saturatedFatKnown
+                "salt" -> resolved.saltKnown
+                "sodium" -> resolved.sodiumKnown
+                else -> true
             }
+            val evidence = food.nutrientEvidence.toMutableMap().apply {
+                editedFields.forEach { id ->
+                    put(
+                        id,
+                        if (resolvedKnown(id)) NutrientEvidenceKind.USER_ENTERED else NutrientEvidenceKind.MISSING
+                    )
+                }
+            }
+            val coreFields = setOf("energy_kcal", "protein", "carbohydrate", "fat")
+            val remainingApproximate = food.nutritionApproximate && !editedFields.containsAll(coreFields)
 
             return resolved.copy(
                 nutritionIntegrityWarning = integrity.warningText,
@@ -256,20 +277,20 @@ internal object FoodNutritionOverrideStore {
                 },
                 confidence = if (integrity.conflicted) {
                     FoodDataConfidence.CONFLICTED
-                } else if (food.nutritionApproximate && editedFields.size < 4) {
+                } else if (remainingApproximate) {
                     FoodDataConfidence.MEDIUM
                 } else {
                     FoodDataConfidence.HIGH
                 },
-                energyEvidence = if (use("energy_kcal") && resolved.kcalKnown) {
-                    EnergyEvidenceKind.USER_ENTERED
+                energyEvidence = if (use("energy_kcal")) {
+                    if (resolved.kcalKnown) EnergyEvidenceKind.USER_ENTERED else EnergyEvidenceKind.UNKNOWN
                 } else {
                     food.energyEvidence
                 },
                 nutrientEvidence = evidence,
                 correctedFields = editedFields,
                 sourceWarnings = integrity.warnings,
-                nutritionApproximate = food.nutritionApproximate && editedFields.isEmpty()
+                nutritionApproximate = remainingApproximate
             )
         }
     }
