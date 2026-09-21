@@ -39,10 +39,10 @@ internal object LargeLocalFoodDatabase {
     const val CORE_FOOD_TARGET = 1_000
 
     private val CORE_MICRONUTRIENTS = setOf(
-        "calcium", "copper", "iron", "magnesium", "manganese", "phosphorus",
-        "potassium", "selenium", "sodium", "zinc",
+        "calcium", "chloride", "copper", "iron", "iodine", "magnesium", "manganese",
+        "phosphorus", "potassium", "selenium", "sodium", "zinc",
         "vitamin_a", "vitamin_b1", "vitamin_b2", "niacin", "pantothenic_acid",
-        "vitamin_b6", "folate", "vitamin_b12", "vitamin_c", "vitamin_d",
+        "vitamin_b6", "biotin", "folate", "vitamin_b12", "vitamin_c", "vitamin_d",
         "vitamin_e", "vitamin_k", "choline"
     )
     private const val CORE_MIN_MICRONUTRIENTS = 18
@@ -770,6 +770,8 @@ internal object LargeLocalFoodDatabase {
               AND fat_known = 1
               AND fibre_known = 1
               AND sugar_known = 1
+              AND saturated_fat_known = 1
+              AND sodium_known = 1
               AND essential_micronutrient_count >= ?
             """.trimIndent(),
             arrayOf(CORE_MIN_MICRONUTRIENTS.toString())
