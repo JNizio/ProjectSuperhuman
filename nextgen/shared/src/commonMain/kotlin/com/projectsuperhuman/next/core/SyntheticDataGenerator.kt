@@ -240,6 +240,109 @@ class SyntheticDataGenerator(
                 )
             }
 
+            // Strength sessions use the same records and metadata consumed by the native Strength UI.
+            if (strengthWorkoutDay) {
+                val dayToken = anchor / DAY_MS
+                val sessionId = "synthetic-strength:${config.seed}:$dayToken"
+                val sessionEnd = (anchor - 2L * HOUR_MS).coerceAtMost(now)
+                val durationMin = workoutMinutes.roundToInt().coerceAtLeast(22)
+                val sessionStart = sessionEnd - durationMin * MINUTE_MS
+                val workoutVariant = dayIndex % 3
+                val workoutName = when (workoutVariant) {
+                    0 -> "Upper Body"
+                    1 -> "Lower Body"
+                    else -> "Full Body"
+                }
+                val exercises = when (workoutVariant) {
+                    0 -> listOf(
+                        Triple("bench_press", "Bench Press", "Chest"),
+                        Triple("lat_pulldown", "Lat Pulldown", "Back"),
+                        Triple("shoulder_press", "Shoulder Press", "Shoulders"),
+                        Triple("cable_row", "Cable Row", "Back")
+                    )
+                    1 -> listOf(
+                        Triple("leg_press", "Leg Press", "Quads"),
+                        Triple("romanian_deadlift", "Romanian Deadlift", "Hamstrings"),
+                        Triple("leg_curl", "Leg Curl", "Hamstrings"),
+                        Triple("calf_raise", "Calf Raise", "Calves")
+                    )
+                    else -> listOf(
+                        Triple("goblet_squat", "Goblet Squat", "Quads"),
+                        Triple("bench_press", "Bench Press", "Chest"),
+                        Triple("cable_row", "Cable Row", "Back"),
+                        Triple("dumbbell_shoulder_press", "Dumbbell Shoulder Press", "Shoulders")
+                    )
+                }
+
+                var totalVolume = 0.0
+                var totalSets = 0
+                exercises.forEachIndexed { exerciseIndex, exercise ->
+                    val baseLoad = when (exercise.second) {
+                        "Bench Press" -> 62.5
+                        "Lat Pulldown" -> 55.0
+                        "Shoulder Press" -> 35.0
+                        "Cable Row" -> 52.5
+                        "Leg Press" -> 130.0
+                        "Romanian Deadlift" -> 72.5
+                        "Leg Curl" -> 42.5
+                        "Calf Raise" -> 80.0
+                        "Goblet Squat" -> 30.0
+                        "Dumbbell Shoulder Press" -> 22.5
+                        else -> 40.0
+                    }
+                    repeat(3) { setIndex ->
+                        val reps = (10 - setIndex + random.nextInt(-1, 2)).coerceIn(6, 12)
+                        val progression = if (config.days <= 1) 0.0 else dayIndex.toDouble() / (config.days - 1).toDouble()
+                        val loadKg = (baseLoad * (0.92 + progression * 0.12) + random.centered(2.0))
+                            .coerceAtLeast(5.0)
+                        val setVolume = loadKg * reps
+                        totalVolume += setVolume
+                        totalSets += 1
+                        val setTs = sessionStart + (exerciseIndex * 3L + setIndex + 1L) * 4L * MINUTE_MS
+                        add(
+                            dayIndex, anchor, HealthDomain.EXERCISE, "exercise_set",
+                            setVolume, "kg-reps", setTs, 100 + exerciseIndex * 10 + setIndex,
+                            mapOf(
+                                "exerciseId" to exercise.first,
+                                "exerciseName" to exercise.second,
+                                "group" to exercise.third,
+                                "equipment" to "Synthetic gym",
+                                "reps" to reps.toString(),
+                                "loadKg" to roundedText(loadKg),
+                                "met" to "5.0",
+                                "setType" to "Work",
+                                "rir" to (1 + setIndex.coerceAtMost(2)).toString(),
+                                "rpe" to roundedText((7.0 + setIndex * 0.4).coerceAtMost(9.0)),
+                                "superset" to "",
+                                "sessionId" to sessionId
+                            )
+                        )
+                    }
+                }
+
+                val sessionMeta = mapOf(
+                    "sessionId" to sessionId,
+                    "startTime" to sessionStart.toString(),
+                    "endTime" to sessionEnd.toString(),
+                    "durationMin" to durationMin.toString(),
+                    "workoutName" to workoutName,
+                    "totalSets" to totalSets.toString(),
+                    "workingSets" to totalSets.toString(),
+                    "volumeKg" to roundedText(totalVolume),
+                    "exerciseCount" to exercises.size.toString(),
+                    "sessionRpe" to roundedText((6.5 + stress * 1.7 - recovery * 0.8).coerceIn(5.0, 9.0)),
+                    "notes" to "Synthetic strength session for developer testing"
+                )
+                add(
+                    dayIndex, anchor, HealthDomain.EXERCISE, "workout_session",
+                    totalSets.toDouble(), "sets", sessionEnd, 200, sessionMeta
+                )
+                add(
+                    dayIndex, anchor, HealthDomain.EXERCISE, "workout_volume",
+                    totalVolume, "kg-reps", sessionEnd, 201,
+                    mapOf("sessionId" to sessionId, "workoutName" to workoutName)
+                )
+            }
 
             if (cardioWorkoutDay) {
                 val dayToken = anchor / DAY_MS
