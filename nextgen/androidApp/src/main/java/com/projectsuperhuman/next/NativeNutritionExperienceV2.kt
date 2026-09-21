@@ -166,10 +166,11 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     var lookingUp by remember { mutableStateOf(false) }
     var showAllNutrients by remember { mutableStateOf(false) }
     var editingTargets by remember { mutableStateOf(false) }
+    var selectedDate by remember { mutableStateOf(LocalDate.now(ZoneId.systemDefault())) }
 
     suspend fun refresh() {
         val zone = ZoneId.systemDefault()
-        val date = LocalDate.now(zone)
+        val date = selectedDate
         val from = date.atStartOfDay(zone).toInstant().toEpochMilli()
         val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
         day = n2BuildDay(NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to))
@@ -217,14 +218,24 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     }
 
     DisposableEffect(Unit) { onDispose { imageScanner.close() } }
-    LaunchedEffect(Unit) { NativeFoodCatalog.all(context); refresh() }
+    LaunchedEffect(Unit) { NativeFoodCatalog.all(context) }
+    LaunchedEffect(selectedDate) { refresh() }
 
     Column(
         Modifier.fillMaxSize().background(N2Bg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        N2Header(onBack)
+        N2Header(onBack, selectedDate)
         N2Tabs(view) { view = it }
+        N2DateNav(
+            date = selectedDate,
+            onPrevious = { selectedDate = selectedDate.minusDays(1) },
+            onToday = { selectedDate = LocalDate.now(ZoneId.systemDefault()) },
+            onNext = {
+                val today = LocalDate.now(ZoneId.systemDefault())
+                if (selectedDate.isBefore(today)) selectedDate = selectedDate.plusDays(1)
+            }
+        )
 
         when (view) {
             N2View.DIARY -> {
@@ -279,7 +290,14 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                         onAdd = {
                             scope.launch {
                                 val amount = portion.toDoubleOrNull()?.coerceIn(1.0, 5000.0) ?: 100.0
-                                NativeDataHub.saveFood(food, amount, meal)
+                                val zone = ZoneId.systemDefault()
+                                val today = LocalDate.now(zone)
+                                val timestamp = if (selectedDate == today) {
+                                    System.currentTimeMillis()
+                                } else {
+                                    selectedDate.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
+                                }
+                                NativeDataHub.saveFood(food, amount, meal, timestampEpochMs = timestamp)
                                 selected = null
                                 results = emptyList()
                                 query = ""
@@ -329,7 +347,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 }
 
 @Composable
-private fun N2Header(onBack: () -> Unit) {
+private fun N2Header(onBack: () -> Unit, date: LocalDate) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.width(42.dp).height(42.dp).background(N2Surface, RoundedCornerShape(14.dp))
@@ -342,8 +360,42 @@ private fun N2Header(onBack: () -> Unit) {
             Text("Food, nutrients & daily patterns", color = N2Muted, fontSize = 10.sp)
         }
         Text(
-            LocalDate.now().format(DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)),
+            date.format(DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)),
             color = N2Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
+private fun N2DateNav(
+    date: LocalDate,
+    onPrevious: () -> Unit,
+    onToday: () -> Unit,
+    onNext: () -> Unit
+) {
+    val today = LocalDate.now(ZoneId.systemDefault())
+    Row(
+        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(16.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(16.dp)).padding(horizontal = 10.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text("‹", color = N2Ink, fontSize = 25.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable(onClick = onPrevious).padding(horizontal = 10.dp, vertical = 2.dp))
+        Text(
+            if (date == today) "Today" else date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.ENGLISH)),
+            color = N2Ink,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.clickable(onClick = onToday).padding(horizontal = 8.dp, vertical = 6.dp)
+        )
+        Text(
+            "›",
+            color = if (date.isBefore(today)) N2Ink else N2Muted.copy(alpha = .35f),
+            fontSize = 25.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable(enabled = date.isBefore(today), onClick = onNext)
+                .padding(horizontal = 10.dp, vertical = 2.dp)
         )
     }
 }
