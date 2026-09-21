@@ -69,6 +69,11 @@ private val N2Surface get() = superhumanSurface
 private val N2RowBg get() = if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else N2Bg
 
 private enum class N2View { DIARY, NUTRIENTS, INSIGHTS }
+private enum class N2Range(val label: String, val days: Long) {
+    DAY("Day", 1),
+    WEEK("7 days", 7),
+    MONTH("30 days", 30)
+}
 
 private data class N2Entry(
     val id: String,
@@ -82,7 +87,9 @@ private data class N2Entry(
     val carbs: Double,
     val fat: Double,
     val fibre: Double,
-    val micronutrientCount: Int
+    val micronutrientCount: Int,
+    val barcode: String,
+    val sourceName: String
 )
 
 private data class N2Micro(
@@ -167,6 +174,9 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     var showAllNutrients by remember { mutableStateOf(false) }
     var editingTargets by remember { mutableStateOf(false) }
     var selectedDate by remember { mutableStateOf(LocalDate.now(ZoneId.systemDefault())) }
+    var nutrientRange by remember { mutableStateOf(N2Range.DAY) }
+    var nutrientDay by remember { mutableStateOf(N2Day()) }
+    var lastRemoved by remember { mutableStateOf<N2Entry?>(null) }
 
     suspend fun refresh() {
         val zone = ZoneId.systemDefault()
@@ -175,6 +185,36 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
         val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
         day = n2BuildDay(NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to))
         goals = n2LoadGoals()
+    }
+
+    suspend fun refreshNutrients() {
+        val zone = ZoneId.systemDefault()
+        val fromDate = selectedDate.minusDays(nutrientRange.days - 1)
+        val from = fromDate.atStartOfDay(zone).toInstant().toEpochMilli()
+        val to = selectedDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+        nutrientDay = n2BuildDay(NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to))
+    }
+
+    suspend fun repeatEntry(entry: N2Entry) {
+        val food = if (entry.barcode.isNotBlank()) {
+            NativeFoodCatalog.lookupBarcode(entry.barcode)
+        } else {
+            NativeFoodCatalog.search(context, entry.name, limit = 10).foods.firstOrNull { it.id == entry.foodId }
+        }
+        if (food == null) {
+            status = "Couldn’t repeat " + entry.name + " because its source food is unavailable"
+            return
+        }
+        val zone = ZoneId.systemDefault()
+        val timestamp = if (selectedDate == LocalDate.now(zone)) {
+            System.currentTimeMillis()
+        } else {
+            selectedDate.atTime(12, 0).atZone(zone).toInstant().toEpochMilli()
+        }
+        NativeDataHub.saveFood(food, entry.grams, entry.meal, timestampEpochMs = timestamp)
+        status = "Added " + entry.name + " again"
+        refresh()
+        refreshNutrients()
     }
 
     suspend fun lookupBarcode(raw: String) {
@@ -219,7 +259,8 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 
     DisposableEffect(Unit) { onDispose { imageScanner.close() } }
     LaunchedEffect(Unit) { NativeFoodCatalog.all(context) }
-    LaunchedEffect(selectedDate) { refresh() }
+    LaunchedEffect(selectedDate) { refresh(); refreshNutrients() }
+    LaunchedEffect(selectedDate, nutrientRange) { refreshNutrients() }
 
     Column(
         Modifier.fillMaxSize().background(N2Bg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
@@ -323,7 +364,13 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                 }
             }
 
-            N2View.NUTRIENTS -> N2Nutrients(day, showAllNutrients) { showAllNutrients = !showAllNutrients }
+            N2View.NUTRIENTS -> N2Nutrients(
+                day = nutrientDay,
+                showAll = showAllNutrients,
+                range = nutrientRange,
+                onRangeChange = { nutrientRange = it },
+                onToggleAll = { showAllNutrients = !showAllNutrients }
+            )
 
             N2View.INSIGHTS -> N2Insights(
                 day = day,
@@ -357,7 +404,7 @@ private fun N2Header(onBack: () -> Unit, date: LocalDate) {
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Nutrition", color = N2Ink, fontSize = 25.sp, fontWeight = FontWeight.Black)
-            Text("Food, nutrients & daily patterns", color = N2Muted, fontSize = 10.sp)
+            Text("Diary · nutrients · personal patterns", color = N2Muted, fontSize = 10.sp)
         }
         Text(
             date.format(DateTimeFormatter.ofPattern("d MMM", Locale.ENGLISH)),
@@ -939,7 +986,9 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             fibre = metric(entryId, "food_fibre", "fibre"),
             micronutrientCount = foodRows.count { row ->
                 row.metadata["diaryEntryId"] == entryId && !row.metadata["nutrientId"].isNullOrBlank()
-            }
+            },
+            barcode = kcal.metadata["barcode"].orEmpty(),
+            sourceName = kcal.metadata["sourceName"].orEmpty()
         )
     }.sortedByDescending { it.timestamp }
 
