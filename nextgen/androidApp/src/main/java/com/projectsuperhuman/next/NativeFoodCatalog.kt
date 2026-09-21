@@ -459,9 +459,9 @@ internal object NativeFoodCatalog {
 
         val servingWarnings = validateOffServingConsistency(
             nutriments = nutriments,
-            servingQuantity = p.optNullableDouble("serving_quantity"),
+            servingQuantity = servingQuantity,
             servingUnit = servingQuantityUnit,
-            productQuantity = p.optNullableDouble("product_quantity"),
+            productQuantity = productQuantity,
             productUnit = productQuantityUnit,
             basisUnit = basisUnit
         )
