@@ -92,8 +92,11 @@ private data class N2Entry(
     val meal: String,
     val kcal: Double,
     val protein: Double,
+    val proteinKnown: Boolean,
     val carbs: Double,
+    val carbsKnown: Boolean,
     val fat: Double,
+    val fatKnown: Boolean,
     val fibre: Double,
     val micronutrientCount: Int,
     val barcode: String,
@@ -867,7 +870,10 @@ private fun N2Results(foods: List<NativeFood>, selectedId: String?, onSelect: (N
                         }, color = N2Muted, fontSize = 9.sp
                     )
                     Text(
-                        "${food.kcal.roundToInt()} kcal · ${n2One(food.protein)}P · ${n2One(food.carbs)}C · ${n2One(food.fat)}F per ${food.unit}",
+                        "${food.kcal.roundToInt()} kcal · " +
+                            (if (food.proteinKnown) "${n2One(food.protein)}P" else "—P") + " · " +
+                            (if (food.carbsKnown) "${n2One(food.carbs)}C" else "—C") + " · " +
+                            (if (food.fatKnown) "${n2One(food.fat)}F" else "—F") + " per ${food.unit}",
                         color = N2Muted, fontSize = 9.sp
                     )
                 }
@@ -905,9 +911,9 @@ private fun N2AddFoodCard(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             N2FoodStat((food.kcal * factor).roundToInt().toString(), "kcal", Modifier.weight(1f))
-            N2FoodStat("${n2One(food.protein * factor)}g", "protein", Modifier.weight(1f))
-            N2FoodStat("${n2One(food.carbs * factor)}g", "carbs", Modifier.weight(1f))
-            N2FoodStat("${n2One(food.fat * factor)}g", "fat", Modifier.weight(1f))
+            N2FoodStat(if (food.proteinKnown) "${n2One(food.protein * factor)}g" else "—", "protein", Modifier.weight(1f))
+            N2FoodStat(if (food.carbsKnown) "${n2One(food.carbs * factor)}g" else "—", "carbs", Modifier.weight(1f))
+            N2FoodStat(if (food.fatKnown) "${n2One(food.fat * factor)}g" else "—", "fat", Modifier.weight(1f))
         }
         OutlinedTextField(
             portion,
@@ -950,6 +956,14 @@ private fun N2AddFoodCard(
         }
         if (unitContext.isNotEmpty()) {
             Text(unitContext.joinToString(" · "), color = N2Muted, fontSize = 9.sp)
+        }
+        food.nutritionIntegrityWarning?.takeIf { it.isNotBlank() }?.let { warning ->
+            Text(
+                "Source data warning · " + warning,
+                color = N2Amber,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
 
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -1195,7 +1209,9 @@ private fun N2MealCard(
                             Text(entry.name, color = N2Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                             Text(
                                 n2One(entry.amount) + " " + entry.amountUnit + " · " + entry.kcal.roundToInt().toString() + " kcal · " +
-                                    n2One(entry.protein) + "P · " + n2One(entry.carbs) + "C · " + n2One(entry.fat) + "F",
+                                    (if (entry.proteinKnown) n2One(entry.protein) + "P" else "—P") + " · " +
+                                    (if (entry.carbsKnown) n2One(entry.carbs) + "C" else "—C") + " · " +
+                                    (if (entry.fatKnown) n2One(entry.fat) + "F" else "—F"),
                                 color = N2Muted,
                                 fontSize = 10.sp,
                                 maxLines = 1
@@ -1639,8 +1655,14 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             meal = kcal.metadata["meal"] ?: "Other",
             kcal = kcal.value,
             protein = metric(entryId, "food_protein"),
+            proteinKnown = kcal.metadata["proteinKnown"]?.toBooleanStrictOrNull()
+                ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_protein" },
             carbs = metric(entryId, "food_carbs", "carbs"),
+            carbsKnown = kcal.metadata["carbsKnown"]?.toBooleanStrictOrNull()
+                ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_carbs" },
             fat = metric(entryId, "food_fat", "fat"),
+            fatKnown = kcal.metadata["fatKnown"]?.toBooleanStrictOrNull()
+                ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_fat" },
             fibre = metric(entryId, "food_fibre", "fibre"),
             micronutrientCount = foodRows.count { row ->
                 row.metadata["diaryEntryId"] == entryId && !row.metadata["nutrientId"].isNullOrBlank()
