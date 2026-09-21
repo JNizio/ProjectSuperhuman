@@ -163,7 +163,8 @@ internal object LargeLocalFoodDatabase {
                         SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
                                protein_known, carbs_known, fat_known, fibre_known, sugar_known,
                                unit, source, search_text, brand, micronutrients_json, core_rank,
-                               saturated_fat, saturated_fat_known, sodium_mg, sodium_known
+                               saturated_fat, saturated_fat_known, sodium_mg, sodium_known,
+                               salt_g, salt_known, unknown_micronutrients_json, source_record_id
                         FROM food_reference
                         WHERE normalized_name LIKE ? OR search_text LIKE ?
                         ORDER BY
@@ -224,9 +225,9 @@ internal object LargeLocalFoodDatabase {
                                         saturatedFatKnown = cursor.getInt(21) != 0,
                                         sodiumMg = cursor.getDouble(22),
                                         sodiumKnown = cursor.getInt(23) != 0,
-                                        salt = if (cursor.getInt(23) != 0) NutritionIntegrity.sodiumMgToSaltG(cursor.getDouble(22)) else 0.0,
-                                        saltKnown = cursor.getInt(23) != 0,
-                                        sourceRecordId = sourceId.removePrefix("usda:"),
+                                        salt = cursor.getDouble(24),
+                                        saltKnown = cursor.getInt(25) != 0,
+                                        sourceRecordId = cursor.getString(27).ifBlank { sourceId.removePrefix("usda:") },
                                         sourceType = if (source.startsWith("USDA")) FoodDataSourceType.USDA else FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE,
                                         verificationState = FoodVerificationState.SOURCE_VALIDATED,
                                         confidence = FoodDataConfidence.HIGH
@@ -301,7 +302,8 @@ internal object LargeLocalFoodDatabase {
                 SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
                        protein_known, carbs_known, fat_known, fibre_known, sugar_known,
                        unit, source, search_text, brand, micronutrients_json,
-                       saturated_fat, saturated_fat_known, sodium_mg, sodium_known
+                       saturated_fat, saturated_fat_known, sodium_mg, sodium_known,
+                       salt_g, salt_known, source_record_id
                 FROM food_reference
                 WHERE source LIKE 'USDA%' AND $where
                 ORDER BY
@@ -343,9 +345,9 @@ internal object LargeLocalFoodDatabase {
                     saturatedFatKnown = cursor.getInt(20) != 0,
                     sodiumMg = cursor.getDouble(21),
                     sodiumKnown = cursor.getInt(22) != 0,
-                    salt = if (cursor.getInt(22) != 0) NutritionIntegrity.sodiumMgToSaltG(cursor.getDouble(21)) else 0.0,
-                    saltKnown = cursor.getInt(22) != 0,
-                    sourceRecordId = sourceId.removePrefix("usda:"),
+                    salt = cursor.getDouble(23),
+                    saltKnown = cursor.getInt(24) != 0,
+                    sourceRecordId = cursor.getString(25).ifBlank { sourceId.removePrefix("usda:") },
                     sourceType = FoodDataSourceType.USDA,
                     verificationState = FoodVerificationState.SOURCE_VALIDATED,
                     confidence = FoodDataConfidence.HIGH
@@ -1003,6 +1005,7 @@ internal object LargeLocalFoodDatabase {
             put("sugar", food.sugar)
             put("saturated_fat", food.saturatedFat)
             put("sodium_mg", food.sodiumMg)
+            put("salt_g", food.salt)
             put("protein_known", if (food.proteinKnown) 1 else 0)
             put("carbs_known", if (food.carbsKnown) 1 else 0)
             put("fat_known", if (food.fatKnown) 1 else 0)
@@ -1010,6 +1013,7 @@ internal object LargeLocalFoodDatabase {
             put("sugar_known", if (food.sugarKnown) 1 else 0)
             put("saturated_fat_known", if (food.saturatedFatKnown) 1 else 0)
             put("sodium_known", if (food.sodiumKnown) 1 else 0)
+            put("salt_known", if (food.saltKnown) 1 else 0)
             put("unit", food.unit)
             put("source", food.source)
             put("search_text", normalize("${food.name} ${food.searchText} ${food.brand}"))
@@ -1017,6 +1021,14 @@ internal object LargeLocalFoodDatabase {
             put("micronutrients_json", encodeMicros(food.micronutrients))
             put("micronutrient_count", food.micronutrients.size)
             put("essential_micronutrient_count", food.micronutrients.keys.count(CORE_MICRONUTRIENTS::contains))
+            put(
+                "unknown_micronutrients_json",
+                JSONArray((CORE_MICRONUTRIENTS - food.micronutrients.keys).sorted()).toString()
+            )
+            put(
+                "source_record_id",
+                food.sourceRecordId.ifBlank { food.id.removePrefix("usda:").removePrefix("core:usda:") }
+            )
             putNull("core_rank")
         }
         db.insertWithOnConflict(
@@ -1046,7 +1058,8 @@ internal object LargeLocalFoodDatabase {
             """
             SELECT id, name, source, micronutrient_count, essential_micronutrient_count
             FROM food_reference
-            WHERE protein_known = 1
+            WHERE id LIKE 'usda:%'
+              AND protein_known = 1
               AND carbs_known = 1
               AND fat_known = 1
               AND fibre_known = 1
@@ -1106,23 +1119,92 @@ internal object LargeLocalFoodDatabase {
             .thenBy { it.name.length }
             .thenBy { it.name }
 
-        val selected = candidates
-            .sortedWith(comparator)
-            .take(CORE_FOOD_TARGET)
+        val selected = candidates.sortedWith(comparator).take(CORE_FOOD_TARGET)
 
-        db.execSQL("UPDATE food_reference SET core_rank = NULL")
-        val update = db.compileStatement("UPDATE food_reference SET core_rank = ? WHERE id = ?")
+        // Rebuild generated Project Superhuman snapshots deterministically.
+        // Hand-curated core records (egg sizes, canonical chicken, etc.) use other core: prefixes.
+        db.delete("food_reference", "id LIKE 'core:usda:%'", null)
+        db.execSQL("UPDATE food_reference SET core_rank = NULL WHERE id NOT LIKE 'core:%'")
+
         selected.forEachIndexed { index, candidate ->
-            update.clearBindings()
-            update.bindLong(1, (index + 1).toLong())
-            update.bindString(2, candidate.id)
-            update.executeUpdateDelete()
+            val source = db.rawQuery(
+                """
+                SELECT name, country, kcal, protein, carbs, fat, fibre, sugar,
+                       saturated_fat, sodium_mg,
+                       protein_known, carbs_known, fat_known, fibre_known, sugar_known,
+                       saturated_fat_known, sodium_known,
+                       unit, source, search_text, brand, micronutrients_json,
+                       micronutrient_count, essential_micronutrient_count,
+                       salt_g, salt_known, unknown_micronutrients_json, source_record_id
+                FROM food_reference
+                WHERE id = ?
+                LIMIT 1
+                """.trimIndent(),
+                arrayOf(candidate.id)
+            ).use { cursor ->
+                if (!cursor.moveToFirst()) null else ContentValues().apply {
+                    val sourceName = cursor.getString(18)
+                    val originalRecordId = cursor.getString(27).ifBlank { candidate.id.removePrefix("usda:") }
+                    put("id", "core:" + candidate.id)
+                    put("name", humanizeReferenceName(cursor.getString(0)))
+                    put("normalized_name", normalize(humanizeReferenceName(cursor.getString(0))))
+                    put("country", cursor.getString(1))
+                    put("kcal", cursor.getDouble(2))
+                    put("protein", cursor.getDouble(3))
+                    put("carbs", cursor.getDouble(4))
+                    put("fat", cursor.getDouble(5))
+                    put("fibre", cursor.getDouble(6))
+                    put("sugar", cursor.getDouble(7))
+                    put("saturated_fat", cursor.getDouble(8))
+                    put("sodium_mg", cursor.getDouble(9))
+                    put("protein_known", cursor.getInt(10))
+                    put("carbs_known", cursor.getInt(11))
+                    put("fat_known", cursor.getInt(12))
+                    put("fibre_known", cursor.getInt(13))
+                    put("sugar_known", cursor.getInt(14))
+                    put("saturated_fat_known", cursor.getInt(15))
+                    put("sodium_known", cursor.getInt(16))
+                    put("unit", cursor.getString(17))
+                    put("source", "Project Superhuman core · " + sourceName)
+                    put(
+                        "search_text",
+                        normalize(cursor.getString(19) + " project superhuman core local offline")
+                    )
+                    put("brand", cursor.getString(20))
+                    put("micronutrients_json", cursor.getString(21))
+                    put("micronutrient_count", cursor.getInt(22))
+                    put("essential_micronutrient_count", cursor.getInt(23))
+                    put("salt_g", cursor.getDouble(24))
+                    put("salt_known", cursor.getInt(25))
+                    put("unknown_micronutrients_json", cursor.getString(26))
+                    put("source_record_id", originalRecordId)
+                    put("core_rank", index + 1)
+                }
+            }
+            if (source != null) {
+                db.insertWithOnConflict(
+                    "food_reference",
+                    null,
+                    source,
+                    SQLiteDatabase.CONFLICT_REPLACE
+                )
+            }
         }
 
+        // Hand-curated Project Superhuman variants should outrank generated snapshots.
+        db.execSQL("UPDATE food_reference SET core_rank = 0 WHERE id LIKE 'core:%' AND id NOT LIKE 'core:usda:%'")
+
+        val materializedCount = DatabaseUtils.longForQuery(
+            db,
+            "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%'",
+            null
+        ).toInt()
         val strictCount = selected.count { it.essentialCount >= CORE_MIN_MICRONUTRIENTS }
-        putMeta(db, "project_superhuman_core_food_count", selected.size.toString())
+
+        putMeta(db, "project_superhuman_core_food_count", materializedCount.toString())
         putMeta(db, "project_superhuman_core_food_strict_count", strictCount.toString())
-        putMeta(db, "project_superhuman_core_food_schema", "4")
+        putMeta(db, "project_superhuman_core_food_schema", "5")
+        putMeta(db, "project_superhuman_core_food_storage", "materialized-local-snapshot")
         putMeta(db, "project_superhuman_core_food_min_essential", CORE_MIN_MICRONUTRIENTS.toString())
         putMeta(db, "project_superhuman_core_food_essential_total", CORE_MICRONUTRIENTS.size.toString())
     }
@@ -1146,6 +1228,10 @@ internal object LargeLocalFoodDatabase {
                 put("label", nutrient.label)
                 put("value", nutrient.valuePer100)
                 put("unit", nutrient.unit)
+                put("evidenceKind", nutrient.evidenceKind.name)
+                put("source", nutrient.source)
+                put("sourceRecordId", nutrient.sourceRecordId)
+                put("derivedFrom", nutrient.derivedFrom)
             })
         }
         return root.toString()
@@ -1168,7 +1254,12 @@ internal object LargeLocalFoodDatabase {
                             id = id,
                             label = item.optString("label").ifBlank { id },
                             valuePer100 = value,
-                            unit = item.optString("unit").ifBlank { "mg" }
+                            unit = item.optString("unit").ifBlank { "mg" },
+                            evidenceKind = item.optString("evidenceKind")
+                                .let { raw -> runCatching { NutrientEvidenceKind.valueOf(raw) }.getOrDefault(NutrientEvidenceKind.UNSPECIFIED) },
+                            source = item.optString("source"),
+                            sourceRecordId = item.optString("sourceRecordId"),
+                            derivedFrom = item.optString("derivedFrom")
                         )
                     )
                 }
@@ -1256,7 +1347,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    7
+    8
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -1274,6 +1365,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 sugar REAL NOT NULL,
                 saturated_fat REAL NOT NULL DEFAULT 0,
                 sodium_mg REAL NOT NULL DEFAULT 0,
+                salt_g REAL NOT NULL DEFAULT 0,
                 protein_known INTEGER NOT NULL,
                 carbs_known INTEGER NOT NULL,
                 fat_known INTEGER NOT NULL,
@@ -1281,6 +1373,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 sugar_known INTEGER NOT NULL,
                 saturated_fat_known INTEGER NOT NULL DEFAULT 0,
                 sodium_known INTEGER NOT NULL DEFAULT 0,
+                salt_known INTEGER NOT NULL DEFAULT 0,
                 unit TEXT NOT NULL,
                 source TEXT NOT NULL,
                 search_text TEXT NOT NULL,
@@ -1288,6 +1381,8 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 micronutrients_json TEXT NOT NULL,
                 micronutrient_count INTEGER NOT NULL,
                 essential_micronutrient_count INTEGER NOT NULL DEFAULT 0,
+                unknown_micronutrients_json TEXT NOT NULL DEFAULT '[]',
+                source_record_id TEXT NOT NULL DEFAULT '',
                 core_rank INTEGER
             )
             """.trimIndent()
