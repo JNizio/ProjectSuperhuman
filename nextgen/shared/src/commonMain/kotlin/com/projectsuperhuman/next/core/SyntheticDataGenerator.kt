@@ -869,7 +869,7 @@ class SyntheticDataGenerator(
         private val CUCUMBER = generic("f76", "Cucumber", 15.0, 0.7, 3.6, 0.1, 0.5, 1.7)
         private val BROCCOLI = generic("f78", "Broccoli", 34.0, 2.8, 6.6, 0.4, 2.6, 1.7)
         private val SPINACH = generic("f80", "Spinach", 23.0, 2.9, 3.6, 0.4, 2.2, 0.4)
-        private val OLIVE_OIL = generic("f96", "Olive oil", 884.0, 0.0, 0.0, 100.0, 0.0, 0.0, "100 ml")
+        private val OLIVE_OIL = generic("f96", "Olive oil", 884.0, 0.0, 0.0, 100.0, 0.0, 0.0, "100 g")
         private val TOMATO_PASSATA = generic("f131", "Tomato passata", 29.0, 1.4, 5.0, 0.2, 1.5, 4.0)
         private val FROZEN_MIXED_VEGETABLES = generic("f134", "Frozen mixed vegetables", 55.0, 3.0, 9.0, 0.5, 3.5, 3.0)
         private val GRANOLA = generic("f138", "Granola", 450.0, 10.0, 64.0, 17.0, 8.0, 20.0)
