@@ -484,6 +484,9 @@ internal object FoodEvidenceEngine {
             if (f.imageReferences.isNotEmpty()) {
                 put("imageReferences", f.imageReferences.entries.joinToString("|") { it.key + "=" + it.value })
             }
+            if (f.correctedFields.isNotEmpty()) {
+                put("correctedFields", f.correctedFields.sorted().joinToString("|"))
+            }
             if (f.sourceWarnings.isNotEmpty()) put("sourceWarnings", f.sourceWarnings.joinToString("|"))
             put("nutritionApproximate", f.nutritionApproximate.toString())
         }
