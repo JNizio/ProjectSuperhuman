@@ -175,7 +175,7 @@ internal object FoodNutritionOverrideStore {
                 nutritionApproximate = false,
                 source = editedSource,
                 sourceType = FoodDataSourceType.USER_CORRECTED,
-                sourceRevision = "user-correction-v" + revision,
+                sourceRevision = "user-correction-v" + revision + "@" + correctionEpochMs,
                 verificationState = FoodVerificationState.USER_CORRECTED,
                 confidence = FoodDataConfidence.HIGH,
                 energyEvidence = if (cursor.getInt(6) != 0) EnergyEvidenceKind.USER_ENTERED else food.energyEvidence,
