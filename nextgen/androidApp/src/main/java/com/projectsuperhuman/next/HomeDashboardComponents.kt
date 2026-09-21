@@ -921,25 +921,13 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(
-                        "NUTRITION",
-                        color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .70f) else HomeMuted,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.15.sp
-                    )
-                    Text(
-                        if (hasFood) {
-                            snapshot.nutritionEntriesToday.toString() +
-                                if (snapshot.nutritionEntriesToday == 1) " food today" else " foods today"
-                        } else {
-                            "Nothing logged yet"
-                        },
-                        color = muted,
-                        fontSize = 8.sp
-                    )
-                }
+                Text(
+                    "NUTRITION",
+                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .70f) else HomeMuted,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.15.sp
+                )
 
                 Box(
                     Modifier.size(36.dp)
@@ -1117,23 +1105,27 @@ private fun HomeNutritionOverviewRing(
             }
         }
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            Modifier.size(72.dp).background(Color.White, CircleShape),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
             Text(
                 (if (snapshot.nutritionCaloriesComplete) "" else "~") + snapshot.caloriesToday,
-                color = if (SuperhumanAppearance.darkMode) Color.White else HomeNavy,
+                color = Color(0xFF0A1A26),
                 fontSize = 23.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
                 "kcal",
-                color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .56f) else HomeMuted,
+                color = Color(0xFF566572),
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Bold
             )
             snapshot.calorieGoal?.let { goal ->
                 Text(
                     "of " + goal,
-                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .38f) else HomeMuted,
+                    color = Color(0xFF6E7A84),
                     fontSize = 7.sp
                 )
             }
