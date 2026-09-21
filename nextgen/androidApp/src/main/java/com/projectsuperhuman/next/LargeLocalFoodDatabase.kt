@@ -175,10 +175,11 @@ internal object LargeLocalFoodDatabase {
                                 ELSE 2
                             END,
                             CASE
-                                WHEN source LIKE 'USDA Foundation Foods%' THEN 0
-                                WHEN source LIKE 'USDA FNDDS%' THEN 1
-                                WHEN source LIKE 'USDA SR Legacy%' THEN 2
-                                ELSE 3
+                                WHEN id LIKE 'core:%' THEN 0
+                                WHEN source LIKE 'USDA Foundation Foods%' THEN 1
+                                WHEN source LIKE 'USDA FNDDS%' THEN 2
+                                WHEN source LIKE 'USDA SR Legacy%' THEN 3
+                                ELSE 4
                             END,
                             micronutrient_count DESC,
                             length(name),
@@ -244,12 +245,11 @@ internal object LargeLocalFoodDatabase {
                 }
             }
 
-            val expanded = canonicalSearchAliases(raw, q)
-            val result = (expanded + raw)
-                .distinctBy { it.id + "|" + it.name.lowercase(Locale.ROOT) }
+            val result = raw
+                .distinctBy { it.id }
                 .sortedWith(
                     compareBy<NativeFood> { canonicalQueryRank(it, q) }
-                        .thenBy { if (it.id.startsWith("alias:")) 0 else 1 }
+                        .thenBy { if (it.id.startsWith("core:")) 0 else 1 }
                         .thenByDescending { it.micronutrients.size }
                         .thenBy { it.name.length }
                 )
@@ -271,84 +271,168 @@ internal object LargeLocalFoodDatabase {
         }
     }
 
-    private fun canonicalSearchAliases(foods: List<NativeFood>, normalizedQuery: String): List<NativeFood> {
-        val aliases = mutableListOf<NativeFood>()
-        val queryTokens = normalizedQuery.split(' ').filter(String::isNotBlank)
-
-        // A human expects the uncomplicated grilled breast before USDA's skin/coating variants.
-        if ("chicken" in queryTokens && "breast" in queryTokens) {
-            val grilled = foods.firstOrNull {
-                val raw = normalize(it.originalName.ifBlank { it.name })
-                raw.contains("chicken breast") && raw.contains("grilled") &&
-                    (raw.contains("without skin") || raw.contains("skinless"))
-            } ?: foods.firstOrNull {
-                val raw = normalize(it.originalName.ifBlank { it.name })
-                raw.contains("chicken breast") && raw.contains("grilled")
-            }
-            grilled?.let { base ->
-                aliases += base.copy(
-                    id = "alias:generic-grilled-chicken-breast:" + base.id,
-                    name = "Grilled chicken breast",
-                    originalName = base.originalName.ifBlank { base.name },
-                    searchText = base.searchText + " generic grilled chicken breast plain skinless",
-                    brand = ""
+    private fun seedCanonicalLocalVariants(db: SQLiteDatabase) {
+        fun findUsda(vararg patterns: String): NativeFood? {
+            val where = patterns.joinToString(" AND ") { "normalized_name LIKE ?" }
+            val args = patterns.map { "%" + normalize(it) + "%" }.toTypedArray()
+            return db.rawQuery(
+                """
+                SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
+                       protein_known, carbs_known, fat_known, fibre_known, sugar_known,
+                       unit, source, search_text, brand, micronutrients_json,
+                       saturated_fat, saturated_fat_known, sodium_mg, sodium_known
+                FROM food_reference
+                WHERE source LIKE 'USDA%' AND $where
+                ORDER BY
+                    CASE WHEN source LIKE 'USDA Foundation Foods%' THEN 0
+                         WHEN source LIKE 'USDA FNDDS%' THEN 1
+                         ELSE 2 END,
+                    micronutrient_count DESC,
+                    length(name)
+                LIMIT 1
+                """.trimIndent(),
+                args
+            ).use { cursor ->
+                if (!cursor.moveToFirst()) return@use null
+                val source = cursor.getString(15)
+                val sourceId = cursor.getString(0)
+                NativeFood(
+                    id = sourceId,
+                    name = cursor.getString(1),
+                    originalName = cursor.getString(1),
+                    country = cursor.getString(2),
+                    kcal = cursor.getDouble(3),
+                    protein = cursor.getDouble(4),
+                    carbs = cursor.getDouble(5),
+                    carbohydrateDefinition = CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE,
+                    fat = cursor.getDouble(6),
+                    fibre = cursor.getDouble(7),
+                    sugar = cursor.getDouble(8),
+                    proteinKnown = cursor.getInt(9) != 0,
+                    carbsKnown = cursor.getInt(10) != 0,
+                    fatKnown = cursor.getInt(11) != 0,
+                    fibreKnown = cursor.getInt(12) != 0,
+                    sugarKnown = cursor.getInt(13) != 0,
+                    unit = cursor.getString(14),
+                    source = source,
+                    searchText = cursor.getString(16),
+                    brand = cursor.getString(17),
+                    micronutrients = decodeMicros(cursor.getString(18)),
+                    saturatedFat = cursor.getDouble(19),
+                    saturatedFatKnown = cursor.getInt(20) != 0,
+                    sodiumMg = cursor.getDouble(21),
+                    sodiumKnown = cursor.getInt(22) != 0,
+                    salt = if (cursor.getInt(22) != 0) NutritionIntegrity.sodiumMgToSaltG(cursor.getDouble(21)) else 0.0,
+                    saltKnown = cursor.getInt(22) != 0,
+                    sourceRecordId = sourceId.removePrefix("usda:"),
+                    sourceType = FoodDataSourceType.USDA,
+                    verificationState = FoodVerificationState.SOURCE_VALIDATED,
+                    confidence = FoodDataConfidence.HIGH
                 )
             }
         }
 
-        if ("egg" in queryTokens || "eggs" in queryTokens) {
-            val sizes = listOf(
-                "Small" to "small",
-                "Medium" to "medium",
-                "Large" to "large",
-                "Extra-large" to "extra large",
-                "Jumbo" to "jumbo"
+        fun saveVariant(
+            base: NativeFood,
+            id: String,
+            name: String,
+            searchText: String,
+            servingGrams: Double?,
+            servingLabel: String,
+            preparation: FoodPreparationState
+        ) {
+            val variant = base.copy(
+                id = "core:" + id,
+                name = name,
+                originalName = base.originalName.ifBlank { base.name },
+                source = "Project Superhuman core · derived from " + base.source,
+                searchText = searchText + " " + base.searchText,
+                brand = "",
+                sourceType = FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE,
+                sourceRecordId = base.sourceRecordId,
+                verificationState = FoodVerificationState.SOURCE_VALIDATED,
+                confidence = FoodDataConfidence.HIGH,
+                preparationState = preparation,
+                servingQuantity = servingGrams,
+                servingQuantityUnit = servingGrams?.let { FoodUnit.G },
+                servingLabel = servingLabel
             )
-            val prepPatterns = listOf(
-                Triple("Hard-boiled", "hard boiled", listOf("hard boiled", "hard-boiled")),
-                Triple("Fried", "fried", listOf("fried")),
-                Triple("Poached", "poached", listOf("poached")),
-                Triple("Scrambled", "scrambled", listOf("scrambled"))
+            insertFood(db, variant, replace = true)
+        }
+
+        data class EggSize(val id: String, val label: String, val grams: Double)
+        val eggSizes = listOf(
+            EggSize("small", "Small", 38.0),
+            EggSize("medium", "Medium", 44.0),
+            EggSize("large", "Large", 50.0),
+            EggSize("extra_large", "Extra-large", 56.0),
+            EggSize("jumbo", "Jumbo", 63.0)
+        )
+
+        data class EggPrep(
+            val id: String,
+            val display: String,
+            val patterns: List<String>,
+            val prep: FoodPreparationState
+        )
+        val eggPreps = listOf(
+            EggPrep("boiled", "Boiled egg", listOf("egg", "hard boiled"), FoodPreparationState.BOILED),
+            EggPrep("fried", "Fried egg", listOf("egg", "fried"), FoodPreparationState.FRIED),
+            EggPrep("poached", "Poached egg", listOf("egg", "poached"), FoodPreparationState.POACHED),
+            EggPrep("scrambled", "Scrambled egg", listOf("egg", "scrambled"), FoodPreparationState.COOKED)
+        )
+
+        eggPreps.forEach { prep ->
+            val base = findUsda(*prep.patterns.toTypedArray()) ?: return@forEach
+
+            // Generic preparation record.
+            saveVariant(
+                base = base,
+                id = "egg:" + prep.id,
+                name = prep.display,
+                searchText = "egg eggs " + prep.id + " generic",
+                servingGrams = 50.0,
+                servingLabel = "1 large egg",
+                preparation = prep.prep
             )
 
-            prepPatterns.forEach { (prepLabel, prepToken, matches) ->
-                val base = foods.firstOrNull { food ->
-                    val raw = normalize(food.originalName.ifBlank { food.name })
-                    raw.contains("egg") && matches.any(raw::contains)
-                } ?: return@forEach
-
-                val requestedSize = sizes.firstOrNull { (_, token) -> normalizedQuery.contains(token) }
-                val requestedPrep = normalizedQuery.contains(prepToken)
-                val sizesToEmit = when {
-                    requestedSize != null -> listOf(requestedSize)
-                    requestedPrep -> sizes.take(3)
-                    else -> listOf("Large" to "large")
-                }
-
-                sizesToEmit.forEach { (sizeLabel, sizeToken) ->
-                    aliases += base.copy(
-                        id = "alias:egg:" + prepToken.replace(' ', '-') + ":" + sizeToken.replace(' ', '-') + ":" + base.id,
-                        name = sizeLabel + " " + prepLabel.lowercase(Locale.ROOT) + " egg",
-                        originalName = base.originalName.ifBlank { base.name },
-                        searchText = base.searchText + " egg eggs " + sizeToken + " " + prepToken,
-                        brand = "",
-                        servingLabel = sizeLabel + " egg"
-                    )
-                }
-
-                if (!requestedPrep && requestedSize == null) {
-                    aliases += base.copy(
-                        id = "alias:egg:" + prepToken.replace(' ', '-') + ":generic:" + base.id,
-                        name = prepLabel + " egg",
-                        originalName = base.originalName.ifBlank { base.name },
-                        searchText = base.searchText + " egg eggs " + prepToken,
-                        brand = ""
-                    )
-                }
+            // Size-specific records are first-class local foods.
+            eggSizes.forEach { size ->
+                saveVariant(
+                    base = base,
+                    id = "egg:" + prep.id + ":" + size.id,
+                    name = prep.display + ", " + size.label,
+                    searchText = "egg eggs " + prep.id + " " + size.id.replace('_', ' ') + " " + size.label.lowercase(Locale.ROOT),
+                    servingGrams = size.grams,
+                    servingLabel = "1 " + size.label.lowercase(Locale.ROOT) + " egg",
+                    preparation = prep.prep
+                )
             }
         }
 
-        return aliases
+        findUsda("chicken breast", "grilled")?.let { base ->
+            saveVariant(
+                base = base,
+                id = "chicken:breast:grilled",
+                name = "Chicken breast, grilled",
+                searchText = "chicken breast grilled plain skinless generic",
+                servingGrams = null,
+                servingLabel = "",
+                preparation = FoodPreparationState.GRILLED
+            )
+        }
+
+        findUsda("chicken breast", "roasted")?.let { base ->
+            saveVariant(
+                base = base,
+                id = "chicken:breast:roasted",
+                name = "Chicken breast, roasted",
+                searchText = "chicken breast roasted plain skinless generic",
+                servingGrams = null,
+                servingLabel = "",
+                preparation = FoodPreparationState.ROASTED
+            )
+        }
     }
 
     private fun humanizeReferenceName(rawName: String): String {
@@ -411,6 +495,7 @@ internal object LargeLocalFoodDatabase {
         LargeFoodDb(context).use { helper ->
             val db = helper.writableDatabase
             priorityFoods().forEach { insertFood(db, it, replace = false) }
+            seedCanonicalLocalVariants(db)
             synchronized(localSearchCacheLock) { localSearchCache.clear() }
         }
     }
@@ -1147,7 +1232,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    6
+    7
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
