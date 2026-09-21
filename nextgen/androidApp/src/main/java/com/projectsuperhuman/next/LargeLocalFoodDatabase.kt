@@ -57,7 +57,7 @@ internal object LargeLocalFoodDatabase {
     private const val FOUNDATION_META = "usda_foundation_2026_04_complete"
     private const val FNDDS_META = "usda_fndds_2021_2023_complete"
     private const val SR_META = "usda_sr_legacy_complete"
-    private const val USER_AGENT = "ProjectSuperhuman/11.3 (Android food reference importer)"
+    private const val USER_AGENT = "ProjectSuperhuman/11.4 (Android food reference importer)"
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val bootstrapStarted = AtomicBoolean(false)
