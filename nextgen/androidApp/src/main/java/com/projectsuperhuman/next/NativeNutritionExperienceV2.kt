@@ -22,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +42,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -304,7 +306,13 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 
         when (view) {
             N2View.DIARY -> {
-                N2Hero(day, goals, weekDays, selectedDate)
+                N2Hero(
+                    day = day,
+                    goals = goals,
+                    weekDays = weekDays,
+                    selectedDate = selectedDate,
+                    onSelectDate = { selectedDate = it }
+                )
                 N2LogCard(
                     query = query,
                     onQueryChange = { query = it },
@@ -383,6 +391,17 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                 N2Diary(
                     day = day,
                     onDuplicate = { entry -> scope.launch { repeatEntry(entry) } },
+                    onRenameGroup = { groupEntries, newName ->
+                        scope.launch {
+                            val ids = groupEntries.map { it.id }.toSet()
+                            val matching = day.records.filter { row -> row.metadata["diaryEntryId"] in ids }
+                            NativeDataHub.renameNutritionMealGroup(matching, newName)
+                            status = "Meal renamed"
+                            refresh()
+                            refreshWeek()
+                            refreshNutrients()
+                        }
+                    },
                     onRemove = { entry ->
                         scope.launch {
                             val matching = day.records.filter { row ->
@@ -514,7 +533,13 @@ private fun N2Tab(label: String, selected: Boolean, modifier: Modifier, onClick:
 }
 
 @Composable
-private fun N2Hero(day: N2Day, goals: N2Goals, weekDays: List<N2Day>, selectedDate: LocalDate) {
+private fun N2Hero(
+    day: N2Day,
+    goals: N2Goals,
+    weekDays: List<N2Day>,
+    selectedDate: LocalDate,
+    onSelectDate: (LocalDate) -> Unit
+) {
     Column(
         Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp))
             .border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
@@ -536,7 +561,7 @@ private fun N2Hero(day: N2Day, goals: N2Goals, weekDays: List<N2Day>, selectedDa
         }
 
         if (weekDays.any { it.entries.isNotEmpty() }) {
-            N2WeekChart(weekDays, goals.kcal, selectedDate)
+            N2WeekChart(weekDays, goals.kcal, selectedDate, onSelectDate)
         }
     }
 }
@@ -598,7 +623,12 @@ private fun N2MacroBar(label: String, value: Double, target: Double?, accent: Co
 }
 
 @Composable
-private fun N2WeekChart(days: List<N2Day>, target: Double?, selectedDate: LocalDate) {
+private fun N2WeekChart(
+    days: List<N2Day>,
+    target: Double?,
+    selectedDate: LocalDate,
+    onSelectDate: (LocalDate) -> Unit
+) {
     val maxValue = maxOf(
         days.maxOfOrNull { it.kcal } ?: 0.0,
         target ?: 0.0,
@@ -626,7 +656,12 @@ private fun N2WeekChart(days: List<N2Day>, target: Double?, selectedDate: LocalD
         ) {
             days.forEachIndexed { index, item ->
                 val h = ((item.kcal / maxValue).coerceIn(0.0, 1.0) * 52.0).coerceAtLeast(if (item.kcal > 0) 5.0 else 2.0)
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Bottom) {
+                val chartDate = selectedDate.minusDays((days.lastIndex - index).toLong())
+                Column(
+                    Modifier.weight(1f).clickable { onSelectDate(chartDate) }.padding(horizontal = 1.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Bottom
+                ) {
                     Box(
                         Modifier.fillMaxWidth().height(h.dp)
                             .background(
@@ -635,7 +670,6 @@ private fun N2WeekChart(days: List<N2Day>, target: Double?, selectedDate: LocalD
                             )
                     )
                     Spacer(Modifier.height(4.dp))
-                    val chartDate = selectedDate.minusDays((days.lastIndex - index).toLong())
                     Text(
                         chartDate.dayOfWeek.name.take(1),
                         color = if (index == days.lastIndex) N2Ink else N2Muted,
@@ -678,7 +712,7 @@ private fun N2LogCard(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             N2ActionButton("⌕", if (searching) "Searching" else "Search", N2Green, Modifier.weight(1f), !searching, onSearch)
             N2ActionButton("▥", "Barcode", N2Blue, Modifier.weight(1f), true, onScan)
-            N2ActionButton("▣", "Photo", N2Purple, Modifier.weight(1f), true, onPhoto)
+            N2CameraActionButton("Photo", N2Purple, Modifier.weight(1f), onPhoto)
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Text(
@@ -693,6 +727,31 @@ private fun N2LogCard(
                 N2Button(if (lookingUp) "…" else "Lookup", N2Blue, Modifier.width(84.dp), !lookingUp, onBarcodeLookup)
             }
         }
+    }
+}
+
+@Composable
+private fun N2CameraActionButton(
+    label: String,
+    accent: Color,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier.background(accent.copy(alpha = .13f), RoundedCornerShape(16.dp))
+            .border(1.dp, accent.copy(alpha = .30f), RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 11.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            painter = painterResource(id = R.drawable.tabler_camera),
+            contentDescription = "Photo",
+            tint = accent,
+            modifier = Modifier.size(21.dp)
+        )
+        Text(label, color = N2Ink, fontSize = 8.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -906,6 +965,7 @@ private fun N2UndoBar(name: String, onUndo: () -> Unit) {
 private fun N2Diary(
     day: N2Day,
     onDuplicate: (N2Entry) -> Unit,
+    onRenameGroup: (List<N2Entry>, String) -> Unit,
     onRemove: (N2Entry) -> Unit
 ) {
     if (day.entries.isEmpty()) {
@@ -937,10 +997,10 @@ private fun N2Diary(
         }
         n2Meals.forEach { meal ->
             val entries = day.entries.filter { it.meal.equals(meal, ignoreCase = true) }
-            if (entries.isNotEmpty()) N2MealCard(meal, entries, onDuplicate, onRemove)
+            if (entries.isNotEmpty()) N2MealCard(meal, entries, onDuplicate, onRenameGroup, onRemove)
         }
         val other = day.entries.filter { e -> n2Meals.none { it.equals(e.meal, ignoreCase = true) } }
-        if (other.isNotEmpty()) N2MealCard("Other", other, onDuplicate, onRemove)
+        if (other.isNotEmpty()) N2MealCard("Other", other, onDuplicate, onRenameGroup, onRemove)
     }
 }
 
@@ -949,6 +1009,7 @@ private fun N2MealCard(
     meal: String,
     entries: List<N2Entry>,
     onDuplicate: (N2Entry) -> Unit,
+    onRenameGroup: (List<N2Entry>, String) -> Unit,
     onRemove: (N2Entry) -> Unit
 ) {
     var expanded by remember(meal, entries.size) { mutableStateOf(true) }
@@ -987,16 +1048,53 @@ private fun N2MealCard(
                 val groupName = groupEntries.firstOrNull()?.mealGroupName.orEmpty()
                 if (groupEntries.size > 1 && groupName.isNotBlank()) {
                     val groupKcal = groupEntries.sumOf { it.kcal }
-                    Row(
-                        Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 3.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(Modifier.weight(1f)) {
-                            Text(groupName, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                            Text(groupEntries.size.toString() + " ingredients", color = N2Muted, fontSize = 7.sp)
+                    var editingGroupName by remember(groupEntries.first().mealGroupId, groupName) { mutableStateOf(false) }
+                    var groupNameDraft by remember(groupEntries.first().mealGroupId, groupName) { mutableStateOf(groupName) }
+
+                    if (editingGroupName) {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 3.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = groupNameDraft,
+                                onValueChange = { groupNameDraft = it.take(80) },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                label = { Text("Meal name") }
+                            )
+                            Text(
+                                "Save",
+                                color = N2Blue,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier.clickable {
+                                    val trimmed = groupNameDraft.trim()
+                                    if (trimmed.isNotBlank()) {
+                                        onRenameGroup(groupEntries, trimmed)
+                                        editingGroupName = false
+                                    }
+                                }.padding(8.dp)
+                            )
                         }
-                        Text(groupKcal.roundToInt().toString() + " kcal", color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    } else {
+                        Row(
+                            Modifier.fillMaxWidth().padding(horizontal = 2.dp, vertical = 3.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(
+                                Modifier.weight(1f).clickable { editingGroupName = true }.padding(vertical = 3.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Text(groupName, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                    Text("✎", color = N2Blue, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Text(groupEntries.size.toString() + " ingredients", color = N2Muted, fontSize = 7.sp)
+                            }
+                            Text(groupKcal.roundToInt().toString() + " kcal", color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
 
