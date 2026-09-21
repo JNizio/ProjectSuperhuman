@@ -18,6 +18,7 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Locale
+import java.util.LinkedHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.zip.ZipInputStream
 
@@ -46,6 +47,11 @@ internal object LargeLocalFoodDatabase {
         "vitamin_e", "vitamin_k", "choline"
     )
     private const val CORE_MIN_MICRONUTRIENTS = 18
+
+    private val localSearchCache = object : LinkedHashMap<String, List<NativeFood>>(48, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<NativeFood>>?): Boolean = size > 48
+    }
+    private val localSearchCacheLock = Any()
 
     private const val FOUNDATION_URL =
         "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip"
@@ -134,12 +140,19 @@ internal object LargeLocalFoodDatabase {
             if (q.length < 2) return@withContext emptyList()
 
             val requested = limit.coerceIn(1, 80)
-            val prefix = "$q%"
-            val contains = "%$q%"
+            val cacheKey = q + "|" + requested
+            synchronized(localSearchCacheLock) {
+                localSearchCache[cacheKey]?.let { return@withContext it }
+            }
 
-            fun queryRows(namePattern: String, searchPattern: String, rowLimit: Int): List<NativeFood> =
-                LargeFoodDb(app).use { helper ->
-                    helper.readableDatabase.rawQuery(
+            val prefix = q + "%"
+            val contains = "%" + q + "%"
+
+            val raw = LargeFoodDb(app).use { helper ->
+                val db = helper.readableDatabase
+
+                fun queryRows(namePattern: String, searchPattern: String, rowLimit: Int): List<NativeFood> =
+                    db.rawQuery(
                         """
                         SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
                                protein_known, carbs_known, fat_known, fibre_known, sugar_known,
@@ -170,15 +183,19 @@ internal object LargeLocalFoodDatabase {
                     ).use { cursor ->
                         buildList {
                             while (cursor.moveToNext()) {
+                                val rawName = cursor.getString(1)
+                                val source = cursor.getString(15)
+                                val sourceId = cursor.getString(0)
                                 add(
                                     NativeFood(
-                                        id = cursor.getString(0),
-                                        name = cursor.getString(1),
+                                        id = sourceId,
+                                        name = humanizeReferenceName(rawName),
+                                        originalName = rawName,
                                         country = cursor.getString(2),
                                         kcal = cursor.getDouble(3),
                                         protein = cursor.getDouble(4),
                                         carbs = cursor.getDouble(5),
-                                        carbohydrateDefinition = if (cursor.getString(15).startsWith("USDA")) {
+                                        carbohydrateDefinition = if (source.startsWith("USDA")) {
                                             CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE
                                         } else {
                                             CarbohydrateDefinition.UNKNOWN
@@ -192,7 +209,7 @@ internal object LargeLocalFoodDatabase {
                                         fibreKnown = cursor.getInt(12) != 0,
                                         sugarKnown = cursor.getInt(13) != 0,
                                         unit = cursor.getString(14),
-                                        source = cursor.getString(15),
+                                        source = source,
                                         searchText = cursor.getString(16),
                                         brand = cursor.getString(17),
                                         micronutrients = decodeMicros(cursor.getString(18)),
@@ -201,20 +218,167 @@ internal object LargeLocalFoodDatabase {
                                         sodiumMg = cursor.getDouble(22),
                                         sodiumKnown = cursor.getInt(23) != 0,
                                         salt = if (cursor.getInt(23) != 0) NutritionIntegrity.sodiumMgToSaltG(cursor.getDouble(22)) else 0.0,
-                                        saltKnown = cursor.getInt(23) != 0
+                                        saltKnown = cursor.getInt(23) != 0,
+                                        sourceRecordId = sourceId.removePrefix("usda:"),
+                                        sourceType = if (source.startsWith("USDA")) FoodDataSourceType.USDA else FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE,
+                                        verificationState = FoodVerificationState.SOURCE_VALIDATED,
+                                        confidence = FoodDataConfidence.HIGH
                                     )
                                 )
                             }
                         }
                     }
+
+                val fast = queryRows(prefix, prefix, requested.coerceAtLeast(12))
+                if (fast.size >= minOf(requested, 6)) {
+                    fast
+                } else {
+                    (fast + queryRows(contains, contains, requested.coerceAtLeast(16)))
+                        .distinctBy { it.id }
+                }
+            }
+
+            val expanded = canonicalSearchAliases(raw, q)
+            val result = (expanded + raw)
+                .distinctBy { it.id + "|" + it.name.lowercase(Locale.ROOT) }
+                .sortedWith(
+                    compareBy<NativeFood> { canonicalQueryRank(it, q) }
+                        .thenBy { if (it.id.startsWith("alias:")) 0 else 1 }
+                        .thenByDescending { it.micronutrients.size }
+                        .thenBy { it.name.length }
+                )
+                .take(requested)
+
+            synchronized(localSearchCacheLock) { localSearchCache[cacheKey] = result }
+            result
+        }
+
+    private fun canonicalQueryRank(food: NativeFood, normalizedQuery: String): Int {
+        val name = normalize(food.name)
+        val queryTokens = normalizedQuery.split(' ').filter(String::isNotBlank)
+        return when {
+            name == normalizedQuery -> 0
+            name.startsWith(normalizedQuery) -> 1
+            queryTokens.isNotEmpty() && queryTokens.all(name::contains) -> 2
+            queryTokens.isNotEmpty() && queryTokens.all { token -> normalize(food.searchText).contains(token) } -> 3
+            else -> 4
+        }
+    }
+
+    private fun canonicalSearchAliases(foods: List<NativeFood>, normalizedQuery: String): List<NativeFood> {
+        val aliases = mutableListOf<NativeFood>()
+        val queryTokens = normalizedQuery.split(' ').filter(String::isNotBlank)
+
+        // A human expects the uncomplicated grilled breast before USDA's skin/coating variants.
+        if ("chicken" in queryTokens && "breast" in queryTokens) {
+            val grilled = foods.firstOrNull {
+                val raw = normalize(it.originalName.ifBlank { it.name })
+                raw.contains("chicken breast") && raw.contains("grilled") &&
+                    (raw.contains("without skin") || raw.contains("skinless"))
+            } ?: foods.firstOrNull {
+                val raw = normalize(it.originalName.ifBlank { it.name })
+                raw.contains("chicken breast") && raw.contains("grilled")
+            }
+            grilled?.let { base ->
+                aliases += base.copy(
+                    id = "alias:generic-grilled-chicken-breast:" + base.id,
+                    name = "Grilled chicken breast",
+                    originalName = base.originalName.ifBlank { base.name },
+                    searchText = base.searchText + " generic grilled chicken breast plain skinless",
+                    brand = ""
+                )
+            }
+        }
+
+        if ("egg" in queryTokens || "eggs" in queryTokens) {
+            val sizes = listOf(
+                "Small" to "small",
+                "Medium" to "medium",
+                "Large" to "large",
+                "Extra-large" to "extra large",
+                "Jumbo" to "jumbo"
+            )
+            val prepPatterns = listOf(
+                Triple("Hard-boiled", "hard boiled", listOf("hard boiled", "hard-boiled")),
+                Triple("Fried", "fried", listOf("fried")),
+                Triple("Poached", "poached", listOf("poached")),
+                Triple("Scrambled", "scrambled", listOf("scrambled"))
+            )
+
+            prepPatterns.forEach { (prepLabel, prepToken, matches) ->
+                val base = foods.firstOrNull { food ->
+                    val raw = normalize(food.originalName.ifBlank { food.name })
+                    raw.contains("egg") && matches.any(raw::contains)
+                } ?: return@forEach
+
+                val requestedSize = sizes.firstOrNull { (_, token) -> normalizedQuery.contains(token) }
+                val requestedPrep = normalizedQuery.contains(prepToken)
+                val sizesToEmit = when {
+                    requestedSize != null -> listOf(requestedSize)
+                    requestedPrep -> sizes.take(3)
+                    else -> listOf("Large" to "large")
                 }
 
-            val fast = queryRows(prefix, prefix, requested)
-            if (fast.size >= minOf(requested, 6)) return@withContext fast.take(requested)
+                sizesToEmit.forEach { (sizeLabel, sizeToken) ->
+                    aliases += base.copy(
+                        id = "alias:egg:" + prepToken.replace(' ', '-') + ":" + sizeToken.replace(' ', '-') + ":" + base.id,
+                        name = sizeLabel + " " + prepLabel.lowercase(Locale.ROOT) + " egg",
+                        originalName = base.originalName.ifBlank { base.name },
+                        searchText = base.searchText + " egg eggs " + sizeToken + " " + prepToken,
+                        brand = "",
+                        servingLabel = sizeLabel + " egg"
+                    )
+                }
 
-            val broad = queryRows(contains, contains, requested)
-            (fast + broad).distinctBy { it.id }.take(requested)
+                if (!requestedPrep && requestedSize == null) {
+                    aliases += base.copy(
+                        id = "alias:egg:" + prepToken.replace(' ', '-') + ":generic:" + base.id,
+                        name = prepLabel + " egg",
+                        originalName = base.originalName.ifBlank { base.name },
+                        searchText = base.searchText + " egg eggs " + prepToken,
+                        brand = ""
+                    )
+                }
+            }
         }
+
+        return aliases
+    }
+
+    private fun humanizeReferenceName(rawName: String): String {
+        val raw = rawName.trim()
+        val n = normalize(raw)
+
+        if (n.startsWith("egg whole cooked hard boiled")) return "Hard-boiled egg"
+        if (n.startsWith("egg whole cooked poached")) return "Poached egg"
+        if (n.startsWith("egg whole cooked fried")) return "Fried egg"
+        if (n.startsWith("egg whole cooked scrambled")) return "Scrambled egg"
+
+        if (n.startsWith("chicken breast")) {
+            val method = when {
+                n.contains("grilled") -> "Grilled"
+                n.contains("roasted") -> "Roasted"
+                n.contains("baked") -> "Baked"
+                n.contains("fried") -> "Fried"
+                n.contains("broiled") -> "Broiled"
+                else -> null
+            }
+            if (method != null) {
+                val qualifier = when {
+                    n.contains("without skin") || n.contains("skinless") -> ", skinless"
+                    n.contains("with skin") -> ", with skin"
+                    n.contains("coated") || n.contains("breaded") -> ", coated"
+                    else -> ""
+                }
+                return method + " chicken breast" + qualifier
+            }
+        }
+
+        return raw
+            .replace(Regex("\\s+"), " ")
+            .replace(Regex(",\\s*,"), ",")
+            .trim()
+    }
 
     private fun sourcesComplete(context: Context): Boolean =
         metaFlag(context, FOUNDATION_META) && metaFlag(context, FNDDS_META) && metaFlag(context, SR_META)
