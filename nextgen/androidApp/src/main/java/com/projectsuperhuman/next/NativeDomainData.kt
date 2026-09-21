@@ -24,6 +24,13 @@ internal class NativeDomainData private constructor(
         toEpochMs: Long
     ): List<HealthValue> = NativeDataHub.between(domain, metric, fromEpochMs, toEpochMs)
 
+    suspend fun boundedBetween(
+        metric: String,
+        fromEpochMs: Long,
+        toEpochMs: Long,
+        limit: Int
+    ): List<HealthValue> = NativeDataHub.boundedBetween(domain, metric, fromEpochMs, toEpochMs, limit)
+
     suspend fun history(
         limit: Int = 250,
         offset: Int = 0
