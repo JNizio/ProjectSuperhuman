@@ -1058,6 +1058,16 @@ private fun N2Nutrients(
             Text("Missing food data stays unknown — never zero.", color = N2Muted, fontSize = 9.sp)
         }
 
+        val gaugeNutrients = n2FocusIds.mapNotNull { byId[it] }.take(4)
+        if (gaugeNutrients.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                gaugeNutrients.forEach { micro -> N2NutrientGauge(micro, range.days.toInt()) }
+            }
+        }
+
         Column(
             Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -1085,6 +1095,10 @@ private fun N2Nutrients(
             }
         }
 
+        if (day.entries.isNotEmpty()) {
+            N2FoodContributors(day.entries)
+        }
+
         if (showAll) {
             Column(
                 Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
@@ -1092,7 +1106,7 @@ private fun N2Nutrients(
             ) {
                 Text("All tracked nutrients", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 if (day.micros.isEmpty()) Text("No micronutrient values are available yet.", color = N2Muted, fontSize = 10.sp)
-                else day.micros.sortedBy { it.label }.forEach { N2NutrientRow(it, entryCount) }
+                else day.micros.sortedBy { it.label }.forEach { N2NutrientRow(it, entryCount, range.days.toInt()) }
             }
         }
 
@@ -1103,6 +1117,72 @@ private fun N2Nutrients(
             Text(if (showAll) "Show less" else "Show all nutrients", color = N2Blue, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
         Text("Percentages use EU adult food-labelling reference values, not personalised medical targets.", color = N2Muted, fontSize = 8.sp, modifier = Modifier.padding(horizontal = 3.dp))
+    }
+}
+
+@Composable
+private fun N2NutrientGauge(micro: N2Micro, referenceDays: Int) {
+    val ref = n2RefById[micro.id]
+    val value = micro.value / referenceDays.coerceAtLeast(1).toDouble()
+    val fraction = ref?.let { (value / it.value).toFloat().coerceIn(0f, 1f) } ?: 0f
+    val accent = when {
+        ref == null -> N2Purple
+        fraction < .5f -> N2Amber
+        fraction < .85f -> N2Blue
+        else -> N2Green
+    }
+    Column(
+        Modifier.width(104.dp).background(N2Surface, RoundedCornerShape(18.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(18.dp)).padding(10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(Modifier.size(58.dp), contentAlignment = Alignment.Center) {
+            Canvas(Modifier.fillMaxSize()) {
+                val stroke = 6.dp.toPx()
+                drawArc(N2Border, -90f, 360f, false, style = Stroke(stroke, cap = StrokeCap.Round))
+                if (fraction > 0f) {
+                    drawArc(accent, -90f, 360f * fraction, false, style = Stroke(stroke, cap = StrokeCap.Round))
+                }
+            }
+            Text((fraction * 100).roundToInt().toString() + "%", color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.Black)
+        }
+        Text(micro.label, color = N2Ink, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        Text(n2Pretty(value) + " " + micro.unit, color = N2Muted, fontSize = 8.sp)
+    }
+}
+
+@Composable
+private fun N2FoodContributors(entries: List<N2Entry>) {
+    val top = entries.sortedByDescending { it.kcal }.take(3)
+    val max = top.maxOfOrNull { it.kcal }?.coerceAtLeast(1.0) ?: 1.0
+    Column(
+        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(22.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(22.dp)).padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("Top contributors", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
+            Text("Calories", color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        }
+        top.forEach { entry ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                N2FoodThumb(entry.name, 34)
+                Spacer(Modifier.width(9.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text(entry.name, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, modifier = Modifier.weight(1f))
+                        Text(entry.kcal.roundToInt().toString(), color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Box(Modifier.fillMaxWidth().height(5.dp).background(N2Border, CircleShape)) {
+                        Box(
+                            Modifier.fillMaxWidth((entry.kcal / max).toFloat().coerceIn(0f, 1f))
+                                .height(5.dp).background(N2Cyan, CircleShape)
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
