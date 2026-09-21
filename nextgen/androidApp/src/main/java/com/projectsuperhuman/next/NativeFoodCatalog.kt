@@ -43,6 +43,7 @@ internal data class NativeFood(
     val fibreKnown: Boolean = true,
     val sugarKnown: Boolean = true,
     val nutritionIntegrityWarning: String? = null,
+    val nutritionApproximate: Boolean = false,
     val originalName: String = "",
     val displayLanguage: String = "",
     val hasVerifiedEnglishName: Boolean = false,
@@ -429,6 +430,7 @@ internal object NativeFoodCatalog {
 
     private fun foodComparator(query: String): Comparator<NativeFood> =
         compareBy<NativeFood> { foodSearchRank(it, query) }
+            .thenBy { if (it.nutritionApproximate) 1 else 0 }
             .thenBy(::sourcePriority)
             .thenByDescending { it.micronutrients.size }
             .thenBy { it.name.length }
@@ -486,7 +488,8 @@ internal object NativeFoodCatalog {
                         basisAmount = FoodUnitSystem.parseBasis(j.optString("unit", "100 g"))?.first ?: 100.0,
                         basisUnit = FoodUnitSystem.parseBasis(j.optString("unit", "100 g"))?.second ?: FoodUnit.G,
                         densityGPerMl = j.optNullableDouble("density_g_ml"),
-                        densityApproximate = j.optBoolean("density_approx", false)
+                        densityApproximate = j.optBoolean("density_approx", false),
+                        nutritionApproximate = j.optBoolean("approx", false)
                     )
                 )
             }
