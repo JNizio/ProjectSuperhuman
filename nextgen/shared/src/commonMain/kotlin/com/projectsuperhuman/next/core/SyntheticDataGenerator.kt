@@ -656,6 +656,19 @@ class SyntheticDataGenerator(
                         "entryType" to "INGREDIENT",
                         "sourceName" to "Project Superhuman local reference",
                         "nutritionEstimate" to "bundled-generic-per-100",
+                        "nutritionSnapshotVersion" to "4",
+                        "canonicalFoodSchemaVersion" to "4",
+                        "foodIdentityKind" to "INGREDIENT",
+                        "sourceType" to "PROJECT_SUPERHUMAN_REFERENCE",
+                        "verificationState" to "SOURCE_VALIDATED",
+                        "foodDataConfidence" to "LOW",
+                        "nutritionApproximate" to "true",
+                        "kcalKnown" to "true",
+                        "proteinKnown" to "true",
+                        "carbsKnown" to "true",
+                        "fatKnown" to "true",
+                        "fibreKnown" to "true",
+                        "sugarKnown" to "true",
                         "protein" to roundedText(protein),
                         "carbs" to roundedText(carbs),
                         "carbohydrateDefinition" to "TOTAL_INCLUDING_FIBRE",
@@ -666,6 +679,7 @@ class SyntheticDataGenerator(
                     )
                     val ordinalBase = mealIndex * 200 + ingredientIndex * 40
                     val ingredientTs = mealTs + ingredientIndex * 1_000L
+                    add(dayIndex, anchor, HealthDomain.NUTRITION, "food_entry", 1.0, "count", ingredientTs, ordinalBase + 20, commonMeta)
                     add(dayIndex, anchor, HealthDomain.NUTRITION, "food_kcal", kcal, "kcal", ingredientTs, ordinalBase, commonMeta)
                     add(dayIndex, anchor, HealthDomain.NUTRITION, "food_protein", protein, "g", ingredientTs, ordinalBase + 1, commonMeta)
                     add(dayIndex, anchor, HealthDomain.NUTRITION, "food_carbs", carbs, "g", ingredientTs, ordinalBase + 2, commonMeta)
