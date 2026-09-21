@@ -92,6 +92,20 @@ class SyntheticDataGeneratorTest {
         assertTrue(nutritionKcal.size in (365 * 9)..(365 * 12))
         assertEquals(365 * 3, nutritionKcal.mapNotNull { it.metadata["mealGroupId"] }.distinct().size)
         assertTrue(nutritionKcal.all { it.metadata["entryType"] == "INGREDIENT" })
+        assertTrue(nutritionKcal.all { !it.metadata["genericCatalogId"].isNullOrBlank() })
+        assertTrue(nutritionKcal.all { it.metadata["nutritionEstimate"] == "bundled-generic-per-100" })
+
+        val nutritionProtein = metric(HealthDomain.NUTRITION, "food_protein")
+        val avocadoProteinRows = nutritionProtein.filter { it.metadata["genericCatalogId"] == "f74" }
+        assertTrue(avocadoProteinRows.isNotEmpty(), "Synthetic history should include avocado for profile regression coverage")
+        avocadoProteinRows.forEach { row ->
+            val grams = row.metadata.getValue("grams").toDouble()
+            val expected = grams * 2.0 / 100.0
+            assertTrue(
+                kotlin.math.abs(row.value - expected) < 0.05,
+                "Avocado protein must come from the generic 2 g/100 g profile"
+            )
+        }
         assertEquals(365, metric(HealthDomain.HYDRATION, "water_total_l").size)
         assertEquals(365, metric(HealthDomain.MINDFULNESS, "mood_score").size)
     }
