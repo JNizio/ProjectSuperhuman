@@ -740,6 +740,9 @@ private fun N2Results(foods: List<NativeFood>, selectedId: String?, onSelect: (N
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(food.name, color = N2Ink, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+                    if (food.hasVerifiedEnglishName && food.originalName.isNotBlank() && !food.originalName.equals(food.name, ignoreCase = true)) {
+                        Text(food.originalName, color = N2Muted, fontSize = 8.sp, maxLines = 1)
+                    }
                     Text(
                         buildString {
                             if (food.brand.isNotBlank()) append(food.brand).append(" · ")
@@ -777,6 +780,9 @@ private fun N2AddFoodCard(
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
                 Text(food.name, color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                if (food.hasVerifiedEnglishName && food.originalName.isNotBlank() && !food.originalName.equals(food.name, ignoreCase = true)) {
+                    Text(food.originalName, color = N2Muted, fontSize = 9.sp, maxLines = 1)
+                }
                 Text(food.brand.ifBlank { food.source }, color = N2Muted, fontSize = 10.sp)
             }
         }
