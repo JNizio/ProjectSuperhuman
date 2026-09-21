@@ -306,7 +306,8 @@ internal object NativeFoodCatalog {
             fat = fatRaw,
             proteinKnown = nutriments.hasFiniteNumber("proteins_100g"),
             carbsKnown = nutriments.hasFiniteNumber("carbohydrates_100g"),
-            fatKnown = nutriments.hasFiniteNumber("fat_100g")
+            fatKnown = nutriments.hasFiniteNumber("fat_100g"),
+            kcalKnown = kcalKnown
         )
 
         val offQualityWarnings = listOf(
