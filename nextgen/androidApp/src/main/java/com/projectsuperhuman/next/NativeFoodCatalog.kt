@@ -410,6 +410,20 @@ internal object NativeFoodCatalog {
             if (converted < 0.0 || !converted.isFinite()) return@forEach
             out[spec.id] = NativeNutrient(spec.id, spec.label, converted, spec.unit)
         }
+        if (!out.containsKey("sodium")) {
+            val saltKey = "salt_100g"
+            if (n.hasFiniteNumber(saltKey)) {
+                val saltGrams = n.optDoubleSafe(saltKey)
+                if (saltGrams.isFinite() && saltGrams >= 0.0) {
+                    out["sodium"] = NativeNutrient(
+                        id = "sodium",
+                        label = "Sodium",
+                        valuePer100 = (saltGrams / 2.5) * 1_000.0,
+                        unit = "mg"
+                    )
+                }
+            }
+        }
         return out
     }
 
@@ -494,7 +508,7 @@ internal object NativeFoodCatalog {
         val value = opt(key) ?: return null
         val parsed = when (value) {
             is Number -> value.toDouble()
-            is String -> value.toDoubleOrNull()
+            is String -> value.trim().replace(',', '.').toDoubleOrNull()
             else -> null
         }
         return parsed?.takeIf { it.isFinite() && it > 0.0 }
