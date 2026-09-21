@@ -98,21 +98,15 @@ internal class DataVaultCardioRepository(
             offset = offset.coerceAtLeast(0)
         ).map(::cardioSessionFromValue)
 
-    private suspend fun rowBySessionId(sessionId: String): HealthValue? {
-        var offset = 0
-        repeat(MAX_LOOKUP_PAGES) {
-            val page = data.metricHistory(CARDIO_METRIC, LOOKUP_PAGE_SIZE, offset)
-            page.firstOrNull { it.metadata["sessionId"] == sessionId }?.let { return it }
-            if (page.size < LOOKUP_PAGE_SIZE) return null
-            offset += page.size
-        }
-        return null
-    }
+    private suspend fun rowBySessionId(sessionId: String): HealthValue? =
+        NativeDataHub.valueBySourceRecordId(
+            source = CARDIO_STORAGE_SOURCE,
+            sourceRecordId = "cardio:$sessionId"
+        )
 
     private companion object {
         const val CARDIO_METRIC = "cardio_session"
-        const val LOOKUP_PAGE_SIZE = 250
-        const val MAX_LOOKUP_PAGES = 40
+        const val CARDIO_STORAGE_SOURCE = "native-cardio"
         const val MAX_PAGE_SIZE = 1_000
     }
 }
