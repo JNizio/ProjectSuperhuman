@@ -1061,7 +1061,7 @@ private fun HomeNutritionOverviewRing(
 
             if (snapshot.calorieGoal != null && calorieProgress > 0f) {
                 drawArc(
-                    brush = Brush.sweepGradient(listOf(accent, HomeCyan, accent)),
+                    color = Color.White,
                     startAngle = -90f,
                     sweepAngle = 360f * calorieProgress,
                     useCenter = false,
@@ -1106,26 +1106,25 @@ private fun HomeNutritionOverviewRing(
         }
 
         Column(
-            Modifier.size(72.dp).background(Color.White, CircleShape),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Text(
                 (if (snapshot.nutritionCaloriesComplete) "" else "~") + snapshot.caloriesToday,
-                color = Color(0xFF0A1A26),
+                color = if (SuperhumanAppearance.darkMode) Color.White else HomeNavy,
                 fontSize = 23.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
                 "kcal",
-                color = Color(0xFF566572),
+                color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .56f) else HomeMuted,
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Bold
             )
             snapshot.calorieGoal?.let { goal ->
                 Text(
                     "of " + goal,
-                    color = Color(0xFF6E7A84),
+                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .38f) else HomeMuted,
                     fontSize = 7.sp
                 )
             }
