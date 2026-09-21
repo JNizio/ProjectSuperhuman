@@ -22,6 +22,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.roundToInt
+import kotlin.random.Random
 
 /**
  * Android access point into the Project Superhuman Data Vault.
@@ -38,6 +39,7 @@ internal data class DataVaultDiagnostics(
 
 internal object NativeDataHub {
     private lateinit var repository: SqlHealthRepository
+    private lateinit var appContext: Context
     private lateinit var gateway: SqlDataVaultGateway
     private lateinit var ingestion: DataIngestionPipeline
     private lateinit var syntheticGenerator: SyntheticDataGenerator
@@ -48,7 +50,8 @@ internal object NativeDataHub {
 
     fun initialize(context: Context) {
         if (::repository.isInitialized) return
-        val database = createSuperhumanDatabase(DatabaseDriverFactory(context.applicationContext))
+        appContext = context.applicationContext
+        val database = createSuperhumanDatabase(DatabaseDriverFactory(appContext))
         repository = SqlHealthRepository(database) { System.currentTimeMillis() }
         repository.ensureLargeHistoryIndexes()
         gateway = SqlDataVaultGateway(repository)
@@ -160,7 +163,16 @@ internal object NativeDataHub {
      * incremental daily aggregate maintenance exactly like normal app data.
      */
     suspend fun generateSyntheticTestData(days: Int): SyntheticGenerationResult = withContext(Dispatchers.IO) {
-        syntheticGenerator.generate(SyntheticGenerationConfig(days = days))
+        val config = SyntheticGenerationConfig(days = days, includeNutrition = false)
+        val base = syntheticGenerator.generate(config)
+        val nutrition = generateSyntheticNutritionFromLocalFoods(days, config.seed)
+        SyntheticGenerationResult(
+            requestedDays = days,
+            generated = base.generated + nutrition.generated,
+            accepted = base.accepted + nutrition.accepted,
+            rejected = base.rejected + nutrition.rejected,
+            deduplicated = base.deduplicated + nutrition.deduplicated
+        )
     }
 
     /** Cheap indexed count for Settings diagnostics; no synthetic rows are materialised. */
