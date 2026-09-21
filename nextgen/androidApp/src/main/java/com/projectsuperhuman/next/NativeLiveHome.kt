@@ -64,6 +64,7 @@ data class NativeHomeSnapshot(
     val waterGoalMl: Int = 3600,
     val caloriesToday: Int = 0,
     val proteinToday: Int = 0,
+    val nutritionEntriesToday: Int = 0,
     val workoutsToday: Int = 0,
     val workoutSetsToday: Int = 0,
     val workoutVolumeToday: Int = 0,
@@ -452,7 +453,8 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val sleep = sleepData.latestState()
     val body = bodyData.latestState()
     val clinical = clinicalData.latestState()
-    val kcal = nutritionData.between("food_kcal", start, now).sumOf { it.value }.roundToInt()
+    val kcalRows = nutritionData.between("food_kcal", start, now)
+    val kcal = kcalRows.sumOf { it.value }.roundToInt()
     val protein = nutritionData.between("food_protein", start, now).sumOf { it.value }.roundToInt()
     val waterGoalMl = hydrationData.latest("hydration_goal_ml")?.value?.roundToInt()?.coerceIn(1500, 6000) ?: 3600
     val waterEvents = hydrationData.between("water_intake_ml", start, now)
@@ -494,6 +496,7 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         waterGoalMl = waterGoalMl,
         caloriesToday = kcal,
         proteinToday = protein,
+        nutritionEntriesToday = kcalRows.size,
         workoutsToday = workouts.size + cardioSessions.size,
         workoutSetsToday = sets.size,
         workoutVolumeToday = volumes.sumOf { it.value }.roundToInt(),
