@@ -841,7 +841,7 @@ internal object LargeLocalFoodDatabase {
         val strictCount = selected.count { it.essentialCount >= CORE_MIN_MICRONUTRIENTS }
         putMeta(db, "project_superhuman_core_food_count", selected.size.toString())
         putMeta(db, "project_superhuman_core_food_strict_count", strictCount.toString())
-        putMeta(db, "project_superhuman_core_food_schema", "2")
+        putMeta(db, "project_superhuman_core_food_schema", "3")
         putMeta(db, "project_superhuman_core_food_min_essential", CORE_MIN_MICRONUTRIENTS.toString())
         putMeta(db, "project_superhuman_core_food_essential_total", CORE_MICRONUTRIENTS.size.toString())
     }
@@ -975,7 +975,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    4
+    5
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
