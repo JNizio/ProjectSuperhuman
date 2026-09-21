@@ -349,17 +349,38 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                     )
                 }
 
-                N2Diary(day) { entry ->
-                    scope.launch {
-                        val matching = day.records.filter { row ->
-                            val id = row.metadata["diaryEntryId"]
-                            if (entry.id.startsWith("legacy:")) {
-                                id == null && row.timestampEpochMs == entry.timestamp && row.metadata["foodId"] == entry.foodId
-                            } else id == entry.id
+                if (day.entries.isNotEmpty()) {
+                    N2QuickRepeat(day.entries.take(4)) { entry ->
+                        scope.launch { repeatEntry(entry) }
+                    }
+                }
+
+                N2Diary(
+                    day = day,
+                    onDuplicate = { entry -> scope.launch { repeatEntry(entry) } },
+                    onRemove = { entry ->
+                        scope.launch {
+                            val matching = day.records.filter { row ->
+                                val id = row.metadata["diaryEntryId"]
+                                if (entry.id.startsWith("legacy:")) {
+                                    id == null && row.timestampEpochMs == entry.timestamp && row.metadata["foodId"] == entry.foodId
+                                } else id == entry.id
+                            }
+                            NativeDataHub.deleteValues(matching)
+                            lastRemoved = entry
+                            status = "Removed " + entry.name
+                            refresh()
+                            refreshNutrients()
                         }
-                        NativeDataHub.deleteValues(matching)
-                        status = "Removed ${entry.name}"
-                        refresh()
+                    }
+                )
+
+                lastRemoved?.let { removed ->
+                    N2UndoBar(removed.name) {
+                        scope.launch {
+                            repeatEntry(removed)
+                            lastRemoved = null
+                        }
                     }
                 }
             }
@@ -540,17 +561,22 @@ private fun N2LogCard(
         Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("Log food", color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
-        Text("Search generic foods or branded Open Food Facts products.", color = N2Muted, fontSize = 10.sp)
-        OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search food") })
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            N2Button(if (searching) "Searching…" else "Search", N2Green, Modifier.weight(1.35f), !searching, onSearch)
-            N2Button("Scan barcode", N2Blue, Modifier.weight(1f), true, onScan)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column {
+                Text("Add food", color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text("Search, scan or import a label", color = N2Muted, fontSize = 9.sp)
+            }
+            Text("FAST LOG", color = N2Blue, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Scan from photo", color = N2Purple, fontSize = 9.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onPhoto).padding(vertical = 6.dp))
+        OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Food, brand or meal") })
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            N2Button(if (searching) "Searching…" else "Search", N2Green, Modifier.weight(1.2f), !searching, onSearch)
+            N2Button("Barcode", N2Blue, Modifier.weight(1f), true, onScan)
+            N2Button("Photo", N2Purple, Modifier.weight(.9f), true, onPhoto)
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Text(
-                if (showManualBarcode) "Hide barcode entry" else "Enter barcode manually",
+                if (showManualBarcode) "Hide manual barcode" else "Enter barcode manually",
                 color = N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clickable(onClick = onToggleManualBarcode).padding(vertical = 6.dp)
             )
