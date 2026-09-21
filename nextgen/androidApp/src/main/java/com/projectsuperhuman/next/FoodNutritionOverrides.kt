@@ -69,6 +69,11 @@ internal object FoodNutritionOverrideStore {
                 put("fat", food.fat)
                 put("fibre", food.fibre)
                 put("sugar", food.sugar)
+                put("protein_known", if (food.proteinKnown) 1 else 0)
+                put("carbs_known", if (food.carbsKnown) 1 else 0)
+                put("fat_known", if (food.fatKnown) 1 else 0)
+                put("fibre_known", if (food.fibreKnown) 1 else 0)
+                put("sugar_known", if (food.sugarKnown) 1 else 0)
                 put("micronutrients_json", encodeMicros(food.micronutrients))
                 put("updated_epoch_ms", System.currentTimeMillis())
             }
@@ -121,7 +126,9 @@ internal object FoodNutritionOverrideStore {
     private fun applyFromDb(db: SQLiteDatabase, food: NativeFood): NativeFood {
         db.rawQuery(
             """
-            SELECT kcal, protein, carbs, fat, fibre, sugar, micronutrients_json
+            SELECT kcal, protein, carbs, fat, fibre, sugar,
+                   protein_known, carbs_known, fat_known, fibre_known, sugar_known,
+                   micronutrients_json
             FROM food_nutrition_override
             WHERE identity_key = ?
             LIMIT 1
@@ -129,7 +136,7 @@ internal object FoodNutritionOverrideStore {
             arrayOf(identityKey(food))
         ).use { cursor ->
             if (!cursor.moveToFirst()) return food
-            val micros = decodeMicros(cursor.getString(6))
+            val micros = decodeMicros(cursor.getString(11))
             val editedSource = if (food.source.contains("edited locally", ignoreCase = true)) {
                 food.source
             } else {
@@ -142,7 +149,13 @@ internal object FoodNutritionOverrideStore {
                 fat = cursor.getDouble(3),
                 fibre = cursor.getDouble(4),
                 sugar = cursor.getDouble(5),
+                proteinKnown = cursor.getInt(6) != 0,
+                carbsKnown = cursor.getInt(7) != 0,
+                fatKnown = cursor.getInt(8) != 0,
+                fibreKnown = cursor.getInt(9) != 0,
+                sugarKnown = cursor.getInt(10) != 0,
                 micronutrients = micros,
+                nutritionIntegrityWarning = null,
                 source = editedSource
             )
         }
@@ -198,7 +211,7 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
     context,
     "superhuman_food_nutrition_overrides.db",
     null,
-    1
+    2
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -214,6 +227,11 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
                 fat REAL NOT NULL,
                 fibre REAL NOT NULL,
                 sugar REAL NOT NULL,
+                protein_known INTEGER NOT NULL DEFAULT 1,
+                carbs_known INTEGER NOT NULL DEFAULT 1,
+                fat_known INTEGER NOT NULL DEFAULT 1,
+                fibre_known INTEGER NOT NULL DEFAULT 1,
+                sugar_known INTEGER NOT NULL DEFAULT 1,
                 micronutrients_json TEXT NOT NULL,
                 updated_epoch_ms INTEGER NOT NULL
             )
@@ -223,5 +241,15 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
         db.execSQL("CREATE INDEX food_override_food_id_idx ON food_nutrition_override(food_id)")
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) {
+            // Existing override fields were explicitly saved by the user, so treating them as known
+            // is the least destructive migration. New edits can preserve unknown fields explicitly.
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN protein_known INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN carbs_known INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN fat_known INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN fibre_known INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN sugar_known INTEGER NOT NULL DEFAULT 1")
+        }
+    }
 }
