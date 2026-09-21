@@ -229,10 +229,15 @@ internal object FoodUnitSystem {
     }
 
     fun parseBasis(raw: String): Pair<Double, FoodUnit>? {
-        val match = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-Z]+(?:\s+oz)?)""").find(raw.trim()) ?: return null
-        val amount = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: return null
-        val unit = FoodUnit.fromSymbol(match.groupValues[2]) ?: return null
-        if (unit.dimension == FoodMeasureDimension.DERIVED) return null
-        return amount to unit
+        val matches = Regex("""([0-9]+(?:[.,][0-9]+)?)\s*([a-zA-Z]+(?:\s+oz)?)""")
+            .findAll(raw.trim())
+        for (match in matches) {
+            val amount = match.groupValues[1].replace(',', '.').toDoubleOrNull() ?: continue
+            val unit = FoodUnit.fromSymbol(match.groupValues[2]) ?: continue
+            if (unit.dimension == FoodMeasureDimension.DERIVED) continue
+            if (!amount.isFinite() || amount <= 0.0) continue
+            return amount to unit
+        }
+        return null
     }
 }
