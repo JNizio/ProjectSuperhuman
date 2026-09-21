@@ -239,7 +239,12 @@ internal object NativeFoodCatalog {
         val looksLikeGenericIngredient = queryTokens.isNotEmpty() &&
             queryTokens.size <= 4 &&
             queryTokens.none { token -> token.any(Char::isDigit) } &&
-            localCandidates.count { it.sourceType == FoodDataSourceType.USDA || it.sourceType == FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE } >= 4
+            localCandidates.count {
+                it.sourceType == FoodDataSourceType.USDA_FOUNDATION ||
+                    it.sourceType == FoodDataSourceType.USDA_FNDDS ||
+                    it.sourceType == FoodDataSourceType.USDA_SR_LEGACY ||
+                    it.sourceType == FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE
+            } >= 4
         val shouldQueryRemote = !looksLikeGenericIngredient &&
             (localCandidates.size < FAST_RESULT_COUNT || !strongLocalMatch)
         val remoteResult = if (shouldQueryRemote) {
