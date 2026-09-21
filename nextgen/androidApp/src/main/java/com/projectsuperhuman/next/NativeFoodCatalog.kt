@@ -92,6 +92,7 @@ internal data class NativeFood(
     val additives: List<String> = emptyList(),
     val novaGroup: Int? = null,
     val imageReferences: Map<String, String> = emptyMap(),
+    val correctedFields: Set<String> = emptySet(),
     val sourceWarnings: List<String> = emptyList(),
     val canonicalSchemaVersion: Int = NUTRITION_CANONICAL_SCHEMA_VERSION
 )
