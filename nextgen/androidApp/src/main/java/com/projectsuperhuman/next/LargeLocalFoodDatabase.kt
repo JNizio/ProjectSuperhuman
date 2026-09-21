@@ -145,8 +145,14 @@ internal object LargeLocalFoodDatabase {
                 localSearchCache[cacheKey]?.let { return@withContext it }
             }
 
-            val prefix = q + "%"
-            val contains = "%" + q + "%"
+            val queryTokens = q.split(' ').filter(String::isNotBlank)
+            val retrievalQuery = when {
+                queryTokens.any { it == "egg" || it == "eggs" } -> "egg"
+                "chicken" in queryTokens && "breast" in queryTokens -> "chicken breast"
+                else -> q
+            }
+            val prefix = retrievalQuery + "%"
+            val contains = "%" + retrievalQuery + "%"
 
             val raw = LargeFoodDb(app).use { helper ->
                 val db = helper.readableDatabase
@@ -179,7 +185,7 @@ internal object LargeLocalFoodDatabase {
                             name COLLATE NOCASE
                         LIMIT ?
                         """.trimIndent(),
-                        arrayOf(namePattern, searchPattern, q, prefix, rowLimit.toString())
+                        arrayOf(namePattern, searchPattern, retrievalQuery, prefix, rowLimit.toString())
                     ).use { cursor ->
                         buildList {
                             while (cursor.moveToNext()) {
@@ -405,6 +411,7 @@ internal object LargeLocalFoodDatabase {
         LargeFoodDb(context).use { helper ->
             val db = helper.writableDatabase
             priorityFoods().forEach { insertFood(db, it, replace = false) }
+            synchronized(localSearchCacheLock) { localSearchCache.clear() }
         }
     }
 
@@ -635,6 +642,7 @@ internal object LargeLocalFoodDatabase {
                         }
                         putMeta(db, completionKey, "1")
                         rebuildCoreFoods(db)
+                        synchronized(localSearchCacheLock) { localSearchCache.clear() }
                         db.setTransactionSuccessful()
                     } finally {
                         db.endTransaction()
