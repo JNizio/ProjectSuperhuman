@@ -373,6 +373,7 @@ internal object NativeDataHub {
             put("sugarKnown", food.sugarKnown.toString())
             put("micronutrientCount", food.micronutrients.size.toString())
             put("nutritionIntegrityWarning", food.nutritionIntegrityWarning.orEmpty())
+            put("nutritionApproximate", food.nutritionApproximate.toString())
             put("unitSystemVersion", "2")
             food.densityGPerMl?.let {
                 put("densityGPerMl", it.toString())
