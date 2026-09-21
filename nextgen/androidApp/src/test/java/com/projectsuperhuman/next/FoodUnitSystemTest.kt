@@ -144,4 +144,25 @@ class FoodUnitSystemTest {
         assertEquals(FoodUnit.ML, FoodUnitSystem.parseBasis("6 x 330 ml")?.second)
     }
 
+
+    @Test
+    fun genericEggGetsCountUnitWithApproximatePhysicalConversion() {
+        val egg = food("100 g", FoodUnit.G).copy(
+            name = "Egg, whole, cooked, hard-boiled",
+            searchText = "egg whole cooked hard boiled"
+        )
+
+        assertTrue(FoodUnit.PIECE in FoodUnitSystem.availableUnits(egg))
+        assertEquals(FoodUnit.PIECE, FoodUnitSystem.defaultUnit(egg))
+        assertEquals("egg", FoodUnitSystem.displayUnit(egg, FoodUnit.PIECE))
+        assertEquals(1.0, FoodUnitSystem.defaultAmount(egg))
+
+        val oneEgg = FoodUnitSystem.convert(egg, 1.0, FoodUnit.PIECE)
+        assertNotNull(oneEgg)
+        assertEquals(50.0, oneEgg.grams!!, 0.0001)
+        assertEquals(0.5, oneEgg.factor, 0.0001)
+        assertEquals("1 egg ≈ 50 g", FoodUnitSystem.unitContext(egg, FoodUnit.PIECE))
+        assertTrue(FoodUnit.G in FoodUnitSystem.availableUnits(egg))
+    }
+
 }
