@@ -90,29 +90,30 @@ internal class CardioViewModel(application: Application) : AndroidViewModel(appl
 
         viewModelScope.launch {
             while (isActive) {
-                val draft = _state.value.liveDraft
+                val current = _state.value
+                val draft = current.liveDraft
                 if (draft != null) {
                     CardioGpsRuntime.tick()
                     val timing = controller.timing(draft)
+                    val validUndo = current.undo?.takeIf { token ->
+                        token.expiresAtEpochMs > System.currentTimeMillis()
+                    }
                     _state.update {
                         it.copy(
                             liveElapsedSeconds = timing.activeSeconds,
                             pausedElapsedSeconds = timing.pausedSeconds,
-                            undo = it.undo?.takeIf { token ->
-                                token.expiresAtEpochMs > System.currentTimeMillis()
-                            }
+                            undo = validUndo
                         )
                     }
+                    delay(500L)
                 } else {
-                    _state.update {
-                        it.copy(
-                            undo = it.undo?.takeIf { token ->
-                                token.expiresAtEpochMs > System.currentTimeMillis()
-                            }
-                        )
+                    val undo = current.undo
+                    if (undo != null && undo.expiresAtEpochMs <= System.currentTimeMillis()) {
+                        _state.update { it.copy(undo = null) }
                     }
+                    // No active session means there is nothing time-sensitive to recompute.
+                    delay(1_000L)
                 }
-                delay(500L)
             }
         }
     }
