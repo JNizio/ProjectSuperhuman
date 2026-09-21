@@ -1127,6 +1127,8 @@ private fun N2AddFoodCard(
                         saltKnown = saltText.isNotBlank(),
                         sodiumMg = sodiumText.toDoubleOrNull() ?: 0.0,
                         sodiumKnown = sodiumText.isNotBlank(),
+                        // This editor changes common label fields only. Preserve source micronutrients.
+                        micronutrients = emptyMap(),
                         nutritionIntegrityWarning = null,
                         sourceWarnings = emptyList()
                     )
