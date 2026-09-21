@@ -13,6 +13,15 @@ This contract applies to new and revised NextGen UI.
 
 ## Controls
 - Navigation/icon controls use `iconTouchTarget` so visible icons and touch targets stay centered and consistent.
+- Interactive controls should use no-ripple Project Superhuman interaction helpers unless a ripple is intentionally part of the component.
+- Important tap targets should remain at least 44dp even when the visible icon is smaller.
+
+## Accessible type hierarchy
+- Primary section titles should normally be 18sp or larger.
+- Primary item names should normally be 12–14sp or larger.
+- Secondary stats and metadata should normally be at least 10sp when they carry useful information.
+- Avoid 7–8sp text for meaningful diary, metric, action, or navigation content; reserve very small type for non-essential labels only.
+- Repeated actions such as edit, add, delete, expand and collapse need clear icons and generous hit targets.
 - Segmented controls use `controlHeight`, `segmentedPadding`, and `segmentedGap`.
 - Never center a title/date by relying on `Arrangement.SpaceBetween` when the left and right controls can have different visual widths. Use an overlay/Box with an independently centered middle element.
 
