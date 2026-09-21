@@ -752,7 +752,7 @@ private fun N2NutritionRing(day: N2Day, goals: N2Goals) {
 
             if (calorieFraction > 0f) {
                 drawArc(
-                    brush = Brush.sweepGradient(listOf(N2Blue, N2Cyan, N2Blue)),
+                    color = Color.White,
                     startAngle = -90f,
                     sweepAngle = 360f * calorieFraction,
                     useCenter = false,
@@ -810,26 +810,25 @@ private fun N2NutritionRing(day: N2Day, goals: N2Goals) {
         }
 
         Column(
-            Modifier.size(88.dp).background(Color.White, CircleShape),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             Text(
                 (if (day.kcalComplete) "" else "~") + day.kcal.roundToInt().toString(),
-                color = Color(0xFF0A1A26),
+                color = N2Ink,
                 fontSize = 27.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
                 if (day.kcalComplete) "kcal" else "kcal · partial",
-                color = Color(0xFF566572),
+                color = N2Muted,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Bold
             )
             if (goals.kcal != null) {
                 Text(
                     "of " + goals.kcal.roundToInt().toString(),
-                    color = Color(0xFF6E7A84),
+                    color = N2Muted,
                     fontSize = 8.sp
                 )
             }
