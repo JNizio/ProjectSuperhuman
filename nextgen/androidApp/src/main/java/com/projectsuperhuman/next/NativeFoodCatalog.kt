@@ -36,8 +36,12 @@ internal data class NativeFood(
     val quantity: String = "",
     val servingSize: String = "",
     val micronutrients: Map<String, NativeNutrient> = emptyMap(),
+    val proteinKnown: Boolean = true,
+    val carbsKnown: Boolean = true,
+    val fatKnown: Boolean = true,
     val fibreKnown: Boolean = true,
     val sugarKnown: Boolean = true,
+    val nutritionIntegrityWarning: String? = null,
     val originalName: String = "",
     val displayLanguage: String = "",
     val hasVerifiedEnglishName: Boolean = false,
@@ -200,7 +204,7 @@ internal object NativeFoodCatalog {
     suspend fun lookupBarcode(code: String): NativeFood? = withContext(Dispatchers.IO) {
         val digits = code.filter(Char::isDigit)
         if (!NutritionMath.isValidBarcode(digits)) return@withContext null
-        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,nutriments"
+        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,data_quality_errors_tags,data_quality_warnings_tags,nutriments"
         val conn = openConnection("https://world.openfoodfacts.org/api/v2/product/$digits.json?fields=$fields")
         try {
             if (conn.responseCode !in 200..299) return@withContext null
@@ -238,7 +242,7 @@ internal object NativeFoodCatalog {
 
         // Open Food Facts currently keeps full-text search on the v1 CGI endpoint.
         val encoded = URLEncoder.encode(query.trim(), "UTF-8")
-        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,nutriments"
+        val fields = "code,lang,languages_tags,product_name,product_name_en,generic_name,generic_name_en,brands,countries_tags,categories,quantity,product_quantity,product_quantity_unit,serving_size,serving_quantity,serving_quantity_unit,nutrition_data_per,data_quality_errors_tags,data_quality_warnings_tags,nutriments"
         val url = "https://world.openfoodfacts.org/cgi/search.pl?search_terms=$encoded&search_simple=1&action=process&json=1&page_size=$limit&fields=$fields"
         val conn = openConnection(url)
         try {
@@ -284,14 +288,32 @@ internal object NativeFoodCatalog {
         val country = p.optStringList("countries_tags").take(80)
         val categories = p.optString("categories").take(180)
 
+        val proteinRaw = nutriments.optDoubleSafe("proteins_100g")
+        val carbsRaw = nutriments.optDoubleSafe("carbohydrates_100g")
+        val fatRaw = nutriments.optDoubleSafe("fat_100g")
+        val macroIntegrity = NutritionIntegrity.sanitizeMacros(
+            kcal = kcal,
+            protein = proteinRaw,
+            carbs = carbsRaw,
+            fat = fatRaw,
+            proteinKnown = nutriments.hasFiniteNumber("proteins_100g"),
+            carbsKnown = nutriments.hasFiniteNumber("carbohydrates_100g"),
+            fatKnown = nutriments.hasFiniteNumber("fat_100g")
+        )
+
+        val offQualityWarnings = listOf(
+            p.optStringList("data_quality_errors_tags"),
+            p.optStringList("data_quality_warnings_tags")
+        ).filter { it.isNotBlank() }.joinToString(" · ").ifBlank { null }
+
         return NativeFood(
             id = if (code.isNotBlank()) "off:$code" else "off:${name.lowercase().hashCode()}",
             name = name,
             country = country,
             kcal = kcal,
-            protein = nutriments.optDoubleSafe("proteins_100g"),
-            carbs = nutriments.optDoubleSafe("carbohydrates_100g"),
-            fat = nutriments.optDoubleSafe("fat_100g"),
+            protein = macroIntegrity.protein,
+            carbs = macroIntegrity.carbs,
+            fat = macroIntegrity.fat,
             fibre = nutriments.optDoubleSafe("fiber_100g"),
             sugar = nutriments.optDoubleSafe("sugars_100g"),
             unit = basis,
@@ -302,8 +324,12 @@ internal object NativeFoodCatalog {
             quantity = p.optString("quantity"),
             servingSize = p.optString("serving_size"),
             micronutrients = extractMicronutrients(nutriments),
+            proteinKnown = macroIntegrity.proteinKnown,
+            carbsKnown = macroIntegrity.carbsKnown,
+            fatKnown = macroIntegrity.fatKnown,
             fibreKnown = nutriments.hasFiniteNumber("fiber_100g"),
             sugarKnown = nutriments.hasFiniteNumber("sugars_100g"),
+            nutritionIntegrityWarning = listOfNotNull(macroIntegrity.warning, offQualityWarnings).joinToString(" · ").ifBlank { null },
             originalName = localizedName.originalName,
             displayLanguage = localizedName.displayLanguage,
             hasVerifiedEnglishName = localizedName.hasVerifiedEnglishName,
