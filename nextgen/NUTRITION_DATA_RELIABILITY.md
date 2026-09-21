@@ -371,6 +371,10 @@ The normal UI only surfaces a quality message when it is actionable, for example
 
 Removing the override exposes the original source record again.
 
+The current NextGen selected-food card exposes a compact **Correct nutrition data** editor for the common package-label fields. Blank means unknown. A corrected food exposes **Use original source data** to remove the local overlay.
+
+Common-label corrections do not relabel untouched micronutrients as user-entered evidence. Source micronutrients keep their original provenance unless a micronutrient is explicitly overridden.
+
 Corrections remain local; the app does not silently publish them to an external food database.
 
 ## 15. Historical immutability
@@ -485,13 +489,20 @@ Existing in-memory search caching remains in place, and branded product source p
 
 ### User food-correction database
 
-`superhuman_food_overrides.db` is upgraded to schema version 4.
+`superhuman_food_overrides.db` is upgraded to schema version 5.
 
-Version 4 adds:
+Version 4 added:
 
 - `revision INTEGER NOT NULL DEFAULT 1`.
 
-Existing correction rows are retained.
+Version 5 adds durable correction fields for:
+
+- saturated fat;
+- salt;
+- sodium;
+- known/unknown flags for each.
+
+Existing correction rows are retained. Newly added v5 fields migrate as unknown rather than fabricated zero evidence.
 
 ### Branded product cache
 
