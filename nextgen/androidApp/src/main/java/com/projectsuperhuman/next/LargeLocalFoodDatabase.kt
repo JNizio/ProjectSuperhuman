@@ -36,7 +36,7 @@ import java.util.zip.ZipInputStream
  */
 internal object LargeLocalFoodDatabase {
     const val MINIMUM_FOOD_TARGET = 10_000
-    const val CORE_FOOD_TARGET = 1_000
+    const val CORE_FOOD_TARGET = 2_000
 
     private val CORE_MICRONUTRIENTS = setOf(
         "calcium", "chloride", "copper", "iron", "iodine", "magnesium", "manganese",
@@ -755,7 +755,7 @@ internal object LargeLocalFoodDatabase {
     )
 
     /**
-     * Builds the 1,000-food Project Superhuman core library inside the local reference DB.
+     * Builds the 2,000-food Project Superhuman core library inside the local reference DB.
      * Selection is deterministic and source-backed. FNDDS contributes common consumed foods,
      * Foundation Foods contributes analytical ingredients, and SR Legacy fills preparation variants.
      */
