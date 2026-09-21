@@ -173,8 +173,8 @@ internal object NativeFoodCatalog {
         }
 
         val localCandidates = (bundledLocal + expandedLocal)
-            .distinctBy { food -> food.barcode?.let { "barcode:$it" } ?: "name:${food.name.trim().lowercase()}" }
             .sortedWith(foodComparator(q))
+            .distinctBy { food -> food.barcode?.let { "barcode:$it" } ?: "name:${food.name.trim().lowercase()}" }
 
         // Broad/common searches stay completely local when we already have enough good candidates.
         // Multi-word queries are more likely to be a specific branded product, so OFF remains useful.
@@ -189,11 +189,12 @@ internal object NativeFoodCatalog {
         val merged = FoodNutritionOverrideStore.applyAll(
             context,
             (localCandidates + remoteResult.first)
+                .sortedWith(foodComparator(q))
                 .distinctBy { food ->
                     food.barcode?.let { code -> "barcode:$code" }
                         ?: "name:${food.name.trim().lowercase()}"
                 }
-        ).sortedWith(foodComparator(q)).take(requested)
+        ).take(requested)
 
         return NativeFoodSearchResult(
             foods = merged,
@@ -423,9 +424,10 @@ internal object NativeFoodCatalog {
     private fun sourcePriority(food: NativeFood): Int = when {
         food.source.contains("label reference", ignoreCase = true) -> 0
         food.source.startsWith("Project Superhuman", ignoreCase = true) || food.source.startsWith("Local reference", ignoreCase = true) -> 1
-        food.source.contains("FNDDS", ignoreCase = true) -> 2
-        food.source.startsWith("USDA", ignoreCase = true) -> 3
-        food.source.contains("Open Food Facts", ignoreCase = true) -> 4
+        food.source.contains("Foundation Foods", ignoreCase = true) -> 2
+        food.source.contains("FNDDS", ignoreCase = true) -> 3
+        food.source.startsWith("USDA", ignoreCase = true) -> 4
+        food.source.contains("Open Food Facts", ignoreCase = true) -> 5
         else -> 3
     }
 
