@@ -36,6 +36,16 @@ import java.util.zip.ZipInputStream
  */
 internal object LargeLocalFoodDatabase {
     const val MINIMUM_FOOD_TARGET = 10_000
+    const val CORE_FOOD_TARGET = 1_000
+
+    private val CORE_MICRONUTRIENTS = setOf(
+        "calcium", "copper", "iron", "magnesium", "manganese", "phosphorus",
+        "potassium", "selenium", "sodium", "zinc",
+        "vitamin_a", "vitamin_b1", "vitamin_b2", "niacin", "pantothenic_acid",
+        "vitamin_b6", "folate", "vitamin_b12", "vitamin_c", "vitamin_d",
+        "vitamin_e", "vitamin_k", "choline"
+    )
+    private const val CORE_MIN_MICRONUTRIENTS = 18
 
     private const val FOUNDATION_URL =
         "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip"
@@ -104,6 +114,18 @@ internal object LargeLocalFoodDatabase {
 
     suspend fun isReady(context: Context): Boolean = count(context) >= MINIMUM_FOOD_TARGET
 
+    suspend fun coreCount(context: Context): Int = withContext(Dispatchers.IO) {
+        seedPriorityFoodsOnce(context.applicationContext)
+        LargeFoodDb(context.applicationContext).use { helper ->
+            helper.readableDatabase.rawQuery(
+                "SELECT COUNT(*) FROM food_reference WHERE core_rank IS NOT NULL",
+                null
+            ).use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) else 0 }
+        }
+    }
+
+    suspend fun coreReady(context: Context): Boolean = coreCount(context) >= CORE_FOOD_TARGET
+
     suspend fun search(context: Context, query: String, limit: Int = 28): List<NativeFood> =
         withContext(Dispatchers.IO) {
             val app = context.applicationContext
@@ -121,10 +143,12 @@ internal object LargeLocalFoodDatabase {
                         """
                         SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
                                protein_known, carbs_known, fat_known, fibre_known, sugar_known,
-                               unit, source, search_text, brand, micronutrients_json
+                               unit, source, search_text, brand, micronutrients_json, core_rank
                         FROM food_reference
                         WHERE normalized_name LIKE ? OR search_text LIKE ?
                         ORDER BY
+                            CASE WHEN core_rank IS NULL THEN 1 ELSE 0 END,
+                            core_rank,
                             CASE
                                 WHEN normalized_name = ? THEN 0
                                 WHEN normalized_name LIKE ? THEN 1
@@ -439,6 +463,7 @@ internal object LargeLocalFoodDatabase {
                             parseDownload(reader, db, sourceLabel)
                         }
                         putMeta(db, completionKey, "1")
+                        rebuildCoreFoods(db)
                         db.setTransactionSuccessful()
                     } finally {
                         db.endTransaction()
@@ -685,6 +710,8 @@ internal object LargeLocalFoodDatabase {
             put("brand", food.brand)
             put("micronutrients_json", encodeMicros(food.micronutrients))
             put("micronutrient_count", food.micronutrients.size)
+            put("essential_micronutrient_count", food.micronutrients.keys.count(CORE_MICRONUTRIENTS::contains))
+            putNull("core_rank")
         }
         db.insertWithOnConflict(
             "food_reference",
@@ -692,6 +719,99 @@ internal object LargeLocalFoodDatabase {
             values,
             if (replace) SQLiteDatabase.CONFLICT_REPLACE else SQLiteDatabase.CONFLICT_IGNORE
         )
+    }
+
+    private data class CoreCandidate(
+        val id: String,
+        val name: String,
+        val source: String,
+        val microCount: Int,
+        val essentialCount: Int
+    )
+
+    /**
+     * Builds the 1,000-food Project Superhuman core library inside the local reference DB.
+     * Selection is deterministic and source-backed. FNDDS contributes common consumed foods,
+     * Foundation Foods contributes analytical ingredients, and SR Legacy fills preparation variants.
+     */
+    private fun rebuildCoreFoods(db: SQLiteDatabase) {
+        val candidates = mutableListOf<CoreCandidate>()
+        db.rawQuery(
+            """
+            SELECT id, name, source, micronutrient_count, essential_micronutrient_count
+            FROM food_reference
+            WHERE protein_known = 1
+              AND carbs_known = 1
+              AND fat_known = 1
+              AND fibre_known = 1
+              AND sugar_known = 1
+              AND essential_micronutrient_count >= ?
+            """.trimIndent(),
+            arrayOf(CORE_MIN_MICRONUTRIENTS.toString())
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                candidates += CoreCandidate(
+                    id = cursor.getString(0),
+                    name = cursor.getString(1),
+                    source = cursor.getString(2),
+                    microCount = cursor.getInt(3),
+                    essentialCount = cursor.getInt(4)
+                )
+            }
+        }
+
+        fun commonnessScore(candidate: CoreCandidate): Int {
+            val text = candidate.name.lowercase(Locale.ROOT)
+            var score = when {
+                candidate.source.startsWith("USDA Foundation Foods") -> 310
+                candidate.source.startsWith("USDA FNDDS") -> 300
+                candidate.source.startsWith("USDA SR Legacy") -> 260
+                else -> 180
+            }
+            score += candidate.essentialCount * 10
+            score += candidate.microCount.coerceAtMost(40)
+
+            val commonTerms = listOf(
+                "egg", "milk", "yogurt", "cheese", "chicken", "turkey", "beef", "pork",
+                "salmon", "tuna", "cod", "shrimp", "rice", "pasta", "bread", "oat",
+                "potato", "sweet potato", "bean", "lentil", "chickpea", "pea",
+                "apple", "banana", "orange", "berry", "strawberry", "blueberry",
+                "tomato", "onion", "garlic", "carrot", "broccoli", "spinach",
+                "cabbage", "pepper", "cucumber", "mushroom", "avocado",
+                "almond", "walnut", "peanut", "seed", "olive oil", "butter",
+                "raw", "boiled", "cooked", "baked", "roasted", "fried", "grilled"
+            )
+            score += commonTerms.count(text::contains) * 16
+
+            val nicheTerms = listOf(
+                "babyfood", "infant", "school lunch", "restaurant", "fast food",
+                "imitation", "commodity", "industrial", "formulated"
+            )
+            score -= nicheTerms.count(text::contains) * 80
+            score -= (text.length / 45) * 4
+            return score
+        }
+
+        val selected = candidates
+            .sortedWith(
+                compareByDescending<CoreCandidate> { commonnessScore(it) }
+                    .thenByDescending { it.essentialCount }
+                    .thenByDescending { it.microCount }
+                    .thenBy { it.name.length }
+                    .thenBy { it.name }
+            )
+            .take(CORE_FOOD_TARGET)
+
+        db.execSQL("UPDATE food_reference SET core_rank = NULL")
+        val update = db.compileStatement("UPDATE food_reference SET core_rank = ? WHERE id = ?")
+        selected.forEachIndexed { index, candidate ->
+            update.clearBindings()
+            update.bindLong(1, (index + 1).toLong())
+            update.bindString(2, candidate.id)
+            update.executeUpdateDelete()
+        }
+        putMeta(db, "project_superhuman_core_food_count", selected.size.toString())
+        putMeta(db, "project_superhuman_core_food_schema", "1")
     }
 
     private fun putMeta(db: SQLiteDatabase, key: String, value: String) {
@@ -823,7 +943,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    2
+    3
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -849,12 +969,15 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 search_text TEXT NOT NULL,
                 brand TEXT NOT NULL,
                 micronutrients_json TEXT NOT NULL,
-                micronutrient_count INTEGER NOT NULL
+                micronutrient_count INTEGER NOT NULL,
+                essential_micronutrient_count INTEGER NOT NULL DEFAULT 0,
+                core_rank INTEGER
             )
             """.trimIndent()
         )
         db.execSQL("CREATE INDEX food_reference_name_idx ON food_reference(normalized_name)")
         db.execSQL("CREATE INDEX food_reference_micro_idx ON food_reference(micronutrient_count DESC)")
+        db.execSQL("CREATE INDEX food_reference_core_idx ON food_reference(core_rank)")
         db.execSQL(
             """
             CREATE TABLE food_reference_meta(
