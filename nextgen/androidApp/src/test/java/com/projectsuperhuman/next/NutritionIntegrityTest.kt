@@ -25,6 +25,25 @@ class NutritionIntegrityTest {
     }
 
     @Test
+    fun missingEnergyDoesNotInvalidateOtherwiseReportedMacros() {
+        val result = NutritionIntegrity.sanitizeMacros(
+            kcal = 0.0,
+            protein = 3.0,
+            carbs = 12.0,
+            fat = 4.0,
+            proteinKnown = true,
+            carbsKnown = true,
+            fatKnown = true,
+            kcalKnown = false
+        )
+
+        assertTrue(result.proteinKnown)
+        assertTrue(result.carbsKnown)
+        assertTrue(result.fatKnown)
+        assertNull(result.warning)
+    }
+
+    @Test
     fun keepsPlausibleKitKatMacros() {
         val result = NutritionIntegrity.sanitizeMacros(
             kcal = 518.0,
