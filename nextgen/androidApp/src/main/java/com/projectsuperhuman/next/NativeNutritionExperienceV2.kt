@@ -735,6 +735,8 @@ private fun N2Results(foods: List<NativeFood>, selectedId: String?, onSelect: (N
                     .clickable { onSelect(food) }.padding(11.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                N2FoodThumb(food.name, 38)
+                Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(food.name, color = N2Ink, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
                     Text(
@@ -769,9 +771,13 @@ private fun N2AddFoodCard(
         Modifier.fillMaxWidth().background(N2SoftGreen, RoundedCornerShape(24.dp)).border(1.dp, N2Green.copy(alpha = .24f), RoundedCornerShape(24.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
-        Column {
-            Text(food.name, color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
-            Text(food.brand.ifBlank { food.source }, color = N2Muted, fontSize = 10.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            N2FoodThumb(food.name, 48)
+            Spacer(Modifier.width(11.dp))
+            Column(Modifier.weight(1f)) {
+                Text(food.name, color = N2Ink, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text(food.brand.ifBlank { food.source }, color = N2Muted, fontSize = 10.sp)
+            }
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             N2FoodStat((food.kcal * factor).roundToInt().toString(), "kcal", Modifier.weight(1f))
@@ -802,6 +808,31 @@ private fun N2FoodStat(value: String, label: String, modifier: Modifier) {
     }
 }
 
+private fun n2FoodEmoji(name: String): String {
+    val n = name.lowercase()
+    return when {
+        listOf("yoghurt", "yogurt", "milk", "cheese", "feta", "skyr").any { it in n } -> "🥛"
+        listOf("banana", "apple", "berry", "berries", "fruit", "kiwi", "orange").any { it in n } -> "🍎"
+        listOf("chicken", "turkey", "beef", "pork", "ham", "steak").any { it in n } -> "🍗"
+        listOf("salmon", "tuna", "fish", "shrimp").any { it in n } -> "🐟"
+        listOf("egg", "omelette").any { it in n } -> "🥚"
+        listOf("rice", "pasta", "noodle", "grain", "oat", "granola").any { it in n } -> "🍚"
+        listOf("bread", "toast", "sandwich", "wrap").any { it in n } -> "🥪"
+        listOf("lentil", "bean", "pea", "vegetable", "salad", "tomato").any { it in n } -> "🥗"
+        else -> "🍽"
+    }
+}
+
+@Composable
+private fun N2FoodThumb(name: String, sizeDp: Int) {
+    Box(
+        Modifier.size(sizeDp.dp).background(N2SoftBlue, RoundedCornerShape((sizeDp / 3).dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(n2FoodEmoji(name), fontSize = (sizeDp / 2).sp)
+    }
+}
+
 @Composable
 private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -819,11 +850,16 @@ private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
         ) {
             entries.distinctBy { it.foodId }.take(4).forEach { entry ->
                 Column(
-                    Modifier.width(138.dp).background(N2Surface, RoundedCornerShape(16.dp))
+                    Modifier.width(148.dp).background(N2Surface, RoundedCornerShape(16.dp))
                         .border(1.dp, N2Border, RoundedCornerShape(16.dp))
                         .clickable { onRepeat(entry) }.padding(11.dp)
                 ) {
-                    Text(entry.name, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        N2FoodThumb(entry.name, 34)
+                        Spacer(Modifier.width(8.dp))
+                        Text(entry.name, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2)
+                    }
+                    Spacer(Modifier.height(7.dp))
                     Text(
                         entry.kcal.roundToInt().toString() + " kcal · " + n2One(entry.grams) + " g",
                         color = N2Muted,
@@ -939,6 +975,8 @@ private fun N2MealCard(
                         .padding(horizontal = 11.dp, vertical = 9.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
+                    N2FoodThumb(entry.name, 34)
+                    Spacer(Modifier.width(9.dp))
                     Column(Modifier.weight(1f)) {
                         Text(entry.name, color = N2Ink, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                         Text(
