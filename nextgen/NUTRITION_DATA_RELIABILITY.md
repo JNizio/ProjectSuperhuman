@@ -577,7 +577,21 @@ Remaining limitations include:
 
 These are intentional uncertainty boundaries, not values to fill with guesses.
 
-## 23. Rule for future Nutrition work
+## 23. Validation status for this branch
+
+The 11.4 source and migration changes have been structurally audited in-repository, including call-site, brace/import, migration and evidence-flow checks.
+
+A temporary no-APK GitHub Actions validation workflow was attempted, but GitHub failed the job before any step was allocated: checkout, Java setup, Gradle and tests never started and no job log was produced. The temporary workflow was removed.
+
+Therefore 11.4 must still be run once through the real Android/Gradle environment before release:
+
+```bash
+gradle --no-daemon -p nextgen :androidApp:testDebugUnitTest
+```
+
+Then compile the existing NextGen Android project in Android Studio. Do not interpret the unavailable runner attempt as either a passing or failing unit-test result.
+
+## 24. Rule for future Nutrition work
 
 When accuracy and apparent completeness conflict:
 
