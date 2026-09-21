@@ -75,6 +75,7 @@ internal enum class FoodPreparationState {
     RAW,
     COOKED,
     BOILED,
+    POACHED,
     GRILLED,
     ROASTED,
     BAKED,
