@@ -75,11 +75,17 @@ internal object FoodNutritionOverrideStore {
                 put("fat", food.fat)
                 put("fibre", food.fibre)
                 put("sugar", food.sugar)
+                put("saturated_fat", food.saturatedFat)
+                put("salt", food.salt)
+                put("sodium_mg", food.sodiumMg)
                 put("protein_known", if (food.proteinKnown) 1 else 0)
                 put("carbs_known", if (food.carbsKnown) 1 else 0)
                 put("fat_known", if (food.fatKnown) 1 else 0)
                 put("fibre_known", if (food.fibreKnown) 1 else 0)
                 put("sugar_known", if (food.sugarKnown) 1 else 0)
+                put("saturated_fat_known", if (food.saturatedFatKnown) 1 else 0)
+                put("salt_known", if (food.saltKnown) 1 else 0)
+                put("sodium_known", if (food.sodiumKnown) 1 else 0)
                 put("micronutrients_json", encodeMicros(food.micronutrients))
                 put("updated_epoch_ms", System.currentTimeMillis())
                 put("revision", revision)
@@ -135,7 +141,9 @@ internal object FoodNutritionOverrideStore {
             """
             SELECT kcal, protein, carbs, fat, fibre, sugar,
                    kcal_known, protein_known, carbs_known, fat_known, fibre_known, sugar_known,
-                   micronutrients_json, updated_epoch_ms, revision
+                   micronutrients_json, updated_epoch_ms, revision,
+                   saturated_fat, salt, sodium_mg,
+                   saturated_fat_known, salt_known, sodium_known
             FROM food_nutrition_override
             WHERE identity_key = ?
             LIMIT 1
@@ -170,6 +178,12 @@ internal object FoodNutritionOverrideStore {
                 fatKnown = cursor.getInt(9) != 0,
                 fibreKnown = cursor.getInt(10) != 0,
                 sugarKnown = cursor.getInt(11) != 0,
+                saturatedFat = cursor.getDouble(15),
+                salt = cursor.getDouble(16),
+                sodiumMg = cursor.getDouble(17),
+                saturatedFatKnown = cursor.getInt(18) != 0,
+                saltKnown = cursor.getInt(19) != 0,
+                sodiumKnown = cursor.getInt(20) != 0,
                 micronutrients = micros,
                 nutritionIntegrityWarning = null,
                 nutritionApproximate = false,
@@ -186,6 +200,9 @@ internal object FoodNutritionOverrideStore {
                     if (cursor.getInt(9) != 0) put("fat", NutrientEvidenceKind.USER_ENTERED)
                     if (cursor.getInt(10) != 0) put("fibre", NutrientEvidenceKind.USER_ENTERED)
                     if (cursor.getInt(11) != 0) put("sugars", NutrientEvidenceKind.USER_ENTERED)
+                    if (cursor.getInt(18) != 0) put("saturated_fat", NutrientEvidenceKind.USER_ENTERED)
+                    if (cursor.getInt(19) != 0) put("salt", NutrientEvidenceKind.USER_ENTERED)
+                    if (cursor.getInt(20) != 0) put("sodium", NutrientEvidenceKind.USER_ENTERED)
                 },
                 sourceWarnings = emptyList()
             )
@@ -242,7 +259,7 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
     context,
     "superhuman_food_nutrition_overrides.db",
     null,
-    4
+    5
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -259,11 +276,17 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
                 fat REAL NOT NULL,
                 fibre REAL NOT NULL,
                 sugar REAL NOT NULL,
+                saturated_fat REAL NOT NULL DEFAULT 0,
+                salt REAL NOT NULL DEFAULT 0,
+                sodium_mg REAL NOT NULL DEFAULT 0,
                 protein_known INTEGER NOT NULL DEFAULT 1,
                 carbs_known INTEGER NOT NULL DEFAULT 1,
                 fat_known INTEGER NOT NULL DEFAULT 1,
                 fibre_known INTEGER NOT NULL DEFAULT 1,
                 sugar_known INTEGER NOT NULL DEFAULT 1,
+                saturated_fat_known INTEGER NOT NULL DEFAULT 0,
+                salt_known INTEGER NOT NULL DEFAULT 0,
+                sodium_known INTEGER NOT NULL DEFAULT 0,
                 micronutrients_json TEXT NOT NULL,
                 updated_epoch_ms INTEGER NOT NULL,
                 revision INTEGER NOT NULL DEFAULT 1
@@ -289,6 +312,14 @@ private class FoodNutritionOverrideDb(context: Context) : SQLiteOpenHelper(
         }
         if (oldVersion < 4) {
             db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN revision INTEGER NOT NULL DEFAULT 1")
+        }
+        if (oldVersion < 5) {
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN saturated_fat REAL NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN salt REAL NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN sodium_mg REAL NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN saturated_fat_known INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN salt_known INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE food_nutrition_override ADD COLUMN sodium_known INTEGER NOT NULL DEFAULT 0")
         }
     }
 }
