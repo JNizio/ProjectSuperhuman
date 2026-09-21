@@ -742,17 +742,20 @@ private fun N2CameraActionButton(
             .background(accent.copy(alpha = .13f), RoundedCornerShape(16.dp))
             .border(1.dp, accent.copy(alpha = .30f), RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .padding(vertical = 11.dp),
+            .padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.Center
     ) {
-        Icon(
-            painter = painterResource(id = R.drawable.tabler_camera),
-            contentDescription = "Photo",
-            tint = accent,
-            modifier = Modifier.size(21.dp)
-        )
-        Text(label, color = N2Ink, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Box(Modifier.height(30.dp), contentAlignment = Alignment.Center) {
+            Icon(
+                painter = painterResource(id = R.drawable.tabler_camera),
+                contentDescription = "Photo",
+                tint = accent,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(label, color = N2Ink, fontSize = 9.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -770,12 +773,15 @@ private fun N2ActionButton(
             .background(accent.copy(alpha = if (enabled) .13f else .05f), RoundedCornerShape(16.dp))
             .border(1.dp, accent.copy(alpha = if (enabled) .30f else .12f), RoundedCornerShape(16.dp))
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(vertical = 11.dp),
+            .padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        verticalArrangement = Arrangement.Center
     ) {
-        Text(icon, color = accent, fontSize = 20.sp, fontWeight = FontWeight.Black)
-        Text(label, color = if (enabled) N2Ink else N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Box(Modifier.height(30.dp), contentAlignment = Alignment.Center) {
+            Text(icon, color = accent, fontSize = 20.sp, fontWeight = FontWeight.Black)
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(label, color = if (enabled) N2Ink else N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Black)
     }
 }
 
