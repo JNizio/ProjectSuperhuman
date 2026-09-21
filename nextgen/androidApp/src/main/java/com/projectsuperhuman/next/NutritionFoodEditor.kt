@@ -175,8 +175,8 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                         .clickable(enabled = !lookingUp) {
                             scope.launch {
                                 val digits = barcode.filter(Char::isDigit)
-                                if (digits.length !in setOf(8, 12, 13, 14)) {
-                                    status = "Enter a valid EAN / UPC / GTIN"
+                                if (!NutritionMath.isValidBarcode(digits)) {
+                                    status = "Barcode is invalid or has a bad check digit"
                                     return@launch
                                 }
                                 lookingUp = true
