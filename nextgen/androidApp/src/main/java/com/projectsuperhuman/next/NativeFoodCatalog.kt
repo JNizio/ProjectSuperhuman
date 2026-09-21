@@ -275,8 +275,8 @@ internal object NativeFoodCatalog {
         val name = localizedName.displayName
         if (name.isBlank()) return null
 
-        val kcalDirectKnown = nutriments.hasFiniteNumber("energy-kcal_100g")
-        val kjKnown = nutriments.hasFiniteNumber("energy-kj_100g")
+        val kcalDirectKnown = nutriments.hasNonNegativeNumber("energy-kcal_100g")
+        val kjKnown = nutriments.hasNonNegativeNumber("energy-kj_100g")
         val kcal = when {
             kcalDirectKnown -> nutriments.optDoubleSafe("energy-kcal_100g")
             kjKnown -> nutriments.optDoubleSafe("energy-kj_100g") / 4.184
@@ -337,8 +337,8 @@ internal object NativeFoodCatalog {
             proteinKnown = macroIntegrity.proteinKnown,
             carbsKnown = macroIntegrity.carbsKnown,
             fatKnown = macroIntegrity.fatKnown,
-            fibreKnown = nutriments.hasFiniteNumber("fiber_100g"),
-            sugarKnown = nutriments.hasFiniteNumber("sugars_100g"),
+            fibreKnown = nutriments.hasNonNegativeNumber("fiber_100g"),
+            sugarKnown = nutriments.hasNonNegativeNumber("sugars_100g"),
             nutritionIntegrityWarning = listOfNotNull(macroIntegrity.warning, offQualityWarnings).joinToString(" · ").ifBlank { null },
             originalName = localizedName.originalName,
             displayLanguage = localizedName.displayLanguage,
@@ -516,6 +516,17 @@ internal object NativeFoodCatalog {
             else -> null
         }
         return parsed?.takeIf { it.isFinite() && it > 0.0 }
+    }
+
+    private fun JSONObject.hasNonNegativeNumber(key: String): Boolean {
+        if (!has(key) || isNull(key)) return false
+        val value = opt(key) ?: return false
+        val parsed = when (value) {
+            is Number -> value.toDouble()
+            is String -> value.trim().replace(',', '.').toDoubleOrNull()
+            else -> null
+        }
+        return parsed?.let { it.isFinite() && it >= 0.0 } == true
     }
 
     private fun JSONObject.hasFiniteNumber(key: String): Boolean {
