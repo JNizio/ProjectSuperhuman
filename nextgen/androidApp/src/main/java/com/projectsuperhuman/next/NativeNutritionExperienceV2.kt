@@ -738,7 +738,8 @@ private fun N2CameraActionButton(
     onClick: () -> Unit
 ) {
     Column(
-        modifier.background(accent.copy(alpha = .13f), RoundedCornerShape(16.dp))
+        modifier.height(88.dp)
+            .background(accent.copy(alpha = .13f), RoundedCornerShape(16.dp))
             .border(1.dp, accent.copy(alpha = .30f), RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .padding(vertical = 11.dp),
@@ -765,7 +766,8 @@ private fun N2ActionButton(
     onClick: () -> Unit
 ) {
     Column(
-        modifier.background(accent.copy(alpha = if (enabled) .13f else .05f), RoundedCornerShape(16.dp))
+        modifier.height(88.dp)
+            .background(accent.copy(alpha = if (enabled) .13f else .05f), RoundedCornerShape(16.dp))
             .border(1.dp, accent.copy(alpha = if (enabled) .30f else .12f), RoundedCornerShape(16.dp))
             .clickable(enabled = enabled, onClick = onClick)
             .padding(vertical = 11.dp),
@@ -1034,9 +1036,21 @@ private fun N2MealCard(
                     fontSize = 8.sp
                 )
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(mealKcal.roundToInt().toString() + " kcal", color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                Text(if (expanded) "⌃" else "⌄", color = N2Muted, fontSize = 15.sp, fontWeight = FontWeight.Black)
+                Box(
+                    Modifier.size(34.dp).background(N2RowBg, CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        painter = painterResource(
+                            id = if (expanded) R.drawable.tabler_chevron_up else R.drawable.tabler_chevron_down
+                        ),
+                        contentDescription = if (expanded) "Collapse meal" else "Expand meal",
+                        tint = N2Muted,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
             }
         }
 
