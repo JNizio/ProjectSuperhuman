@@ -591,6 +591,7 @@ internal object FoodEvidenceEngine {
             Regex("""\bfrozen\b""").containsMatchIn(s) -> FoodPreparationState.FROZEN
             Regex("""\b(dried|dry)\b""").containsMatchIn(s) -> FoodPreparationState.DRIED
             Regex("""\bsteamed\b""").containsMatchIn(s) -> FoodPreparationState.STEAMED
+            Regex("""\bpoached\b""").containsMatchIn(s) -> FoodPreparationState.POACHED
             Regex("""\bboiled\b""").containsMatchIn(s) -> FoodPreparationState.BOILED
             Regex("""\bgrilled\b""").containsMatchIn(s) -> FoodPreparationState.GRILLED
             Regex("""\broasted\b""").containsMatchIn(s) -> FoodPreparationState.ROASTED
