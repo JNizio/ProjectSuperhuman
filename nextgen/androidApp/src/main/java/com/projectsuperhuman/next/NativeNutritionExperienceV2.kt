@@ -289,8 +289,9 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     LaunchedEffect(selectedDate, nutrientRange) { refreshNutrients() }
 
     Column(
-        Modifier.fillMaxSize().background(N2Bg).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        Modifier.fillMaxSize().background(N2Bg).verticalScroll(rememberScrollState())
+            .padding(horizontal = SuperhumanLayout.pageHorizontal, vertical = SuperhumanLayout.pageVertical),
+        verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.sectionGap)
     ) {
         N2Header(onBack, selectedDate)
         N2Tabs(view) { view = it }
@@ -462,10 +463,17 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 private fun N2Header(onBack: () -> Unit, date: LocalDate) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.width(42.dp).height(42.dp).background(N2Surface, RoundedCornerShape(14.dp))
+            Modifier.size(SuperhumanLayout.iconTouchTarget).background(N2Surface, RoundedCornerShape(14.dp))
                 .border(1.dp, N2Border, RoundedCornerShape(14.dp)).superhumanClickable(onClick = onBack),
             contentAlignment = Alignment.Center
-        ) { Text("←", color = N2Navy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.tabler_arrow_left),
+                contentDescription = "Back",
+                tint = N2Navy,
+                modifier = Modifier.size(24.dp)
+            )
+        }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Nutrition", color = N2Ink, fontSize = 25.sp, fontWeight = FontWeight.Black)
@@ -486,37 +494,53 @@ private fun N2DateNav(
     onNext: () -> Unit
 ) {
     val today = LocalDate.now(ZoneId.systemDefault())
-    Row(
-        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(16.dp))
-            .border(1.dp, N2Border, RoundedCornerShape(16.dp)).padding(horizontal = 10.dp, vertical = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+    Box(
+        Modifier.fillMaxWidth().height(58.dp)
+            .background(N2Surface, RoundedCornerShape(16.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(16.dp))
     ) {
-        Text("‹", color = N2Ink, fontSize = 25.sp, fontWeight = FontWeight.Bold,
-            modifier = Modifier.clickable(onClick = onPrevious).padding(horizontal = 10.dp, vertical = 2.dp))
+        Box(
+            Modifier.align(Alignment.CenterStart).size(SuperhumanLayout.iconTouchTarget)
+                .clickable(onClick = onPrevious),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.tabler_chevron_left),
+                contentDescription = "Previous day",
+                tint = N2Ink,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
         Text(
             if (date == today) "Today" else date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.ENGLISH)),
             color = N2Ink,
             fontSize = 11.sp,
             fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.clickable(onClick = onToday).padding(horizontal = 8.dp, vertical = 6.dp)
+            modifier = Modifier.align(Alignment.Center).clickable(onClick = onToday).padding(horizontal = 12.dp, vertical = 8.dp)
         )
-        Text(
-            "›",
-            color = if (date.isBefore(today)) N2Ink else N2Muted.copy(alpha = .35f),
-            fontSize = 25.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.clickable(enabled = date.isBefore(today), onClick = onNext)
-                .padding(horizontal = 10.dp, vertical = 2.dp)
-        )
+
+        Box(
+            Modifier.align(Alignment.CenterEnd).size(SuperhumanLayout.iconTouchTarget)
+                .clickable(enabled = date.isBefore(today), onClick = onNext),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.tabler_chevron_right),
+                contentDescription = "Next day",
+                tint = if (date.isBefore(today)) N2Ink else N2Muted.copy(alpha = .35f),
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 
 @Composable
 private fun N2Tabs(view: N2View, onChange: (N2View) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(18.dp)).border(1.dp, N2Border, RoundedCornerShape(18.dp)).padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(18.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(18.dp)).padding(SuperhumanLayout.segmentedPadding),
+        horizontalArrangement = Arrangement.spacedBy(SuperhumanLayout.segmentedGap)
     ) {
         N2Tab("Diary", view == N2View.DIARY, Modifier.weight(1f)) { onChange(N2View.DIARY) }
         N2Tab("Nutrients", view == N2View.NUTRIENTS, Modifier.weight(1f)) { onChange(N2View.NUTRIENTS) }
@@ -527,7 +551,9 @@ private fun N2Tabs(view: N2View, onChange: (N2View) -> Unit) {
 @Composable
 private fun N2Tab(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.background(if (selected) N2Blue else Color.Transparent, RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = 10.dp),
+        modifier.height(SuperhumanLayout.controlHeight)
+            .background(if (selected) N2Blue else Color.Transparent, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) { Text(label, color = if (selected) Color.White else N2Muted, fontSize = 10.sp, fontWeight = FontWeight.Black) }
 }
@@ -636,7 +662,7 @@ private fun N2WeekChart(
     )
     Column(
         Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(18.dp)).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.compactGap)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
@@ -699,7 +725,7 @@ private fun N2LogCard(
 ) {
     Column(
         Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.contentGap)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
@@ -797,14 +823,14 @@ private fun N2Button(label: String, accent: Color, modifier: Modifier, enabled: 
 @Composable
 private fun N2Results(foods: List<NativeFood>, selectedId: String?, onSelect: (NativeFood) -> Unit) {
     Column(
-        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(14.dp),
+        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(SuperhumanLayout.cardPadding),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Text("Results", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
         foods.take(10).forEach { food ->
             Row(
                 Modifier.fillMaxWidth().background(if (food.id == selectedId) N2SoftGreen else N2RowBg, RoundedCornerShape(14.dp))
-                    .clickable { onSelect(food) }.padding(11.dp),
+                    .clickable { onSelect(food) }.padding(SuperhumanLayout.compactCardPadding),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 N2FoodThumb(food.name, 38)
@@ -930,7 +956,7 @@ private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
                 Column(
                     Modifier.width(148.dp).background(N2Surface, RoundedCornerShape(16.dp))
                         .border(1.dp, N2Border, RoundedCornerShape(16.dp))
-                        .clickable { onRepeat(entry) }.padding(11.dp)
+                        .clickable { onRepeat(entry) }.padding(SuperhumanLayout.compactCardPadding)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         N2FoodThumb(entry.name, 34)
@@ -1026,7 +1052,7 @@ private fun N2MealCard(
 
     Column(
         Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(20.dp))
-            .border(1.dp, N2Border, RoundedCornerShape(20.dp)).padding(13.dp),
+            .border(1.dp, N2Border, RoundedCornerShape(20.dp)).padding(SuperhumanLayout.cardPadding),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(
@@ -1171,11 +1197,11 @@ private fun N2Nutrients(
     val coverage = if (entryCount == 0) 0 else withMicro * 100 / entryCount
     val byId = day.micros.associateBy { it.id }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.sectionGap)) {
         Row(
             Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(17.dp))
-                .border(1.dp, N2Border, RoundedCornerShape(17.dp)).padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                .border(1.dp, N2Border, RoundedCornerShape(17.dp)).padding(SuperhumanLayout.segmentedPadding),
+            horizontalArrangement = Arrangement.spacedBy(SuperhumanLayout.segmentedGap)
         ) {
             N2Range.entries.forEach { item ->
                 val active = item == range
@@ -1183,7 +1209,7 @@ private fun N2Nutrients(
                     Modifier.weight(1f)
                         .background(if (active) N2Blue else Color.Transparent, RoundedCornerShape(13.dp))
                         .clickable { onRangeChange(item) }
-                        .padding(vertical = 9.dp),
+                        .height(SuperhumanLayout.controlHeight),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(item.label, color = if (active) Color.White else N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Black)
@@ -1192,7 +1218,7 @@ private fun N2Nutrients(
         }
 
         Column(
-            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(17.dp),
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(SuperhumanLayout.cardPadding),
             verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
             Text(
@@ -1212,16 +1238,16 @@ private fun N2Nutrients(
         val gaugeNutrients = n2FocusIds.mapNotNull { byId[it] }.take(4)
         if (gaugeNutrients.isNotEmpty()) {
             Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 1.dp),
+                horizontalArrangement = Arrangement.spacedBy(SuperhumanLayout.contentGap)
             ) {
                 gaugeNutrients.forEach { micro -> N2NutrientGauge(micro, range.days.toInt()) }
             }
         }
 
         Column(
-            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(SuperhumanLayout.cardPadding),
+            verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.compactGap)
         ) {
             Text(
                 if (range == N2Range.DAY) "Focus today" else "Average per day",
@@ -1252,8 +1278,8 @@ private fun N2Nutrients(
 
         if (showAll) {
             Column(
-                Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(15.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(SuperhumanLayout.cardPadding),
+                verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.compactGap)
             ) {
                 Text("All tracked nutrients", color = N2Ink, fontSize = 17.sp, fontWeight = FontWeight.Black)
                 if (day.micros.isEmpty()) Text("No micronutrient values are available yet.", color = N2Muted, fontSize = 10.sp)
@@ -1283,12 +1309,14 @@ private fun N2NutrientGauge(micro: N2Micro, referenceDays: Int) {
         else -> N2Green
     }
     Column(
-        Modifier.width(104.dp).background(N2Surface, RoundedCornerShape(18.dp))
-            .border(1.dp, N2Border, RoundedCornerShape(18.dp)).padding(10.dp),
+        Modifier.width(116.dp).height(148.dp)
+            .background(N2Surface, RoundedCornerShape(18.dp))
+            .border(1.dp, N2Border, RoundedCornerShape(18.dp))
+            .padding(SuperhumanLayout.compactCardPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.SpaceBetween
     ) {
-        Box(Modifier.size(58.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(62.dp), contentAlignment = Alignment.Center) {
             Canvas(Modifier.fillMaxSize()) {
                 val stroke = 6.dp.toPx()
                 drawArc(N2Border, -90f, 360f, false, style = Stroke(stroke, cap = StrokeCap.Round))
@@ -1298,7 +1326,17 @@ private fun N2NutrientGauge(micro: N2Micro, referenceDays: Int) {
             }
             Text((fraction * 100).roundToInt().toString() + "%", color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
-        Text(micro.label, color = N2Ink, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+        Box(Modifier.height(30.dp), contentAlignment = Alignment.Center) {
+            Text(
+                micro.label,
+                color = N2Ink,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 2,
+                textAlign = TextAlign.Center,
+                lineHeight = 11.sp
+            )
+        }
         Text(n2Pretty(value) + " " + micro.unit, color = N2Muted, fontSize = 8.sp)
     }
 }
@@ -1309,8 +1347,8 @@ private fun N2FoodContributors(entries: List<N2Entry>) {
     val max = top.maxOfOrNull { it.kcal }?.coerceAtLeast(1.0) ?: 1.0
     Column(
         Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(22.dp))
-            .border(1.dp, N2Border, RoundedCornerShape(22.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .border(1.dp, N2Border, RoundedCornerShape(22.dp)).padding(SuperhumanLayout.cardPadding),
+        verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.contentGap)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Top contributors", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
@@ -1339,7 +1377,7 @@ private fun N2FoodContributors(entries: List<N2Entry>) {
 
 @Composable
 private fun N2UnknownNutrient(ref: N2Reference) {
-    Row(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(11.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(SuperhumanLayout.compactCardPadding), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(ref.label, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
             Text("No reliable value in today's logged foods", color = N2Muted, fontSize = 9.sp)
@@ -1361,7 +1399,7 @@ private fun N2NutrientRow(micro: N2Micro, entryCount: Int, referenceDays: Int = 
         pct < 85 -> N2Blue
         else -> N2Green
     }
-    Column(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(11.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(SuperhumanLayout.compactCardPadding), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column(Modifier.weight(1f)) {
                 Text(micro.label, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
@@ -1396,7 +1434,7 @@ private fun N2Insights(
     val entryCount = day.entries.size
     val microCoverage = if (entryCount == 0) 0 else day.entries.count { it.micronutrientCount > 0 } * 100 / entryCount
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.sectionGap)) {
         Column(
             Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(9.dp)
@@ -1417,7 +1455,7 @@ private fun N2Insights(
 
         Column(
             Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.contentGap)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
@@ -1438,7 +1476,7 @@ private fun N2Insights(
             }
         }
 
-        Column(Modifier.fillMaxWidth().background(N2SoftBlue, RoundedCornerShape(20.dp)).padding(15.dp)) {
+        Column(Modifier.fillMaxWidth().background(N2SoftBlue, RoundedCornerShape(20.dp)).padding(SuperhumanLayout.cardPadding)) {
             Text("Project Superhuman view", color = N2Blue, fontSize = 14.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(4.dp))
             Text(
@@ -1451,7 +1489,7 @@ private fun N2Insights(
 
 @Composable
 private fun N2Insight(title: String, detail: String, accent: Color) {
-    Row(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(11.dp), verticalAlignment = Alignment.Top) {
+    Row(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(SuperhumanLayout.compactCardPadding), verticalAlignment = Alignment.Top) {
         Box(Modifier.width(6.dp).height(34.dp).background(accent, RoundedCornerShape(99.dp)))
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
@@ -1463,7 +1501,11 @@ private fun N2Insight(title: String, detail: String, accent: Color) {
 
 @Composable
 private fun N2TargetSummary(label: String, value: String, unit: String, modifier: Modifier) {
-    Column(modifier.background(N2RowBg, RoundedCornerShape(14.dp)).padding(10.dp)) {
+    Column(
+        modifier.height(68.dp).background(N2RowBg, RoundedCornerShape(14.dp))
+            .padding(SuperhumanLayout.compactCardPadding),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
         Text(label.uppercase(), color = N2Muted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .6.sp)
         Row(verticalAlignment = Alignment.Bottom) {
             Text(value, color = N2Navy, fontSize = 15.sp, fontWeight = FontWeight.Black)
@@ -1481,7 +1523,7 @@ private fun N2TargetEditor(goals: N2Goals, onSave: (N2Goals) -> Unit) {
     var fat by remember(goals) { mutableStateOf(goals.fat?.let(::n2Editable) ?: "") }
     var fibre by remember(goals) { mutableStateOf(goals.fibre?.let(::n2Editable) ?: "") }
 
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.compactGap)) {
         OutlinedTextField(kcal, { kcal = n2GoalText(it) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Calories (kcal)") })
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             OutlinedTextField(protein, { protein = n2GoalText(it) }, Modifier.weight(1f), singleLine = true, label = { Text("Protein (g)") })
