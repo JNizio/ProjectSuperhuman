@@ -110,70 +110,79 @@ internal object LargeLocalFoodDatabase {
             ensureStarted(app)
             val q = normalize(query)
             if (q.length < 2) return@withContext emptyList()
-            val contains = "%$q%"
-            val prefix = "$q%"
 
-            LargeFoodDb(app).use { helper ->
-                helper.readableDatabase.rawQuery(
-                    """
-                    SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
-                           protein_known, carbs_known, fat_known, fibre_known, sugar_known,
-                           unit, source, search_text, brand, micronutrients_json
-                    FROM food_reference
-                    WHERE normalized_name LIKE ? OR search_text LIKE ?
-                    ORDER BY
-                        CASE
-                            WHEN normalized_name = ? THEN 0
-                            WHEN normalized_name LIKE ? THEN 1
-                            ELSE 2
-                        END,
-                        CASE
-                            WHEN source LIKE 'USDA Foundation Foods%' THEN 0
-                            WHEN source LIKE 'USDA FNDDS%' THEN 1
-                            WHEN source LIKE 'USDA SR Legacy%' THEN 2
-                            ELSE 3
-                        END,
-                        micronutrient_count DESC,
-                        length(name),
-                        name COLLATE NOCASE
-                    LIMIT ?
-                    """.trimIndent(),
-                    arrayOf(contains, contains, q, prefix, limit.coerceIn(1, 80).toString())
-                ).use { cursor ->
-                    buildList {
-                        while (cursor.moveToNext()) {
-                            add(
-                                NativeFood(
-                                    id = cursor.getString(0),
-                                    name = cursor.getString(1),
-                                    country = cursor.getString(2),
-                                    kcal = cursor.getDouble(3),
-                                    protein = cursor.getDouble(4),
-                                    carbs = cursor.getDouble(5),
-                                    carbohydrateDefinition = if (cursor.getString(15).startsWith("USDA")) {
-                                        CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE
-                                    } else {
-                                        CarbohydrateDefinition.UNKNOWN
-                                    },
-                                    fat = cursor.getDouble(6),
-                                    fibre = cursor.getDouble(7),
-                                    sugar = cursor.getDouble(8),
-                                    proteinKnown = cursor.getInt(9) != 0,
-                                    carbsKnown = cursor.getInt(10) != 0,
-                                    fatKnown = cursor.getInt(11) != 0,
-                                    fibreKnown = cursor.getInt(12) != 0,
-                                    sugarKnown = cursor.getInt(13) != 0,
-                                    unit = cursor.getString(14),
-                                    source = cursor.getString(15),
-                                    searchText = cursor.getString(16),
-                                    brand = cursor.getString(17),
-                                    micronutrients = decodeMicros(cursor.getString(18))
+            val requested = limit.coerceIn(1, 80)
+            val prefix = "$q%"
+            val contains = "%$q%"
+
+            fun queryRows(namePattern: String, searchPattern: String, rowLimit: Int): List<NativeFood> =
+                LargeFoodDb(app).use { helper ->
+                    helper.readableDatabase.rawQuery(
+                        """
+                        SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
+                               protein_known, carbs_known, fat_known, fibre_known, sugar_known,
+                               unit, source, search_text, brand, micronutrients_json
+                        FROM food_reference
+                        WHERE normalized_name LIKE ? OR search_text LIKE ?
+                        ORDER BY
+                            CASE
+                                WHEN normalized_name = ? THEN 0
+                                WHEN normalized_name LIKE ? THEN 1
+                                ELSE 2
+                            END,
+                            CASE
+                                WHEN source LIKE 'USDA Foundation Foods%' THEN 0
+                                WHEN source LIKE 'USDA FNDDS%' THEN 1
+                                WHEN source LIKE 'USDA SR Legacy%' THEN 2
+                                ELSE 3
+                            END,
+                            micronutrient_count DESC,
+                            length(name),
+                            name COLLATE NOCASE
+                        LIMIT ?
+                        """.trimIndent(),
+                        arrayOf(namePattern, searchPattern, q, prefix, rowLimit.toString())
+                    ).use { cursor ->
+                        buildList {
+                            while (cursor.moveToNext()) {
+                                add(
+                                    NativeFood(
+                                        id = cursor.getString(0),
+                                        name = cursor.getString(1),
+                                        country = cursor.getString(2),
+                                        kcal = cursor.getDouble(3),
+                                        protein = cursor.getDouble(4),
+                                        carbs = cursor.getDouble(5),
+                                        carbohydrateDefinition = if (cursor.getString(15).startsWith("USDA")) {
+                                            CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE
+                                        } else {
+                                            CarbohydrateDefinition.UNKNOWN
+                                        },
+                                        fat = cursor.getDouble(6),
+                                        fibre = cursor.getDouble(7),
+                                        sugar = cursor.getDouble(8),
+                                        proteinKnown = cursor.getInt(9) != 0,
+                                        carbsKnown = cursor.getInt(10) != 0,
+                                        fatKnown = cursor.getInt(11) != 0,
+                                        fibreKnown = cursor.getInt(12) != 0,
+                                        sugarKnown = cursor.getInt(13) != 0,
+                                        unit = cursor.getString(14),
+                                        source = cursor.getString(15),
+                                        searchText = cursor.getString(16),
+                                        brand = cursor.getString(17),
+                                        micronutrients = decodeMicros(cursor.getString(18))
+                                    )
                                 )
-                            )
+                            }
                         }
                     }
                 }
-            }
+
+            val fast = queryRows(prefix, prefix, requested)
+            if (fast.size >= minOf(requested, 6)) return@withContext fast.take(requested)
+
+            val broad = queryRows(contains, contains, requested)
+            (fast + broad).distinctBy { it.id }.take(requested)
         }
 
     private fun sourcesComplete(context: Context): Boolean =
