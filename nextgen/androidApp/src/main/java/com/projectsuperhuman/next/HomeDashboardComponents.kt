@@ -747,25 +747,37 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
         ) {
             Row(
                 Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    "NUTRITION",
-                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.15.sp
-                )
                 Box(
-                    Modifier.size(36.dp).background(accent.copy(alpha = .12f), CircleShape),
+                    Modifier.width(112.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("→", color = accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        "NUTRITION",
+                        color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.15.sp
+                    )
+                }
+
+                Spacer(Modifier.width(16.dp))
+
+                Box(
+                    Modifier.weight(1f),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Box(
+                        Modifier.size(36.dp).background(accent.copy(alpha = .12f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("→", color = accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(6.dp))
 
             Row(
                 Modifier.fillMaxWidth(),
