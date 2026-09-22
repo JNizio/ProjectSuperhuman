@@ -195,6 +195,15 @@ internal object FoodEvidenceEngine {
             inferPreparationState(food.name + " " + food.searchText)
         } else food.preparationState
 
+        // Plant identity is canonical derived metadata, not something callers should have to
+        // remember to set. Explicit valid identities are preserved; otherwise every food entering
+        // the evidence layer is classified from its name/search/ingredient evidence.
+        val plantIdentity = if (food.isPlantFood && food.plantDiversityKey.isNotBlank()) {
+            PlantFoodIdentity(true, food.plantFoodKind, food.plantDiversityKey)
+        } else {
+            PlantFoodClassifier.classify(food.name, food.searchText, food.ingredientsText)
+        }
+
         val warnings = buildList {
             addAll(food.sourceWarnings.filter(String::isNotBlank))
             food.nutritionIntegrityWarning?.takeIf(String::isNotBlank)?.let(::add)
@@ -266,6 +275,9 @@ internal object FoodEvidenceEngine {
             verificationState = verification,
             confidence = confidence,
             preparationState = preparation,
+            isPlantFood = plantIdentity.isPlantFood,
+            plantFoodKind = plantIdentity.kind,
+            plantDiversityKey = plantIdentity.diversityKey,
             sourceWarnings = warnings,
             nutrientEvidence = evidence,
             micronutrients = enrichedMicros,
