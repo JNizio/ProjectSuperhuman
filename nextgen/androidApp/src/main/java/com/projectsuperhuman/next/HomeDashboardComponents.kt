@@ -592,6 +592,103 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
         )
 
         Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier.size(34.dp)
+                            .background(strengthAccent.copy(alpha = .14f), RoundedCornerShape(11.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.tabler_dumbbell),
+                            contentDescription = null,
+                            tint = strengthAccent,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "TRAINING",
+                        color = Color.White.copy(alpha = .82f),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.1.sp
+                    )
+                }
+                Box(
+                    Modifier.size(36.dp).background(Color.White.copy(alpha = .08f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("→", color = strengthAccent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(Modifier.height(13.dp))
+            Text(
+                headline,
+                color = Color.White,
+                fontSize = 21.sp,
+                lineHeight = 23.sp,
+                fontWeight = FontWeight.Black
+            )
+            Spacer(Modifier.height(3.dp))
+            Text(
+                summaryLine,
+                color = Color.White.copy(alpha = .60f),
+                fontSize = 9.sp,
+                maxLines = 1
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(9.dp)
+            ) {
+                Column(
+                    Modifier.weight(1f)
+                        .background(strengthAccent.copy(alpha = .10f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 11.dp, vertical = 9.dp)
+                ) {
+                    Text("STRENGTH", color = strengthAccent, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        if (snapshot.strengthWorkoutsToday > 0) volumeLabel else "Ready",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+                Column(
+                    Modifier.weight(1f)
+                        .background(cardioAccent.copy(alpha = .10f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 11.dp, vertical = 9.dp)
+                ) {
+                    Text("CARDIO", color = cardioAccent, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        if (snapshot.cardioWorkoutsToday > 0) distanceLabel else "Ready",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+                Column(
+                    Modifier.weight(.82f)
+                        .background(Color.White.copy(alpha = .07f), RoundedCornerShape(14.dp))
+                        .padding(horizontal = 10.dp, vertical = 9.dp)
+                ) {
+                    Text("TIME", color = Color.White.copy(alpha = .48f), fontSize = 7.sp, fontWeight = FontWeight.Black)
+                    Text(
+                        if (snapshot.trainingMinutesToday > 0) snapshot.trainingMinutesToday.toString() + " min" else "—",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
         }
     }
 }
