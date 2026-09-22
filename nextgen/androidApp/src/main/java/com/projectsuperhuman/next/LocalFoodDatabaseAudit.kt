@@ -465,6 +465,14 @@ internal object LocalFoodAuditRules {
 }
 
 internal object LocalFoodDatabaseAuditor {
+    private val essentialMicronutrients = setOf(
+        "calcium", "chloride", "copper", "iron", "iodine", "magnesium", "manganese",
+        "phosphorus", "potassium", "selenium", "sodium", "zinc",
+        "vitamin_a", "vitamin_b1", "vitamin_b2", "niacin", "pantothenic_acid",
+        "vitamin_b6", "biotin", "folate", "vitamin_b12", "vitamin_c", "vitamin_d",
+        "vitamin_e", "vitamin_k", "choline"
+    )
+
     private val monitoredNutrients = listOf(
         "protein", "carbohydrate", "fat", "saturated_fat", "fibre", "sugars", "sodium", "salt",
         "potassium", "calcium", "magnesium", "phosphorus", "iron", "zinc", "copper", "manganese",
@@ -624,7 +632,7 @@ internal object LocalFoodDatabaseAuditor {
             it.id !in reviewIds &&
                 it.sourceRecordId.isNotBlank() &&
                 it.source.contains("USDA", ignoreCase = true) &&
-                it.micronutrients.size >= 12 &&
+                it.micronutrients.keys.count(essentialMicronutrients::contains) >= 12 &&
                 it.foodTags.isNotEmpty()
         }
 
@@ -641,7 +649,10 @@ internal object LocalFoodDatabaseAuditor {
             plantFoodsMissingPlantTag = plantMissing,
             suspiciousPlantClassifications = suspiciousPlant,
             representativeFoods = representativeFoods,
-            findings = findings.sortedWith(compareBy<LocalFoodAuditFinding> { it.severity.ordinal }.thenBy { it.foodName }),
+            findings = findings.sortedWith(
+                compareByDescending<LocalFoodAuditFinding> { it.severity.ordinal }
+                    .thenBy { it.foodName }
+            ),
             nutrientCoverage = coverage,
             duplicateExamples = duplicateGroups.take(100).map { group -> group.map { it.name + " [" + it.id + "]" } },
             suspiciousProfileExamples = profileGroups.take(100).map { group -> group.map { it.name + " [" + it.id + "]" } }
