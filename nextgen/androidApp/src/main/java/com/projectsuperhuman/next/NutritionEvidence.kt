@@ -597,6 +597,7 @@ internal object FoodEvidenceEngine {
     private fun sourceRecordIdFor(food: NativeFood, sourceType: FoodDataSourceType): String = when {
         !food.barcode.isNullOrBlank() && sourceType == FoodDataSourceType.OPEN_FOOD_FACTS ->
             food.barcode.filter(Char::isDigit)
+        food.sourceRecordId.isNotBlank() -> food.sourceRecordId
         else -> food.id
     }
 
