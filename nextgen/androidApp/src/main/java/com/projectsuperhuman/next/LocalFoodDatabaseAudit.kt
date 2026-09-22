@@ -271,6 +271,29 @@ internal object LocalFoodAuditRules {
 
     fun canonicalIdentity(name: String): String =
         name.lowercase(Locale.ROOT)
+            .replace(Regex("\\brocket\\b"), "arugula")
+            .replace(Regex("\\bcourgette\\b"), "zucchini")
+            .replace(Regex("\\baubergine\\b"), "eggplant")
+            .replace(Regex("\\bgarbanzo beans?\\b"), "chickpea")
+            .replace(Regex("\\b(apples|bananas|carrots|onions|peppers|walnuts|almonds|lentils|chickpeas|eggs|mushrooms|grapes|oats|seeds)\\b")) {
+                when (it.value) {
+                    "apples" -> "apple"
+                    "bananas" -> "banana"
+                    "carrots" -> "carrot"
+                    "onions" -> "onion"
+                    "peppers" -> "pepper"
+                    "walnuts" -> "walnut"
+                    "almonds" -> "almond"
+                    "lentils" -> "lentil"
+                    "chickpeas" -> "chickpea"
+                    "eggs" -> "egg"
+                    "mushrooms" -> "mushroom"
+                    "grapes" -> "grape"
+                    "oats" -> "oat"
+                    "seeds" -> "seed"
+                    else -> it.value
+                }
+            }
             .replace(Regex("\\b(leaves|leaf|fresh)\\b"), " ")
             .replace(Regex("[^a-z0-9]+"), " ")
             .trim()
