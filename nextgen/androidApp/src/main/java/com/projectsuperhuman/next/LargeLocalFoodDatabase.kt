@@ -174,7 +174,8 @@ internal object LargeLocalFoodDatabase {
                                protein_known, carbs_known, fat_known, fibre_known, sugar_known,
                                unit, source, search_text, brand, micronutrients_json, core_rank,
                                saturated_fat, saturated_fat_known, sodium_mg, sodium_known,
-                               salt_g, salt_known, unknown_micronutrients_json, source_record_id
+                               salt_g, salt_known, unknown_micronutrients_json, source_record_id,
+                               plant_food, plant_food_kind, plant_diversity_key
                         FROM food_reference
                         WHERE normalized_name LIKE ? OR search_text LIKE ?
                         ORDER BY
@@ -238,6 +239,10 @@ internal object LargeLocalFoodDatabase {
                                         salt = cursor.getDouble(24),
                                         saltKnown = cursor.getInt(25) != 0,
                                         sourceRecordId = cursor.getString(27).ifBlank { sourceId.removePrefix("usda:") },
+                                        isPlantFood = cursor.getInt(28) != 0,
+                                        plantFoodKind = cursor.getString(29)
+                                            .let { raw -> runCatching { PlantFoodKind.valueOf(raw) }.getOrDefault(PlantFoodKind.NONE) },
+                                        plantDiversityKey = cursor.getString(30),
                                         sourceType = when {
                                             source.startsWith("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
                                             source.startsWith("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
@@ -318,7 +323,8 @@ internal object LargeLocalFoodDatabase {
                        protein_known, carbs_known, fat_known, fibre_known, sugar_known,
                        unit, source, search_text, brand, micronutrients_json,
                        saturated_fat, saturated_fat_known, sodium_mg, sodium_known,
-                       salt_g, salt_known, source_record_id
+                       salt_g, salt_known, source_record_id,
+                       plant_food, plant_food_kind, plant_diversity_key
                 FROM food_reference
                 WHERE source LIKE 'USDA%' AND $where
                 ORDER BY
@@ -363,6 +369,10 @@ internal object LargeLocalFoodDatabase {
                     salt = cursor.getDouble(23),
                     saltKnown = cursor.getInt(24) != 0,
                     sourceRecordId = cursor.getString(25).ifBlank { sourceId.removePrefix("usda:") },
+                    isPlantFood = cursor.getInt(26) != 0,
+                    plantFoodKind = cursor.getString(27)
+                        .let { raw -> runCatching { PlantFoodKind.valueOf(raw) }.getOrDefault(PlantFoodKind.NONE) },
+                    plantDiversityKey = cursor.getString(28),
                     sourceType = when {
                         source.startsWith("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
                         source.startsWith("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
@@ -1012,6 +1022,11 @@ internal object LargeLocalFoodDatabase {
     }
 
     private fun insertFood(db: SQLiteDatabase, food: NativeFood, replace: Boolean) {
+        val plantIdentity = if (food.isPlantFood && food.plantDiversityKey.isNotBlank()) {
+            PlantFoodIdentity(true, food.plantFoodKind, food.plantDiversityKey)
+        } else {
+            PlantFoodClassifier.classify(food.name, food.searchText, food.ingredientsText)
+        }
         val values = ContentValues().apply {
             put("id", food.id)
             put("name", food.name)
@@ -1050,6 +1065,9 @@ internal object LargeLocalFoodDatabase {
                 food.sourceRecordId.ifBlank { food.id.removePrefix("usda:").removePrefix("core:usda:") }
             )
             putNull("core_rank")
+            put("plant_food", if (plantIdentity.isPlantFood) 1 else 0)
+            put("plant_food_kind", plantIdentity.kind.name)
+            put("plant_diversity_key", plantIdentity.diversityKey)
         }
         db.insertWithOnConflict(
             "food_reference",
@@ -1156,7 +1174,8 @@ internal object LargeLocalFoodDatabase {
                        saturated_fat_known, sodium_known,
                        unit, source, search_text, brand, micronutrients_json,
                        micronutrient_count, essential_micronutrient_count,
-                       salt_g, salt_known, unknown_micronutrients_json, source_record_id
+                       salt_g, salt_known, unknown_micronutrients_json, source_record_id,
+                       plant_food, plant_food_kind, plant_diversity_key
                 FROM food_reference
                 WHERE id = ?
                 LIMIT 1
@@ -1200,6 +1219,9 @@ internal object LargeLocalFoodDatabase {
                     put("unknown_micronutrients_json", cursor.getString(26))
                     put("source_record_id", originalRecordId)
                     put("core_rank", index + 1)
+                    put("plant_food", cursor.getInt(28))
+                    put("plant_food_kind", cursor.getString(29))
+                    put("plant_diversity_key", cursor.getString(30))
                 }
             }
             if (source != null) {
@@ -1224,7 +1246,7 @@ internal object LargeLocalFoodDatabase {
 
         putMeta(db, "project_superhuman_core_food_count", materializedCount.toString())
         putMeta(db, "project_superhuman_core_food_strict_count", strictCount.toString())
-        putMeta(db, "project_superhuman_core_food_schema", "6")
+        putMeta(db, "project_superhuman_core_food_schema", "7")
         putMeta(db, "project_superhuman_core_food_storage", "materialized-local-snapshot")
         putMeta(db, "project_superhuman_core_food_min_essential", CORE_MIN_MICRONUTRIENTS.toString())
         putMeta(db, "project_superhuman_core_food_essential_total", CORE_MICRONUTRIENTS.size.toString())
@@ -1368,7 +1390,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    9
+    10
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -1404,13 +1426,17 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 essential_micronutrient_count INTEGER NOT NULL DEFAULT 0,
                 unknown_micronutrients_json TEXT NOT NULL DEFAULT '[]',
                 source_record_id TEXT NOT NULL DEFAULT '',
-                core_rank INTEGER
+                core_rank INTEGER,
+                plant_food INTEGER NOT NULL DEFAULT 0,
+                plant_food_kind TEXT NOT NULL DEFAULT 'NONE',
+                plant_diversity_key TEXT NOT NULL DEFAULT ''
             )
             """.trimIndent()
         )
         db.execSQL("CREATE INDEX food_reference_name_idx ON food_reference(normalized_name)")
         db.execSQL("CREATE INDEX food_reference_micro_idx ON food_reference(micronutrient_count DESC)")
         db.execSQL("CREATE INDEX food_reference_core_idx ON food_reference(core_rank)")
+        db.execSQL("CREATE INDEX food_reference_plant_idx ON food_reference(plant_food, plant_diversity_key)")
         db.execSQL(
             """
             CREATE TABLE food_reference_meta(
