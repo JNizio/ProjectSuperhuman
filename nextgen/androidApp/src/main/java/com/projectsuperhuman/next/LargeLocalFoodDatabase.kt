@@ -65,6 +65,7 @@ internal object LargeLocalFoodDatabase {
     private const val FNDDS_META = "usda_fndds_2021_2023_complete"
     private const val SR_META = "usda_sr_legacy_complete"
     private const val USER_AGENT = "ProjectSuperhuman/11.4 (Android food reference importer)"
+    private const val PLANT_CLASSIFIER_META = "plant_classifier_schema"
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val bootstrapStarted = AtomicBoolean(false)
@@ -548,9 +549,61 @@ internal object LargeLocalFoodDatabase {
         LargeFoodDb(context).use { helper ->
             val db = helper.writableDatabase
             priorityFoods().forEach { insertFood(db, it, replace = false) }
+            backfillPlantClassificationIfNeeded(db)
             seedCanonicalLocalVariants(db)
             db.execSQL("UPDATE food_reference SET core_rank = 0 WHERE id LIKE 'core:%'")
             synchronized(localSearchCacheLock) { localSearchCache.clear() }
+        }
+    }
+
+    /**
+     * Plant classification is derived data, so it must be refreshable independently of the much
+     * larger USDA nutrition import. Bumping PlantFoodClassifier.SCHEMA_VERSION reclassifies every
+     * existing local/core row once. New rows are classified automatically by insertFood().
+     */
+    private fun backfillPlantClassificationIfNeeded(db: SQLiteDatabase) {
+        val current = db.rawQuery(
+            "SELECT value FROM food_reference_meta WHERE key = ? LIMIT 1",
+            arrayOf(PLANT_CLASSIFIER_META)
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0).toIntOrNull() ?: 0 else 0
+        }
+        if (current >= PlantFoodClassifier.SCHEMA_VERSION) return
+
+        db.beginTransaction()
+        try {
+            db.rawQuery(
+                "SELECT id, name, search_text, brand FROM food_reference",
+                null
+            ).use { cursor ->
+                val update = db.compileStatement(
+                    """
+                    UPDATE food_reference
+                    SET plant_food = ?, plant_food_kind = ?, plant_diversity_key = ?
+                    WHERE id = ?
+                    """.trimIndent()
+                )
+                while (cursor.moveToNext()) {
+                    val id = cursor.getString(0)
+                    val name = cursor.getString(1)
+                    val searchText = buildString {
+                        append(cursor.getString(2).orEmpty())
+                        append(' ')
+                        append(cursor.getString(3).orEmpty())
+                    }
+                    val identity = PlantFoodClassifier.classify(name, searchText)
+                    update.clearBindings()
+                    update.bindLong(1, if (identity.isPlantFood) 1L else 0L)
+                    update.bindString(2, identity.kind.name)
+                    update.bindString(3, identity.diversityKey)
+                    update.bindString(4, id)
+                    update.executeUpdateDelete()
+                }
+            }
+            putMeta(db, PLANT_CLASSIFIER_META, PlantFoodClassifier.SCHEMA_VERSION.toString())
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
         }
     }
 
@@ -832,6 +885,7 @@ internal object LargeLocalFoodDatabase {
 
         var fdcId: Long? = null
         var description = ""
+        var foodCategory = ""
         val nutrients = NutrientAccumulator()
 
         reader.beginObject()
@@ -839,6 +893,11 @@ internal object LargeLocalFoodDatabase {
             when (reader.nextName()) {
                 "fdcId" -> fdcId = readLong(reader)
                 "description" -> description = readString(reader)
+                "foodCategory", "wweiaFoodCategory" -> {
+                    val category = readFoodCategory(reader)
+                    if (category.isNotBlank()) foodCategory = category
+                }
+                "wweiaFoodCategoryDescription" -> foodCategory = readString(reader)
                 "foodNutrients" -> parseFoodNutrients(reader, nutrients)
                 else -> reader.skipValue()
             }
@@ -878,7 +937,15 @@ internal object LargeLocalFoodDatabase {
             saltKnown = nutrients.sodiumMg != null,
             unit = "100 g",
             source = "$sourceLabel · FDC $id",
-            searchText = "${description.lowercase(Locale.ROOT)} usda fooddata central fdc $id",
+            searchText = buildString {
+                append(description.lowercase(Locale.ROOT))
+                if (foodCategory.isNotBlank()) {
+                    append(" category ")
+                    append(foodCategory.lowercase(Locale.ROOT))
+                }
+                append(" usda fooddata central fdc ")
+                append(id)
+            },
             micronutrients = nutrients.micros.toMap()
         )
     }
@@ -1308,6 +1375,33 @@ internal object LargeLocalFoodDatabase {
                 }
             }
         }.getOrDefault(emptyMap())
+    }
+
+    private fun readFoodCategory(reader: JsonReader): String = when (reader.peek()) {
+        JsonToken.STRING, JsonToken.NUMBER -> readString(reader)
+        JsonToken.BEGIN_OBJECT -> {
+            var description = ""
+            reader.beginObject()
+            while (reader.hasNext()) {
+                when (reader.nextName()) {
+                    "description", "wweiaFoodCategoryDescription", "name" -> {
+                        val value = readString(reader)
+                        if (value.isNotBlank()) description = value
+                    }
+                    else -> reader.skipValue()
+                }
+            }
+            reader.endObject()
+            description
+        }
+        JsonToken.NULL -> {
+            reader.nextNull()
+            ""
+        }
+        else -> {
+            reader.skipValue()
+            ""
+        }
     }
 
     private fun readString(reader: JsonReader): String = when (reader.peek()) {
