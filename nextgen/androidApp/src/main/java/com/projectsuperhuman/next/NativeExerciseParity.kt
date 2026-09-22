@@ -2094,6 +2094,8 @@ private fun StrengthRoutineShortcut(routine: WorkoutRoutine, catalog: List<Nativ
 private fun RoutineVisualCard(
     routine: WorkoutRoutine,
     catalog: List<NativeExercise>,
+    isNext: Boolean,
+    onSetNext: () -> Unit,
     onStart: () -> Unit,
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
@@ -2110,7 +2112,12 @@ private fun RoutineVisualCard(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(routine.name, color = ExerciseInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
-                Text(routine.exerciseIds.size.toString() + " exercises", color = ExerciseMuted, fontSize = 9.sp)
+                Text(
+                    routine.exerciseIds.size.toString() + " exercises · " +
+                        routine.plannedDurationMin + " min · " + routine.intensity,
+                    color = ExerciseMuted,
+                    fontSize = 9.sp
+                )
             }
             Box(
                 Modifier.background(ExerciseGreen.copy(alpha = .14f), RoundedCornerShape(12.dp))
@@ -2136,8 +2143,15 @@ private fun RoutineVisualCard(
                 Text("+" + (exercises.size - 4) + " more", color = ExerciseMuted, fontSize = 8.sp)
             }
         }
-        Spacer(Modifier.height(11.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+        Spacer(Modifier.height(9.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                if (isNext) "NEXT ✓" else "SET NEXT",
+                color = if (isNext) ExerciseGreen else ExerciseMuted,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.superhumanClickable(onClick = onSetNext)
+            )
             Text("EDIT", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onEdit))
             Text("DUPLICATE", color = ExercisePurple, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onDuplicate))
             Text(
@@ -2183,6 +2197,12 @@ private fun RoutineEditorCard(
     routineName: String,
     onRoutineNameChange: (String) -> Unit,
     selectedIds: List<String>,
+    targets: Map<String, RoutineExerciseTarget>,
+    onTargetChange: (String, Int, Int) -> Unit,
+    durationText: String,
+    onDurationChange: (String) -> Unit,
+    intensity: String,
+    onIntensityChange: (String) -> Unit,
     catalog: List<NativeExercise>,
     query: String,
     onQueryChange: (String) -> Unit,
@@ -2238,6 +2258,36 @@ private fun RoutineEditorCard(
             label = { Text("Routine name") }
         )
 
+        Spacer(Modifier.height(10.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(
+                value = durationText,
+                onValueChange = onDurationChange,
+                modifier = Modifier.weight(.8f),
+                singleLine = true,
+                label = { Text("Minutes") }
+            )
+            Column(Modifier.weight(1.2f)) {
+                Text("INTENSITY", color = ExerciseMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                Spacer(Modifier.height(4.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                    listOf("Easy", "Moderate", "Hard").forEach { option ->
+                        val active = intensity == option
+                        Text(
+                            option,
+                            color = if (active) ExerciseBlue else ExerciseMuted,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .background(if (active) ExerciseBlue.copy(alpha = .14f) else ExerciseQuietSurface, RoundedCornerShape(10.dp))
+                                .superhumanClickable { onIntensityChange(option) }
+                                .padding(horizontal = 7.dp, vertical = 7.dp)
+                        )
+                    }
+                }
+            }
+        }
+
         if (selectedIds.isNotEmpty()) {
             Spacer(Modifier.height(14.dp))
             Text("SELECTED", color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
@@ -2250,8 +2300,34 @@ private fun RoutineEditorCard(
                 ) {
                     RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.size(52.dp))
                     Column(Modifier.weight(1f).padding(horizontal = 10.dp)) {
+                        val target = targets[id] ?: RoutineExerciseTarget()
                         Text(exercise.name, color = ExerciseInk, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        Text(exercise.group, color = ExerciseMuted, fontSize = 8.sp, maxLines = 1)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Text(
+                                target.sets.toString() + " sets",
+                                color = ExerciseBlue,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.superhumanClickable {
+                                    onTargetChange(id, if (target.sets >= 8) 1 else target.sets + 1, target.reps)
+                                }.padding(vertical = 4.dp)
+                            )
+                            Text("·", color = ExerciseMuted, fontSize = 8.sp)
+                            Text(
+                                target.reps.toString() + " reps",
+                                color = ExerciseGreen,
+                                fontSize = 8.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.superhumanClickable {
+                                    val next = when {
+                                        target.reps >= 20 -> 5
+                                        target.reps >= 12 -> target.reps + 2
+                                        else -> target.reps + 1
+                                    }
+                                    onTargetChange(id, target.sets, next)
+                                }.padding(vertical = 4.dp)
+                            )
+                        }
                     }
                     if (index > 0) Text("↑", color = ExerciseBlue, fontSize = 15.sp, modifier = Modifier.superhumanClickable { onMoveUp(index) }.padding(6.dp))
                     if (index < selectedIds.lastIndex) Text("↓", color = ExerciseBlue, fontSize = 15.sp, modifier = Modifier.superhumanClickable { onMoveDown(index) }.padding(6.dp))
