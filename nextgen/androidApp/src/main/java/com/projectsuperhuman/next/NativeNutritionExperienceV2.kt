@@ -2305,9 +2305,17 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             anchor.metadata["brand"].orEmpty()
         )
         val storedPlant = anchor.metadata["isPlantFood"]?.toBooleanStrictOrNull()
-        val plantKind = anchor.metadata["plantFoodKind"]
+        val storedPlantKind = anchor.metadata["plantFoodKind"]
             ?.let { raw -> runCatching { PlantFoodKind.valueOf(raw) }.getOrNull() }
-            ?: inferredPlant.kind
+        // Old diary rows may contain false/NONE from an earlier classifier. A current positive
+        // classification is allowed to repair that stale metadata so existing foods gain markers
+        // without requiring the user to delete and re-log them.
+        val resolvedPlant = storedPlant == true || inferredPlant.isPlantFood
+        val plantKind = when {
+            inferredPlant.isPlantFood && (storedPlantKind == null || storedPlantKind == PlantFoodKind.NONE) ->
+                inferredPlant.kind
+            else -> storedPlantKind ?: inferredPlant.kind
+        }
         val plantKey = anchor.metadata["plantDiversityKey"]
             ?.takeIf { it.isNotBlank() }
             ?: inferredPlant.diversityKey
@@ -2347,7 +2355,7 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             sourceName = anchor.metadata["sourceName"].orEmpty(),
             mealGroupId = anchor.metadata["mealGroupId"].orEmpty(),
             mealGroupName = anchor.metadata["mealGroupName"].orEmpty(),
-            isPlantFood = storedPlant ?: inferredPlant.isPlantFood,
+            isPlantFood = resolvedPlant,
             plantFoodKind = plantKind,
             plantDiversityKey = plantKey
         )
