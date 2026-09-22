@@ -743,27 +743,42 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
             )
         )
 
-        Row(
-            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        // One shared layout grid keeps the header and data geometry locked together.
+        // The calorie ring's outer macro stroke is visually inset by 2.dp, so the
+        // title gets the same optical inset. The arrow and macro values share the
+        // exact same trailing edge.
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
-            Column(
-                Modifier.width(112.dp).fillMaxHeight(),
-                verticalArrangement = Arrangement.SpaceBetween
+            Row(
+                Modifier.fillMaxWidth().height(32.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    Modifier.fillMaxWidth().height(32.dp),
-                    contentAlignment = Alignment.CenterStart
-                ) {
-                    Text(
-                        "NUTRITION",
-                        color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.15.sp
-                    )
-                }
+                Text(
+                    "NUTRITION",
+                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.15.sp,
+                    modifier = Modifier.padding(start = 2.dp)
+                )
 
+                Box(
+                    Modifier.size(32.dp).background(accent.copy(alpha = .12f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("→", color = accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            Row(
+                Modifier.fillMaxWidth().height(112.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 HomeNutritionCalorieRing(
                     snapshot = snapshot,
                     calories = snapshot.caloriesToday,
@@ -778,26 +793,9 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                     track = track,
                     modifier = Modifier.size(112.dp)
                 )
-            }
-
-            Column(
-                Modifier.weight(1f).fillMaxHeight(),
-                verticalArrangement = Arrangement.SpaceBetween
-            ) {
-                Box(
-                    Modifier.fillMaxWidth().height(32.dp),
-                    contentAlignment = Alignment.CenterEnd
-                ) {
-                    Box(
-                        Modifier.size(32.dp).background(accent.copy(alpha = .12f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("→", color = accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
 
                 Column(
-                    Modifier.fillMaxWidth().height(112.dp),
+                    Modifier.weight(1f).fillMaxHeight(),
                     verticalArrangement = Arrangement.SpaceEvenly
                 ) {
                     HomeNutritionMacroRow(
