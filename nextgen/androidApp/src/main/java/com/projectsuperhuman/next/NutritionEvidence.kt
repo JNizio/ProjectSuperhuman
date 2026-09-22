@@ -203,6 +203,12 @@ internal object FoodEvidenceEngine {
         } else {
             PlantFoodClassifier.classify(food.name, food.searchText, food.ingredientsText)
         }
+        val foodTags = (food.foodTags + FoodTaxonomyClassifier.classify(
+            food.name,
+            food.searchText,
+            food.ingredientsText,
+            plantIdentity
+        )).toSet()
 
         val warnings = buildList {
             addAll(food.sourceWarnings.filter(String::isNotBlank))
@@ -278,6 +284,8 @@ internal object FoodEvidenceEngine {
             isPlantFood = plantIdentity.isPlantFood,
             plantFoodKind = plantIdentity.kind,
             plantDiversityKey = plantIdentity.diversityKey,
+            foodTags = foodTags,
+            foodTaxonomyVersion = FoodTaxonomyClassifier.SCHEMA_VERSION,
             sourceWarnings = warnings,
             nutrientEvidence = evidence,
             micronutrients = enrichedMicros,
