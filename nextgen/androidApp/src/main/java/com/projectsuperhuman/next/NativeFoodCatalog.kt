@@ -145,14 +145,22 @@ internal object PlantFoodClassifier {
             .trim()
         if (text.isBlank()) return PlantFoodIdentity(false)
 
-        val match = identities.firstOrNull { (_, _, terms) ->
-            terms.any { term ->
-                val normalized = term.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
-                text == normalized || text.startsWith("$normalized ") || text.contains(" $normalized ")
-            }
-        } ?: return PlantFoodIdentity(false)
+        val match = identities.mapNotNull { identity ->
+            val longestMatchedTerm = identity.third
+                .map { it.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim() }
+                .filter { normalized ->
+                    text == normalized || text.startsWith("$normalized ") || text.contains(" $normalized ")
+                }
+                .maxByOrNull { it.length }
+            longestMatchedTerm?.let { identity to it.length }
+        }.maxByOrNull { it.second }?.first ?: return PlantFoodIdentity(false)
+
+        val explicitPlantSubstitute = listOf(
+            "soy milk", "almond milk", "oat milk", "rice milk", "cashew milk"
+        ).any { phrase -> text == phrase || text.startsWith("$phrase ") || text.contains(" $phrase ") }
 
         val hasAnimalSignal = animalOrAmbiguousTerms.any { term ->
+            if (term == "milk" && explicitPlantSubstitute) return@any false
             text == term || text.startsWith("$term ") || text.contains(" $term ")
         }
         if (hasAnimalSignal && match.first !in setOf(PlantFoodKind.HERB_SPICE, PlantFoodKind.OTHER)) {
