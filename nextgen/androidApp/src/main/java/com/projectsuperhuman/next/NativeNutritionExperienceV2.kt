@@ -756,17 +756,17 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
         Modifier.fillMaxWidth()
             .background(N2SoftGreen, RoundedCornerShape(20.dp))
             .border(1.dp, N2Green.copy(alpha = .22f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            .padding(horizontal = 13.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         Box(
-            Modifier.size(74.dp)
+            Modifier.size(58.dp)
                 .background(N2Green.copy(alpha = .10f), CircleShape)
                 .border(1.dp, N2Green.copy(alpha = .20f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(Modifier.size(62.dp)) {
+            Canvas(Modifier.size(50.dp)) {
                 val stemX = size.width * .5f
                 val stemTop = size.height * .30f
                 val stemBottom = size.height * .72f
@@ -829,14 +829,6 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
                     )
                 }
             }
-
-            Text(
-                snapshot.uniquePlants.toString(),
-                color = N2Ink,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Black,
-                modifier = Modifier.padding(top = 30.dp)
-            )
         }
 
         Column(
@@ -853,14 +845,14 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
             Text(
                 "${snapshot.uniquePlants} / $weeklyTarget this week",
                 color = N2Ink,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
                 if (snapshot.uniquePlants >= weeklyTarget) "Weekly target reached"
                 else "${weeklyTarget - snapshot.uniquePlants} more unique plants to reach 30",
                 color = N2Muted,
-                fontSize = 8.sp,
+                fontSize = 7.5.sp,
                 fontWeight = FontWeight.SemiBold
             )
             if (detail.isNotBlank()) {
@@ -977,25 +969,28 @@ private fun N2NutritionRing(day: N2Day, goals: N2Goals) {
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.spacedBy((-2).dp)
         ) {
             Text(
                 (if (day.kcalComplete) "" else "~") + day.kcal.roundToInt().toString(),
                 color = N2Ink,
                 fontSize = 27.sp,
+                lineHeight = 28.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
                 if (day.kcalComplete) "kcal" else "kcal · partial",
                 color = N2Muted,
-                fontSize = 9.sp,
+                fontSize = 8.5.sp,
+                lineHeight = 9.sp,
                 fontWeight = FontWeight.Bold
             )
             if (goals.kcal != null) {
                 Text(
                     "of " + goals.kcal.roundToInt().toString(),
                     color = N2Muted,
-                    fontSize = 8.sp
+                    fontSize = 7.5.sp,
+                    lineHeight = 8.sp
                 )
             }
         }
