@@ -2129,6 +2129,95 @@ private fun StrengthQuickDivider() {
 }
 
 @Composable
+private fun StrengthStartPresetRow(
+    routine: WorkoutRoutine,
+    catalog: List<NativeExercise>,
+    isNext: Boolean,
+    onStart: () -> Unit
+) {
+    val plannedSets = routine.exerciseIds.sumOf { routine.targetFor(it).sets }
+    val exerciseNames = routine.exerciseIds
+        .mapNotNull { id -> catalog.find { it.id == id }?.name }
+        .take(3)
+        .joinToString(" · ")
+
+    Row(
+        Modifier.fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(18.dp))
+            .border(
+                1.dp,
+                if (isNext) ExerciseGreen.copy(alpha = .34f) else ExerciseCardBorder,
+                RoundedCornerShape(18.dp)
+            )
+            .superhumanClickable(onClick = onStart)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(42.dp)
+                .background(
+                    if (isNext) ExerciseGreen.copy(alpha = .14f)
+                    else ExerciseBlue.copy(alpha = .12f),
+                    CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.tabler_dumbbell),
+                contentDescription = null,
+                tint = if (isNext) ExerciseGreen else ExerciseBlue,
+                modifier = Modifier.size(21.dp)
+            )
+        }
+
+        Column(
+            Modifier.weight(1f).padding(horizontal = 11.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    routine.name,
+                    color = ExerciseInk,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black
+                )
+                if (isNext) {
+                    Spacer(Modifier.width(7.dp))
+                    Text(
+                        "NEXT",
+                        color = ExerciseGreen,
+                        fontSize = 7.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+            Text(
+                routine.exerciseIds.size.toString() + " exercises · " +
+                    plannedSets + " sets · " +
+                    routine.plannedDurationMin + " min · " + routine.intensity,
+                color = ExerciseMuted,
+                fontSize = 9.sp,
+                maxLines = 1
+            )
+            if (exerciseNames.isNotBlank()) {
+                Text(
+                    exerciseNames,
+                    color = ExerciseMuted.copy(alpha = .82f),
+                    fontSize = 8.sp,
+                    maxLines = 1
+                )
+            }
+        }
+
+        Text(
+            "START",
+            color = ExerciseGreen,
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Black
+        )
+    }
+}
+
+@Composable
 private fun StrengthPresetEntryCard(
     savedCount: Int,
     hasNext: Boolean,
