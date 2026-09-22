@@ -17,7 +17,7 @@ internal object LocalFoodDatabasePass2Auditor {
 
     internal enum class Confidence { VERIFIED, HIGH, MEDIUM, LOW, NEEDS_REVIEW }
 
-    private data class Row(
+    data class Row(
         val id: String,
         val name: String,
         val kcal: Double,
@@ -60,7 +60,7 @@ internal object LocalFoodDatabasePass2Auditor {
         val isUsda: Boolean get() = id.startsWith("usda:") || id.startsWith("core:usda:")
     }
 
-    private data class SourceConflict(
+    data class SourceConflict(
         val coreId: String,
         val rawId: String,
         val sourceRecordId: String,
@@ -69,7 +69,7 @@ internal object LocalFoodDatabasePass2Auditor {
         val rawValue: String
     )
 
-    private data class GoldenSpec(
+    data class GoldenSpec(
         val name: String,
         val tokenGroups: List<List<String>>,
         val requiredPreparation: FoodPreparationState? = null,
@@ -80,7 +80,7 @@ internal object LocalFoodDatabasePass2Auditor {
         val requiredTags: Set<FoodTag> = emptySet()
     )
 
-    private data class GoldenResult(
+    data class GoldenResult(
         val spec: GoldenSpec,
         val matched: Row?,
         val failures: List<String>
