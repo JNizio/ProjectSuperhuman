@@ -123,6 +123,7 @@ internal object PlantFoodClassifier {
         Triple(PlantFoodKind.SEED, "sunflower_seed", listOf("sunflower seed")),
         Triple(PlantFoodKind.SEED, "pumpkin_seed", listOf("pumpkin seed")),
         Triple(PlantFoodKind.SEED, "hemp", listOf("hemp seed")),
+        Triple(PlantFoodKind.SEED, "rapeseed", listOf("rapeseed", "canola")),
         Triple(PlantFoodKind.HERB_SPICE, "parsley", listOf("parsley")),
         Triple(PlantFoodKind.HERB_SPICE, "basil", listOf("basil")),
         Triple(PlantFoodKind.HERB_SPICE, "mint", listOf("mint")),
@@ -287,6 +288,17 @@ internal object PlantFoodClassifier {
         }
         if (compositePlantIdentityUnsafe) return PlantFoodIdentity(false)
 
+        val fungiOrAlgae = listOf(
+            "mushroom", "mushrooms", "shiitake", "portabella", "portobello", "oyster mushroom",
+            "seaweed", "nori", "kelp", "wakame", "kombu", "dulse"
+        ).any { phrase ->
+            normalizedName == phrase ||
+                normalizedName.startsWith("$phrase ") ||
+                normalizedName.endsWith(" $phrase") ||
+                normalizedName.contains(" $phrase ")
+        }
+        if (fungiOrAlgae) return PlantFoodIdentity(false)
+
         val diversityIneligible = explicitPlantSubstitute ||
             listOf(" oil", "oil ", "extract", "syrup", "sweetener").any { marker ->
                 normalizedName == marker.trim() ||
@@ -323,8 +335,9 @@ internal object PlantFoodClassifier {
         val fallbackKind = when {
             "fruits and fruit juices" in normalizedSearch ||
                 normalizedSearch.contains("wweia fruit") -> PlantFoodKind.FRUIT
-            "vegetables and vegetable products" in normalizedSearch ||
-                normalizedSearch.contains("wweia vegetable") -> PlantFoodKind.VEGETABLE
+            ("vegetables and vegetable products" in normalizedSearch ||
+                normalizedSearch.contains("wweia vegetable")) &&
+                !fungiOrAlgae -> PlantFoodKind.VEGETABLE
             "legumes and legume products" in normalizedSearch ||
                 normalizedSearch.contains("dry beans peas lentils") -> PlantFoodKind.LEGUME
             "cereal grains and pasta" in normalizedSearch ||
@@ -674,9 +687,13 @@ internal object FoodTaxonomyClassifier {
         // USDA category fallback keeps every local record usable even when the food has an unusual name.
         when {
             categoryHas("fruits and fruit juices") -> tags += setOf(FoodTag.PLANT, FoodTag.FRUIT)
-            categoryHas("vegetables and vegetable products") -> tags += setOf(FoodTag.PLANT, FoodTag.VEGETABLE)
+            categoryHas("vegetables and vegetable products") &&
+                FoodTag.MUSHROOM !in tags && FoodTag.SEAWEED !in tags ->
+                tags += setOf(FoodTag.PLANT, FoodTag.VEGETABLE)
             categoryHas("legumes and legume products") -> tags += setOf(FoodTag.PLANT, FoodTag.LEGUME)
             categoryHas("cereal grains and pasta") -> tags += setOf(FoodTag.PLANT, FoodTag.GRAIN)
+            categoryHas("nut and seed products") && nHas("seed", "seeds") ->
+                tags += setOf(FoodTag.PLANT, FoodTag.SEED)
             categoryHas("nut and seed products") -> tags += setOf(FoodTag.PLANT, FoodTag.NUT)
             categoryHas("spices and herbs") -> tags += setOf(FoodTag.PLANT, FoodTag.HERB_SPICE)
             categoryHas("poultry products") -> tags += setOf(FoodTag.ANIMAL_DERIVED, FoodTag.MEAT, FoodTag.POULTRY)
