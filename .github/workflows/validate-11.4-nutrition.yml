@@ -7,6 +7,9 @@ on:
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeFoodCatalog.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/LargeLocalFoodDatabase.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NutritionEvidence.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/LocalFoodDatabaseAudit.kt'
+      - 'nextgen/androidApp/src/test/java/com/projectsuperhuman/next/PlantFoodClassifierTest.kt'
+      - 'nextgen/androidApp/src/test/java/com/projectsuperhuman/next/LocalFoodAuditRulesTest.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeNutritionExperienceV2.kt'
       - '.github/workflows/validate-11.4-nutrition.yml'
@@ -34,3 +37,5 @@ jobs:
           gradle-version: '8.11.1'
       - name: Compile nextgen Android
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:compileDebugKotlin
+      - name: Run nutrition unit tests
+        run: gradle --no-daemon --build-cache -p nextgen :androidApp:testDebugUnitTest
