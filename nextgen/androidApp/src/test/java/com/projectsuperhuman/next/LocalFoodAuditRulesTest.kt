@@ -56,7 +56,11 @@ class LocalFoodAuditRulesTest {
         isPlantFood = isPlant,
         plantFoodKind = plantKind,
         plantDiversityKey = plantKey,
-        plantDiversityEligible = plantEligible
+        plantDiversityEligible = plantEligible,
+        preparationState = FoodEvidenceEngine.inferPreparationState(name),
+        servingQuantity = null,
+        servingUnit = "",
+        servingLabel = ""
     )
 
     @Test
