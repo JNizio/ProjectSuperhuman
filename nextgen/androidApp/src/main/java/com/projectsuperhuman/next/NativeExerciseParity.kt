@@ -695,6 +695,19 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 val lastSession = completedSessions.firstOrNull()
                 val topMuscle = muscleVolume.maxByOrNull { it.estimatedWorkingSets }
                 var trendMetric by remember { mutableStateOf("Volume") }
+                val trendExerciseOptions = remember(recent) {
+                    recent
+                        .filter { it.metadata["setType"] != "Warmup" }
+                        .mapNotNull { row ->
+                            val id = row.metadata["exerciseId"]?.takeIf(String::isNotBlank) ?: return@mapNotNull null
+                            val name = row.metadata["exerciseName"]?.takeIf(String::isNotBlank) ?: id
+                            id to name
+                        }
+                        .distinctBy { it.first }
+                }
+                var trendExerciseId by remember(trendExerciseOptions) {
+                    mutableStateOf(trendExerciseOptions.firstOrNull()?.first)
+                }
 
                 StrengthSessionPanel(
                     activeWorkout = startedAt > 0L,
@@ -730,7 +743,10 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 StrengthProgressCard(
                     selectedMetric = trendMetric,
                     onMetricChange = { trendMetric = it },
-                    progress = strengthProgress
+                    recent = recent,
+                    exerciseOptions = trendExerciseOptions,
+                    selectedExerciseId = trendExerciseId,
+                    onExerciseChange = { trendExerciseId = it }
                 )
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1019,7 +1035,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     Text("STARTER PRESETS", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
                     Row(
                         Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         starterPresets.take(3).forEach { preset ->
                             val saved = routines.any { it.name == preset.name }
@@ -2315,17 +2331,64 @@ private fun StrengthLibraryEntry(
 private fun StrengthProgressCard(
     selectedMetric: String,
     onMetricChange: (String) -> Unit,
-    progress: StrengthProgressSnapshot
+    recent: List<HealthValue>,
+    exerciseOptions: List<Pair<String, String>>,
+    selectedExerciseId: String?,
+    onExerciseChange: (String?) -> Unit
 ) {
     val options = listOf("Volume", "Estimated 1RM", "Best load")
-    val values = when (selectedMetric) {
-        "Estimated 1RM" -> progress.estimated1RmTrend.map { it.second }
-        "Best load" -> progress.bestLoadTrend.map { it.second }
-        else -> progress.volumeTrend.map { it.second }
+    val selectedIndex = exerciseOptions.indexOfFirst { it.first == selectedExerciseId }
+        .takeIf { it >= 0 } ?: 0
+    val selectedExercise = exerciseOptions.getOrNull(selectedIndex)
+    val selectedId = selectedExercise?.first
+
+    val sessionPoints = remember(recent, selectedId, selectedMetric) {
+        if (selectedId == null) {
+            emptyList()
+        } else {
+            val rows = recent
+                .filter {
+                    it.metadata["exerciseId"] == selectedId &&
+                        it.metadata["setType"] != "Warmup"
+                }
+                .sortedBy { it.timestampEpochMs }
+
+            rows.groupBy { row ->
+                row.metadata["sessionId"]
+                    ?.takeIf(String::isNotBlank)
+                    ?: java.time.Instant.ofEpochMilli(row.timestampEpochMs)
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDate()
+                        .toString()
+            }.mapNotNull { (_, sets) ->
+                val ordered = sets.sortedBy { it.timestampEpochMs }
+                val value = when (selectedMetric) {
+                    "Estimated 1RM" -> ordered.maxOfOrNull { row ->
+                        val load = row.metadata["loadKg"]?.toDoubleOrNull() ?: 0.0
+                        val reps = row.metadata["reps"]?.toIntOrNull() ?: 0
+                        if (load > 0.0 && reps > 0) load * (1.0 + reps / 30.0) else 0.0
+                    } ?: 0.0
+                    "Best load" -> ordered.maxOfOrNull {
+                        it.metadata["loadKg"]?.toDoubleOrNull() ?: 0.0
+                    } ?: 0.0
+                    else -> ordered.sumOf { row ->
+                        val load = row.metadata["loadKg"]?.toDoubleOrNull()
+                        val reps = row.metadata["reps"]?.toIntOrNull()
+                        if (load != null && reps != null) load * reps else row.value.coerceAtLeast(0.0)
+                    }
+                }
+                if (value > 0.0) ordered.last().timestampEpochMs to value else null
+            }
+                .sortedBy { it.first }
+                .takeLast(12)
+        }
     }
+
+    val values = sessionPoints.map { it.second }
     val current = values.lastOrNull() ?: 0.0
     val previous = values.dropLast(1).lastOrNull() ?: 0.0
     val change = if (previous > 0.0) ((current - previous) / previous) * 100.0 else 0.0
+    val unitLabel = if (selectedMetric == "Volume") "kg volume" else "kg"
 
     Column(
         Modifier.fillMaxWidth()
@@ -2335,13 +2398,77 @@ private fun StrengthProgressCard(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("YOUR STRENGTH", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("EXERCISE TREND", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(3.dp))
-                Text(selectedMetric, color = ExerciseInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
+                Text(
+                    selectedExercise?.second ?: "No exercise data",
+                    color = ExerciseInk,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1
+                )
             }
-            Text("12W", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            Text(
+                if (sessionPoints.size >= 12) "12 SESSIONS" else sessionPoints.size.toString() + " SESSIONS",
+                color = ExerciseBlue,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Black
+            )
         }
-        Spacer(Modifier.height(12.dp))
+
+        if (exerciseOptions.isNotEmpty()) {
+            Spacer(Modifier.height(11.dp))
+            Row(
+                Modifier.fillMaxWidth()
+                    .background(ExerciseSoft, RoundedCornerShape(14.dp))
+                    .padding(horizontal = 8.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "‹",
+                    color = ExerciseBlue,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .superhumanClickable {
+                            val next = if (selectedIndex <= 0) exerciseOptions.lastIndex else selectedIndex - 1
+                            onExerciseChange(exerciseOptions.getOrNull(next)?.first)
+                        }
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+                Column(
+                    Modifier.weight(1f),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        selectedExercise?.second ?: "Exercise",
+                        color = ExerciseInk,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1
+                    )
+                    Text(
+                        (selectedIndex + 1).toString() + " of " + exerciseOptions.size,
+                        color = ExerciseMuted,
+                        fontSize = 7.sp
+                    )
+                }
+                Text(
+                    "›",
+                    color = ExerciseBlue,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .superhumanClickable {
+                            val next = if (selectedIndex >= exerciseOptions.lastIndex) 0 else selectedIndex + 1
+                            onExerciseChange(exerciseOptions.getOrNull(next)?.first)
+                        }
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             options.forEach { option ->
                 val active = option == selectedMetric
@@ -2357,12 +2484,38 @@ private fun StrengthProgressCard(
                 )
             }
         }
+
         Spacer(Modifier.height(14.dp))
-        StrengthTrendChart(values, ExerciseGreen, Modifier.fillMaxWidth().height(132.dp))
+        if (values.size >= 2) {
+            StrengthTrendChart(values, ExerciseGreen, Modifier.fillMaxWidth().height(132.dp))
+        } else {
+            Box(
+                Modifier.fillMaxWidth()
+                    .height(132.dp)
+                    .background(ExerciseSoft.copy(alpha = .55f), RoundedCornerShape(16.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    if (selectedExercise == null) "Log an exercise to see its trend"
+                    else "Log this exercise in another session to build a trend",
+                    color = ExerciseMuted,
+                    fontSize = 9.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+            }
+        }
+
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            StrengthTrendStat("CURRENT", if (current > 0) formatStrengthNumber(current) + " kg" else "—")
-            StrengthTrendStat("PREVIOUS", if (previous > 0) formatStrengthNumber(previous) + " kg" else "—")
+            StrengthTrendStat(
+                "CURRENT",
+                if (current > 0) formatStrengthNumber(current) + " " + unitLabel else "—"
+            )
+            StrengthTrendStat(
+                "PREVIOUS",
+                if (previous > 0) formatStrengthNumber(previous) + " " + unitLabel else "—"
+            )
             StrengthTrendStat(
                 "CHANGE",
                 if (previous > 0.0) (if (change >= 0) "+" else "") + change.roundToInt() + "%" else "—",
