@@ -313,6 +313,300 @@ internal object PlantFoodClassifier {
     }
 }
 
+
+internal enum class FoodTag {
+    PLANT,
+    ANIMAL_DERIVED,
+    FRUIT,
+    VEGETABLE,
+    LEGUME,
+    GRAIN,
+    WHOLE_GRAIN,
+    NUT,
+    SEED,
+    HERB_SPICE,
+    SEAWEED,
+    MUSHROOM,
+    MEAT,
+    POULTRY,
+    CHICKEN,
+    CHICKEN_BREAST,
+    CHICKEN_LEG,
+    CHICKEN_WING,
+    TURKEY,
+    DUCK,
+    BEEF,
+    PORK,
+    LAMB,
+    GAME_MEAT,
+    FISH,
+    SEAFOOD,
+    SHELLFISH,
+    EGG,
+    DAIRY,
+    MILK,
+    YOGURT,
+    CHEESE,
+    CREAM,
+    BUTTER,
+    BREAD,
+    BAKED_GOOD,
+    BAKING_INGREDIENT,
+    FLOUR,
+    CEREAL,
+    PASTA,
+    RICE,
+    POTATO,
+    OIL_FAT,
+    SWEETENER,
+    CONFECTIONERY,
+    DESSERT,
+    BEVERAGE,
+    SAUCE_CONDIMENT,
+    SOUP_STEW,
+    MIXED_DISH,
+    PROCESSED_MEAT,
+    FERMENTED,
+    RAW,
+    BOILED,
+    STEAMED,
+    BAKED,
+    ROASTED,
+    GRILLED,
+    FRIED,
+    CANNED,
+    FROZEN,
+    DRIED,
+    OTHER
+}
+
+/**
+ * Multi-label food taxonomy used by nutrition scores, filtering and analytics.
+ *
+ * Tags are derived from source-backed names/categories rather than hand-entered per database row.
+ * This makes the taxonomy repeatable for the 10k local catalogue and for every future food import.
+ */
+internal object FoodTaxonomyClassifier {
+    const val SCHEMA_VERSION = 1
+
+    private fun normalize(value: String): String =
+        value.lowercase()
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .trim()
+            .replace(Regex("\\s+"), " ")
+
+    private fun containsPhrase(text: String, phrase: String): Boolean {
+        val p = normalize(phrase)
+        return text == p || text.startsWith("$p ") || text.endsWith(" $p") || text.contains(" $p ")
+    }
+
+    fun classify(
+        name: String,
+        searchText: String = "",
+        ingredientsText: String = "",
+        plantIdentity: PlantFoodIdentity = PlantFoodClassifier.classify(name, searchText, ingredientsText)
+    ): Set<FoodTag> {
+        val n = normalize(name)
+        val s = normalize(searchText)
+        val i = normalize(ingredientsText)
+        val all = listOf(n, s, i).filter(String::isNotBlank).joinToString(" ")
+        fun nHas(vararg terms: String) = terms.any { containsPhrase(n, it) }
+        fun allHas(vararg terms: String) = terms.any { containsPhrase(all, it) }
+        fun categoryHas(vararg terms: String) = terms.any { containsPhrase(s, it) }
+
+        val tags = linkedSetOf<FoodTag>()
+
+        if (plantIdentity.isPlantFood) {
+            tags += FoodTag.PLANT
+            when (plantIdentity.kind) {
+                PlantFoodKind.FRUIT -> tags += FoodTag.FRUIT
+                PlantFoodKind.VEGETABLE -> tags += FoodTag.VEGETABLE
+                PlantFoodKind.LEGUME -> tags += FoodTag.LEGUME
+                PlantFoodKind.GRAIN -> tags += FoodTag.GRAIN
+                PlantFoodKind.NUT -> tags += FoodTag.NUT
+                PlantFoodKind.SEED -> tags += FoodTag.SEED
+                PlantFoodKind.HERB_SPICE -> tags += FoodTag.HERB_SPICE
+                PlantFoodKind.OTHER -> Unit
+                PlantFoodKind.NONE -> Unit
+            }
+        }
+
+        if (nHas("mushroom", "mushrooms", "shiitake", "portabella", "portobello", "oyster mushroom")) {
+            tags += FoodTag.MUSHROOM
+        }
+        if (nHas("seaweed", "nori", "kelp", "wakame", "kombu", "dulse")) {
+            tags += FoodTag.SEAWEED
+            tags += FoodTag.PLANT
+        }
+
+        val chicken = nHas("chicken", "broiler", "broilers", "fryer", "fryers", "capons")
+        val turkey = nHas("turkey")
+        val duck = nHas("duck")
+        val poultry = chicken || turkey || duck || nHas("goose", "quail", "pheasant")
+        if (poultry) {
+            tags += FoodTag.ANIMAL_DERIVED
+            tags += FoodTag.MEAT
+            tags += FoodTag.POULTRY
+        }
+        if (chicken) {
+            tags += FoodTag.CHICKEN
+            when {
+                nHas("breast") -> tags += FoodTag.CHICKEN_BREAST
+                nHas("leg", "thigh", "drumstick") -> tags += FoodTag.CHICKEN_LEG
+                nHas("wing", "wings") -> tags += FoodTag.CHICKEN_WING
+            }
+        }
+        if (turkey) tags += FoodTag.TURKEY
+        if (duck) tags += FoodTag.DUCK
+
+        if (nHas("beef", "veal")) {
+            tags += FoodTag.ANIMAL_DERIVED
+            tags += FoodTag.MEAT
+            tags += FoodTag.BEEF
+        }
+        if (nHas("pork", "ham", "bacon")) {
+            tags += FoodTag.ANIMAL_DERIVED
+            tags += FoodTag.MEAT
+            tags += FoodTag.PORK
+        }
+        if (nHas("lamb", "mutton")) {
+            tags += FoodTag.ANIMAL_DERIVED
+            tags += FoodTag.MEAT
+            tags += FoodTag.LAMB
+        }
+        if (nHas("venison", "rabbit", "bison", "buffalo", "boar", "elk", "moose")) {
+            tags += FoodTag.ANIMAL_DERIVED
+            tags += FoodTag.MEAT
+            tags += FoodTag.GAME_MEAT
+        }
+        if (nHas("sausage", "salami", "pepperoni", "hot dog", "frankfurter", "luncheon meat", "corned beef")) {
+            tags += FoodTag.ANIMAL_DERIVED
+            tags += FoodTag.MEAT
+            tags += FoodTag.PROCESSED_MEAT
+        }
+
+        val fish = nHas(
+            "fish", "salmon", "tuna", "cod", "haddock", "mackerel", "sardine", "sardines",
+            "trout", "herring", "anchovy", "anchovies", "halibut", "tilapia", "pollock",
+            "sole", "flounder", "carp", "bass", "snapper", "swordfish"
+        )
+        val shellfish = nHas(
+            "shrimp", "prawn", "prawns", "crab", "lobster", "oyster", "oysters", "mussel",
+            "mussels", "clam", "clams", "scallop", "scallops", "squid", "octopus", "crayfish"
+        )
+        if (fish) {
+            tags += FoodTag.ANIMAL_DERIVED
+            tags += FoodTag.FISH
+            tags += FoodTag.SEAFOOD
+        }
+        if (shellfish) {
+            tags += FoodTag.ANIMAL_DERIVED
+            tags += FoodTag.SEAFOOD
+            tags += FoodTag.SHELLFISH
+        }
+
+        if (nHas("egg", "eggs") && !nHas("eggplant")) {
+            tags += FoodTag.ANIMAL_DERIVED
+            tags += FoodTag.EGG
+        }
+
+        val yogurt = nHas("yogurt", "yoghurt", "skyr", "kefir")
+        val cheese = nHas("cheese", "cheddar", "mozzarella", "parmesan", "ricotta", "cottage cheese", "feta", "brie")
+        val milk = nHas("milk") && !nHas("soy milk", "almond milk", "oat milk", "rice milk", "cashew milk", "coconut milk")
+        val cream = nHas("cream", "creme fraiche", "sour cream") && !nHas("cream of")
+        val butter = nHas("butter") && !nHas("butter bean", "butter beans", "peanut butter", "almond butter")
+        if (yogurt || cheese || milk || cream || butter || categoryHas("dairy products")) {
+            tags += FoodTag.ANIMAL_DERIVED
+            tags += FoodTag.DAIRY
+        }
+        if (milk) tags += FoodTag.MILK
+        if (yogurt) tags += FoodTag.YOGURT
+        if (cheese) tags += FoodTag.CHEESE
+        if (cream) tags += FoodTag.CREAM
+        if (butter) tags += FoodTag.BUTTER
+
+        if (nHas("bread", "roll", "bun", "bagel", "pita", "naan", "tortilla", "sourdough")) {
+            tags += FoodTag.BREAD
+            tags += FoodTag.BAKED_GOOD
+        }
+        if (nHas(
+                "cake", "cupcake", "muffin", "pastry", "croissant", "biscuit", "cookie", "cookies",
+                "cracker", "doughnut", "donut", "scone", "brownie", "waffle", "pancake"
+            ) || categoryHas("baked products")
+        ) {
+            tags += FoodTag.BAKED_GOOD
+        }
+        if (nHas("flour")) {
+            tags += FoodTag.BAKING_INGREDIENT
+            tags += FoodTag.FLOUR
+        }
+        if (nHas("baking powder", "baking soda", "yeast", "cornstarch", "corn starch", "cocoa powder")) {
+            tags += FoodTag.BAKING_INGREDIENT
+        }
+        if (nHas("cereal", "granola", "muesli", "porridge", "oatmeal")) tags += FoodTag.CEREAL
+        if (nHas("pasta", "spaghetti", "macaroni", "noodle", "noodles", "lasagna noodles")) tags += FoodTag.PASTA
+        if (plantIdentity.diversityKey == "rice" || nHas("rice")) tags += FoodTag.RICE
+        if (plantIdentity.diversityKey in setOf("potato", "sweet_potato") || nHas("potato", "potatoes")) tags += FoodTag.POTATO
+
+        if (nHas("whole wheat", "wholemeal", "whole grain", "wholegrain", "brown rice", "oat", "oats", "barley", "rye", "quinoa", "buckwheat")) {
+            if (FoodTag.GRAIN in tags || FoodTag.CEREAL in tags || FoodTag.BREAD in tags) tags += FoodTag.WHOLE_GRAIN
+        }
+
+        if (nHas("olive oil", "vegetable oil", "canola oil", "rapeseed oil", "sunflower oil", "coconut oil", "oil", "lard", "shortening", "margarine")) {
+            tags += FoodTag.OIL_FAT
+        }
+        if (nHas("sugar", "honey", "syrup", "molasses", "agave")) tags += FoodTag.SWEETENER
+        if (nHas("candy", "chocolate", "toffee", "caramel", "gumdrop", "marshmallow") || categoryHas("sweets")) {
+            tags += FoodTag.CONFECTIONERY
+        }
+        if (nHas("ice cream", "pudding", "custard", "dessert", "cheesecake", "brownie")) tags += FoodTag.DESSERT
+
+        if (nHas("juice", "smoothie", "coffee", "tea", "beverage", "drink", "soda", "water")) tags += FoodTag.BEVERAGE
+        if (nHas("sauce", "ketchup", "mustard", "mayonnaise", "dressing", "relish", "chutney", "salsa", "vinegar")) {
+            tags += FoodTag.SAUCE_CONDIMENT
+        }
+        if (nHas("soup", "stew", "chowder", "broth")) tags += FoodTag.SOUP_STEW
+        if (nHas("pizza", "sandwich", "burger", "burrito", "taco", "casserole", "curry", "lasagna", "meal", "entree")) {
+            tags += FoodTag.MIXED_DISH
+        }
+
+        if (nHas("yogurt", "yoghurt", "kefir", "tempeh", "miso", "kimchi", "sauerkraut", "sourdough", "fermented")) {
+            tags += FoodTag.FERMENTED
+        }
+
+        if (nHas("raw")) tags += FoodTag.RAW
+        if (nHas("boiled", "hard boiled")) tags += FoodTag.BOILED
+        if (nHas("steamed")) tags += FoodTag.STEAMED
+        if (nHas("baked")) tags += FoodTag.BAKED
+        if (nHas("roasted", "roast")) tags += FoodTag.ROASTED
+        if (nHas("grilled", "broiled")) tags += FoodTag.GRILLED
+        if (nHas("fried", "deep fried", "stir fried")) tags += FoodTag.FRIED
+        if (nHas("canned")) tags += FoodTag.CANNED
+        if (nHas("frozen")) tags += FoodTag.FROZEN
+        if (nHas("dried", "dehydrated")) tags += FoodTag.DRIED
+
+        // USDA category fallback keeps every local record usable even when the food has an unusual name.
+        when {
+            categoryHas("fruits and fruit juices") -> tags += setOf(FoodTag.PLANT, FoodTag.FRUIT)
+            categoryHas("vegetables and vegetable products") -> tags += setOf(FoodTag.PLANT, FoodTag.VEGETABLE)
+            categoryHas("legumes and legume products") -> tags += setOf(FoodTag.PLANT, FoodTag.LEGUME)
+            categoryHas("cereal grains and pasta") -> tags += setOf(FoodTag.PLANT, FoodTag.GRAIN)
+            categoryHas("nut and seed products") -> tags += setOf(FoodTag.PLANT, FoodTag.NUT)
+            categoryHas("spices and herbs") -> tags += setOf(FoodTag.PLANT, FoodTag.HERB_SPICE)
+            categoryHas("poultry products") -> tags += setOf(FoodTag.ANIMAL_DERIVED, FoodTag.MEAT, FoodTag.POULTRY)
+            categoryHas("beef products") -> tags += setOf(FoodTag.ANIMAL_DERIVED, FoodTag.MEAT, FoodTag.BEEF)
+            categoryHas("pork products") -> tags += setOf(FoodTag.ANIMAL_DERIVED, FoodTag.MEAT, FoodTag.PORK)
+            categoryHas("lamb veal and game products") -> tags += setOf(FoodTag.ANIMAL_DERIVED, FoodTag.MEAT)
+            categoryHas("finfish and shellfish products") -> tags += setOf(FoodTag.ANIMAL_DERIVED, FoodTag.SEAFOOD)
+            categoryHas("fats and oils") -> tags += FoodTag.OIL_FAT
+            categoryHas("soups sauces and gravies") -> tags += FoodTag.SOUP_STEW
+        }
+
+        if (tags.isEmpty()) tags += FoodTag.OTHER
+        return tags
+    }
+}
+
 internal enum class CarbohydrateDefinition {
     /** EU/Open Food Facts carbohydrate: available carbohydrate, excluding fibre. */
     AVAILABLE_EXCLUDING_FIBRE,
@@ -399,6 +693,8 @@ internal data class NativeFood(
     val isPlantFood: Boolean = false,
     val plantFoodKind: PlantFoodKind = PlantFoodKind.NONE,
     val plantDiversityKey: String = "",
+    val foodTags: Set<FoodTag> = emptySet(),
+    val foodTaxonomyVersion: Int = FoodTaxonomyClassifier.SCHEMA_VERSION,
     val canonicalSchemaVersion: Int = NUTRITION_CANONICAL_SCHEMA_VERSION
 )
 
