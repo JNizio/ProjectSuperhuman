@@ -390,14 +390,65 @@ internal object LocalFoodAuditRules {
         if (row.saturatedFatKnown && row.fatKnown && row.saturatedFat > row.fat + max(0.2, row.fat * 0.03)) {
             add("satfat_gt_fat", LocalFoodAuditSeverity.ERROR, "Saturated fat exceeds total fat")
         }
+
+        if (row.fatKnown) {
+            fun fatComponent(id: String): Double? = row.micronutrients[id]
+                ?.takeIf { canonicalNutrientUnit(it.unit) == "g" }
+                ?.valuePer100
+
+            val mono = fatComponent("monounsaturated_fat")
+            val poly = fatComponent("polyunsaturated_fat")
+            val tolerance = max(0.25, row.fat * 0.05)
+            if (mono != null && mono > row.fat + tolerance) {
+                add("monofat_gt_fat", LocalFoodAuditSeverity.ERROR, "Monounsaturated fat exceeds total fat")
+            }
+            if (poly != null && poly > row.fat + tolerance) {
+                add("polyfat_gt_fat", LocalFoodAuditSeverity.ERROR, "Polyunsaturated fat exceeds total fat")
+            }
+            if (row.saturatedFatKnown && mono != null && poly != null &&
+                row.saturatedFat + mono + poly > row.fat + max(0.5, row.fat * 0.10)
+            ) {
+                add("fat_components_gt_total", LocalFoodAuditSeverity.WARNING, "Major fatty-acid classes materially exceed total fat")
+            }
+
+            val omega3 = fatComponent("omega_3")
+            val omega6 = fatComponent("omega_6")
+            if (poly != null && omega3 != null && omega3 > poly + 0.1) {
+                add("omega3_gt_polyfat", LocalFoodAuditSeverity.WARNING, "Omega-3 exceeds total polyunsaturated fat")
+            }
+            if (poly != null && omega6 != null && omega6 > poly + 0.1) {
+                add("omega6_gt_polyfat", LocalFoodAuditSeverity.WARNING, "Omega-6 exceeds total polyunsaturated fat")
+            }
+        }
         if (row.proteinKnown && row.carbsKnown && row.fatKnown) {
             val majorMass = row.protein + row.carbs + row.fat
             if (majorMass > 105.0) add("major_mass", LocalFoodAuditSeverity.ERROR, "Protein + carbohydrate + fat exceed a plausible 100 g composition")
-            val implied = row.protein * 4.0 + row.carbs * 4.0 + row.fat * 9.0
-            val tolerance = max(35.0, row.kcal * 0.30)
-            if (implied > row.kcal + tolerance) {
-                add("energy_macro_conflict", LocalFoodAuditSeverity.WARNING, "4/4/9 macro energy materially exceeds source kcal")
+
+            val alcoholG = row.micronutrients["alcohol"]
+                ?.takeIf { canonicalNutrientUnit(it.unit) == "g" }
+                ?.valuePer100 ?: 0.0
+            val implied = row.protein * 4.0 + row.carbs * 4.0 + row.fat * 9.0 + alcoholG * 7.0
+            val tolerance = max(45.0, max(row.kcal, implied) * 0.35)
+            if (abs(implied - row.kcal) > tolerance) {
+                add(
+                    "energy_macro_conflict",
+                    LocalFoodAuditSeverity.WARNING,
+                    "Macro-derived energy materially disagrees with source kcal; investigate identity, basis or source mapping"
+                )
             }
+
+            row.micronutrients["water"]
+                ?.takeIf { canonicalNutrientUnit(it.unit) == "g" }
+                ?.let { water ->
+                    val approximateMass = majorMass + water.valuePer100 + alcoholG
+                    if (approximateMass > 110.0) {
+                        add(
+                            "component_mass_conflict",
+                            LocalFoodAuditSeverity.ERROR,
+                            "Protein + carbohydrate + fat + water + alcohol exceed a plausible 100 g composition"
+                        )
+                    }
+                }
         }
 
         if (row.sodiumKnown && row.sodiumMg > 50_000.0) add("sodium_unit", LocalFoodAuditSeverity.ERROR, "Sodium exceeds a conservative physical plausibility ceiling")
