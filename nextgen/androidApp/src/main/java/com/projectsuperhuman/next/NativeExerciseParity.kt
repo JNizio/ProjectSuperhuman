@@ -2063,9 +2063,9 @@ private fun StrengthQuickActions(
             .fillMaxWidth()
             .background(ExerciseSurface, RoundedCornerShape(20.dp))
             .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
-            .padding(horizontal = 6.dp, vertical = 7.dp),
+            .padding(horizontal = 8.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         StrengthQuickAction(
             title = "Presets",
@@ -2110,7 +2110,7 @@ private fun StrengthQuickAction(
         modifier
             .background(accent.copy(alpha = .07f), RoundedCornerShape(14.dp))
             .superhumanClickable(onClick = onClick)
-            .padding(horizontal = 4.dp, vertical = 9.dp),
+            .padding(horizontal = 3.dp, vertical = 9.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
