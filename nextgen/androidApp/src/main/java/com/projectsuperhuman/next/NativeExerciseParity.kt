@@ -87,7 +87,21 @@ data class NativeWorkoutSet(
     val supersetTag: String? = null
 ) { val volume: Double get() = reps * loadKg }
 
-data class WorkoutRoutine(val name: String, val exerciseIds: List<String>)
+data class RoutineExerciseTarget(
+    val sets: Int = 3,
+    val reps: Int = 10
+)
+
+data class WorkoutRoutine(
+    val name: String,
+    val exerciseIds: List<String>,
+    val targets: Map<String, RoutineExerciseTarget> = emptyMap(),
+    val plannedDurationMin: Int = 60,
+    val intensity: String = "Moderate"
+) {
+    fun targetFor(exerciseId: String): RoutineExerciseTarget =
+        targets[exerciseId] ?: RoutineExerciseTarget()
+}
 
 private fun jsonStrings(a: JSONArray?): List<String> = if (a == null) emptyList() else (0 until a.length()).mapNotNull { a.optString(it).takeIf(String::isNotBlank) }
 private fun pretty(s: String) = s.replace('_', ' ').replaceFirstChar { it.uppercase() }
@@ -145,17 +159,64 @@ private suspend fun loadRepDb(context: android.content.Context): List<NativeExer
     }.getOrElse { emptyList() }
 }
 
-private fun loadRoutines(context: android.content.Context): List<WorkoutRoutine> {
+internal fun loadWorkoutRoutines(context: android.content.Context): List<WorkoutRoutine> {
     val raw = context.getSharedPreferences("superhuman_training", 0).getString("routines", "[]") ?: "[]"
     return runCatching {
         val a = JSONArray(raw)
-        (0 until a.length()).map { i -> val o = a.getJSONObject(i); WorkoutRoutine(o.getString("name"), jsonStrings(o.optJSONArray("exerciseIds"))) }
+        (0 until a.length()).map { i ->
+            val o = a.getJSONObject(i)
+            val exerciseIds = jsonStrings(o.optJSONArray("exerciseIds"))
+            val targetsObject = o.optJSONObject("targets")
+            val targets = buildMap {
+                exerciseIds.forEach { id ->
+                    val target = targetsObject?.optJSONObject(id)
+                    put(
+                        id,
+                        RoutineExerciseTarget(
+                            sets = target?.optInt("sets", 3)?.coerceIn(1, 12) ?: 3,
+                            reps = target?.optInt("reps", 10)?.coerceIn(1, 100) ?: 10
+                        )
+                    )
+                }
+            }
+            WorkoutRoutine(
+                name = o.optString("name").ifBlank { "Routine" },
+                exerciseIds = exerciseIds,
+                targets = targets,
+                plannedDurationMin = o.optInt("plannedDurationMin", 60).coerceIn(10, 240),
+                intensity = o.optString("intensity", "Moderate").takeIf { it in listOf("Easy", "Moderate", "Hard", "Very hard") } ?: "Moderate"
+            )
+        }
     }.getOrElse { emptyList() }
 }
 
-private fun saveRoutines(context: android.content.Context, routines: List<WorkoutRoutine>) {
-    val a = JSONArray(); routines.forEach { r -> a.put(JSONObject().put("name", r.name).put("exerciseIds", JSONArray(r.exerciseIds))) }
+internal fun saveWorkoutRoutines(context: android.content.Context, routines: List<WorkoutRoutine>) {
+    val a = JSONArray()
+    routines.forEach { r ->
+        val targets = JSONObject()
+        r.exerciseIds.forEach { id ->
+            val target = r.targetFor(id)
+            targets.put(id, JSONObject().put("sets", target.sets).put("reps", target.reps))
+        }
+        a.put(
+            JSONObject()
+                .put("name", r.name)
+                .put("exerciseIds", JSONArray(r.exerciseIds))
+                .put("targets", targets)
+                .put("plannedDurationMin", r.plannedDurationMin)
+                .put("intensity", r.intensity)
+        )
+    }
     context.getSharedPreferences("superhuman_training", 0).edit().putString("routines", a.toString()).apply()
+}
+
+internal fun loadNextWorkoutRoutineName(context: android.content.Context): String =
+    context.getSharedPreferences("superhuman_training", 0).getString("next_workout_routine", "").orEmpty()
+
+internal fun saveNextWorkoutRoutineName(context: android.content.Context, name: String) {
+    context.getSharedPreferences("superhuman_training", 0).edit()
+        .putString("next_workout_routine", name)
+        .apply()
 }
 
 @Composable
@@ -213,7 +274,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var restSeconds by remember { mutableIntStateOf(0) }
     var restTarget by remember { mutableIntStateOf(120) }
     var restEndsAt by remember { mutableLongStateOf(0L) }
-    var routines by remember { mutableStateOf(loadRoutines(context)) }
+    var routines by remember { mutableStateOf(loadWorkoutRoutines(context)) }
     var routineName by remember { mutableStateOf("") }
     var routineSelection by remember { mutableStateOf<List<String>>(emptyList()) }
     var routineQuery by remember { mutableStateOf("") }
@@ -808,7 +869,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                     suffix++
                                 }
                                 routines = routines + WorkoutRoutine(candidate, routine.exerciseIds.toList())
-                                saveRoutines(context, routines)
+                                saveWorkoutRoutines(context, routines)
                                 feedbackMessage = "Routine duplicated"
                             },
                             deleteArmed = pendingRoutineDelete == index,
@@ -817,7 +878,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                     pendingRoutineDelete = index
                                 } else {
                                     routines = routines.filterIndexed { idx, _ -> idx != index }
-                                    saveRoutines(context, routines)
+                                    saveWorkoutRoutines(context, routines)
                                     pendingRoutineDelete = null
                                     if (editingRoutineIndex == index) {
                                         editingRoutineIndex = null
@@ -867,7 +928,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                 val newRoutine = WorkoutRoutine(routineName.trim(), routineSelection)
                                 val editIndex = editingRoutineIndex
                                 routines = if (editIndex == null) routines + newRoutine else routines.mapIndexed { idx, old -> if (idx == editIndex) newRoutine else old }
-                                saveRoutines(context, routines)
+                                saveWorkoutRoutines(context, routines)
                                 feedbackMessage = if (editIndex == null) "Routine saved" else "Routine updated"
                                 editingRoutineIndex = null
                                 routineName = ""
