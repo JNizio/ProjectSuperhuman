@@ -1325,7 +1325,56 @@ internal object LargeLocalFoodDatabase {
             .thenBy { it.name.length }
             .thenBy { it.name }
 
-        val selected = candidates.sortedWith(comparator).take(CORE_FOOD_TARGET)
+        val ranked = candidates.sortedWith(comparator)
+
+        // Pin representative supermarket staples and useful preparation variants whenever USDA
+        // contains a qualifying record. The remaining slots are filled by evidence quality.
+        val coverageQueries = listOf(
+            listOf("arugula"), listOf("spinach"), listOf("kale"), listOf("watercress"),
+            listOf("lettuce"), listOf("cabbage"), listOf("broccoli"), listOf("cauliflower"),
+            listOf("asparagus"), listOf("leek"), listOf("celery"), listOf("cucumber"),
+            listOf("zucchini"), listOf("eggplant"), listOf("tomato"), listOf("carrot"),
+            listOf("beet"), listOf("radish"), listOf("turnip"), listOf("rutabaga"),
+            listOf("sweet potato"), listOf("potato"), listOf("pumpkin"), listOf("squash"),
+            listOf("onion"), listOf("garlic"), listOf("mushroom"), listOf("avocado"),
+            listOf("apple"), listOf("banana"), listOf("orange"), listOf("grapefruit"),
+            listOf("lemon"), listOf("lime"), listOf("pear"), listOf("peach"), listOf("plum"),
+            listOf("apricot"), listOf("cherry"), listOf("strawberry"), listOf("blueberry"),
+            listOf("raspberry"), listOf("blackberry"), listOf("cranberry"), listOf("grape"),
+            listOf("kiwi"), listOf("pineapple"), listOf("mango"), listOf("papaya"),
+            listOf("watermelon"), listOf("pomegranate"), listOf("fig"), listOf("date"),
+            listOf("lentil"), listOf("chickpea"), listOf("kidney bean"), listOf("black bean"),
+            listOf("pea"), listOf("soybean"), listOf("tofu"), listOf("tempeh"),
+            listOf("oat"), listOf("rice"), listOf("quinoa"), listOf("barley"), listOf("rye"),
+            listOf("buckwheat"), listOf("millet"), listOf("whole wheat"), listOf("pasta"),
+            listOf("almond"), listOf("walnut"), listOf("cashew"), listOf("pistachio"),
+            listOf("hazelnut"), listOf("peanut"), listOf("chia"), listOf("flax"),
+            listOf("sesame"), listOf("sunflower seed"), listOf("pumpkin seed"),
+            listOf("milk"), listOf("yogurt"), listOf("kefir"), listOf("cheddar"),
+            listOf("mozzarella"), listOf("parmesan"), listOf("cottage cheese"), listOf("butter"),
+            listOf("egg", "hard boiled"), listOf("egg", "poached"), listOf("egg", "fried"),
+            listOf("chicken", "breast"), listOf("chicken", "breast", "grilled"),
+            listOf("chicken", "breast", "roasted"), listOf("chicken", "leg"),
+            listOf("chicken", "leg", "fried"), listOf("chicken", "thigh"),
+            listOf("chicken", "drumstick"), listOf("chicken", "wing"),
+            listOf("turkey", "breast"), listOf("beef", "ground"), listOf("beef", "steak"),
+            listOf("pork", "chop"), listOf("pork", "loin"), listOf("lamb", "leg"),
+            listOf("salmon"), listOf("tuna"), listOf("cod"), listOf("haddock"),
+            listOf("mackerel"), listOf("sardine"), listOf("shrimp"), listOf("prawn"),
+            listOf("bread"), listOf("sourdough"), listOf("whole wheat", "bread"),
+            listOf("flour", "wheat"), listOf("flour", "rye"), listOf("flour", "oat"),
+            listOf("baking powder"), listOf("baking soda"), listOf("yeast"),
+            listOf("olive oil"), listOf("canola oil"), listOf("sunflower oil"),
+            listOf("cake"), listOf("muffin"), listOf("croissant"), listOf("cookie"),
+            listOf("cracker"), listOf("pancake"), listOf("waffle")
+        )
+        val pinned = coverageQueries.mapNotNull { terms ->
+            ranked.firstOrNull { candidate ->
+                val text = candidate.name.lowercase(Locale.ROOT)
+                terms.all(text::contains)
+            }
+        }.distinctBy { it.id }
+        val selected = (pinned + ranked).distinctBy { it.id }.take(CORE_FOOD_TARGET)
 
         // Rebuild generated Project Superhuman snapshots deterministically.
         // Hand-curated core records (egg sizes, canonical chicken, etc.) use other core: prefixes.
