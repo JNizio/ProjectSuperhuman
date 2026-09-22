@@ -30,6 +30,8 @@ internal data class PlantFoodIdentity(
 )
 
 internal object PlantFoodClassifier {
+    const val SCHEMA_VERSION = 2
+
     private val animalOrAmbiguousTerms = listOf(
         "beef", "pork", "chicken", "turkey", "lamb", "veal", "venison", "duck",
         "fish", "salmon", "tuna", "cod", "shrimp", "prawn", "crab", "lobster",
@@ -136,37 +138,178 @@ internal object PlantFoodClassifier {
         Triple(PlantFoodKind.OTHER, "cocoa", listOf("cocoa", "cacao")),
         Triple(PlantFoodKind.OTHER, "coffee", listOf("coffee")),
         Triple(PlantFoodKind.OTHER, "tea", listOf("tea leaves", "green tea", "black tea"))
+    ) + listOf(
+        // Wider USDA/local-food coverage. Keep aliases canonical so preparation variants collapse
+        // to the same weekly diversity key.
+        Triple(PlantFoodKind.FRUIT, "mandarin", listOf("mandarin", "tangerine", "clementine", "satsuma")),
+        Triple(PlantFoodKind.FRUIT, "nectarine", listOf("nectarine")),
+        Triple(PlantFoodKind.FRUIT, "persimmon", listOf("persimmon")),
+        Triple(PlantFoodKind.FRUIT, "guava", listOf("guava")),
+        Triple(PlantFoodKind.FRUIT, "passion_fruit", listOf("passion fruit")),
+        Triple(PlantFoodKind.FRUIT, "dragon_fruit", listOf("dragon fruit", "pitaya")),
+        Triple(PlantFoodKind.FRUIT, "lychee", listOf("lychee", "litchi")),
+        Triple(PlantFoodKind.FRUIT, "rambutan", listOf("rambutan")),
+        Triple(PlantFoodKind.FRUIT, "jackfruit", listOf("jackfruit")),
+        Triple(PlantFoodKind.FRUIT, "durian", listOf("durian")),
+        Triple(PlantFoodKind.FRUIT, "coconut", listOf("coconut")),
+        Triple(PlantFoodKind.FRUIT, "currant", listOf("currant", "currants")),
+        Triple(PlantFoodKind.FRUIT, "gooseberry", listOf("gooseberry", "gooseberries")),
+        Triple(PlantFoodKind.FRUIT, "elderberry", listOf("elderberry", "elderberries")),
+        Triple(PlantFoodKind.FRUIT, "mulberry", listOf("mulberry", "mulberries")),
+        Triple(PlantFoodKind.FRUIT, "boysenberry", listOf("boysenberry", "boysenberries")),
+        Triple(PlantFoodKind.FRUIT, "plantain", listOf("plantain")),
+        Triple(PlantFoodKind.FRUIT, "quince", listOf("quince")),
+        Triple(PlantFoodKind.FRUIT, "kumquat", listOf("kumquat")),
+        Triple(PlantFoodKind.FRUIT, "loquat", listOf("loquat")),
+        Triple(PlantFoodKind.FRUIT, "acerola", listOf("acerola")),
+        Triple(PlantFoodKind.FRUIT, "breadfruit", listOf("breadfruit")),
+        Triple(PlantFoodKind.FRUIT, "carambola", listOf("carambola", "star fruit")),
+        Triple(PlantFoodKind.FRUIT, "cherimoya", listOf("cherimoya")),
+        Triple(PlantFoodKind.FRUIT, "sapodilla", listOf("sapodilla")),
+        Triple(PlantFoodKind.FRUIT, "soursop", listOf("soursop")),
+        Triple(PlantFoodKind.FRUIT, "tamarind", listOf("tamarind")),
+        Triple(PlantFoodKind.FRUIT, "prickly_pear", listOf("prickly pear")),
+        Triple(PlantFoodKind.FRUIT, "rose_hip", listOf("rose hip", "rose hips")),
+        Triple(PlantFoodKind.VEGETABLE, "parsnip", listOf("parsnip")),
+        Triple(PlantFoodKind.VEGETABLE, "swede", listOf("rutabaga", "swede")),
+        Triple(PlantFoodKind.VEGETABLE, "yam", listOf("yam", "yams")),
+        Triple(PlantFoodKind.VEGETABLE, "cassava", listOf("cassava", "yuca")),
+        Triple(PlantFoodKind.VEGETABLE, "taro", listOf("taro")),
+        Triple(PlantFoodKind.VEGETABLE, "jicama", listOf("jicama")),
+        Triple(PlantFoodKind.VEGETABLE, "celeriac", listOf("celeriac", "celery root")),
+        Triple(PlantFoodKind.VEGETABLE, "fennel", listOf("fennel bulb", "fennel")),
+        Triple(PlantFoodKind.VEGETABLE, "okra", listOf("okra")),
+        Triple(PlantFoodKind.VEGETABLE, "collard", listOf("collard greens", "collards")),
+        Triple(PlantFoodKind.VEGETABLE, "chard", listOf("swiss chard", "chard")),
+        Triple(PlantFoodKind.VEGETABLE, "watercress", listOf("watercress")),
+        Triple(PlantFoodKind.VEGETABLE, "rocket", listOf("arugula", "rocket")),
+        Triple(PlantFoodKind.VEGETABLE, "bok_choy", listOf("bok choy", "pak choi", "pak choy")),
+        Triple(PlantFoodKind.VEGETABLE, "brussels_sprout", listOf("brussels sprout", "brussels sprouts")),
+        Triple(PlantFoodKind.VEGETABLE, "endive", listOf("endive")),
+        Triple(PlantFoodKind.VEGETABLE, "chicory", listOf("chicory", "radicchio")),
+        Triple(PlantFoodKind.VEGETABLE, "mustard_green", listOf("mustard greens")),
+        Triple(PlantFoodKind.VEGETABLE, "dandelion_green", listOf("dandelion greens")),
+        Triple(PlantFoodKind.VEGETABLE, "kohlrabi", listOf("kohlrabi")),
+        Triple(PlantFoodKind.VEGETABLE, "bamboo_shoot", listOf("bamboo shoot", "bamboo shoots")),
+        Triple(PlantFoodKind.VEGETABLE, "heart_of_palm", listOf("heart of palm", "hearts of palm")),
+        Triple(PlantFoodKind.VEGETABLE, "chayote", listOf("chayote")),
+        Triple(PlantFoodKind.VEGETABLE, "burdock", listOf("burdock")),
+        Triple(PlantFoodKind.VEGETABLE, "lotus_root", listOf("lotus root")),
+        Triple(PlantFoodKind.VEGETABLE, "fiddlehead", listOf("fiddlehead", "fiddleheads")),
+        Triple(PlantFoodKind.VEGETABLE, "nopales", listOf("nopales", "nopal")),
+        Triple(PlantFoodKind.LEGUME, "fava_bean", listOf("fava bean", "broad bean")),
+        Triple(PlantFoodKind.LEGUME, "mung_bean", listOf("mung bean")),
+        Triple(PlantFoodKind.LEGUME, "lima_bean", listOf("lima bean")),
+        Triple(PlantFoodKind.LEGUME, "adzuki_bean", listOf("adzuki", "aduki")),
+        Triple(PlantFoodKind.LEGUME, "lupin", listOf("lupin", "lupine")),
+        Triple(PlantFoodKind.LEGUME, "pigeon_pea", listOf("pigeon pea")),
+        Triple(PlantFoodKind.LEGUME, "cowpea", listOf("cowpea", "black eyed pea", "black-eyed pea")),
+        Triple(PlantFoodKind.GRAIN, "spelt", listOf("spelt")),
+        Triple(PlantFoodKind.GRAIN, "sorghum", listOf("sorghum")),
+        Triple(PlantFoodKind.GRAIN, "amaranth", listOf("amaranth")),
+        Triple(PlantFoodKind.GRAIN, "teff", listOf("teff")),
+        Triple(PlantFoodKind.GRAIN, "triticale", listOf("triticale")),
+        Triple(PlantFoodKind.GRAIN, "farro", listOf("farro", "emmer")),
+        Triple(PlantFoodKind.GRAIN, "kamut", listOf("kamut", "khorasan")),
+        Triple(PlantFoodKind.NUT, "macadamia", listOf("macadamia")),
+        Triple(PlantFoodKind.NUT, "chestnut", listOf("chestnut")),
+        Triple(PlantFoodKind.NUT, "pine_nut", listOf("pine nut", "pine nuts")),
+        Triple(PlantFoodKind.SEED, "poppy", listOf("poppy seed")),
+        Triple(PlantFoodKind.SEED, "mustard_seed", listOf("mustard seed")),
+        Triple(PlantFoodKind.SEED, "psyllium", listOf("psyllium")),
+        Triple(PlantFoodKind.HERB_SPICE, "oregano", listOf("oregano")),
+        Triple(PlantFoodKind.HERB_SPICE, "sage", listOf("sage")),
+        Triple(PlantFoodKind.HERB_SPICE, "tarragon", listOf("tarragon")),
+        Triple(PlantFoodKind.HERB_SPICE, "chive", listOf("chive", "chives")),
+        Triple(PlantFoodKind.HERB_SPICE, "cardamom", listOf("cardamom")),
+        Triple(PlantFoodKind.HERB_SPICE, "clove", listOf("clove", "cloves")),
+        Triple(PlantFoodKind.HERB_SPICE, "nutmeg", listOf("nutmeg")),
+        Triple(PlantFoodKind.HERB_SPICE, "anise", listOf("anise", "aniseed")),
+        Triple(PlantFoodKind.HERB_SPICE, "saffron", listOf("saffron")),
+        Triple(PlantFoodKind.HERB_SPICE, "allspice", listOf("allspice")),
+        Triple(PlantFoodKind.HERB_SPICE, "fenugreek", listOf("fenugreek")),
+        Triple(PlantFoodKind.HERB_SPICE, "sumac", listOf("sumac")),
+        Triple(PlantFoodKind.HERB_SPICE, "lemongrass", listOf("lemongrass")),
+        Triple(PlantFoodKind.OTHER, "seaweed", listOf("seaweed", "nori", "kelp", "wakame", "kombu"))
     )
 
-    fun classify(name: String, searchText: String = "", ingredientsText: String = ""): PlantFoodIdentity {
-        val text = (name + " " + searchText + " " + ingredientsText)
-            .lowercase()
+    private val fallbackStopWords = setOf(
+        "raw", "cooked", "boiled", "baked", "roasted", "fried", "grilled", "steamed",
+        "canned", "frozen", "dried", "dehydrated", "fresh", "prepared", "drained",
+        "solids", "liquid", "juice", "nectar", "unsweetened", "sweetened", "without",
+        "with", "added", "salt", "sodium", "sugar", "oil", "fat", "mature", "ripe"
+    )
+
+    private fun normalizePlantText(value: String): String =
+        value.lowercase()
             .replace(Regex("[^a-z0-9]+"), " ")
             .trim()
+            .replace(Regex("\\s+"), " ")
+
+    private fun fallbackDiversityKey(name: String): String {
+        val tokens = normalizePlantText(name)
+            .split(' ')
+            .filter { it.isNotBlank() && it !in fallbackStopWords && it.length > 1 }
+        return tokens.take(2).joinToString("_")
+    }
+
+    fun classify(name: String, searchText: String = "", ingredientsText: String = ""): PlantFoodIdentity {
+        val normalizedName = normalizePlantText(name)
+        val normalizedSearch = normalizePlantText(searchText)
+        val normalizedIngredients = normalizePlantText(ingredientsText)
+        val text = listOf(normalizedName, normalizedSearch, normalizedIngredients)
+            .filter(String::isNotBlank)
+            .joinToString(" ")
         if (text.isBlank()) return PlantFoodIdentity(false)
 
-        val match = identities.mapNotNull { identity ->
-            val longestMatchedTerm = identity.third
-                .map { it.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim() }
-                .filter { normalized ->
-                    text == normalized || text.startsWith("$normalized ") || text.contains(" $normalized ")
-                }
-                .maxByOrNull { it.length }
-            longestMatchedTerm?.let { identity to it.length }
-        }.maxByOrNull { it.second }?.first ?: return PlantFoodIdentity(false)
-
         val explicitPlantSubstitute = listOf(
-            "soy milk", "almond milk", "oat milk", "rice milk", "cashew milk"
+            "soy milk", "almond milk", "oat milk", "rice milk", "cashew milk", "coconut milk"
         ).any { phrase -> text == phrase || text.startsWith("$phrase ") || text.contains(" $phrase ") }
 
         val hasAnimalSignal = animalOrAmbiguousTerms.any { term ->
             if (term == "milk" && explicitPlantSubstitute) return@any false
             text == term || text.startsWith("$term ") || text.contains(" $term ")
         }
-        if (hasAnimalSignal && match.first !in setOf(PlantFoodKind.HERB_SPICE, PlantFoodKind.OTHER)) {
-            return PlantFoodIdentity(false)
+
+        val match = identities.mapNotNull { identity ->
+            val longestMatchedTerm = identity.third
+                .map(::normalizePlantText)
+                .filter { normalized ->
+                    text == normalized || text.startsWith("$normalized ") || text.contains(" $normalized ")
+                }
+                .maxByOrNull { it.length }
+            longestMatchedTerm?.let { identity to it.length }
+        }.maxByOrNull { it.second }?.first
+
+        if (match != null) {
+            if (hasAnimalSignal && match.first !in setOf(PlantFoodKind.HERB_SPICE, PlantFoodKind.OTHER)) {
+                return PlantFoodIdentity(false)
+            }
+            return PlantFoodIdentity(true, match.first, match.second)
         }
-        return PlantFoodIdentity(true, match.first, match.second)
+
+        // USDA imports now carry their source food-category text into searchText. This fallback
+        // keeps uncommon botanical foods classified even when they are not yet in the alias table.
+        if (hasAnimalSignal) return PlantFoodIdentity(false)
+        val fallbackKind = when {
+            "fruits and fruit juices" in normalizedSearch ||
+                normalizedSearch.contains("wweia fruit") -> PlantFoodKind.FRUIT
+            "vegetables and vegetable products" in normalizedSearch ||
+                normalizedSearch.contains("wweia vegetable") -> PlantFoodKind.VEGETABLE
+            "legumes and legume products" in normalizedSearch ||
+                normalizedSearch.contains("dry beans peas lentils") -> PlantFoodKind.LEGUME
+            "cereal grains and pasta" in normalizedSearch ||
+                normalizedSearch.contains("whole grains") -> PlantFoodKind.GRAIN
+            "nut and seed products" in normalizedSearch ||
+                normalizedSearch.contains("nuts and seeds") -> PlantFoodKind.NUT
+            "spices and herbs" in normalizedSearch -> PlantFoodKind.HERB_SPICE
+            else -> PlantFoodKind.NONE
+        }
+        if (fallbackKind == PlantFoodKind.NONE) return PlantFoodIdentity(false)
+
+        val key = fallbackDiversityKey(normalizedName)
+        return if (key.isBlank()) PlantFoodIdentity(false)
+        else PlantFoodIdentity(true, fallbackKind, key)
     }
 }
 
