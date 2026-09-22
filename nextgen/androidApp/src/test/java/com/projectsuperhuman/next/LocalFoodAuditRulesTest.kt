@@ -136,6 +136,33 @@ class LocalFoodAuditRulesTest {
     }
 
     @Test
+    fun catchesCanonicalMicronutrientUnitMismatch() {
+        val findings = LocalFoodAuditRules.validate(
+            row(
+                micros = mapOf(
+                    "selenium" to NativeNutrient(
+                        "selenium",
+                        "Selenium",
+                        20.0,
+                        "mg",
+                        NutrientEvidenceKind.REFERENCE_DATABASE
+                    )
+                )
+            )
+        )
+        assertTrue(findings.any { it.code == "micro_unit_definition_selenium" })
+    }
+
+    @Test
+    fun catchesKnownUnknownMicronutrientConflict() {
+        val base = row()
+        val findings = LocalFoodAuditRules.validate(
+            base.copy(unknownMicronutrients = setOf("calcium"))
+        )
+        assertTrue(findings.any { it.code == "micro_known_unknown_conflict" })
+    }
+
+    @Test
     fun refusesProcessedFoodAsPlantDiversityEligible() {
         val findings = LocalFoodAuditRules.validate(
             row(
