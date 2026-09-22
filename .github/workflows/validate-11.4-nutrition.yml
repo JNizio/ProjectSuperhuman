@@ -1,0 +1,36 @@
+name: Validate 11.4 Nutrition
+
+on:
+  push:
+    branches: [ "11.4" ]
+    paths:
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeFoodCatalog.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/LargeLocalFoodDatabase.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NutritionEvidence.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeNutritionExperienceV2.kt'
+      - '.github/workflows/validate-11.4-nutrition.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 11.4
+        uses: actions/checkout@v4
+        with:
+          ref: '11.4'
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile nextgen Android
+        run: gradle --no-daemon --build-cache -p nextgen :androidApp:compileDebugKotlin
