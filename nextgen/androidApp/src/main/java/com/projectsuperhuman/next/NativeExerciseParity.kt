@@ -2114,6 +2114,7 @@ private fun StrengthQuickAction(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
+        Spacer(Modifier.height(4.dp))
         Box(
             Modifier.size(28.dp)
                 .background(accent.copy(alpha = .13f), CircleShape),
@@ -2126,7 +2127,7 @@ private fun StrengthQuickAction(
                 modifier = Modifier.size(15.dp)
             )
         }
-        Spacer(Modifier.height(5.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
             title,
             color = ExerciseInk,
