@@ -11,6 +11,157 @@ import java.net.URL
 import java.net.URLEncoder
 import java.util.LinkedHashMap
 
+internal enum class PlantFoodKind {
+    NONE,
+    FRUIT,
+    VEGETABLE,
+    LEGUME,
+    GRAIN,
+    NUT,
+    SEED,
+    HERB_SPICE,
+    OTHER
+}
+
+internal data class PlantFoodIdentity(
+    val isPlantFood: Boolean,
+    val kind: PlantFoodKind = PlantFoodKind.NONE,
+    val diversityKey: String = ""
+)
+
+internal object PlantFoodClassifier {
+    private val animalOrAmbiguousTerms = listOf(
+        "beef", "pork", "chicken", "turkey", "lamb", "veal", "venison", "duck",
+        "fish", "salmon", "tuna", "cod", "shrimp", "prawn", "crab", "lobster",
+        "egg", "milk", "cheese", "yogurt", "yoghurt", "butter", "cream", "whey",
+        "gelatin", "sausage", "ham", "bacon", "meatball"
+    )
+
+    private val identities: List<Triple<PlantFoodKind, String, List<String>>> = listOf(
+        Triple(PlantFoodKind.FRUIT, "apple", listOf("apple")),
+        Triple(PlantFoodKind.FRUIT, "banana", listOf("banana")),
+        Triple(PlantFoodKind.FRUIT, "orange", listOf("orange")),
+        Triple(PlantFoodKind.FRUIT, "lemon", listOf("lemon")),
+        Triple(PlantFoodKind.FRUIT, "lime", listOf("lime")),
+        Triple(PlantFoodKind.FRUIT, "grapefruit", listOf("grapefruit")),
+        Triple(PlantFoodKind.FRUIT, "pear", listOf("pear")),
+        Triple(PlantFoodKind.FRUIT, "peach", listOf("peach")),
+        Triple(PlantFoodKind.FRUIT, "plum", listOf("plum")),
+        Triple(PlantFoodKind.FRUIT, "apricot", listOf("apricot")),
+        Triple(PlantFoodKind.FRUIT, "cherry", listOf("cherry", "cherries")),
+        Triple(PlantFoodKind.FRUIT, "strawberry", listOf("strawberry", "strawberries")),
+        Triple(PlantFoodKind.FRUIT, "blueberry", listOf("blueberry", "blueberries")),
+        Triple(PlantFoodKind.FRUIT, "raspberry", listOf("raspberry", "raspberries")),
+        Triple(PlantFoodKind.FRUIT, "blackberry", listOf("blackberry", "blackberries")),
+        Triple(PlantFoodKind.FRUIT, "cranberry", listOf("cranberry", "cranberries")),
+        Triple(PlantFoodKind.FRUIT, "grape", listOf("grape", "grapes")),
+        Triple(PlantFoodKind.FRUIT, "kiwi", listOf("kiwi", "kiwifruit")),
+        Triple(PlantFoodKind.FRUIT, "pineapple", listOf("pineapple")),
+        Triple(PlantFoodKind.FRUIT, "mango", listOf("mango")),
+        Triple(PlantFoodKind.FRUIT, "papaya", listOf("papaya")),
+        Triple(PlantFoodKind.FRUIT, "watermelon", listOf("watermelon")),
+        Triple(PlantFoodKind.FRUIT, "melon", listOf("cantaloupe", "honeydew", "melon")),
+        Triple(PlantFoodKind.FRUIT, "pomegranate", listOf("pomegranate")),
+        Triple(PlantFoodKind.FRUIT, "avocado", listOf("avocado")),
+        Triple(PlantFoodKind.FRUIT, "olive", listOf("olive")),
+        Triple(PlantFoodKind.FRUIT, "date", listOf("date", "dates")),
+        Triple(PlantFoodKind.FRUIT, "fig", listOf("fig", "figs")),
+        Triple(PlantFoodKind.VEGETABLE, "tomato", listOf("tomato", "tomatoes")),
+        Triple(PlantFoodKind.VEGETABLE, "potato", listOf("potato", "potatoes")),
+        Triple(PlantFoodKind.VEGETABLE, "sweet_potato", listOf("sweet potato")),
+        Triple(PlantFoodKind.VEGETABLE, "onion", listOf("onion")),
+        Triple(PlantFoodKind.VEGETABLE, "garlic", listOf("garlic")),
+        Triple(PlantFoodKind.VEGETABLE, "carrot", listOf("carrot")),
+        Triple(PlantFoodKind.VEGETABLE, "broccoli", listOf("broccoli")),
+        Triple(PlantFoodKind.VEGETABLE, "cauliflower", listOf("cauliflower")),
+        Triple(PlantFoodKind.VEGETABLE, "spinach", listOf("spinach")),
+        Triple(PlantFoodKind.VEGETABLE, "kale", listOf("kale")),
+        Triple(PlantFoodKind.VEGETABLE, "cabbage", listOf("cabbage")),
+        Triple(PlantFoodKind.VEGETABLE, "lettuce", listOf("lettuce")),
+        Triple(PlantFoodKind.VEGETABLE, "cucumber", listOf("cucumber")),
+        Triple(PlantFoodKind.VEGETABLE, "pepper", listOf("bell pepper", "sweet pepper", "red pepper", "green pepper")),
+        Triple(PlantFoodKind.VEGETABLE, "chilli", listOf("chili pepper", "chilli pepper", "jalapeno")),
+        Triple(PlantFoodKind.VEGETABLE, "courgette", listOf("zucchini", "courgette")),
+        Triple(PlantFoodKind.VEGETABLE, "aubergine", listOf("eggplant", "aubergine")),
+        Triple(PlantFoodKind.VEGETABLE, "celery", listOf("celery")),
+        Triple(PlantFoodKind.VEGETABLE, "beetroot", listOf("beet", "beetroot")),
+        Triple(PlantFoodKind.VEGETABLE, "radish", listOf("radish")),
+        Triple(PlantFoodKind.VEGETABLE, "turnip", listOf("turnip")),
+        Triple(PlantFoodKind.VEGETABLE, "asparagus", listOf("asparagus")),
+        Triple(PlantFoodKind.VEGETABLE, "leek", listOf("leek")),
+        Triple(PlantFoodKind.VEGETABLE, "artichoke", listOf("artichoke")),
+        Triple(PlantFoodKind.VEGETABLE, "pumpkin", listOf("pumpkin")),
+        Triple(PlantFoodKind.VEGETABLE, "squash", listOf("squash")),
+        Triple(PlantFoodKind.LEGUME, "lentil", listOf("lentil")),
+        Triple(PlantFoodKind.LEGUME, "chickpea", listOf("chickpea", "garbanzo")),
+        Triple(PlantFoodKind.LEGUME, "pea", listOf("green pea", "split pea", "peas")),
+        Triple(PlantFoodKind.LEGUME, "bean", listOf("black bean", "kidney bean", "navy bean", "pinto bean", "white bean", "beans")),
+        Triple(PlantFoodKind.LEGUME, "soy", listOf("soybean", "soy bean", "tofu", "tempeh", "edamame", "soy milk")),
+        Triple(PlantFoodKind.GRAIN, "oat", listOf("oat", "oats", "oatmeal")),
+        Triple(PlantFoodKind.GRAIN, "rice", listOf("rice")),
+        Triple(PlantFoodKind.GRAIN, "wheat", listOf("wheat", "wholemeal", "whole wheat", "bulgur", "couscous", "pasta", "spaghetti", "bread")),
+        Triple(PlantFoodKind.GRAIN, "barley", listOf("barley")),
+        Triple(PlantFoodKind.GRAIN, "rye", listOf("rye")),
+        Triple(PlantFoodKind.GRAIN, "corn", listOf("corn", "maize", "polenta")),
+        Triple(PlantFoodKind.GRAIN, "quinoa", listOf("quinoa")),
+        Triple(PlantFoodKind.GRAIN, "buckwheat", listOf("buckwheat")),
+        Triple(PlantFoodKind.GRAIN, "millet", listOf("millet")),
+        Triple(PlantFoodKind.NUT, "almond", listOf("almond")),
+        Triple(PlantFoodKind.NUT, "walnut", listOf("walnut")),
+        Triple(PlantFoodKind.NUT, "peanut", listOf("peanut")),
+        Triple(PlantFoodKind.NUT, "cashew", listOf("cashew")),
+        Triple(PlantFoodKind.NUT, "pistachio", listOf("pistachio")),
+        Triple(PlantFoodKind.NUT, "hazelnut", listOf("hazelnut")),
+        Triple(PlantFoodKind.NUT, "pecan", listOf("pecan")),
+        Triple(PlantFoodKind.NUT, "brazil_nut", listOf("brazil nut")),
+        Triple(PlantFoodKind.SEED, "chia", listOf("chia")),
+        Triple(PlantFoodKind.SEED, "flax", listOf("flax", "linseed")),
+        Triple(PlantFoodKind.SEED, "sesame", listOf("sesame", "tahini")),
+        Triple(PlantFoodKind.SEED, "sunflower_seed", listOf("sunflower seed")),
+        Triple(PlantFoodKind.SEED, "pumpkin_seed", listOf("pumpkin seed")),
+        Triple(PlantFoodKind.SEED, "hemp", listOf("hemp seed")),
+        Triple(PlantFoodKind.HERB_SPICE, "parsley", listOf("parsley")),
+        Triple(PlantFoodKind.HERB_SPICE, "basil", listOf("basil")),
+        Triple(PlantFoodKind.HERB_SPICE, "mint", listOf("mint")),
+        Triple(PlantFoodKind.HERB_SPICE, "coriander", listOf("coriander", "cilantro")),
+        Triple(PlantFoodKind.HERB_SPICE, "dill", listOf("dill")),
+        Triple(PlantFoodKind.HERB_SPICE, "rosemary", listOf("rosemary")),
+        Triple(PlantFoodKind.HERB_SPICE, "thyme", listOf("thyme")),
+        Triple(PlantFoodKind.HERB_SPICE, "turmeric", listOf("turmeric")),
+        Triple(PlantFoodKind.HERB_SPICE, "ginger", listOf("ginger")),
+        Triple(PlantFoodKind.HERB_SPICE, "cinnamon", listOf("cinnamon")),
+        Triple(PlantFoodKind.HERB_SPICE, "cumin", listOf("cumin")),
+        Triple(PlantFoodKind.HERB_SPICE, "paprika", listOf("paprika")),
+        Triple(PlantFoodKind.HERB_SPICE, "black_pepper", listOf("black pepper")),
+        Triple(PlantFoodKind.OTHER, "cocoa", listOf("cocoa", "cacao")),
+        Triple(PlantFoodKind.OTHER, "coffee", listOf("coffee")),
+        Triple(PlantFoodKind.OTHER, "tea", listOf("tea leaves", "green tea", "black tea"))
+    )
+
+    fun classify(name: String, searchText: String = "", ingredientsText: String = ""): PlantFoodIdentity {
+        val text = (name + " " + searchText + " " + ingredientsText)
+            .lowercase()
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .trim()
+        if (text.isBlank()) return PlantFoodIdentity(false)
+
+        val match = identities.firstOrNull { (_, _, terms) ->
+            terms.any { term ->
+                val normalized = term.lowercase().replace(Regex("[^a-z0-9]+"), " ").trim()
+                text == normalized || text.startsWith("$normalized ") || text.contains(" $normalized ")
+            }
+        } ?: return PlantFoodIdentity(false)
+
+        val hasAnimalSignal = animalOrAmbiguousTerms.any { term ->
+            text == term || text.startsWith("$term ") || text.contains(" $term ")
+        }
+        if (hasAnimalSignal && match.first !in setOf(PlantFoodKind.HERB_SPICE, PlantFoodKind.OTHER)) {
+            return PlantFoodIdentity(false)
+        }
+        return PlantFoodIdentity(true, match.first, match.second)
+    }
+}
+
 internal enum class CarbohydrateDefinition {
     /** EU/Open Food Facts carbohydrate: available carbohydrate, excluding fibre. */
     AVAILABLE_EXCLUDING_FIBRE,
@@ -94,6 +245,9 @@ internal data class NativeFood(
     val imageReferences: Map<String, String> = emptyMap(),
     val correctedFields: Set<String> = emptySet(),
     val sourceWarnings: List<String> = emptyList(),
+    val isPlantFood: Boolean = false,
+    val plantFoodKind: PlantFoodKind = PlantFoodKind.NONE,
+    val plantDiversityKey: String = "",
     val canonicalSchemaVersion: Int = NUTRITION_CANONICAL_SCHEMA_VERSION
 )
 
@@ -509,6 +663,8 @@ internal object NativeFoodCatalog {
             if (finalSodiumKnown) put("sodium", if (sodiumKnown) NutrientEvidenceKind.SOURCE_REPORTED else NutrientEvidenceKind.DERIVED)
         }
 
+        val plantIdentity = PlantFoodClassifier.classify(name, categories, p.optString("ingredients_text"))
+
         return NativeFood(
             id = if (code.isNotBlank()) "off:$code" else "off:" + name.lowercase().hashCode(),
             name = name,
@@ -573,7 +729,10 @@ internal object NativeFoodCatalog {
                 p.optString("image_nutrition_url").takeIf(String::isNotBlank)?.let { put("nutrition", it) }
                 p.optString("image_ingredients_url").takeIf(String::isNotBlank)?.let { put("ingredients", it) }
             },
-            sourceWarnings = sourceWarnings
+            sourceWarnings = sourceWarnings,
+            isPlantFood = plantIdentity.isPlantFood,
+            plantFoodKind = plantIdentity.kind,
+            plantDiversityKey = plantIdentity.diversityKey
         )
     }
 
@@ -782,10 +941,13 @@ internal object NativeFoodCatalog {
         return buildList(arr.length()) {
             for (i in 0 until arr.length()) {
                 val j = arr.optJSONObject(i) ?: continue
+                val localName = j.optString("name", "Food")
+                val localSearchText = j.optString("salt") + " " + j.optString("aliases") + " " + j.optString("brand")
+                val plantIdentity = PlantFoodClassifier.classify(localName, localSearchText)
                 add(
                     NativeFood(
                         id = j.optString("id", "local:$i"),
-                        name = j.optString("name", "Food"),
+                        name = localName,
                         country = j.optString("country", ""),
                         kcal = j.optDoubleSafe("kcal"),
                         kcalKnown = j.hasNonNegativeNumber("kcal"),
@@ -801,13 +963,16 @@ internal object NativeFoodCatalog {
                         sugarKnown = j.hasNonNegativeNumber("sugar"),
                         unit = j.optString("unit", "100 g"),
                         source = j.optString("source", "Project Superhuman reference"),
-                        searchText = j.optString("salt") + " " + j.optString("aliases") + " " + j.optString("brand"),
+                        searchText = localSearchText,
                         brand = j.optString("brand", ""),
                         basisAmount = FoodUnitSystem.parseBasis(j.optString("unit", "100 g"))?.first ?: 100.0,
                         basisUnit = FoodUnitSystem.parseBasis(j.optString("unit", "100 g"))?.second ?: FoodUnit.G,
                         densityGPerMl = j.optNullableDouble("density_g_ml"),
                         densityApproximate = j.optBoolean("density_approx", false),
-                        nutritionApproximate = j.optBoolean("approx", false)
+                        nutritionApproximate = j.optBoolean("approx", false),
+                        isPlantFood = plantIdentity.isPlantFood,
+                        plantFoodKind = plantIdentity.kind,
+                        plantDiversityKey = plantIdentity.diversityKey
                     )
                 )
             }
