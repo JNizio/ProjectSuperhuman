@@ -158,7 +158,11 @@ internal data class LocalFoodAuditRow(
     val isPlantFood: Boolean,
     val plantFoodKind: PlantFoodKind,
     val plantDiversityKey: String,
-    val plantDiversityEligible: Boolean
+    val plantDiversityEligible: Boolean,
+    val preparationState: FoodPreparationState,
+    val servingQuantity: Double?,
+    val servingUnit: String,
+    val servingLabel: String
 )
 
 internal object LocalFoodAuditRules {
@@ -293,6 +297,15 @@ internal object LocalFoodAuditRules {
                 }
             }
             if (nutrient.unit.isBlank()) add("micro_unit_missing_$id", LocalFoodAuditSeverity.WARNING, "$id has no unit")
+            if (nutrient.valuePer100 == 0.0 &&
+                nutrient.evidenceKind in setOf(
+                    NutrientEvidenceKind.UNSPECIFIED,
+                    NutrientEvidenceKind.GENERIC_INFERRED,
+                    NutrientEvidenceKind.MISSING
+                )
+            ) {
+                add("micro_zero_uncertain_$id", LocalFoodAuditSeverity.INFO, "$id is zero without strong source evidence; verify that zero is not a missing-value placeholder")
+            }
         }
 
         if (row.source.isBlank() || row.sourceRecordId.isBlank()) {
@@ -326,6 +339,27 @@ internal object LocalFoodAuditRules {
         if (FoodTag.RAW in prepTags && prepTags.size > 1) {
             add("prep_conflict", LocalFoodAuditSeverity.WARNING, "RAW appears with another preparation-state tag")
         }
+        val inferredPreparation = FoodEvidenceEngine.inferPreparationState(row.name)
+        if (inferredPreparation != FoodPreparationState.UNSPECIFIED &&
+            row.preparationState != inferredPreparation
+        ) {
+            add(
+                "prep_state_mismatch",
+                LocalFoodAuditSeverity.WARNING,
+                "Stored preparation state ${row.preparationState} disagrees with the food name ($inferredPreparation)"
+            )
+        }
+        row.servingQuantity?.let { quantity ->
+            if (!quantity.isFinite() || quantity <= 0.0 || quantity > 100_000.0) {
+                add("serving_quantity", LocalFoodAuditSeverity.ERROR, "Serving quantity is implausible")
+            }
+            if (row.servingUnit.isBlank()) {
+                add("serving_unit", LocalFoodAuditSeverity.WARNING, "Serving quantity is present but serving unit is missing")
+            }
+        }
+        if (row.servingLabel.isNotBlank() && row.servingQuantity == null) {
+            add("serving_reference", LocalFoodAuditSeverity.WARNING, "Serving label is present without a reference quantity")
+        }
 
         if (FoodTag.OIL_FAT in row.foodTags && lower.contains("oil") && row.fatKnown && row.fat < 80.0) {
             add("identity_oil", LocalFoodAuditSeverity.WARNING, "Plain oil identity has unexpectedly low total fat")
@@ -340,6 +374,9 @@ internal object LocalFoodAuditRules {
         }
         if (FoodTag.MILK in row.foodTags && "calcium" !in row.micronutrients) {
             add("identity_milk_calcium", LocalFoodAuditSeverity.WARNING, "Milk record is missing calcium")
+        }
+        if (FoodTag.MILK in row.foodTags && (row.micronutrients["calcium"]?.valuePer100 ?: 0.0) <= 0.0) {
+            add("identity_milk_calcium_zero", LocalFoodAuditSeverity.WARNING, "Milk record has zero/unknown calcium")
         }
 
         return findings
@@ -386,7 +423,8 @@ internal object LocalFoodDatabaseAuditor {
                    saturated_fat_known, sodium_known, salt_known,
                    unit, source, source_record_id, micronutrients_json, unknown_micronutrients_json,
                    food_tags_json, taxonomy_version, plant_food, plant_food_kind,
-                   plant_diversity_key, plant_diversity_eligible
+                   plant_diversity_key, plant_diversity_eligible,
+                   preparation_state, serving_quantity, serving_unit, serving_label
             FROM food_reference
             """.trimIndent(),
             null
@@ -423,7 +461,11 @@ internal object LocalFoodDatabaseAuditor {
                     isPlantFood = cursor.getInt(27) != 0,
                     plantFoodKind = runCatching { PlantFoodKind.valueOf(cursor.getString(28)) }.getOrDefault(PlantFoodKind.NONE),
                     plantDiversityKey = cursor.getString(29),
-                    plantDiversityEligible = cursor.getInt(30) != 0
+                    plantDiversityEligible = cursor.getInt(30) != 0,
+                    preparationState = runCatching { FoodPreparationState.valueOf(cursor.getString(31)) }.getOrDefault(FoodPreparationState.UNSPECIFIED),
+                    servingQuantity = if (cursor.isNull(32)) null else cursor.getDouble(32),
+                    servingUnit = cursor.getString(33),
+                    servingLabel = cursor.getString(34)
                 )
             }
         }
@@ -473,7 +515,13 @@ internal object LocalFoodDatabaseAuditor {
                     valid++
                     if (valueAndKnown.first == 0.0) {
                         zero++
-                        if (nutrient in row.unknownMicronutrients) suspiciousZero++
+                        val microEvidence = row.micronutrients[nutrient]?.evidenceKind
+                        if (microEvidence in setOf(
+                                NutrientEvidenceKind.UNSPECIFIED,
+                                NutrientEvidenceKind.GENERIC_INFERRED,
+                                NutrientEvidenceKind.MISSING
+                            )
+                        ) suspiciousZero++
                     }
                 }
             }
