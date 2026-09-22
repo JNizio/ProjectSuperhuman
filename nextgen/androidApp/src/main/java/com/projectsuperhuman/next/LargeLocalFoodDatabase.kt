@@ -682,7 +682,8 @@ internal object LargeLocalFoodDatabase {
         try {
             db.rawQuery(
                 """
-                SELECT id, name, search_text, brand, plant_food, plant_food_kind, plant_diversity_key
+                SELECT id, name, search_text, brand, plant_food, plant_food_kind,
+                       plant_diversity_key, plant_diversity_eligible
                 FROM food_reference
                 """.trimIndent(),
                 null
@@ -704,9 +705,10 @@ internal object LargeLocalFoodDatabase {
                     }
                     val plant = if (cursor.getInt(4) != 0 && cursor.getString(6).isNotBlank()) {
                         PlantFoodIdentity(
-                            true,
-                            runCatching { PlantFoodKind.valueOf(cursor.getString(5)) }.getOrDefault(PlantFoodKind.NONE),
-                            cursor.getString(6)
+                            isPlantFood = true,
+                            kind = runCatching { PlantFoodKind.valueOf(cursor.getString(5)) }.getOrDefault(PlantFoodKind.NONE),
+                            diversityKey = cursor.getString(6),
+                            diversityEligible = cursor.getInt(7) != 0
                         )
                     } else {
                         PlantFoodClassifier.classify(name, searchText)
@@ -1250,7 +1252,12 @@ internal object LargeLocalFoodDatabase {
 
     private fun insertFood(db: SQLiteDatabase, food: NativeFood, replace: Boolean) {
         val plantIdentity = if (food.isPlantFood && food.plantDiversityKey.isNotBlank()) {
-            PlantFoodIdentity(true, food.plantFoodKind, food.plantDiversityKey)
+            PlantFoodIdentity(
+                isPlantFood = true,
+                kind = food.plantFoodKind,
+                diversityKey = food.plantDiversityKey,
+                diversityEligible = food.plantDiversityEligible
+            )
         } else {
             PlantFoodClassifier.classify(food.name, food.searchText, food.ingredientsText)
         }
