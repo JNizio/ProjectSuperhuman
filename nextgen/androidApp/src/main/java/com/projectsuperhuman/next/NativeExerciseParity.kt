@@ -726,6 +726,12 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     onProgress = { mode = "progress" }
                 )
 
+                StrengthPresetEntryCard(
+                    savedCount = routines.size,
+                    hasNext = nextRoutineName.isNotBlank(),
+                    onClick = { mode = "routines" }
+                )
+
                 StrengthProgressCard(
                     selectedMetric = trendMetric,
                     onMetricChange = { trendMetric = it },
@@ -2017,6 +2023,55 @@ private fun StrengthQuickDivider() {
             .height(22.dp)
             .background(ExerciseCardBorder)
     )
+}
+
+@Composable
+private fun StrengthPresetEntryCard(
+    savedCount: Int,
+    hasNext: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth()
+            .background(ExerciseSurface, RoundedCornerShape(18.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
+            .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier.size(36.dp)
+                .background(ExerciseBlue.copy(alpha = .14f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = R.drawable.tabler_dumbbell),
+                contentDescription = null,
+                tint = ExerciseBlue,
+                modifier = Modifier.size(19.dp)
+            )
+        }
+        Column(
+            Modifier.weight(1f).padding(horizontal = 11.dp)
+        ) {
+            Text(
+                "Workout presets",
+                color = ExerciseInk,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Black
+            )
+            Text(
+                when {
+                    savedCount == 0 -> "Starter presets available"
+                    hasNext -> "$savedCount saved · next workout selected"
+                    else -> "$savedCount saved"
+                },
+                color = ExerciseMuted,
+                fontSize = 9.sp
+            )
+        }
+        Text("→", color = ExerciseBlue, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    }
 }
 
 @Composable
