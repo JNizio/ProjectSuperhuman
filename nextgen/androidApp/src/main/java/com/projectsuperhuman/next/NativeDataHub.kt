@@ -676,6 +676,8 @@ internal object NativeDataHub {
             put("isPlantFood", evidenceFood.isPlantFood.toString())
             put("plantFoodKind", evidenceFood.plantFoodKind.name)
             put("plantDiversityKey", evidenceFood.plantDiversityKey)
+            put("foodTags", evidenceFood.foodTags.map { it.name }.sorted().joinToString(","))
+            put("foodTaxonomyVersion", evidenceFood.foodTaxonomyVersion.toString())
             put("nutritionIntegrityWarning", evidenceFood.nutritionIntegrityWarning.orEmpty())
             put("nutritionApproximate", evidenceFood.nutritionApproximate.toString())
             put("unitSystemVersion", "4")
