@@ -1291,7 +1291,7 @@ internal object LargeLocalFoodDatabase {
                     putMicro("monounsaturated_fat", "Monounsaturated fat", "g", rawAmount, unit)
                 id == 1293 || name.startsWith("fatty acids, total polyunsaturated") ->
                     putMicro("polyunsaturated_fat", "Polyunsaturated fat", "g", rawAmount, unit)
-                id == 1257 || name.startsWith("fatty acids, total trans") ->
+                id == 1257 || name == "fatty acids, total trans" ->
                     putMicro("trans_fat", "Trans fat", "g", rawAmount, unit)
                 name.startsWith("fatty acids, total n-3") || name.startsWith("omega-3") ->
                     putMicro("omega_3", "Omega-3 fatty acids", "g", rawAmount, unit)
