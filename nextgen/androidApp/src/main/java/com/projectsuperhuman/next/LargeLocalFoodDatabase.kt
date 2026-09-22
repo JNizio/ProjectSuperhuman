@@ -70,6 +70,8 @@ internal object LargeLocalFoodDatabase {
     private const val USER_AGENT = "ProjectSuperhuman/11.4 (Android food reference importer)"
     private const val PLANT_CLASSIFIER_META = "plant_classifier_schema"
     private const val FOOD_TAXONOMY_META = "food_taxonomy_schema"
+    private const val PREPARATION_SCHEMA_META = "food_preparation_schema"
+    private const val PREPARATION_SCHEMA_VERSION = 1
     private const val CORE_SCHEMA_META = "project_superhuman_core_food_schema"
     private const val CORE_SCHEMA_VERSION = 10
 
@@ -599,6 +601,7 @@ internal object LargeLocalFoodDatabase {
             priorityFoods().forEach { insertFood(db, it, replace = false) }
             backfillPlantClassificationIfNeeded(db)
             backfillFoodTaxonomyIfNeeded(db)
+            backfillPreparationStateIfNeeded(db)
             if (sourcesComplete(db)) rebuildCoreFoodsIfNeeded(db)
             seedCanonicalLocalVariants(db)
             db.execSQL("UPDATE food_reference SET core_rank = 0 WHERE id LIKE 'core:%'")
@@ -740,6 +743,51 @@ internal object LargeLocalFoodDatabase {
                 }
             }
             putMeta(db, FOOD_TAXONOMY_META, FoodTaxonomyClassifier.SCHEMA_VERSION.toString())
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    /**
+     * Preparation state is derived from the authoritative food description. Existing explicit
+     * states are preserved when the description is ambiguous (for example curated scrambled egg).
+     */
+    private fun backfillPreparationStateIfNeeded(db: SQLiteDatabase) {
+        val current = db.rawQuery(
+            "SELECT value FROM food_reference_meta WHERE key = ? LIMIT 1",
+            arrayOf(PREPARATION_SCHEMA_META)
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0).toIntOrNull() ?: 0 else 0
+        }
+        if (current >= PREPARATION_SCHEMA_VERSION) return
+
+        db.beginTransaction()
+        try {
+            db.rawQuery(
+                "SELECT id, name, search_text, preparation_state FROM food_reference",
+                null
+            ).use { cursor ->
+                val update = db.compileStatement(
+                    "UPDATE food_reference SET preparation_state = ? WHERE id = ?"
+                )
+                while (cursor.moveToNext()) {
+                    val inferred = FoodEvidenceEngine.inferPreparationState(
+                        cursor.getString(1) + " " + cursor.getString(2)
+                    )
+                    val existing = runCatching {
+                        FoodPreparationState.valueOf(cursor.getString(3))
+                    }.getOrDefault(FoodPreparationState.UNSPECIFIED)
+                    val resolved = if (inferred != FoodPreparationState.UNSPECIFIED) inferred else existing
+                    if (resolved != existing) {
+                        update.clearBindings()
+                        update.bindString(1, resolved.name)
+                        update.bindString(2, cursor.getString(0))
+                        update.executeUpdateDelete()
+                    }
+                }
+            }
+            putMeta(db, PREPARATION_SCHEMA_META, PREPARATION_SCHEMA_VERSION.toString())
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -1910,6 +1958,7 @@ internal class LargeFoodDb(context: Context) : SQLiteOpenHelper(
             }
             db.delete("food_reference_meta", "key = ?", arrayOf("plant_classifier_schema"))
             db.delete("food_reference_meta", "key = ?", arrayOf("food_taxonomy_schema"))
+            db.delete("food_reference_meta", "key = ?", arrayOf("food_preparation_schema"))
             db.delete("food_reference_meta", "key = ?", arrayOf("project_superhuman_core_food_schema"))
             return
         }
