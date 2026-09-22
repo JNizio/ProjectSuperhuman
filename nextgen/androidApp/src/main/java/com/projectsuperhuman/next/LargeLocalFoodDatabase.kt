@@ -1295,62 +1295,21 @@ internal object LargeLocalFoodDatabase {
                 id == 2000 || name == "total sugars" || name.startsWith("sugars, total") ->
                     sugar = convertUnit(rawAmount, unit, "g")
 
-                name == "calcium, ca" -> putMicro("calcium", "Calcium", "mg", rawAmount, unit)
-                name == "chloride, cl" -> putMicro("chloride", "Chloride", "mg", rawAmount, unit)
-                name == "copper, cu" -> putMicro("copper", "Copper", "mg", rawAmount, unit)
-                name == "iron, fe" -> putMicro("iron", "Iron", "mg", rawAmount, unit)
-                name == "iodine, i" -> putMicro("iodine", "Iodine", "µg", rawAmount, unit)
-                name == "magnesium, mg" -> putMicro("magnesium", "Magnesium", "mg", rawAmount, unit)
-                name == "manganese, mn" -> putMicro("manganese", "Manganese", "mg", rawAmount, unit)
-                name == "phosphorus, p" -> putMicro("phosphorus", "Phosphorus", "mg", rawAmount, unit)
-                name == "potassium, k" -> putMicro("potassium", "Potassium", "mg", rawAmount, unit)
-                name == "selenium, se" -> putMicro("selenium", "Selenium", "µg", rawAmount, unit)
-                name == "sodium, na" -> {
-                    sodiumMg = convertUnit(rawAmount, unit, "mg")
-                    putMicro("sodium", "Sodium", "mg", rawAmount, unit)
+                else -> {
+                    val spec = UsdaNutrientSemantics.matchMicronutrient(id, rawName)
+                    if (spec != null) {
+                        putMicro(
+                            spec.canonicalId,
+                            spec.label,
+                            spec.targetUnit,
+                            rawAmount,
+                            unit
+                        )
+                        if (spec.canonicalId == "sodium") {
+                            sodiumMg = convertUnit(rawAmount, unit, "mg")
+                        }
+                    }
                 }
-                name == "zinc, zn" -> putMicro("zinc", "Zinc", "mg", rawAmount, unit)
-                name == "vitamin a, rae" -> putMicro("vitamin_a", "Vitamin A", "µg", rawAmount, unit)
-                name == "thiamin" -> putMicro("vitamin_b1", "Vitamin B1", "mg", rawAmount, unit)
-                name == "riboflavin" -> putMicro("vitamin_b2", "Vitamin B2", "mg", rawAmount, unit)
-                name == "niacin" -> putMicro("niacin", "Niacin (B3)", "mg", rawAmount, unit)
-                name == "pantothenic acid" -> putMicro("pantothenic_acid", "Pantothenic acid (B5)", "mg", rawAmount, unit)
-                name == "biotin" -> putMicro("biotin", "Biotin (B7)", "µg", rawAmount, unit)
-                name == "vitamin b-6" || name == "vitamin b6" ->
-                    putMicro("vitamin_b6", "Vitamin B6", "mg", rawAmount, unit)
-                name == "folate, total" -> putMicro("folate", "Folate (B9)", "µg", rawAmount, unit)
-                name == "vitamin b-12" || name == "vitamin b12" ->
-                    putMicro("vitamin_b12", "Vitamin B12", "µg", rawAmount, unit)
-                name.startsWith("vitamin c, total ascorbic acid") || name == "vitamin c" ->
-                    putMicro("vitamin_c", "Vitamin C", "mg", rawAmount, unit)
-                name.startsWith("vitamin d (d2 + d3") || name == "vitamin d" ->
-                    putMicro("vitamin_d", "Vitamin D", "µg", rawAmount, unit)
-                name.startsWith("vitamin e (alpha-tocopherol") || name == "vitamin e" ->
-                    putMicro("vitamin_e", "Vitamin E", "mg", rawAmount, unit)
-                name.startsWith("vitamin k (phylloquinone") || name == "vitamin k" ->
-                    putMicro("vitamin_k", "Vitamin K", "µg", rawAmount, unit)
-                name.startsWith("choline, total") || name == "choline" ->
-                    putMicro("choline", "Choline", "mg", rawAmount, unit)
-                id == 1009 || name == "starch" ->
-                    putMicro("starch", "Starch", "g", rawAmount, unit)
-                id == 1051 || name == "water" ->
-                    putMicro("water", "Water", "g", rawAmount, unit)
-                id == 1018 || name.startsWith("alcohol, ethyl") ->
-                    putMicro("alcohol", "Alcohol", "g", rawAmount, unit)
-                id == 1253 || name == "cholesterol" ->
-                    putMicro("cholesterol", "Cholesterol", "mg", rawAmount, unit)
-                id == 1292 || name.startsWith("fatty acids, total monounsaturated") ->
-                    putMicro("monounsaturated_fat", "Monounsaturated fat", "g", rawAmount, unit)
-                id == 1293 || name.startsWith("fatty acids, total polyunsaturated") ->
-                    putMicro("polyunsaturated_fat", "Polyunsaturated fat", "g", rawAmount, unit)
-                id == 1257 || name == "fatty acids, total trans" ->
-                    putMicro("trans_fat", "Trans fat", "g", rawAmount, unit)
-                name.startsWith("fatty acids, total n-3") || name.startsWith("omega-3") ->
-                    putMicro("omega_3", "Omega-3 fatty acids", "g", rawAmount, unit)
-                name.startsWith("fatty acids, total n-6") || name.startsWith("omega-6") ->
-                    putMicro("omega_6", "Omega-6 fatty acids", "g", rawAmount, unit)
-                name == "caffeine" ->
-                    putMicro("caffeine", "Caffeine", "mg", rawAmount, unit)
             }
         }
 
@@ -1926,7 +1885,7 @@ internal class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    14
+    15
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -2016,6 +1975,22 @@ internal class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                     "food_reference_meta",
                     "key = ?",
                     arrayOf("usda_foundation_2026_04_complete")
+                )
+            }
+            if (oldVersion < 15) {
+                // Parser v15 uses strict FDC nutrient semantics/units, fixes USDA "Chlorine, Cl"
+                // ingestion, and preserves folate forms independently. Re-import authoritative
+                // source rows so no v14 mapping survives in the source-backed/core snapshots.
+                db.delete("food_reference", "id LIKE ?", arrayOf("usda:%"))
+                db.delete("food_reference", "id LIKE ?", arrayOf("core:usda:%"))
+                db.delete(
+                    "food_reference_meta",
+                    "key IN (?, ?, ?)",
+                    arrayOf(
+                        "usda_foundation_2026_04_complete",
+                        "usda_fndds_2021_2023_complete",
+                        "usda_sr_legacy_complete"
+                    )
                 )
             }
             db.delete("food_reference_meta", "key = ?", arrayOf("plant_classifier_schema"))
