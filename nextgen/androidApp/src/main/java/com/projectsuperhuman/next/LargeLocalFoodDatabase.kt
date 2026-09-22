@@ -229,7 +229,7 @@ internal object LargeLocalFoodDatabase {
                                         kcal = cursor.getDouble(3),
                                         protein = cursor.getDouble(4),
                                         carbs = cursor.getDouble(5),
-                                        carbohydrateDefinition = if (source.startsWith("USDA")) {
+                                        carbohydrateDefinition = if (source.contains("USDA")) {
                                             CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE
                                         } else {
                                             CarbohydrateDefinition.UNKNOWN
@@ -261,13 +261,11 @@ internal object LargeLocalFoodDatabase {
                                         foodTags = decodeFoodTags(cursor.getString(31)),
                                         foodTaxonomyVersion = cursor.getInt(32),
                                         sourceType = when {
-                                            source.startsWith("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
-                                            source.startsWith("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
-                                            source.startsWith("USDA SR Legacy") -> FoodDataSourceType.USDA_SR_LEGACY
+                                            source.contains("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
+                                            source.contains("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
+                                            source.contains("USDA SR Legacy") -> FoodDataSourceType.USDA_SR_LEGACY
                                             else -> FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE
-                                        },
-                                        verificationState = FoodVerificationState.SOURCE_VALIDATED,
-                                        confidence = FoodDataConfidence.HIGH
+                                        }
                                     )
                                 )
                             }
