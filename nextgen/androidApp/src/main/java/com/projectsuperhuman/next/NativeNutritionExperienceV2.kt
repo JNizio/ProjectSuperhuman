@@ -837,7 +837,7 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
                 .align(Alignment.Center)
                 .fillMaxWidth()
                 .padding(start = 52.dp, end = 4.dp),
-            verticalArrangement = Arrangement.spacedBy((-1).dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
