@@ -251,6 +251,9 @@ internal object LocalFoodAuditRules {
         "vitamin_b6" to 1_000.0,
         "biotin" to 100_000.0,
         "folate" to 100_000.0,
+        "folic_acid" to 100_000.0,
+        "folate_food" to 100_000.0,
+        "folate_dfe" to 100_000.0,
         "vitamin_b12" to 100_000.0,
         "vitamin_c" to 10_000.0,
         "vitamin_d" to 100_000.0,
@@ -290,6 +293,9 @@ internal object LocalFoodAuditRules {
         "vitamin_b6" to "mg",
         "biotin" to "µg",
         "folate" to "µg",
+        "folic_acid" to "µg",
+        "folate_food" to "µg",
+        "folate_dfe" to "µg",
         "vitamin_b12" to "µg",
         "vitamin_c" to "mg",
         "vitamin_d" to "µg",
@@ -634,7 +640,7 @@ internal object LocalFoodDatabaseAuditor {
         "potassium", "calcium", "magnesium", "phosphorus", "iron", "zinc", "copper", "manganese",
         "selenium", "vitamin_a", "vitamin_c", "vitamin_d", "vitamin_e", "vitamin_k",
         "vitamin_b1", "vitamin_b2", "niacin", "pantothenic_acid", "vitamin_b6", "folate",
-        "vitamin_b12", "choline", "omega_3", "omega_6", "cholesterol", "caffeine", "water",
+        "folic_acid", "folate_food", "folate_dfe", "vitamin_b12", "choline", "omega_3", "omega_6", "cholesterol", "caffeine", "water",
         "starch", "alcohol", "monounsaturated_fat", "polyunsaturated_fat", "trans_fat"
     )
 
