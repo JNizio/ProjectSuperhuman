@@ -269,6 +269,57 @@ internal object LocalFoodAuditRules {
         "omega_6" to 100.5
     )
 
+    private val nutrientExpectedUnits = mapOf(
+        "calcium" to "mg",
+        "chloride" to "mg",
+        "copper" to "mg",
+        "iron" to "mg",
+        "iodine" to "µg",
+        "magnesium" to "mg",
+        "manganese" to "mg",
+        "phosphorus" to "mg",
+        "potassium" to "mg",
+        "selenium" to "µg",
+        "sodium" to "mg",
+        "zinc" to "mg",
+        "vitamin_a" to "µg",
+        "vitamin_b1" to "mg",
+        "vitamin_b2" to "mg",
+        "niacin" to "mg",
+        "pantothenic_acid" to "mg",
+        "vitamin_b6" to "mg",
+        "biotin" to "µg",
+        "folate" to "µg",
+        "vitamin_b12" to "µg",
+        "vitamin_c" to "mg",
+        "vitamin_d" to "µg",
+        "vitamin_e" to "mg",
+        "vitamin_k" to "µg",
+        "choline" to "mg",
+        "cholesterol" to "mg",
+        "caffeine" to "mg",
+        "water" to "g",
+        "alcohol" to "g",
+        "starch" to "g",
+        "monounsaturated_fat" to "g",
+        "polyunsaturated_fat" to "g",
+        "trans_fat" to "g",
+        "omega_3" to "g",
+        "omega_6" to "g"
+    )
+
+    private fun canonicalNutrientUnit(raw: String): String = when (
+        raw.trim().lowercase(Locale.ROOT)
+            .replace("μ", "µ")
+            .replace("mcg", "µg")
+            .replace("ug", "µg")
+    ) {
+        "g", "gram", "grams" -> "g"
+        "mg", "milligram", "milligrams" -> "mg"
+        "µg", "microgram", "micrograms" -> "µg"
+        else -> raw.trim()
+    }
+
     fun canonicalIdentity(name: String): String =
         name.lowercase(Locale.ROOT)
             .replace(Regex("\\brocket\\b"), "arugula")
@@ -368,7 +419,20 @@ internal object LocalFoodAuditRules {
                     add("micro_unit_$id", LocalFoodAuditSeverity.WARNING, "$id exceeds a conservative plausibility ceiling; check mg/µg/g conversion")
                 }
             }
-            if (nutrient.unit.isBlank()) add("micro_unit_missing_$id", LocalFoodAuditSeverity.WARNING, "$id has no unit")
+            if (nutrient.unit.isBlank()) {
+                add("micro_unit_missing_$id", LocalFoodAuditSeverity.WARNING, "$id has no unit")
+            } else {
+                nutrientExpectedUnits[id]?.let { expected ->
+                    val actual = canonicalNutrientUnit(nutrient.unit)
+                    if (actual != expected) {
+                        add(
+                            "micro_unit_definition_$id",
+                            LocalFoodAuditSeverity.ERROR,
+                            "$id uses '$actual' but the canonical database unit is '$expected'"
+                        )
+                    }
+                }
+            }
             if (nutrient.valuePer100 == 0.0 &&
                 nutrient.evidenceKind in setOf(
                     NutrientEvidenceKind.UNSPECIFIED,
@@ -380,8 +444,33 @@ internal object LocalFoodAuditRules {
             }
         }
 
+        val contradictoryKnownness = row.unknownMicronutrients.intersect(row.micronutrients.keys)
+        if (contradictoryKnownness.isNotEmpty()) {
+            add(
+                "micro_known_unknown_conflict",
+                LocalFoodAuditSeverity.ERROR,
+                "Nutrients are simultaneously stored as known and unknown: " +
+                    contradictoryKnownness.sorted().joinToString(", ")
+            )
+        }
+
+        row.micronutrients["sodium"]?.let { sodium ->
+            if (row.sodiumKnown && canonicalNutrientUnit(sodium.unit) == "mg") {
+                val tolerance = max(0.5, row.sodiumMg * 0.01)
+                if (abs(sodium.valuePer100 - row.sodiumMg) > tolerance) {
+                    add(
+                        "sodium_duplicate_field_conflict",
+                        LocalFoodAuditSeverity.ERROR,
+                        "Sodium macro field and micronutrient evidence disagree"
+                    )
+                }
+            }
+        }
+
         if (row.source.isBlank() || row.sourceRecordId.isBlank()) {
             add("provenance_missing", LocalFoodAuditSeverity.WARNING, "Source or source record ID is missing")
+        } else if (row.source.contains("USDA", ignoreCase = true) && row.sourceRecordId.toLongOrNull() == null) {
+            add("usda_provenance_id", LocalFoodAuditSeverity.WARNING, "USDA-backed record does not retain a numeric FDC source ID")
         }
         if (row.foodTags.isEmpty() || row.foodTags == setOf(FoodTag.OTHER)) {
             add("taxonomy_missing", LocalFoodAuditSeverity.WARNING, "Food has no useful deterministic taxonomy")
@@ -449,6 +538,22 @@ internal object LocalFoodAuditRules {
         }
         if (FoodTag.MILK in row.foodTags && (row.micronutrients["calcium"]?.valuePer100 ?: 0.0) <= 0.0) {
             add("identity_milk_calcium_zero", LocalFoodAuditSeverity.WARNING, "Milk record has zero/unknown calcium")
+        }
+
+        val looksFortified = listOf("fortified", "enriched", "added vitamin", "nutritional yeast")
+            .any(lower::contains)
+        if (row.isPlantFood &&
+            FoodTag.PREPARED_FOOD !in row.foodTags &&
+            (row.micronutrients["cholesterol"]?.valuePer100 ?: 0.0) > 0.5
+        ) {
+            add("identity_plant_cholesterol", LocalFoodAuditSeverity.WARNING, "Plant food reports cholesterol; verify identity/source mapping")
+        }
+        if (row.isPlantFood &&
+            !looksFortified &&
+            FoodTag.FERMENTED !in row.foodTags &&
+            (row.micronutrients["vitamin_b12"]?.valuePer100 ?: 0.0) > 0.2
+        ) {
+            add("identity_plant_b12", LocalFoodAuditSeverity.WARNING, "Unfortified/non-fermented plant food reports meaningful vitamin B12")
         }
 
         return findings
