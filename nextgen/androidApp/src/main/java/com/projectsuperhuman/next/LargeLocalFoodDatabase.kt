@@ -143,7 +143,9 @@ internal object LargeLocalFoodDatabase {
         LargeFoodDb(context.applicationContext).use { helper ->
             DatabaseUtils.longForQuery(
                 helper.readableDatabase,
-                "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%' AND essential_micronutrient_count >= $CORE_MIN_MICRONUTRIENTS",
+                "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%' " +
+                    "AND essential_micronutrient_count >= $CORE_MIN_MICRONUTRIENTS " +
+                    "AND food_tags_json <> '[]' AND taxonomy_version >= ${FoodTaxonomyClassifier.SCHEMA_VERSION}",
                 null
             ) >= CORE_FOOD_TARGET
         }
@@ -1489,9 +1491,27 @@ internal object LargeLocalFoodDatabase {
             null
         ).toInt()
         val strictCount = selected.count { it.essentialCount >= CORE_PREFERRED_MICRONUTRIENTS }
+        val taggedCount = DatabaseUtils.longForQuery(
+            db,
+            "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%' AND food_tags_json <> '[]'",
+            null
+        ).toInt()
+        val otherOnlyCount = DatabaseUtils.longForQuery(
+            db,
+            "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%' AND food_tags_json = '[\"OTHER\"]'",
+            null
+        ).toInt()
+        val plantCount = DatabaseUtils.longForQuery(
+            db,
+            "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%' AND plant_food = 1",
+            null
+        ).toInt()
 
         putMeta(db, "project_superhuman_core_food_count", materializedCount.toString())
         putMeta(db, "project_superhuman_core_food_strict_count", strictCount.toString())
+        putMeta(db, "project_superhuman_core_food_tagged_count", taggedCount.toString())
+        putMeta(db, "project_superhuman_core_food_other_only_count", otherOnlyCount.toString())
+        putMeta(db, "project_superhuman_core_food_plant_count", plantCount.toString())
         putMeta(db, CORE_SCHEMA_META, CORE_SCHEMA_VERSION.toString())
         putMeta(db, "project_superhuman_core_food_storage", "materialized-local-snapshot")
         putMeta(db, "project_superhuman_core_food_min_essential", CORE_MIN_MICRONUTRIENTS.toString())
