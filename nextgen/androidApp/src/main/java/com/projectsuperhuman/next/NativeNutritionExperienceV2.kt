@@ -691,7 +691,7 @@ private fun N2Tab(label: String, selected: Boolean, modifier: Modifier, onClick:
     Box(
         modifier.height(SuperhumanLayout.controlHeight)
             .background(if (selected) N2Blue else Color.Transparent, RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick),
+            .superhumanClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) { Text(label, color = if (selected) Color.White else N2Muted, fontSize = 10.sp, fontWeight = FontWeight.Black) }
 }
