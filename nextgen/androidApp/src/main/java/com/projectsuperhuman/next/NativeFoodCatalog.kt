@@ -511,11 +511,16 @@ internal object FoodTaxonomyClassifier {
         }
 
         val yogurt = nHas("yogurt", "yoghurt", "skyr", "kefir")
-        val cheese = nHas("cheese", "cheddar", "mozzarella", "parmesan", "ricotta", "cottage cheese", "feta", "brie")
-        val milk = nHas("milk") && !nHas("soy milk", "almond milk", "oat milk", "rice milk", "cashew milk", "coconut milk")
-        val cream = nHas("cream", "creme fraiche", "sour cream") && !nHas("cream of")
+        val cheese = nHas(
+            "cheese", "cheddar", "mozzarella", "parmesan", "ricotta", "cottage cheese",
+            "feta", "brie", "camembert", "gouda", "edam", "halloumi", "mascarpone"
+        )
+        val milk = nHas("milk", "buttermilk") &&
+            !nHas("soy milk", "almond milk", "oat milk", "rice milk", "cashew milk", "coconut milk")
+        val cream = nHas("cream", "creme fraiche", "sour cream", "half and half") && !nHas("cream of")
         val butter = nHas("butter") && !nHas("butter bean", "butter beans", "peanut butter", "almond butter")
-        if (yogurt || cheese || milk || cream || butter || categoryHas("dairy products")) {
+        val otherDairy = nHas("whey", "casein")
+        if (yogurt || cheese || milk || cream || butter || otherDairy || categoryHas("dairy products")) {
             tags += FoodTag.ANIMAL_DERIVED
             tags += FoodTag.DAIRY
         }
@@ -531,7 +536,8 @@ internal object FoodTaxonomyClassifier {
         }
         if (nHas(
                 "cake", "cupcake", "muffin", "pastry", "croissant", "biscuit", "cookie", "cookies",
-                "cracker", "doughnut", "donut", "scone", "brownie", "waffle", "pancake"
+                "cracker", "doughnut", "donut", "scone", "brownie", "waffle", "pancake",
+                "pie", "tart", "danish"
             ) || categoryHas("baked products")
         ) {
             tags += FoodTag.BAKED_GOOD
