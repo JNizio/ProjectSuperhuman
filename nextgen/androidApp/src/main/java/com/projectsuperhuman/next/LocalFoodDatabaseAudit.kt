@@ -31,6 +31,22 @@ internal data class LocalFoodNutrientCoverage(
         get() = if (valid + missing == 0) 0.0 else valid * 100.0 / (valid + missing).toDouble()
 }
 
+internal data class LocalFoodRepresentativeSnapshot(
+    val requested: String,
+    val matchedFoodId: String?,
+    val matchedName: String?,
+    val source: String?,
+    val sourceRecordId: String?,
+    val kcal: Double?,
+    val protein: Double?,
+    val carbs: Double?,
+    val fat: Double?,
+    val micronutrientCount: Int?,
+    val tags: Set<FoodTag>,
+    val preparationState: FoodPreparationState?,
+    val plantDiversityEligible: Boolean?
+)
+
 internal data class LocalFoodDatabaseAuditReport(
     val generatedEpochMs: Long,
     val totalRecords: Int,
@@ -43,6 +59,7 @@ internal data class LocalFoodDatabaseAuditReport(
     val foodsMissingTags: Int,
     val plantFoodsMissingPlantTag: Int,
     val suspiciousPlantClassifications: Int,
+    val representativeFoods: List<LocalFoodRepresentativeSnapshot>,
     val findings: List<LocalFoodAuditFinding>,
     val nutrientCoverage: List<LocalFoodNutrientCoverage>,
     val duplicateExamples: List<List<String>>,
@@ -60,6 +77,25 @@ internal data class LocalFoodDatabaseAuditReport(
         put("foodsMissingTags", foodsMissingTags)
         put("plantFoodsMissingPlantTag", plantFoodsMissingPlantTag)
         put("suspiciousPlantClassifications", suspiciousPlantClassifications)
+        put("representativeFoods", JSONArray().apply {
+            representativeFoods.forEach { item ->
+                put(JSONObject().apply {
+                    put("requested", item.requested)
+                    put("matchedFoodId", item.matchedFoodId)
+                    put("matchedName", item.matchedName)
+                    put("source", item.source)
+                    put("sourceRecordId", item.sourceRecordId)
+                    put("kcal", item.kcal)
+                    put("protein", item.protein)
+                    put("carbs", item.carbs)
+                    put("fat", item.fat)
+                    put("micronutrientCount", item.micronutrientCount)
+                    put("tags", JSONArray(item.tags.map { it.name }.sorted()))
+                    put("preparationState", item.preparationState?.name)
+                    put("plantDiversityEligible", item.plantDiversityEligible)
+                })
+            }
+        })
         put("nutrientCoverage", JSONArray().apply {
             nutrientCoverage.forEach { item ->
                 put(JSONObject().apply {
@@ -104,6 +140,19 @@ internal data class LocalFoodDatabaseAuditReport(
         appendLine("- Foods missing taxonomy tags: $foodsMissingTags")
         appendLine("- Plant foods missing PLANT tag: $plantFoodsMissingPlantTag")
         appendLine("- Suspicious plant classifications: $suspiciousPlantClassifications")
+        appendLine()
+        appendLine("## Representative food checks")
+        appendLine()
+        appendLine("| Requested | Matched food | Source record | kcal | P | C | F | Micros | Preparation | Tags | Plant diversity |")
+        appendLine("|---|---|---|---:|---:|---:|---:|---:|---|---|---|")
+        representativeFoods.forEach { item ->
+            appendLine(
+                "| ${item.requested} | ${item.matchedName ?: "MISSING"} | ${item.sourceRecordId ?: "—"} | " +
+                    "${item.kcal ?: "—"} | ${item.protein ?: "—"} | ${item.carbs ?: "—"} | ${item.fat ?: "—"} | " +
+                    "${item.micronutrientCount ?: "—"} | ${item.preparationState?.name ?: "—"} | " +
+                    "${item.tags.map { it.name }.sorted().joinToString(", ")} | ${item.plantDiversityEligible ?: "—"} |"
+            )
+        }
         appendLine()
         appendLine("## Nutrient coverage")
         appendLine()
@@ -471,7 +520,19 @@ internal object LocalFoodDatabaseAuditor {
             }
         }
 
-        val findings = rows.flatMap(LocalFoodAuditRules::validate)
+        val representativeFoods = representativeSnapshots(rows)
+        val representativeMissingFindings = representativeFoods
+            .filter { it.matchedFoodId == null }
+            .map {
+                LocalFoodAuditFinding(
+                    foodId = "representative:" + it.requested,
+                    foodName = it.requested,
+                    code = "representative_food_missing",
+                    severity = LocalFoodAuditSeverity.WARNING,
+                    message = "No local reference row matched the required representative food"
+                )
+            }
+        val findings = rows.flatMap(LocalFoodAuditRules::validate) + representativeMissingFindings
         val errorIds = findings.filter { it.severity == LocalFoodAuditSeverity.ERROR }.map { it.foodId }.toSet()
         val warningIds = findings.filter { it.severity == LocalFoodAuditSeverity.WARNING }.map { it.foodId }.toSet()
         val reviewIds = errorIds + warningIds
@@ -556,11 +617,77 @@ internal object LocalFoodDatabaseAuditor {
             foodsMissingTags = foodsMissingTags,
             plantFoodsMissingPlantTag = plantMissing,
             suspiciousPlantClassifications = suspiciousPlant,
+            representativeFoods = representativeFoods,
             findings = findings.sortedWith(compareBy<LocalFoodAuditFinding> { it.severity.ordinal }.thenBy { it.foodName }),
             nutrientCoverage = coverage,
             duplicateExamples = duplicateGroups.take(100).map { group -> group.map { it.name + " [" + it.id + "]" } },
             suspiciousProfileExamples = profileGroups.take(100).map { group -> group.map { it.name + " [" + it.id + "]" } }
         )
+    }
+
+    private fun representativeSnapshots(rows: List<LocalFoodAuditRow>): List<LocalFoodRepresentativeSnapshot> {
+        val specs = listOf(
+            "Apple, raw" to listOf("apple", "raw"),
+            "Banana, raw" to listOf("banana", "raw"),
+            "Rocket / arugula" to listOf("arugula", "raw"),
+            "Spinach, raw" to listOf("spinach", "raw"),
+            "Broccoli, raw" to listOf("broccoli", "raw"),
+            "Potato, raw" to listOf("potato", "raw"),
+            "Potato, boiled" to listOf("potato", "boiled"),
+            "Rice, dry/raw" to listOf("rice", "raw"),
+            "Rice, cooked" to listOf("rice", "cooked"),
+            "Lentils" to listOf("lentil"),
+            "Chickpeas" to listOf("chickpea"),
+            "Walnuts" to listOf("walnut"),
+            "Flaxseed" to listOf("flaxseed"),
+            "Olive oil" to listOf("olive", "oil"),
+            "Chicken breast, raw" to listOf("chicken", "breast", "raw"),
+            "Chicken breast, grilled" to listOf("chicken", "breast", "grilled"),
+            "Beef" to listOf("beef"),
+            "Salmon" to listOf("salmon"),
+            "Egg, boiled" to listOf("egg", "boiled"),
+            "Milk, whole" to listOf("milk", "whole"),
+            "Greek yogurt, plain" to listOf("greek", "yogurt"),
+            "Cheddar cheese" to listOf("cheddar", "cheese"),
+            "Sourdough bread" to listOf("sourdough")
+        )
+        return specs.map { (requested, terms) ->
+            val match = rows
+                .asSequence()
+                .filter { row ->
+                    val haystack = (row.name + " " + row.normalizedName).lowercase(Locale.ROOT)
+                    terms.all(haystack::contains)
+                }
+                .sortedWith(
+                    compareBy<LocalFoodAuditRow> {
+                        when {
+                            it.id.startsWith("core:") && !it.id.startsWith("core:usda:") -> 0
+                            it.source.contains("USDA Foundation", ignoreCase = true) -> 1
+                            it.id.startsWith("core:usda:") -> 2
+                            it.source.contains("USDA SR", ignoreCase = true) -> 3
+                            it.source.contains("USDA FNDDS", ignoreCase = true) -> 4
+                            else -> 5
+                        }
+                    }.thenByDescending { it.micronutrients.size }
+                        .thenBy { it.name.length }
+                )
+                .firstOrNull()
+            LocalFoodRepresentativeSnapshot(
+                requested = requested,
+                matchedFoodId = match?.id,
+                matchedName = match?.name,
+                source = match?.source,
+                sourceRecordId = match?.sourceRecordId,
+                kcal = match?.kcal,
+                protein = match?.protein,
+                carbs = match?.carbs,
+                fat = match?.fat,
+                micronutrientCount = match?.micronutrients?.size,
+                tags = match?.foodTags.orEmpty(),
+                preparationState = match?.preparationState,
+                plantDiversityEligible = match?.plantDiversityEligible
+            )
+        }
     }
 
     private fun preparationSignature(tags: Set<FoodTag>): String =
