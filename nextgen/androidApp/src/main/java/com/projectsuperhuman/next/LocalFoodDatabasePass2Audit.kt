@@ -252,7 +252,8 @@ internal object LocalFoodDatabasePass2Auditor {
         add(rows.asSequence().filter { it.id in suspiciousIds }, 35)
 
         // If strata overlap heavily, fill deterministically from underrepresented source-backed rows.
-        add(rows.asSequence().filter { it.isUsda }, SAMPLE_TARGET - chosen.size)
+        val remaining = (SAMPLE_TARGET - chosen.size).coerceAtLeast(0)
+        if (remaining > 0) add(rows.asSequence().filter { it.isUsda }, remaining)
         return chosen.values.take(SAMPLE_TARGET)
     }
 
