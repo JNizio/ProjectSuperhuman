@@ -73,8 +73,6 @@ data class NativeHomeSnapshot(
     val fatGoal: Int? = null,
     val fibreGoal: Int? = null,
     val nutritionEntriesToday: Int = 0,
-    val nutritionMealsToday: Int = 0,
-    val nutritionMicronutrientCoveragePct: Int? = null,
     val nutritionCaloriesComplete: Boolean = true,
     val latestNutritionFoodName: String? = null,
     val workoutsToday: Int = 0,
@@ -464,7 +462,6 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     val sleepData = NativeDomainData.forDomain(HealthDomain.SLEEP)
     val hydrationData = NativeDomainData.forDomain(HealthDomain.HYDRATION)
     val nutritionData = NativeDomainData.forDomain(HealthDomain.NUTRITION)
-    val nutritionRowsToday = NativeDataHub.domainBetween(HealthDomain.NUTRITION, start, now)
     val exerciseData = NativeDomainData.forDomain(HealthDomain.EXERCISE)
     val bodyData = NativeDomainData.forDomain(HealthDomain.BODY)
     val clinicalData = NativeDomainData.forDomain(HealthDomain.CLINICAL)
@@ -485,34 +482,6 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         .map { it.metadata["diaryEntryId"] ?: "legacy:" + it.timestampEpochMs + ":" + it.metadata["foodId"].orEmpty() }
         .distinct()
         .size
-    val nutritionMealsToday = anchorRows
-        .mapNotNull { row ->
-            row.metadata["mealGroupId"]?.takeIf { it.isNotBlank() }
-                ?: row.metadata["meal"]?.takeIf { it.isNotBlank() }
-        }
-        .distinct()
-        .size
-
-    val micronutrientReference = mapOf(
-        "magnesium" to 375.0,
-        "potassium" to 2000.0,
-        "calcium" to 800.0,
-        "vitamin_d" to 5.0,
-        "iron" to 14.0,
-        "folate" to 200.0,
-        "vitamin_b12" to 2.5,
-        "zinc" to 10.0
-    )
-    val micronutrientRows = nutritionRowsToday.filter {
-        it.metric.startsWith("food_") && !it.metadata["nutrientId"].isNullOrBlank()
-    }
-    val micronutrientTotals = micronutrientRows
-        .groupBy { it.metadata["nutrientId"].orEmpty() }
-        .mapValues { (_, rows) -> rows.sumOf { it.value } }
-    val micronutrientCoveragePct = micronutrientReference.mapNotNull { (id, target) ->
-        micronutrientTotals[id]?.let { value -> (value / target).coerceIn(0.0, 1.0) }
-    }.takeIf { it.isNotEmpty() }?.average()?.times(100.0)?.roundToInt()
-
     val latestNutritionFood = anchorRows.maxByOrNull { it.timestampEpochMs }?.metadata?.get("name")
     val caloriesComplete = nutritionEntryCount == 0 || kcalRows
         .map { it.metadata["diaryEntryId"] ?: "legacy:" + it.timestampEpochMs + ":" + it.metadata["foodId"].orEmpty() }
@@ -582,8 +551,6 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         fatGoal = fatGoal,
         fibreGoal = fibreGoal,
         nutritionEntriesToday = nutritionEntryCount,
-        nutritionMealsToday = nutritionMealsToday,
-        nutritionMicronutrientCoveragePct = micronutrientCoveragePct,
         nutritionCaloriesComplete = caloriesComplete,
         latestNutritionFoodName = latestNutritionFood,
         workoutsToday = workouts.size + cardioSessions.size,
