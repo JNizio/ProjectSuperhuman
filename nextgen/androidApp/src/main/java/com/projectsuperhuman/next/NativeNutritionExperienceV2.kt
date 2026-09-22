@@ -752,17 +752,17 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
         snapshot.byKind[kind]?.takeIf { it > 0 }?.let { "$it $label" }
     }.joinToString(" · ")
 
-    Row(
+    Box(
         Modifier
             .width(350.dp)
             .background(N2SoftGreen, RoundedCornerShape(18.dp))
             .border(1.dp, N2Green.copy(alpha = .22f), RoundedCornerShape(18.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(9.dp)
+            .padding(horizontal = 10.dp, vertical = 5.dp)
     ) {
         Box(
-            Modifier.size(44.dp)
+            Modifier
+                .align(Alignment.CenterStart)
+                .size(44.dp)
                 .background(N2Green.copy(alpha = .10f), CircleShape)
                 .border(1.dp, N2Green.copy(alpha = .20f), CircleShape),
             contentAlignment = Alignment.Center
@@ -833,7 +833,10 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
         }
 
         Column(
-            Modifier.width(286.dp),
+            Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth()
+                .padding(start = 52.dp, end = 4.dp),
             verticalArrangement = Arrangement.spacedBy(1.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
@@ -1667,7 +1670,7 @@ private fun N2MealCard(
     onRenameGroup: (List<N2Entry>, String) -> Unit,
     onRemove: (N2Entry) -> Unit
 ) {
-    var expanded by remember(meal, entries.size) { mutableStateOf(true) }
+    var expanded by remember(meal, entries.size) { mutableStateOf(false) }
     val mealKcal = entries.sumOf { it.kcal }
     val mealProtein = entries.sumOf { it.protein }
     val mealKcalComplete = entries.all { it.kcalKnown }
