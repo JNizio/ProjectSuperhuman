@@ -109,7 +109,10 @@ private data class N2Entry(
     val barcode: String,
     val sourceName: String,
     val mealGroupId: String,
-    val mealGroupName: String
+    val mealGroupName: String,
+    val isPlantFood: Boolean,
+    val plantFoodKind: PlantFoodKind,
+    val plantDiversityKey: String
 )
 
 private data class N2Micro(
@@ -139,6 +142,27 @@ private data class N2Day(
     }
     val fatComplete: Boolean get() = entries.all { it.fatKnown }
     val fibreComplete: Boolean get() = entries.all { it.fibreKnown }
+}
+
+private data class N2PlantDiversitySnapshot(
+    val uniquePlants: Int,
+    val byKind: Map<PlantFoodKind, Int>,
+    val keys: Set<String>
+)
+
+private fun n2PlantDiversity(days: List<N2Day>): N2PlantDiversitySnapshot {
+    val entries = days.flatMap { it.entries }
+        .filter { it.isPlantFood && it.plantDiversityKey.isNotBlank() }
+
+    val uniqueByKey = entries
+        .groupBy { it.plantDiversityKey }
+        .mapValues { (_, rows) -> rows.first() }
+
+    return N2PlantDiversitySnapshot(
+        uniquePlants = uniqueByKey.size,
+        byKind = uniqueByKey.values.groupingBy { it.plantFoodKind }.eachCount(),
+        keys = uniqueByKey.keys
+    )
 }
 
 private data class N2Goals(
@@ -706,6 +730,69 @@ private fun N2Hero(
             }
         }
 
+        N2PlantDiversityCard(n2PlantDiversity(weekDays))
+    }
+}
+
+@Composable
+private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
+    val kindOrder = listOf(
+        PlantFoodKind.FRUIT to "fruit",
+        PlantFoodKind.VEGETABLE to "veg",
+        PlantFoodKind.LEGUME to "legumes",
+        PlantFoodKind.GRAIN to "grains",
+        PlantFoodKind.NUT to "nuts",
+        PlantFoodKind.SEED to "seeds",
+        PlantFoodKind.HERB_SPICE to "herbs"
+    )
+    val detail = kindOrder.mapNotNull { (kind, label) ->
+        snapshot.byKind[kind]?.takeIf { it > 0 }?.let { "$it $label" }
+    }.joinToString(" · ")
+
+    Row(
+        Modifier.fillMaxWidth()
+            .background(N2SoftGreen, RoundedCornerShape(16.dp))
+            .border(1.dp, N2Green.copy(alpha = .20f), RoundedCornerShape(16.dp))
+            .padding(horizontal = 13.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(
+                "PLANT DIVERSITY · 7 DAYS",
+                color = N2Green,
+                fontSize = 7.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = .7.sp
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                if (snapshot.uniquePlants == 1) "1 unique plant" else "${snapshot.uniquePlants} unique plants",
+                color = N2Ink,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Black
+            )
+            if (detail.isNotBlank()) {
+                Text(
+                    detail,
+                    color = N2Muted,
+                    fontSize = 8.sp,
+                    maxLines = 1
+                )
+            } else {
+                Text(
+                    "Plant foods you log will build this automatically.",
+                    color = N2Muted,
+                    fontSize = 8.sp,
+                    maxLines = 1
+                )
+            }
+        }
+        Text(
+            snapshot.uniquePlants.toString(),
+            color = N2Green,
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Black
+        )
     }
 }
 
@@ -2138,6 +2225,17 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             ?: group.maxByOrNull { it.timestampEpochMs }
             ?: return@mapNotNull null
         val kcalValue = metric(entryId, "food_kcal")
+        val inferredPlant = PlantFoodClassifier.classify(
+            anchor.metadata["name"] ?: "Food",
+            anchor.metadata["brand"].orEmpty()
+        )
+        val storedPlant = anchor.metadata["isPlantFood"]?.toBooleanStrictOrNull()
+        val plantKind = anchor.metadata["plantFoodKind"]
+            ?.let { raw -> runCatching { PlantFoodKind.valueOf(raw) }.getOrNull() }
+            ?: inferredPlant.kind
+        val plantKey = anchor.metadata["plantDiversityKey"]
+            ?.takeIf { it.isNotBlank() }
+            ?: inferredPlant.diversityKey
         N2Entry(
             id = entryId,
             foodId = anchor.metadata["foodId"].orEmpty(),
@@ -2173,7 +2271,10 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             barcode = anchor.metadata["barcode"].orEmpty(),
             sourceName = anchor.metadata["sourceName"].orEmpty(),
             mealGroupId = anchor.metadata["mealGroupId"].orEmpty(),
-            mealGroupName = anchor.metadata["mealGroupName"].orEmpty()
+            mealGroupName = anchor.metadata["mealGroupName"].orEmpty(),
+            isPlantFood = storedPlant ?: inferredPlant.isPlantFood,
+            plantFoodKind = plantKind,
+            plantDiversityKey = plantKey
         )
     }.sortedByDescending { it.timestamp }
 
