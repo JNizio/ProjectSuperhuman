@@ -753,7 +753,8 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
     }.joinToString(" · ")
 
     Row(
-        Modifier.fillMaxWidth()
+        Modifier
+            .width(350.dp)
             .background(N2SoftGreen, RoundedCornerShape(20.dp))
             .border(1.dp, N2Green.copy(alpha = .22f), RoundedCornerShape(20.dp))
             .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -832,7 +833,7 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
         }
 
         Column(
-            Modifier.weight(1f),
+            Modifier.width(245.dp),
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
             Text(
