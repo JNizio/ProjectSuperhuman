@@ -225,6 +225,98 @@ internal fun loadNextWorkoutRoutine(context: android.content.Context): WorkoutRo
     return loadWorkoutRoutines(context).firstOrNull { it.name == name }
 }
 
+private data class WorkoutPresetTemplate(
+    val name: String,
+    val exerciseIds: List<String>,
+    val targets: Map<String, RoutineExerciseTarget>,
+    val plannedDurationMin: Int,
+    val intensity: String
+) {
+    fun asRoutine(): WorkoutRoutine = WorkoutRoutine(
+        name = name,
+        exerciseIds = exerciseIds,
+        targets = targets,
+        plannedDurationMin = plannedDurationMin,
+        intensity = intensity
+    )
+}
+
+private fun starterWorkoutPresets(catalog: List<NativeExercise>): List<WorkoutPresetTemplate> {
+    fun find(vararg candidates: String): NativeExercise? {
+        val normalized = candidates.map { it.lowercase() }
+        return catalog.minByOrNull { exercise ->
+            val name = exercise.name.lowercase()
+            when {
+                normalized.any { name == it } -> 0
+                normalized.any { name.startsWith(it) || it.startsWith(name) } -> 1
+                normalized.any { name.contains(it) || it.contains(name) } -> 2
+                else -> 100
+            }
+        }?.takeIf { exercise ->
+            val name = exercise.name.lowercase()
+            normalized.any { name == it || name.startsWith(it) || it.startsWith(name) || name.contains(it) || it.contains(name) }
+        }
+    }
+
+    fun template(
+        name: String,
+        duration: Int,
+        intensity: String,
+        items: List<Pair<NativeExercise?, RoutineExerciseTarget>>
+    ): WorkoutPresetTemplate? {
+        val resolved = items.mapNotNull { (exercise, target) -> exercise?.let { it to target } }
+            .distinctBy { it.first.id }
+        if (resolved.size < 3) return null
+        return WorkoutPresetTemplate(
+            name = name,
+            exerciseIds = resolved.map { it.first.id },
+            targets = resolved.associate { it.first.id to it.second },
+            plannedDurationMin = duration,
+            intensity = intensity
+        )
+    }
+
+    return listOfNotNull(
+        template(
+            "Full Body",
+            60,
+            "Moderate",
+            listOf(
+                find("Back Squat", "Squat") to RoutineExerciseTarget(3, 8),
+                find("Barbell Bench Press", "Bench Press") to RoutineExerciseTarget(3, 8),
+                find("Barbell Row", "Bent Over Row") to RoutineExerciseTarget(3, 10),
+                find("Romanian Deadlift", "Stiff Leg Deadlift") to RoutineExerciseTarget(3, 10),
+                find("Overhead Press", "Shoulder Press") to RoutineExerciseTarget(3, 10)
+            )
+        ),
+        template(
+            "Upper Body",
+            55,
+            "Moderate",
+            listOf(
+                find("Barbell Bench Press", "Bench Press") to RoutineExerciseTarget(4, 8),
+                find("Pull Up", "Pull-Up", "Lat Pulldown") to RoutineExerciseTarget(4, 8),
+                find("Overhead Press", "Shoulder Press") to RoutineExerciseTarget(3, 10),
+                find("Barbell Row", "Seated Row") to RoutineExerciseTarget(3, 10),
+                find("Biceps Curl", "Barbell Curl") to RoutineExerciseTarget(3, 12),
+                find("Triceps Extension", "Cable Triceps") to RoutineExerciseTarget(3, 12)
+            )
+        ),
+        template(
+            "Lower Body",
+            55,
+            "Moderate",
+            listOf(
+                find("Back Squat", "Squat") to RoutineExerciseTarget(4, 8),
+                find("Romanian Deadlift", "Stiff Leg Deadlift") to RoutineExerciseTarget(3, 10),
+                find("Leg Press") to RoutineExerciseTarget(3, 10),
+                find("Leg Curl", "Lying Leg Curl") to RoutineExerciseTarget(3, 12),
+                find("Calf Raise", "Standing Calf Raise") to RoutineExerciseTarget(4, 12)
+            )
+        )
+    )
+}
+
 @Composable
 private fun RepDbImage(path: String?, modifier: Modifier) {
     val context = LocalContext.current
