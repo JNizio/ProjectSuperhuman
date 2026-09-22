@@ -101,7 +101,7 @@ internal object PlantFoodClassifier {
         Triple(PlantFoodKind.LEGUME, "soy", listOf("soybean", "soy bean", "tofu", "tempeh", "edamame", "soy milk")),
         Triple(PlantFoodKind.GRAIN, "oat", listOf("oat", "oats", "oatmeal")),
         Triple(PlantFoodKind.GRAIN, "rice", listOf("rice")),
-        Triple(PlantFoodKind.GRAIN, "wheat", listOf("wheat", "wholemeal", "whole wheat", "bulgur", "couscous", "pasta", "spaghetti", "bread")),
+        Triple(PlantFoodKind.GRAIN, "wheat", listOf("wheat", "whole wheat", "bulgur", "semolina", "durum")),
         Triple(PlantFoodKind.GRAIN, "barley", listOf("barley")),
         Triple(PlantFoodKind.GRAIN, "rye", listOf("rye")),
         Triple(PlantFoodKind.GRAIN, "corn", listOf("corn", "maize", "polenta")),
@@ -268,8 +268,18 @@ internal object PlantFoodClassifier {
 
         val hasAnimalSignal = animalOrAmbiguousTerms.any { term ->
             if (term == "milk" && explicitPlantSubstitute) return@any false
+            if (term == "butter" && listOf("butter bean", "butter beans").any { contains ->
+                    text == contains || text.startsWith("$contains ") || text.contains(" $contains ")
+                }) return@any false
             text == term || text.startsWith("$term ") || text.contains(" $term ")
         }
+
+        val compositePlantIdentityUnsafe = listOf(
+            "pie", "cake", "cookie", "cookies", "biscuit", "biscuits", "muffin", "pastry",
+            "pizza", "sandwich", "burger", "casserole", "lasagna", "soup", "stew", "sauce",
+            "dressing", "ready meal", "entree"
+        ).any { containsPhrase(normalizedName, it) }
+        if (compositePlantIdentityUnsafe) return PlantFoodIdentity(false)
 
         val match = identities.mapNotNull { identity ->
             val longestMatchedTerm = identity.third
@@ -517,10 +527,11 @@ internal object FoodTaxonomyClassifier {
         )
         val milk = nHas("milk", "buttermilk") &&
             !nHas("soy milk", "almond milk", "oat milk", "rice milk", "cashew milk", "coconut milk")
-        val cream = nHas("cream", "creme fraiche", "sour cream", "half and half") && !nHas("cream of")
+        val cream = nHas("cream", "creme fraiche", "sour cream", "half and half") &&
+            !nHas("cream of", "ice cream", "cream cheese")
         val butter = nHas("butter") && !nHas("butter bean", "butter beans", "peanut butter", "almond butter")
         val otherDairy = nHas("whey", "casein")
-        if (yogurt || cheese || milk || cream || butter || otherDairy || categoryHas("dairy products")) {
+        if (yogurt || cheese || milk || cream || butter || otherDairy) {
             tags += FoodTag.ANIMAL_DERIVED
             tags += FoodTag.DAIRY
         }
@@ -554,7 +565,11 @@ internal object FoodTaxonomyClassifier {
         if (plantIdentity.diversityKey == "rice" || nHas("rice")) tags += FoodTag.RICE
         if (plantIdentity.diversityKey in setOf("potato", "sweet_potato") || nHas("potato", "potatoes")) tags += FoodTag.POTATO
 
-        if (nHas("whole wheat", "wholemeal", "whole grain", "wholegrain", "brown rice", "oat", "oats", "barley", "rye", "quinoa", "buckwheat")) {
+        if (nHas(
+                "whole wheat", "wholemeal", "whole grain", "wholegrain", "brown rice",
+                "rolled oats", "steel cut oats", "oatmeal", "whole oats",
+                "hulled barley", "whole barley", "whole rye", "quinoa", "buckwheat"
+            )) {
             if (FoodTag.GRAIN in tags || FoodTag.CEREAL in tags || FoodTag.BREAD in tags) tags += FoodTag.WHOLE_GRAIN
         }
 
