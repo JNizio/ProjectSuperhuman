@@ -74,15 +74,21 @@ internal object LargeLocalFoodDatabase {
     private const val PREPARATION_SCHEMA_VERSION = 1
     private const val CORE_SCHEMA_META = "project_superhuman_core_food_schema"
     private const val CORE_SCHEMA_VERSION = 10
+    private const val AUDIT_SCHEMA_META = "local_food_audit_schema"
+    private const val AUDIT_SCHEMA_VERSION = 1
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val bootstrapStarted = AtomicBoolean(false)
     private val prioritySeeded = AtomicBoolean(false)
+    private val auditGenerated = AtomicBoolean(false)
 
     fun ensureStarted(context: Context) {
         val app = context.applicationContext
         seedPriorityFoodsOnce(app)
-        if (sourcesComplete(app)) return
+        if (sourcesComplete(app)) {
+            ensureAuditReportOnce(app)
+            return
+        }
         if (!bootstrapStarted.compareAndSet(false, true)) return
 
         bootstrapScope.launch {
@@ -117,6 +123,7 @@ internal object LargeLocalFoodDatabase {
                         )
                     }
                 }
+                if (sourcesComplete(app)) ensureAuditReportOnce(app)
             } finally {
                 bootstrapStarted.set(false)
             }
@@ -587,6 +594,35 @@ internal object LargeLocalFoodDatabase {
             "SELECT value FROM food_reference_meta WHERE key = ? LIMIT 1",
             arrayOf(key)
         ).use { cursor -> cursor.moveToFirst() && cursor.getString(0) == "1" }
+    }
+
+    private fun ensureAuditReportOnce(context: Context) {
+        if (!auditGenerated.compareAndSet(false, true)) return
+        runCatching {
+            LargeFoodDb(context.applicationContext).use { helper ->
+                val db = helper.writableDatabase
+                val current = db.rawQuery(
+                    "SELECT value FROM food_reference_meta WHERE key = ? LIMIT 1",
+                    arrayOf(AUDIT_SCHEMA_META)
+                ).use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0).toIntOrNull() ?: 0 else 0
+                }
+                if (current >= AUDIT_SCHEMA_VERSION) return@use
+
+                val report = LocalFoodDatabaseAuditor.audit(db)
+                LocalFoodDatabaseAuditor.writeReports(context.applicationContext, report)
+                putMeta(db, AUDIT_SCHEMA_META, AUDIT_SCHEMA_VERSION.toString())
+                putMeta(db, "local_food_audit_total_records", report.totalRecords.toString())
+                putMeta(db, "local_food_audit_unique_canonical", report.uniqueCanonicalFoods.toString())
+                putMeta(db, "local_food_audit_duplicate_candidates", report.duplicateCandidateGroups.toString())
+                putMeta(db, "local_food_audit_high_confidence", report.highConfidenceRecords.toString())
+                putMeta(db, "local_food_audit_needing_review", report.recordsNeedingReview.toString())
+                putMeta(db, "local_food_audit_missing_tags", report.foodsMissingTags.toString())
+                putMeta(db, "local_food_audit_plant_tag_missing", report.plantFoodsMissingPlantTag.toString())
+            }
+        }.onFailure {
+            auditGenerated.set(false)
+        }
     }
 
     private fun seedPriorityFoodsOnce(context: Context) {
@@ -1960,6 +1996,7 @@ internal class LargeFoodDb(context: Context) : SQLiteOpenHelper(
             db.delete("food_reference_meta", "key = ?", arrayOf("food_taxonomy_schema"))
             db.delete("food_reference_meta", "key = ?", arrayOf("food_preparation_schema"))
             db.delete("food_reference_meta", "key = ?", arrayOf("project_superhuman_core_food_schema"))
+            db.delete("food_reference_meta", "key = ?", arrayOf("local_food_audit_schema"))
             return
         }
 
