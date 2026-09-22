@@ -1270,30 +1270,66 @@ internal object LargeLocalFoodDatabase {
             }
 
             when {
-                unit == "kcal" && (
-                    id == 2048 ||
-                        name.startsWith("metabolizable energy (atwater specific")
+                unit == "kcal" && UsdaNutrientSemantics.sourceStartsWith(
+                    id,
+                    rawName,
+                    2048,
+                    "metabolizable energy (atwater specific"
                 ) -> setEnergyKcal(rawAmount, 4)
-                unit == "kcal" && (
-                    id == 2047 ||
-                        name.startsWith("metabolizable energy (atwater general")
+                unit == "kcal" && UsdaNutrientSemantics.sourceStartsWith(
+                    id,
+                    rawName,
+                    2047,
+                    "metabolizable energy (atwater general"
                 ) -> setEnergyKcal(rawAmount, 3)
-                unit == "kcal" && (id == 1008 || name == "energy") ->
-                    setEnergyKcal(rawAmount, 2)
-                unit == "kj" && name == "energy" ->
-                    setEnergyKcal(rawAmount / 4.184, 1)
-                id == 1003 || name == "protein" ->
+                unit == "kcal" && UsdaNutrientSemantics.sourceMatches(
+                    id,
+                    rawName,
+                    1008,
+                    "energy"
+                ) -> setEnergyKcal(rawAmount, 2)
+                unit == "kj" && UsdaNutrientSemantics.sourceMatches(
+                    id,
+                    rawName,
+                    1062,
+                    "energy"
+                ) -> setEnergyKcal(rawAmount / 4.184, 1)
+                UsdaNutrientSemantics.sourceMatches(id, rawName, 1003, "protein") ->
                     protein = convertUnit(rawAmount, unit, "g")
-                id == 1005 || name.startsWith("carbohydrate, by difference") ->
-                    carbs = convertUnit(rawAmount, unit, "g")
-                id == 1004 || name == "total lipid (fat)" || name == "total fat" ->
-                    fat = convertUnit(rawAmount, unit, "g")
-                id == 1258 || name.startsWith("fatty acids, total saturated") || name == "saturated fat" ->
-                    saturatedFat = convertUnit(rawAmount, unit, "g")
-                id == 1079 || name.startsWith("fiber, total dietary") || name.startsWith("fibre, total") ->
-                    fibre = convertUnit(rawAmount, unit, "g")
-                id == 2000 || name == "total sugars" || name.startsWith("sugars, total") ->
-                    sugar = convertUnit(rawAmount, unit, "g")
+                UsdaNutrientSemantics.sourceStartsWith(
+                    id,
+                    rawName,
+                    1005,
+                    "carbohydrate, by difference"
+                ) -> carbs = convertUnit(rawAmount, unit, "g")
+                UsdaNutrientSemantics.sourceMatches(
+                    id,
+                    rawName,
+                    1004,
+                    "total lipid (fat)",
+                    "total fat"
+                ) -> fat = convertUnit(rawAmount, unit, "g")
+                UsdaNutrientSemantics.sourceStartsWith(
+                    id,
+                    rawName,
+                    1258,
+                    "fatty acids, total saturated",
+                    "saturated fat"
+                ) -> saturatedFat = convertUnit(rawAmount, unit, "g")
+                UsdaNutrientSemantics.sourceStartsWith(
+                    id,
+                    rawName,
+                    1079,
+                    "fiber, total dietary",
+                    "fibre, total"
+                ) -> fibre = convertUnit(rawAmount, unit, "g")
+                UsdaNutrientSemantics.sourceStartsWith(
+                    id,
+                    rawName,
+                    2000,
+                    "sugars, total",
+                    "total sugars"
+                ) -> sugar = convertUnit(rawAmount, unit, "g")
 
                 else -> {
                     val spec = UsdaNutrientSemantics.matchMicronutrient(id, rawName)
