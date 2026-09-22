@@ -680,10 +680,15 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 StrengthLibraryEntry(exerciseCount = catalog.size, onClick = { mode = "library" })
 
                 if (routines.isNotEmpty()) {
+                    val nextRoutine = routines.firstOrNull { it.name == nextRoutineName } ?: routines.first()
                     StrengthRoutineShortcut(
-                        routine = routines.first(),
+                        routine = nextRoutine,
                         catalog = catalog,
-                        onStart = { startWorkout(it) }
+                        label = if (nextRoutine.name == nextRoutineName) "NEXT WORKOUT" else "ROUTINE",
+                        onStart = {
+                            startWorkout(it)
+                            workoutName = nextRoutine.name
+                        }
                     )
                 }
             }
@@ -1155,6 +1160,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         exercise = exercise,
                         completed = completed,
                         recent = recent,
+                        plannedTarget = routines.firstOrNull { it.name == workoutName }?.targetFor(exercise.id),
                         startedAt = startedAt,
                         loadText = loadText,
                         repsText = repsText,
@@ -1598,6 +1604,7 @@ private fun StrengthActiveExercisePanel(
     exercise: NativeExercise,
     completed: List<NativeWorkoutSet>,
     recent: List<HealthValue>,
+    plannedTarget: RoutineExerciseTarget?,
     startedAt: Long,
     loadText: String,
     repsText: String,
@@ -1616,6 +1623,14 @@ private fun StrengthActiveExercisePanel(
             Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Text(exercise.name, color = ExerciseInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
                 Text(exercise.group + " · " + exercise.equipment, color = ExerciseMuted, fontSize = 9.sp)
+                plannedTarget?.let {
+                    Text(
+                        "Plan: " + it.sets + " × " + it.reps,
+                        color = ExerciseBlue,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
 
@@ -2072,7 +2087,12 @@ private fun StrengthRecentWorkoutCard(session: StrengthWorkoutSession, onClick: 
 }
 
 @Composable
-private fun StrengthRoutineShortcut(routine: WorkoutRoutine, catalog: List<NativeExercise>, onStart: (List<NativeExercise>) -> Unit) {
+private fun StrengthRoutineShortcut(
+    routine: WorkoutRoutine,
+    catalog: List<NativeExercise>,
+    label: String = "ROUTINE",
+    onStart: (List<NativeExercise>) -> Unit
+) {
     Row(
         Modifier.fillMaxWidth()
             .background(ExerciseSurface, RoundedCornerShape(18.dp))
@@ -2082,9 +2102,14 @@ private fun StrengthRoutineShortcut(routine: WorkoutRoutine, catalog: List<Nativ
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text("ROUTINE", color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Text(label, color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
             Text(routine.name, color = ExerciseInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
-            Text(routine.exerciseIds.size.toString() + " exercises", color = ExerciseMuted, fontSize = 9.sp)
+            Text(
+                routine.exerciseIds.size.toString() + " exercises · " +
+                    routine.plannedDurationMin + " min · " + routine.intensity,
+                color = ExerciseMuted,
+                fontSize = 9.sp
+            )
         }
         Text("START  →", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
     }
