@@ -26,11 +26,12 @@ internal enum class PlantFoodKind {
 internal data class PlantFoodIdentity(
     val isPlantFood: Boolean,
     val kind: PlantFoodKind = PlantFoodKind.NONE,
-    val diversityKey: String = ""
+    val diversityKey: String = "",
+    val diversityEligible: Boolean = isPlantFood && diversityKey.isNotBlank()
 )
 
 internal object PlantFoodClassifier {
-    const val SCHEMA_VERSION = 2
+    const val SCHEMA_VERSION = 3
 
     private val animalOrAmbiguousTerms = listOf(
         "beef", "pork", "chicken", "turkey", "lamb", "veal", "venison", "duck",
@@ -286,6 +287,14 @@ internal object PlantFoodClassifier {
         }
         if (compositePlantIdentityUnsafe) return PlantFoodIdentity(false)
 
+        val diversityIneligible = explicitPlantSubstitute ||
+            listOf(" oil", "oil ", "extract", "syrup", "sweetener").any { marker ->
+                normalizedName == marker.trim() ||
+                    normalizedName.startsWith(marker.trim() + " ") ||
+                    normalizedName.endsWith(marker) ||
+                    normalizedName.contains(marker)
+            }
+
         val match = identities.mapNotNull { identity ->
             val longestMatchedTerm = identity.third
                 .map(::normalizePlantText)
@@ -300,7 +309,12 @@ internal object PlantFoodClassifier {
             if (hasAnimalSignal && match.first !in setOf(PlantFoodKind.HERB_SPICE, PlantFoodKind.OTHER)) {
                 return PlantFoodIdentity(false)
             }
-            return PlantFoodIdentity(true, match.first, match.second)
+            return PlantFoodIdentity(
+                isPlantFood = true,
+                kind = match.first,
+                diversityKey = match.second,
+                diversityEligible = !diversityIneligible
+            )
         }
 
         // USDA imports now carry their source food-category text into searchText. This fallback
@@ -324,22 +338,26 @@ internal object PlantFoodClassifier {
 
         val key = fallbackDiversityKey(normalizedName)
         return if (key.isBlank()) PlantFoodIdentity(false)
-        else PlantFoodIdentity(true, fallbackKind, key)
+        else PlantFoodIdentity(true, fallbackKind, key, diversityEligible = !diversityIneligible)
     }
 }
 
 
 internal enum class FoodTag {
     PLANT,
+    ANIMAL,
     ANIMAL_DERIVED,
     FRUIT,
     VEGETABLE,
+    LEAFY_GREEN,
     LEGUME,
     GRAIN,
     WHOLE_GRAIN,
     NUT,
     SEED,
     HERB_SPICE,
+    HERB,
+    SPICE,
     SEAWEED,
     MUSHROOM,
     MEAT,
@@ -365,6 +383,7 @@ internal enum class FoodTag {
     CREAM,
     BUTTER,
     BREAD,
+    BAKERY,
     BAKED_GOOD,
     BAKING_INGREDIENT,
     FLOUR,
@@ -373,13 +392,19 @@ internal enum class FoodTag {
     RICE,
     POTATO,
     OIL_FAT,
+    OIL,
+    FAT,
     SWEETENER,
     CONFECTIONERY,
     DESSERT,
     BEVERAGE,
     SAUCE_CONDIMENT,
+    SAUCE,
+    CONDIMENT,
     SOUP_STEW,
     MIXED_DISH,
+    PREPARED_FOOD,
+    PROCESSED_FOOD,
     PROCESSED_MEAT,
     FERMENTED,
     RAW,
@@ -402,7 +427,7 @@ internal enum class FoodTag {
  * This makes the taxonomy repeatable for the 10k local catalogue and for every future food import.
  */
 internal object FoodTaxonomyClassifier {
-    const val SCHEMA_VERSION = 1
+    const val SCHEMA_VERSION = 2
 
     private fun normalize(value: String): String =
         value.lowercase()
@@ -451,7 +476,15 @@ internal object FoodTaxonomyClassifier {
         }
         if (nHas("seaweed", "nori", "kelp", "wakame", "kombu", "dulse")) {
             tags += FoodTag.SEAWEED
-            tags += FoodTag.PLANT
+        }
+
+        if (FoodTag.VEGETABLE in tags && nHas(
+                "spinach", "kale", "lettuce", "arugula", "rocket", "watercress",
+                "swiss chard", "chard", "collard", "bok choy", "pak choi",
+                "mustard greens", "dandelion greens", "endive", "chicory", "radicchio"
+            )
+        ) {
+            tags += FoodTag.LEAFY_GREEN
         }
 
         val chicken = nHas("chicken", "broiler", "broilers", "fryer", "fryers", "capons")
@@ -549,6 +582,10 @@ internal object FoodTaxonomyClassifier {
         if (nHas("bread", "roll", "bun", "bagel", "pita", "naan", "tortilla", "sourdough")) {
             tags += FoodTag.BREAD
             tags += FoodTag.BAKED_GOOD
+            if (!nHas("egg", "cheese", "milk", "butter", "lard", "meat", "chicken", "beef", "pork")) {
+                tags += FoodTag.PLANT
+                tags += FoodTag.GRAIN
+            }
         }
         if (nHas(
                 "cake", "cupcake", "muffin", "pastry", "croissant", "biscuit", "cookie", "cookies",
@@ -581,6 +618,11 @@ internal object FoodTaxonomyClassifier {
         if (nHas("olive oil", "vegetable oil", "canola oil", "rapeseed oil", "sunflower oil", "coconut oil", "oil", "lard", "shortening", "margarine")) {
             tags += FoodTag.OIL_FAT
         }
+        if (nHas("olive oil", "vegetable oil", "canola oil", "rapeseed oil", "sunflower oil", "coconut oil", "avocado oil", "sesame oil")) {
+            tags += FoodTag.OIL
+            tags += FoodTag.PLANT
+        }
+        if (nHas("lard", "shortening", "margarine", "butter")) tags += FoodTag.FAT
         if (nHas("sugar", "honey", "syrup", "molasses", "agave")) tags += FoodTag.SWEETENER
         if (nHas("candy", "chocolate", "toffee", "caramel", "gumdrop", "marshmallow") || categoryHas("sweets")) {
             tags += FoodTag.CONFECTIONERY
@@ -591,6 +633,8 @@ internal object FoodTaxonomyClassifier {
         if (nHas("sauce", "ketchup", "mustard", "mayonnaise", "dressing", "relish", "chutney", "salsa", "vinegar")) {
             tags += FoodTag.SAUCE_CONDIMENT
         }
+        if (nHas("sauce", "ketchup", "dressing", "salsa")) tags += FoodTag.SAUCE
+        if (nHas("mustard", "mayonnaise", "relish", "chutney", "vinegar", "ketchup")) tags += FoodTag.CONDIMENT
         if (nHas("soup", "stew", "chowder", "broth")) tags += FoodTag.SOUP_STEW
         if (nHas("pizza", "sandwich", "burger", "burrito", "taco", "casserole", "curry", "lasagna", "meal", "entree")) {
             tags += FoodTag.MIXED_DISH
@@ -598,6 +642,22 @@ internal object FoodTaxonomyClassifier {
 
         if (nHas("yogurt", "yoghurt", "kefir", "tempeh", "miso", "kimchi", "sauerkraut", "sourdough", "fermented")) {
             tags += FoodTag.FERMENTED
+        }
+
+        if (FoodTag.HERB_SPICE in tags) {
+            if (nHas("cinnamon", "cumin", "paprika", "black pepper", "turmeric", "cardamom", "clove", "nutmeg", "anise", "saffron", "allspice", "fenugreek", "sumac")) {
+                tags += FoodTag.SPICE
+            } else {
+                tags += FoodTag.HERB
+            }
+        }
+        if (FoodTag.BREAD in tags || FoodTag.BAKED_GOOD in tags) tags += FoodTag.BAKERY
+        if (FoodTag.ANIMAL_DERIVED in tags) tags += FoodTag.ANIMAL
+        if (tags.any { it in setOf(FoodTag.MIXED_DISH, FoodTag.SOUP_STEW, FoodTag.SAUCE_CONDIMENT, FoodTag.BAKED_GOOD) }) {
+            tags += FoodTag.PREPARED_FOOD
+        }
+        if (tags.any { it in setOf(FoodTag.PROCESSED_MEAT, FoodTag.CONFECTIONERY, FoodTag.DESSERT) }) {
+            tags += FoodTag.PROCESSED_FOOD
         }
 
         if (nHas("raw")) tags += FoodTag.RAW
@@ -719,6 +779,7 @@ internal data class NativeFood(
     val isPlantFood: Boolean = false,
     val plantFoodKind: PlantFoodKind = PlantFoodKind.NONE,
     val plantDiversityKey: String = "",
+    val plantDiversityEligible: Boolean = isPlantFood && plantDiversityKey.isNotBlank(),
     val foodTags: Set<FoodTag> = emptySet(),
     val foodTaxonomyVersion: Int = FoodTaxonomyClassifier.SCHEMA_VERSION,
     val canonicalSchemaVersion: Int = NUTRITION_CANONICAL_SCHEMA_VERSION
