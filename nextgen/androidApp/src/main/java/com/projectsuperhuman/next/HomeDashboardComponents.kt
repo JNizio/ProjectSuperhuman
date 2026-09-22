@@ -893,7 +893,7 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
 
     Box(
         Modifier.fillMaxWidth()
-            .height(242.dp)
+            .height(206.dp)
             .clip(RoundedCornerShape(28.dp))
             .background(Brush.linearGradient(nutritionGradient))
             .border(
@@ -990,31 +990,7 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
 
             Spacer(Modifier.height(9.dp))
 
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                HomeNutritionMiniMetric(
-                    label = "FIBRE",
-                    value = if (snapshot.fibreGoal != null) "${snapshot.fibreToday}/${snapshot.fibreGoal}g" else "${snapshot.fibreToday}g",
-                    accent = HomePurple,
-                    modifier = Modifier.weight(1f)
-                )
-                HomeNutritionMiniMetric(
-                    label = "MICROS",
-                    value = snapshot.nutritionMicronutrientCoveragePct?.let { "$it%" } ?: "—",
-                    accent = accent,
-                    modifier = Modifier.weight(1f)
-                )
-                HomeNutritionMiniMetric(
-                    label = "MEALS",
-                    value = snapshot.nutritionMealsToday.toString(),
-                    accent = carbsAccent,
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(Modifier.height(7.dp))
+            Spacer(Modifier.height(8.dp))
 
             Row(
                 Modifier.fillMaxWidth(),
@@ -1030,11 +1006,13 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                     modifier = Modifier.weight(1f)
                 )
                 if (snapshot.calorieGoal != null) {
+                    Spacer(Modifier.width(10.dp))
                     Text(
                         "$caloriePercent%",
                         color = strong.copy(alpha = .70f),
                         fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End
                     )
                 }
             }
@@ -1175,42 +1153,6 @@ private fun HomeNutritionMacroRow(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun HomeNutritionMiniMetric(
-    label: String,
-    value: String,
-    accent: Color,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier
-            .height(38.dp)
-            .background(
-                if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .055f) else Color.White.copy(alpha = .72f),
-                RoundedCornerShape(12.dp)
-            )
-            .border(1.dp, accent.copy(alpha = .11f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 9.dp, vertical = 6.dp)
-    ) {
-        Text(
-            label,
-            color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .38f) else HomeMuted,
-            fontSize = 6.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = .55.sp,
-            maxLines = 1
-        )
-        Spacer(Modifier.height(1.dp))
-        Text(
-            value,
-            color = if (SuperhumanAppearance.darkMode) Color.White else HomeInk,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Black,
-            maxLines = 1
-        )
     }
 }
 
