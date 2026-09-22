@@ -597,6 +597,126 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
 }
 
 @Composable
+internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
+    val nutritionGradient = if (SuperhumanAppearance.darkMode) {
+        listOf(Color(0xFF06151F), Color(0xFF0A222B), Color(0xFF103238))
+    } else {
+        listOf(Color(0xFFF8FBFA), Color(0xFFF0F7F4), Color(0xFFE8F2EE))
+    }
+    val accent = if (SuperhumanAppearance.darkMode) Color(0xFF70D9C7) else Color(0xFF167C6B)
+    val carbsAccent = if (SuperhumanAppearance.darkMode) Color(0xFF69B8E9) else Color(0xFF2A79A9)
+    val track = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .09f) else HomeBorder
+    val calorieProgress = snapshot.calorieGoal
+        ?.takeIf { it > 0 }
+        ?.let { (snapshot.caloriesToday.toFloat() / it.toFloat()).coerceIn(0f, 1f) }
+        ?: 0f
+
+    Box(
+        Modifier.fillMaxWidth()
+            .height(192.dp)
+            .clip(RoundedCornerShape(28.dp))
+            .background(Brush.linearGradient(nutritionGradient))
+            .border(
+                1.dp,
+                accent.copy(alpha = if (SuperhumanAppearance.darkMode) .22f else .13f),
+                RoundedCornerShape(28.dp)
+            )
+            .clickable(onClick = onClick)
+    ) {
+        LegacyAssetImage(
+            "dashboard_nutrition.png",
+            Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop,
+            alpha = if (SuperhumanAppearance.darkMode) .045f else .09f
+        )
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.horizontalGradient(
+                    listOf(
+                        nutritionGradient.first(),
+                        nutritionGradient.first().copy(alpha = .995f),
+                        nutritionGradient[1].copy(alpha = .97f),
+                        nutritionGradient.last().copy(alpha = .82f),
+                        Color.Transparent
+                    )
+                )
+            )
+        )
+
+        Column(
+            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 15.dp)
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "NUTRITION",
+                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.15.sp
+                )
+                Box(
+                    Modifier.size(36.dp).background(accent.copy(alpha = .12f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("→", color = accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HomeNutritionCalorieRing(
+                    snapshot = snapshot,
+                    calories = snapshot.caloriesToday,
+                    calorieGoal = snapshot.calorieGoal,
+                    caloriesComplete = snapshot.nutritionCaloriesComplete,
+                    progress = calorieProgress,
+                    accent = accent,
+                    proteinColor = accent,
+                    carbsColor = carbsAccent,
+                    fatColor = HomeAmber,
+                    fibreColor = HomePurple,
+                    track = track,
+                    modifier = Modifier.size(112.dp)
+                )
+
+                Column(
+                    Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    HomeNutritionMacroRow(
+                        label = "Protein",
+                        value = snapshot.proteinToday,
+                        target = snapshot.proteinGoal,
+                        accent = accent
+                    )
+                    HomeNutritionMacroRow(
+                        label = "Carbs",
+                        value = snapshot.carbsToday,
+                        target = snapshot.carbsGoal,
+                        accent = carbsAccent
+                    )
+                    HomeNutritionMacroRow(
+                        label = "Fat",
+                        value = snapshot.fatToday,
+                        target = snapshot.fatGoal,
+                        accent = HomeAmber
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun HomeNutritionCalorieRing(
     snapshot: NativeHomeSnapshot,
     calories: Int,
