@@ -45,4 +45,45 @@ class PlantFoodClassifierTest {
         assertFalse(PlantFoodClassifier.classify("Cheddar cheese").isPlantFood)
         assertFalse(PlantFoodClassifier.classify("Mushrooms, raw").isPlantFood)
     }
+
+    @Test
+    fun separatesPlantClassificationFromDiversityEligibility() {
+        val apple = PlantFoodClassifier.classify("Apple, raw")
+        assertTrue(apple.isPlantFood)
+        assertTrue(apple.diversityEligible)
+
+        val oliveOil = PlantFoodClassifier.classify("Olive oil, extra virgin")
+        assertTrue(oliveOil.isPlantFood)
+        assertEquals("olive", oliveOil.diversityKey)
+        assertFalse(oliveOil.diversityEligible)
+
+        val oatMilk = PlantFoodClassifier.classify("Oat milk, unsweetened")
+        assertTrue(oatMilk.isPlantFood)
+        assertFalse(oatMilk.diversityEligible)
+    }
+
+    @Test
+    fun deterministicTaxonomyCoversRepresentativeFoodFamilies() {
+        val rocket = FoodTaxonomyClassifier.classify("Arugula, raw")
+        assertTrue(FoodTag.PLANT in rocket)
+        assertTrue(FoodTag.VEGETABLE in rocket)
+        assertTrue(FoodTag.LEAFY_GREEN in rocket)
+        assertTrue(FoodTag.RAW in rocket)
+
+        val salmon = FoodTaxonomyClassifier.classify("Salmon, cooked")
+        assertTrue(FoodTag.ANIMAL in salmon)
+        assertTrue(FoodTag.FISH in salmon)
+        assertTrue(FoodTag.SEAFOOD in salmon)
+
+        val sourdough = FoodTaxonomyClassifier.classify("Sourdough bread")
+        assertTrue(FoodTag.PLANT in sourdough)
+        assertTrue(FoodTag.GRAIN in sourdough)
+        assertTrue(FoodTag.BREAD in sourdough)
+        assertTrue(FoodTag.BAKERY in sourdough)
+        assertTrue(FoodTag.FERMENTED in sourdough)
+
+        val mushrooms = FoodTaxonomyClassifier.classify("Mushrooms, raw")
+        assertTrue(FoodTag.MUSHROOM in mushrooms)
+        assertFalse(FoodTag.PLANT in mushrooms)
+    }
 }
