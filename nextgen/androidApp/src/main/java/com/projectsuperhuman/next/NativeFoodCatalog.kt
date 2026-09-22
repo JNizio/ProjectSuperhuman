@@ -274,8 +274,20 @@ internal object PlantFoodClassifier {
             "pea milk", "hemp milk", "hazelnut milk", "plant milk", "plant based milk", "non dairy milk"
         ).any { phrase -> containsWholePhrase(text, phrase) }
 
+        val explicitPlantDairyAlternative = explicitPlantSubstitute || listOf(
+            "soy yogurt", "soy yoghurt", "coconut yogurt", "coconut yoghurt", "oat yogurt", "oat yoghurt",
+            "almond yogurt", "almond yoghurt", "cashew yogurt", "cashew yoghurt", "plant based yogurt",
+            "plant based yoghurt", "vegan yogurt", "vegan yoghurt", "non dairy yogurt", "non dairy yoghurt",
+            "vegan cheese", "plant based cheese", "non dairy cheese", "soy cheese", "cashew cheese",
+            "coconut cream", "oat cream", "soy cream", "plant based cream", "non dairy cream",
+            "cocoa butter", "coconut butter", "cashew butter", "sunflower seed butter",
+            "sunflower butter", "hazelnut butter", "seed butter"
+        ).any { phrase -> containsWholePhrase(text, phrase) }
+
         val hasAnimalSignal = animalOrAmbiguousTerms.any { term ->
-            if (term == "milk" && explicitPlantSubstitute) return@any false
+            if (term in setOf("milk", "yogurt", "yoghurt", "cheese", "cream", "butter") &&
+                explicitPlantDairyAlternative
+            ) return@any false
             if (term == "butter" && listOf("butter bean", "butter beans").any { containsWholePhrase(text, it) }) {
                 return@any false
             }
@@ -305,7 +317,7 @@ internal object PlantFoodClassifier {
         }
         if (fungiOrAlgae) return PlantFoodIdentity(false)
 
-        val diversityIneligible = explicitPlantSubstitute ||
+        val diversityIneligible = explicitPlantDairyAlternative ||
             listOf(" oil", "oil ", "extract", "syrup", "sweetener").any { marker ->
                 normalizedName == marker.trim() ||
                     normalizedName.startsWith(marker.trim() + " ") ||
