@@ -405,8 +405,9 @@ internal object LocalFoodDatabaseAuditor {
     fun audit(context: Context): LocalFoodDatabaseAuditReport =
         LargeFoodDb(context.applicationContext).use { helper -> audit(helper.readableDatabase) }
 
-    fun writeReports(context: Context): Pair<File, File> {
-        val report = audit(context)
+    fun writeReports(context: Context): Pair<File, File> = writeReports(context, audit(context))
+
+    fun writeReports(context: Context, report: LocalFoodDatabaseAuditReport): Pair<File, File> {
         val dir = File(context.filesDir, "nutrition_audits").apply { mkdirs() }
         val json = File(dir, "local_food_audit_latest.json").apply { writeText(report.toJson()) }
         val md = File(dir, "local_food_audit_latest.md").apply { writeText(report.toMarkdown()) }
