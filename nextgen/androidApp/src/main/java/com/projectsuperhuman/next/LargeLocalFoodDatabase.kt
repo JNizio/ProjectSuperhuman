@@ -1247,6 +1247,7 @@ internal object LargeLocalFoodDatabase {
 
     private class NutrientAccumulator {
         var kcal: Double? = null
+        private var kcalPriority: Int = 0
         var protein: Double? = null
         var carbs: Double? = null
         var fat: Double? = null
@@ -1261,11 +1262,26 @@ internal object LargeLocalFoodDatabase {
             val name = rawName.trim().lowercase(Locale.ROOT)
             val unit = normalizeUnit(rawUnit)
 
+            fun setEnergyKcal(value: Double, priority: Int) {
+                if (priority > kcalPriority) {
+                    kcal = value
+                    kcalPriority = priority
+                }
+            }
+
             when {
-                id == 1008 || (name == "energy" && unit == "kcal") ->
-                    kcal = rawAmount
-                name == "energy" && unit == "kj" && kcal == null ->
-                    kcal = rawAmount / 4.184
+                unit == "kcal" && (
+                    id == 2048 ||
+                        name.startsWith("metabolizable energy (atwater specific")
+                ) -> setEnergyKcal(rawAmount, 4)
+                unit == "kcal" && (
+                    id == 2047 ||
+                        name.startsWith("metabolizable energy (atwater general")
+                ) -> setEnergyKcal(rawAmount, 3)
+                unit == "kcal" && (id == 1008 || name == "energy") ->
+                    setEnergyKcal(rawAmount, 2)
+                unit == "kj" && name == "energy" ->
+                    setEnergyKcal(rawAmount / 4.184, 1)
                 id == 1003 || name == "protein" ->
                     protein = convertUnit(rawAmount, unit, "g")
                 id == 1005 || name.startsWith("carbohydrate, by difference") ->
@@ -1910,7 +1926,7 @@ internal class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    13
+    14
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -1991,6 +2007,16 @@ internal class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 db.execSQL("ALTER TABLE food_reference ADD COLUMN serving_quantity REAL")
                 db.execSQL("ALTER TABLE food_reference ADD COLUMN serving_unit TEXT NOT NULL DEFAULT ''")
                 db.execSQL("ALTER TABLE food_reference ADD COLUMN serving_label TEXT NOT NULL DEFAULT ''")
+            }
+            if (oldVersion < 14) {
+                // Parser v14 understands Foundation Foods' current Atwater energy nutrient IDs
+                // 2047/2048. Retry this source so previously skipped Foundation records can enter
+                // the authoritative reference library without discarding other downloaded rows.
+                db.delete(
+                    "food_reference_meta",
+                    "key = ?",
+                    arrayOf("usda_foundation_2026_04_complete")
+                )
             }
             db.delete("food_reference_meta", "key = ?", arrayOf("plant_classifier_schema"))
             db.delete("food_reference_meta", "key = ?", arrayOf("food_taxonomy_schema"))
