@@ -40,6 +40,33 @@ class PlantFoodClassifierTest {
     }
 
     @Test
+    fun matchesPlantAndAnimalTermsAtEndOfNames() {
+        val freshApple = PlantFoodClassifier.classify("Fresh apple")
+        assertTrue(freshApple.isPlantFood)
+        assertEquals("apple", freshApple.diversityKey)
+
+        val riceWithChicken = PlantFoodClassifier.classify("Rice with chicken")
+        assertFalse(riceWithChicken.isPlantFood)
+    }
+
+    @Test
+    fun plantBasedDairyAlternativesAreNotTaggedAsDairy() {
+        val coconutYogurt = FoodTaxonomyClassifier.classify("Coconut yogurt")
+        assertTrue(FoodTag.PLANT in coconutYogurt)
+        assertFalse(FoodTag.DAIRY in coconutYogurt)
+        assertFalse(FoodTag.ANIMAL_DERIVED in coconutYogurt)
+
+        val coconutCream = FoodTaxonomyClassifier.classify("Coconut cream")
+        assertTrue(FoodTag.PLANT in coconutCream)
+        assertFalse(FoodTag.DAIRY in coconutCream)
+
+        val cocoaButter = FoodTaxonomyClassifier.classify("Cocoa butter")
+        assertTrue(FoodTag.PLANT in cocoaButter)
+        assertFalse(FoodTag.DAIRY in cocoaButter)
+        assertFalse(FoodTag.BUTTER in cocoaButter)
+    }
+
+    @Test
     fun excludesAnimalAndUnrecognisedFoods() {
         assertFalse(PlantFoodClassifier.classify("Chicken breast, grilled").isPlantFood)
         assertFalse(PlantFoodClassifier.classify("Cheddar cheese").isPlantFood)
