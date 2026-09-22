@@ -71,7 +71,7 @@ internal object LargeLocalFoodDatabase {
     private const val PLANT_CLASSIFIER_META = "plant_classifier_schema"
     private const val FOOD_TAXONOMY_META = "food_taxonomy_schema"
     private const val CORE_SCHEMA_META = "project_superhuman_core_food_schema"
-    private const val CORE_SCHEMA_VERSION = 9
+    private const val CORE_SCHEMA_VERSION = 10
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val bootstrapStarted = AtomicBoolean(false)
@@ -200,7 +200,8 @@ internal object LargeLocalFoodDatabase {
                                saturated_fat, saturated_fat_known, sodium_mg, sodium_known,
                                salt_g, salt_known, unknown_micronutrients_json, source_record_id,
                                plant_food, plant_food_kind, plant_diversity_key,
-                               plant_diversity_eligible, food_tags_json, taxonomy_version
+                               plant_diversity_eligible, food_tags_json, taxonomy_version,
+                               preparation_state, serving_quantity, serving_unit, serving_label
                         FROM food_reference
                         WHERE normalized_name LIKE ? OR search_text LIKE ?
                         ORDER BY
@@ -271,6 +272,13 @@ internal object LargeLocalFoodDatabase {
                                         plantDiversityEligible = cursor.getInt(31) != 0,
                                         foodTags = decodeFoodTags(cursor.getString(32)),
                                         foodTaxonomyVersion = cursor.getInt(33),
+                                        preparationState = cursor.getString(34)
+                                            .let { raw -> runCatching { FoodPreparationState.valueOf(raw) }.getOrDefault(FoodPreparationState.UNSPECIFIED) },
+                                        servingQuantity = if (cursor.isNull(35)) null else cursor.getDouble(35),
+                                        servingQuantityUnit = cursor.getString(36)
+                                            .takeIf(String::isNotBlank)
+                                            ?.let { raw -> runCatching { FoodUnit.valueOf(raw) }.getOrNull() },
+                                        servingLabel = cursor.getString(37),
                                         sourceType = when {
                                             source.contains("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
                                             source.contains("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
@@ -354,7 +362,8 @@ internal object LargeLocalFoodDatabase {
                        saturated_fat, saturated_fat_known, sodium_mg, sodium_known,
                        salt_g, salt_known, source_record_id,
                        plant_food, plant_food_kind, plant_diversity_key,
-                       plant_diversity_eligible, food_tags_json, taxonomy_version
+                       plant_diversity_eligible, food_tags_json, taxonomy_version,
+                       preparation_state, serving_quantity, serving_unit, serving_label
                 FROM food_reference
                 WHERE source LIKE 'USDA%' AND $where
                 ORDER BY
@@ -404,6 +413,15 @@ internal object LargeLocalFoodDatabase {
                         .let { raw -> runCatching { PlantFoodKind.valueOf(raw) }.getOrDefault(PlantFoodKind.NONE) },
                     plantDiversityKey = cursor.getString(28),
                     plantDiversityEligible = cursor.getInt(29) != 0,
+                    foodTags = decodeFoodTags(cursor.getString(30)),
+                    foodTaxonomyVersion = cursor.getInt(31),
+                    preparationState = cursor.getString(32)
+                        .let { raw -> runCatching { FoodPreparationState.valueOf(raw) }.getOrDefault(FoodPreparationState.UNSPECIFIED) },
+                    servingQuantity = if (cursor.isNull(33)) null else cursor.getDouble(33),
+                    servingQuantityUnit = cursor.getString(34)
+                        .takeIf(String::isNotBlank)
+                        ?.let { raw -> runCatching { FoodUnit.valueOf(raw) }.getOrNull() },
+                    servingLabel = cursor.getString(35),
                     sourceType = when {
                         source.startsWith("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
                         source.startsWith("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
@@ -1267,6 +1285,11 @@ internal object LargeLocalFoodDatabase {
             food.ingredientsText,
             plantIdentity
         )).toSet()
+        val preparationState = if (food.preparationState == FoodPreparationState.UNSPECIFIED) {
+            FoodEvidenceEngine.inferPreparationState(food.name + " " + food.searchText)
+        } else {
+            food.preparationState
+        }
         val values = ContentValues().apply {
             put("id", food.id)
             put("name", food.name)
@@ -1311,6 +1334,10 @@ internal object LargeLocalFoodDatabase {
             put("plant_diversity_eligible", if (plantIdentity.diversityEligible) 1 else 0)
             put("food_tags_json", encodeFoodTags(foodTags))
             put("taxonomy_version", FoodTaxonomyClassifier.SCHEMA_VERSION)
+            put("preparation_state", preparationState.name)
+            food.servingQuantity?.let { put("serving_quantity", it) } ?: putNull("serving_quantity")
+            put("serving_unit", food.servingQuantityUnit?.name.orEmpty())
+            put("serving_label", food.servingLabel)
         }
         db.insertWithOnConflict(
             "food_reference",
@@ -1505,7 +1532,8 @@ internal object LargeLocalFoodDatabase {
                        micronutrient_count, essential_micronutrient_count,
                        salt_g, salt_known, unknown_micronutrients_json, source_record_id,
                        plant_food, plant_food_kind, plant_diversity_key,
-                       plant_diversity_eligible, food_tags_json, taxonomy_version
+                       plant_diversity_eligible, food_tags_json, taxonomy_version,
+                       preparation_state, serving_quantity, serving_unit, serving_label
                 FROM food_reference
                 WHERE id = ?
                 LIMIT 1
@@ -1555,6 +1583,10 @@ internal object LargeLocalFoodDatabase {
                     put("plant_diversity_eligible", cursor.getInt(31))
                     put("food_tags_json", cursor.getString(32))
                     put("taxonomy_version", cursor.getInt(33))
+                    put("preparation_state", cursor.getString(34))
+                    if (cursor.isNull(35)) putNull("serving_quantity") else put("serving_quantity", cursor.getDouble(35))
+                    put("serving_unit", cursor.getString(36))
+                    put("serving_label", cursor.getString(37))
                 }
             }
             if (source != null) {
@@ -1794,7 +1826,7 @@ internal class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    12
+    13
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -1836,7 +1868,11 @@ internal class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 plant_diversity_key TEXT NOT NULL DEFAULT '',
                 plant_diversity_eligible INTEGER NOT NULL DEFAULT 0,
                 food_tags_json TEXT NOT NULL DEFAULT '[]',
-                taxonomy_version INTEGER NOT NULL DEFAULT 1
+                taxonomy_version INTEGER NOT NULL DEFAULT 1,
+                preparation_state TEXT NOT NULL DEFAULT 'UNSPECIFIED',
+                serving_quantity REAL,
+                serving_unit TEXT NOT NULL DEFAULT '',
+                serving_label TEXT NOT NULL DEFAULT ''
             )
             """.trimIndent()
         )
@@ -1865,6 +1901,12 @@ internal class LargeFoodDb(context: Context) : SQLiteOpenHelper(
             }
             if (oldVersion < 12) {
                 db.execSQL("ALTER TABLE food_reference ADD COLUMN plant_diversity_eligible INTEGER NOT NULL DEFAULT 0")
+            }
+            if (oldVersion < 13) {
+                db.execSQL("ALTER TABLE food_reference ADD COLUMN preparation_state TEXT NOT NULL DEFAULT 'UNSPECIFIED'")
+                db.execSQL("ALTER TABLE food_reference ADD COLUMN serving_quantity REAL")
+                db.execSQL("ALTER TABLE food_reference ADD COLUMN serving_unit TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE food_reference ADD COLUMN serving_label TEXT NOT NULL DEFAULT ''")
             }
             db.delete("food_reference_meta", "key = ?", arrayOf("plant_classifier_schema"))
             db.delete("food_reference_meta", "key = ?", arrayOf("food_taxonomy_schema"))
