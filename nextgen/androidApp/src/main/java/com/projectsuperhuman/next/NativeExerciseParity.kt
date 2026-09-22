@@ -275,8 +275,12 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var restTarget by remember { mutableIntStateOf(120) }
     var restEndsAt by remember { mutableLongStateOf(0L) }
     var routines by remember { mutableStateOf(loadWorkoutRoutines(context)) }
+    var nextRoutineName by remember { mutableStateOf(loadNextWorkoutRoutineName(context)) }
     var routineName by remember { mutableStateOf("") }
     var routineSelection by remember { mutableStateOf<List<String>>(emptyList()) }
+    var routineTargets by remember { mutableStateOf<Map<String, RoutineExerciseTarget>>(emptyMap()) }
+    var routineDurationText by remember { mutableStateOf("60") }
+    var routineIntensity by remember { mutableStateOf("Moderate") }
     var routineQuery by remember { mutableStateOf("") }
     var editingRoutineIndex by remember { mutableStateOf<Int?>(null) }
     var pendingRoutineDelete by remember { mutableStateOf<Int?>(null) }
