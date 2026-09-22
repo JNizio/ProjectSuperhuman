@@ -278,7 +278,12 @@ internal object PlantFoodClassifier {
             "pie", "cake", "cookie", "cookies", "biscuit", "biscuits", "muffin", "pastry",
             "pizza", "sandwich", "burger", "casserole", "lasagna", "soup", "stew", "sauce",
             "dressing", "ready meal", "entree"
-        ).any { containsPhrase(normalizedName, it) }
+        ).any { phrase ->
+            normalizedName == phrase ||
+                normalizedName.startsWith("$phrase ") ||
+                normalizedName.endsWith(" $phrase") ||
+                normalizedName.contains(" $phrase ")
+        }
         if (compositePlantIdentityUnsafe) return PlantFoodIdentity(false)
 
         val match = identities.mapNotNull { identity ->
