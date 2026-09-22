@@ -31,7 +31,7 @@ internal data class PlantFoodIdentity(
 )
 
 internal object PlantFoodClassifier {
-    const val SCHEMA_VERSION = 4
+    const val SCHEMA_VERSION = 5
 
     private val animalOrAmbiguousTerms = listOf(
         "beef", "pork", "chicken", "turkey", "lamb", "veal", "venison", "duck",
@@ -99,7 +99,7 @@ internal object PlantFoodClassifier {
         Triple(PlantFoodKind.LEGUME, "chickpea", listOf("chickpea", "garbanzo")),
         Triple(PlantFoodKind.LEGUME, "pea", listOf("green pea", "split pea", "peas")),
         Triple(PlantFoodKind.LEGUME, "bean", listOf("black bean", "kidney bean", "navy bean", "pinto bean", "white bean", "beans")),
-        Triple(PlantFoodKind.LEGUME, "soy", listOf("soybean", "soy bean", "tofu", "tempeh", "edamame", "soy milk")),
+        Triple(PlantFoodKind.LEGUME, "soy", listOf("soybean", "soy bean", "tofu", "tempeh", "edamame", "soy milk", "soy yogurt", "soy yoghurt", "soy cheese", "soy cream")),
         Triple(PlantFoodKind.GRAIN, "oat", listOf("oat", "oats", "oatmeal")),
         Triple(PlantFoodKind.GRAIN, "rice", listOf("rice")),
         Triple(PlantFoodKind.GRAIN, "wheat", listOf("wheat", "whole wheat", "bulgur", "semolina", "durum")),
@@ -456,7 +456,7 @@ internal enum class FoodTag {
  * This makes the taxonomy repeatable for the 10k local catalogue and for every future food import.
  */
 internal object FoodTaxonomyClassifier {
-    const val SCHEMA_VERSION = 3
+    const val SCHEMA_VERSION = 4
 
     private fun normalize(value: String): String =
         value.lowercase()
