@@ -721,15 +721,9 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 )
 
                 StrengthQuickActions(
-                    onRoutines = { mode = "routines" },
-                    onHistory = { mode = "history" },
-                    onProgress = { mode = "progress" }
-                )
-
-                StrengthToolsCard(
-                    savedPresetCount = routines.size,
-                    exerciseCount = catalog.size,
                     onPresets = { mode = "routines" },
+                    onHistory = { mode = "history" },
+                    onProgress = { mode = "progress" },
                     onLibrary = { mode = "library" }
                 )
 
@@ -2059,60 +2053,88 @@ private fun StrengthSessionPanel(
 
 @Composable
 private fun StrengthQuickActions(
-    onRoutines: () -> Unit,
+    onPresets: () -> Unit,
     onHistory: () -> Unit,
-    onProgress: () -> Unit
+    onProgress: () -> Unit,
+    onLibrary: () -> Unit
 ) {
     Row(
         Modifier
             .fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(18.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
-            .padding(horizontal = 6.dp, vertical = 6.dp),
+            .background(ExerciseSurface, RoundedCornerShape(20.dp))
+            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
+            .padding(horizontal = 6.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceEvenly
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        StrengthQuickAction("Presets", ExerciseBlue, Modifier.weight(1f), onRoutines)
-        StrengthQuickDivider()
-        StrengthQuickAction("History", ExercisePurple, Modifier.weight(1f), onHistory)
-        StrengthQuickDivider()
-        StrengthQuickAction("Progress", ExerciseGreen, Modifier.weight(1f), onProgress)
+        StrengthQuickAction(
+            title = "Presets",
+            iconRes = R.drawable.tabler_dumbbell,
+            accent = ExerciseBlue,
+            modifier = Modifier.weight(1f),
+            onClick = onPresets
+        )
+        StrengthQuickAction(
+            title = "History",
+            iconRes = R.drawable.tabler_list_details,
+            accent = ExercisePurple,
+            modifier = Modifier.weight(1f),
+            onClick = onHistory
+        )
+        StrengthQuickAction(
+            title = "Progress",
+            iconRes = R.drawable.tabler_chart_line,
+            accent = ExerciseGreen,
+            modifier = Modifier.weight(1f),
+            onClick = onProgress
+        )
+        StrengthQuickAction(
+            title = "Library",
+            iconRes = R.drawable.tabler_search,
+            accent = ExercisePurple,
+            modifier = Modifier.weight(1f),
+            onClick = onLibrary
+        )
     }
 }
 
 @Composable
 private fun StrengthQuickAction(
     title: String,
+    iconRes: Int,
     accent: Color,
     modifier: Modifier,
     onClick: () -> Unit
 ) {
-    Row(
+    Column(
         modifier
+            .background(accent.copy(alpha = .07f), RoundedCornerShape(14.dp))
             .superhumanClickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center
+            .padding(horizontal = 4.dp, vertical = 9.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Box(Modifier.size(7.dp).background(accent, CircleShape))
-        Spacer(Modifier.width(7.dp))
+        Box(
+            Modifier.size(28.dp)
+                .background(accent.copy(alpha = .13f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                painter = painterResource(id = iconRes),
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(15.dp)
+            )
+        }
+        Spacer(Modifier.height(5.dp))
         Text(
             title,
             color = ExerciseInk,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Bold
+            fontSize = 8.5.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1
         )
     }
-}
-
-@Composable
-private fun StrengthQuickDivider() {
-    Box(
-        Modifier
-            .width(1.dp)
-            .height(22.dp)
-            .background(ExerciseCardBorder)
-    )
 }
 
 @Composable
@@ -2201,97 +2223,6 @@ private fun StrengthStartPresetRow(
             fontSize = 9.sp,
             fontWeight = FontWeight.Black
         )
-    }
-}
-
-@Composable
-private fun StrengthToolsCard(
-    savedPresetCount: Int,
-    exerciseCount: Int,
-    onPresets: () -> Unit,
-    onLibrary: () -> Unit
-) {
-    Row(
-        Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(18.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
-            .padding(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Row(
-            Modifier.weight(1f)
-                .background(ExerciseBlue.copy(alpha = .08f), RoundedCornerShape(14.dp))
-                .superhumanClickable(onClick = onPresets)
-                .padding(horizontal = 11.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                Modifier.size(32.dp)
-                    .background(ExerciseBlue.copy(alpha = .14f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(id = R.drawable.tabler_dumbbell),
-                    contentDescription = null,
-                    tint = ExerciseBlue,
-                    modifier = Modifier.size(17.dp)
-                )
-            }
-            Column(
-                Modifier.weight(1f).padding(start = 9.dp)
-            ) {
-                Text(
-                    "Presets",
-                    color = ExerciseInk,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Text(
-                    if (savedPresetCount == 1) "1 saved" else "$savedPresetCount saved",
-                    color = ExerciseMuted,
-                    fontSize = 8.sp
-                )
-            }
-            Text("→", color = ExerciseBlue, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        }
-
-        Row(
-            Modifier.weight(1f)
-                .background(ExercisePurple.copy(alpha = .08f), RoundedCornerShape(14.dp))
-                .superhumanClickable(onClick = onLibrary)
-                .padding(horizontal = 11.dp, vertical = 11.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                Modifier.size(32.dp)
-                    .background(ExercisePurple.copy(alpha = .14f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "DB",
-                    color = ExercisePurple,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
-            Column(
-                Modifier.weight(1f).padding(start = 9.dp)
-            ) {
-                Text(
-                    "Exercise library",
-                    color = ExerciseInk,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1
-                )
-                Text(
-                    "$exerciseCount exercises",
-                    color = ExerciseMuted,
-                    fontSize = 8.sp
-                )
-            }
-            Text("→", color = ExercisePurple, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-        }
     }
 }
 
