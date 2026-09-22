@@ -756,17 +756,17 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
         Modifier.fillMaxWidth()
             .background(N2SoftGreen, RoundedCornerShape(20.dp))
             .border(1.dp, N2Green.copy(alpha = .22f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 13.dp, vertical = 9.dp),
+            .padding(horizontal = 12.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(13.dp)
+        horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Box(
-            Modifier.size(58.dp)
+            Modifier.size(50.dp)
                 .background(N2Green.copy(alpha = .10f), CircleShape)
                 .border(1.dp, N2Green.copy(alpha = .20f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(Modifier.size(50.dp)) {
+            Canvas(Modifier.size(44.dp)) {
                 val stemX = size.width * .5f
                 val stemTop = size.height * .30f
                 val stemBottom = size.height * .72f
@@ -833,7 +833,7 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
 
         Column(
             Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+            verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
             Text(
                 "PLANT DIVERSITY",
@@ -845,14 +845,14 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
             Text(
                 "${snapshot.uniquePlants} / $weeklyTarget this week",
                 color = N2Ink,
-                fontSize = 14.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Black
             )
             Text(
                 if (snapshot.uniquePlants >= weeklyTarget) "Weekly target reached"
                 else "${weeklyTarget - snapshot.uniquePlants} more unique plants to reach 30",
                 color = N2Muted,
-                fontSize = 7.5.sp,
+                fontSize = 7.sp,
                 fontWeight = FontWeight.SemiBold
             )
             if (detail.isNotBlank()) {
