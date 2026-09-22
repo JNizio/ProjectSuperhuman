@@ -743,41 +743,38 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
         )
 
         Column(
-            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 15.dp)
+            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth().height(32.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    Modifier.width(112.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "NUTRITION",
-                        color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.15.sp
-                    )
-                }
+                Text(
+                    "NUTRITION",
+                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 1.15.sp,
+                    modifier = Modifier.width(112.dp),
+                    textAlign = TextAlign.Start
+                )
 
                 Spacer(Modifier.width(16.dp))
 
                 Box(
-                    Modifier.weight(1f),
+                    Modifier.weight(1f).fillMaxHeight(),
                     contentAlignment = Alignment.CenterEnd
                 ) {
                     Box(
-                        Modifier.size(36.dp).background(accent.copy(alpha = .12f), CircleShape),
+                        Modifier.size(32.dp).background(accent.copy(alpha = .12f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text("→", color = accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text("→", color = accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
 
             Row(
                 Modifier.fillMaxWidth(),
