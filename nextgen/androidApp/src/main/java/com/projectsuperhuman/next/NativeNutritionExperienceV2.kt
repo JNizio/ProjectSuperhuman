@@ -834,50 +834,31 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
 
         Column(
             Modifier.width(286.dp),
-            verticalArrangement = Arrangement.spacedBy(1.dp)
+            verticalArrangement = Arrangement.spacedBy(1.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    "PLANT DIVERSITY",
-                    color = N2Green,
-                    fontSize = 7.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = .7.sp
-                )
-                Text(
-                    "${snapshot.uniquePlants} / $weeklyTarget",
-                    color = N2Ink,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Black
-                )
-            }
-
-            Row(
-                Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    if (snapshot.uniquePlants >= weeklyTarget) "Weekly target reached"
-                    else "${weeklyTarget - snapshot.uniquePlants} more to reach 30",
-                    color = N2Muted,
-                    fontSize = 7.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1
-                )
-                if (detail.isNotBlank()) {
-                    Text(
-                        detail,
-                        color = N2Muted,
-                        fontSize = 7.sp,
-                        maxLines = 1
+            Text(
+                "PLANT DIVERSITY  ·  ${snapshot.uniquePlants} / $weeklyTarget",
+                color = N2Ink,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                buildString {
+                    append(
+                        if (snapshot.uniquePlants >= weeklyTarget) "Weekly target reached"
+                        else "${weeklyTarget - snapshot.uniquePlants} more to reach 30"
                     )
-                }
-            }
+                    if (detail.isNotBlank()) append("  ·  ").append(detail)
+                },
+                color = N2Muted,
+                fontSize = 7.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
