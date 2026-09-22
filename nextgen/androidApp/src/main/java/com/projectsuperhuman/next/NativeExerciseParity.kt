@@ -923,6 +923,55 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 }
             }
             "routines" -> {
+                val starterPresets = starterWorkoutPresets(catalog)
+
+                if (starterPresets.isNotEmpty()) {
+                    Text("STARTER PRESETS", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        starterPresets.take(3).forEach { preset ->
+                            val saved = routines.any { it.name == preset.name }
+                            Column(
+                                Modifier.weight(1f)
+                                    .background(ExerciseSurface, RoundedCornerShape(16.dp))
+                                    .border(1.dp, ExerciseCardBorder, RoundedCornerShape(16.dp))
+                                    .padding(10.dp)
+                            ) {
+                                Text(
+                                    preset.name,
+                                    color = ExerciseInk,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Black,
+                                    maxLines = 1
+                                )
+                                Spacer(Modifier.height(3.dp))
+                                Text(
+                                    preset.exerciseIds.size.toString() + " exercises · " +
+                                        preset.plannedDurationMin + " min",
+                                    color = ExerciseMuted,
+                                    fontSize = 8.sp,
+                                    maxLines = 1
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    if (saved) "SAVED ✓" else "ADD",
+                                    color = if (saved) ExerciseGreen else ExerciseBlue,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Black,
+                                    modifier = Modifier.superhumanClickable(enabled = !saved) {
+                                        routines = routines + preset.asRoutine()
+                                        saveWorkoutRoutines(context, routines)
+                                        feedbackMessage = preset.name + " preset added"
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                }
+
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Text("ROUTINES", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.weight(1f))
                     Text(
@@ -1220,6 +1269,67 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         workoutExerciseQuery = ""
                     }
                 )
+
+                if (workoutExercises.isNotEmpty()) {
+                    val inferredPresetName = workoutName.trim().ifBlank {
+                        inferStrengthWorkoutNameFromExercises(workoutExercises)
+                    }
+                    Box(
+                        Modifier.fillMaxWidth()
+                            .background(ExerciseBlue.copy(alpha = .10f), RoundedCornerShape(14.dp))
+                            .border(1.dp, ExerciseBlue.copy(alpha = .18f), RoundedCornerShape(14.dp))
+                            .superhumanClickable {
+                                val baseName = inferredPresetName.ifBlank { "Workout" }
+                                val existingNames = routines.map { it.name }.toSet()
+                                var finalName = baseName
+                                var suffix = 2
+                                while (finalName in existingNames) {
+                                    finalName = "$baseName $suffix"
+                                    suffix++
+                                }
+
+                                val targets = workoutExercises.distinctBy { it.id }.associate { exercise ->
+                                    val completed = session.filter { it.exercise.id == exercise.id && it.type != "Warmup" }
+                                    val setCount = completed.size.takeIf { it > 0 } ?: 3
+                                    val reps = completed.map { it.reps }.takeIf { it.isNotEmpty() }
+                                        ?.average()?.roundToInt()?.coerceIn(1, 100) ?: 10
+                                    exercise.id to RoutineExerciseTarget(setCount.coerceIn(1, 12), reps)
+                                }
+
+                                val elapsedMinutes = if (startedAt > 0L) {
+                                    ((System.currentTimeMillis() - startedAt - workoutPausedTotalMs)
+                                        .coerceAtLeast(0L) / 60_000L).toInt()
+                                } else 0
+                                val plannedDuration = if (elapsedMinutes >= 10) elapsedMinutes.coerceAtMost(240)
+                                    else (workoutExercises.size * 10).coerceIn(30, 90)
+
+                                val intensity = when {
+                                    sessionRpeText.toDoubleOrNull()?.let { it >= 8.0 } == true -> "Hard"
+                                    sessionRpeText.toDoubleOrNull()?.let { it <= 5.0 } == true -> "Easy"
+                                    else -> "Moderate"
+                                }
+
+                                routines = routines + WorkoutRoutine(
+                                    name = finalName,
+                                    exerciseIds = workoutExercises.distinctBy { it.id }.map { it.id },
+                                    targets = targets,
+                                    plannedDurationMin = plannedDuration,
+                                    intensity = intensity
+                                )
+                                saveWorkoutRoutines(context, routines)
+                                feedbackMessage = "Preset saved"
+                            }
+                            .padding(horizontal = 13.dp, vertical = 11.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "SAVE AS PRESET",
+                            color = ExerciseBlue,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
 
                 if (showWorkoutRoutinePicker) {
                     StrengthWorkoutRoutinePicker(
