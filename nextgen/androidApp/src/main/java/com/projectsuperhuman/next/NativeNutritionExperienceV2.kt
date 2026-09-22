@@ -113,7 +113,8 @@ private data class N2Entry(
     val mealGroupName: String,
     val isPlantFood: Boolean,
     val plantFoodKind: PlantFoodKind,
-    val plantDiversityKey: String
+    val plantDiversityKey: String,
+    val foodTags: Set<FoodTag>
 )
 
 private data class N2Micro(
@@ -2319,6 +2320,16 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
         val plantKey = anchor.metadata["plantDiversityKey"]
             ?.takeIf { it.isNotBlank() }
             ?: inferredPlant.diversityKey
+        val inferredTags = FoodTaxonomyClassifier.classify(
+            anchor.metadata["name"] ?: "Food",
+            anchor.metadata["brand"].orEmpty(),
+            plantIdentity = PlantFoodIdentity(resolvedPlant, plantKind, plantKey)
+        )
+        val storedTags = anchor.metadata["foodTags"]
+            ?.split(',')
+            ?.mapNotNull { raw -> runCatching { FoodTag.valueOf(raw.trim()) }.getOrNull() }
+            ?.toSet()
+            .orEmpty()
         N2Entry(
             id = entryId,
             foodId = anchor.metadata["foodId"].orEmpty(),
@@ -2357,7 +2368,8 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             mealGroupName = anchor.metadata["mealGroupName"].orEmpty(),
             isPlantFood = resolvedPlant,
             plantFoodKind = plantKind,
-            plantDiversityKey = plantKey
+            plantDiversityKey = plantKey,
+            foodTags = storedTags + inferredTags
         )
     }.sortedByDescending { it.timestamp }
 
