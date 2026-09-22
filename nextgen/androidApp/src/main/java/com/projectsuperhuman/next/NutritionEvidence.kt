@@ -199,7 +199,12 @@ internal object FoodEvidenceEngine {
         // remember to set. Explicit valid identities are preserved; otherwise every food entering
         // the evidence layer is classified from its name/search/ingredient evidence.
         val plantIdentity = if (food.isPlantFood && food.plantDiversityKey.isNotBlank()) {
-            PlantFoodIdentity(true, food.plantFoodKind, food.plantDiversityKey)
+            PlantFoodIdentity(
+                isPlantFood = true,
+                kind = food.plantFoodKind,
+                diversityKey = food.plantDiversityKey,
+                diversityEligible = food.plantDiversityEligible
+            )
         } else {
             PlantFoodClassifier.classify(food.name, food.searchText, food.ingredientsText)
         }
@@ -284,6 +289,7 @@ internal object FoodEvidenceEngine {
             isPlantFood = plantIdentity.isPlantFood,
             plantFoodKind = plantIdentity.kind,
             plantDiversityKey = plantIdentity.diversityKey,
+            plantDiversityEligible = plantIdentity.diversityEligible,
             foodTags = foodTags,
             foodTaxonomyVersion = FoodTaxonomyClassifier.SCHEMA_VERSION,
             sourceWarnings = warnings,
