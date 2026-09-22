@@ -71,7 +71,7 @@ internal object LargeLocalFoodDatabase {
     private const val PLANT_CLASSIFIER_META = "plant_classifier_schema"
     private const val FOOD_TAXONOMY_META = "food_taxonomy_schema"
     private const val CORE_SCHEMA_META = "project_superhuman_core_food_schema"
-    private const val CORE_SCHEMA_VERSION = 8
+    private const val CORE_SCHEMA_VERSION = 9
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val bootstrapStarted = AtomicBoolean(false)
@@ -127,6 +127,16 @@ internal object LargeLocalFoodDatabase {
     }
 
     suspend fun isReady(context: Context): Boolean = count(context) >= MINIMUM_FOOD_TARGET
+
+    suspend fun audit(context: Context): LocalFoodDatabaseAuditReport = withContext(Dispatchers.IO) {
+        seedPriorityFoodsOnce(context.applicationContext)
+        LocalFoodDatabaseAuditor.audit(context.applicationContext)
+    }
+
+    suspend fun writeAuditReports(context: Context): Pair<java.io.File, java.io.File> = withContext(Dispatchers.IO) {
+        seedPriorityFoodsOnce(context.applicationContext)
+        LocalFoodDatabaseAuditor.writeReports(context.applicationContext)
+    }
 
     suspend fun coreCount(context: Context): Int = withContext(Dispatchers.IO) {
         seedPriorityFoodsOnce(context.applicationContext)
@@ -190,7 +200,7 @@ internal object LargeLocalFoodDatabase {
                                saturated_fat, saturated_fat_known, sodium_mg, sodium_known,
                                salt_g, salt_known, unknown_micronutrients_json, source_record_id,
                                plant_food, plant_food_kind, plant_diversity_key,
-                               food_tags_json, taxonomy_version
+                               plant_diversity_eligible, food_tags_json, taxonomy_version
                         FROM food_reference
                         WHERE normalized_name LIKE ? OR search_text LIKE ?
                         ORDER BY
@@ -258,8 +268,9 @@ internal object LargeLocalFoodDatabase {
                                         plantFoodKind = cursor.getString(29)
                                             .let { raw -> runCatching { PlantFoodKind.valueOf(raw) }.getOrDefault(PlantFoodKind.NONE) },
                                         plantDiversityKey = cursor.getString(30),
-                                        foodTags = decodeFoodTags(cursor.getString(31)),
-                                        foodTaxonomyVersion = cursor.getInt(32),
+                                        plantDiversityEligible = cursor.getInt(31) != 0,
+                                        foodTags = decodeFoodTags(cursor.getString(32)),
+                                        foodTaxonomyVersion = cursor.getInt(33),
                                         sourceType = when {
                                             source.contains("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
                                             source.contains("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
@@ -343,7 +354,7 @@ internal object LargeLocalFoodDatabase {
                        saturated_fat, saturated_fat_known, sodium_mg, sodium_known,
                        salt_g, salt_known, source_record_id,
                        plant_food, plant_food_kind, plant_diversity_key,
-                       food_tags_json, taxonomy_version
+                       plant_diversity_eligible, food_tags_json, taxonomy_version
                 FROM food_reference
                 WHERE source LIKE 'USDA%' AND $where
                 ORDER BY
@@ -392,6 +403,7 @@ internal object LargeLocalFoodDatabase {
                     plantFoodKind = cursor.getString(27)
                         .let { raw -> runCatching { PlantFoodKind.valueOf(raw) }.getOrDefault(PlantFoodKind.NONE) },
                     plantDiversityKey = cursor.getString(28),
+                    plantDiversityEligible = cursor.getInt(29) != 0,
                     sourceType = when {
                         source.startsWith("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
                         source.startsWith("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
@@ -599,7 +611,8 @@ internal object LargeLocalFoodDatabase {
                 val update = db.compileStatement(
                     """
                     UPDATE food_reference
-                    SET plant_food = ?, plant_food_kind = ?, plant_diversity_key = ?
+                    SET plant_food = ?, plant_food_kind = ?, plant_diversity_key = ?,
+                        plant_diversity_eligible = ?
                     WHERE id = ?
                     """.trimIndent()
                 )
@@ -616,7 +629,8 @@ internal object LargeLocalFoodDatabase {
                     update.bindLong(1, if (identity.isPlantFood) 1L else 0L)
                     update.bindString(2, identity.kind.name)
                     update.bindString(3, identity.diversityKey)
-                    update.bindString(4, id)
+                    update.bindLong(4, if (identity.diversityEligible) 1L else 0L)
+                    update.bindString(5, id)
                     update.executeUpdateDelete()
                 }
             }
@@ -1016,7 +1030,20 @@ internal object LargeLocalFoodDatabase {
         val carbs = nutrients.carbs ?: return null
         val fat = nutrients.fat ?: return null
         if (!listOf(kcal, protein, carbs, fat).all { it.isFinite() && it >= 0.0 }) return null
+        if (protein > 100.5 || carbs > 100.5 || fat > 100.5) return null
+        if (nutrients.fibre != null && nutrients.fibre!! > 100.5) return null
+        if (nutrients.sugar != null && nutrients.sugar!! > 100.5) return null
+        if (nutrients.saturatedFat != null && nutrients.saturatedFat!! > 100.5) return null
+        if (nutrients.sodiumMg != null && nutrients.sodiumMg!! > 50_000.0) return null
         if (nutrients.micros.size < 4) return null
+
+        val microsWithEvidence = nutrients.micros.mapValues { (_, nutrient) ->
+            nutrient.copy(
+                evidenceKind = NutrientEvidenceKind.REFERENCE_DATABASE,
+                source = sourceLabel,
+                sourceRecordId = id.toString()
+            )
+        }
 
         return NativeFood(
             id = "usda:$id",
@@ -1051,7 +1078,15 @@ internal object LargeLocalFoodDatabase {
                 append(" usda fooddata central fdc ")
                 append(id)
             },
-            micronutrients = nutrients.micros.toMap()
+            micronutrients = microsWithEvidence,
+            sourceType = when {
+                sourceLabel.startsWith("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
+                sourceLabel.startsWith("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
+                sourceLabel.startsWith("USDA SR Legacy") -> FoodDataSourceType.USDA_SR_LEGACY
+                else -> FoodDataSourceType.PROJECT_SUPERHUMAN_REFERENCE
+            },
+            sourceRecordId = id.toString(),
+            verificationState = FoodVerificationState.SOURCE_VALIDATED
         )
     }
 
@@ -1176,6 +1211,26 @@ internal object LargeLocalFoodDatabase {
                     putMicro("vitamin_k", "Vitamin K", "µg", rawAmount, unit)
                 name.startsWith("choline, total") || name == "choline" ->
                     putMicro("choline", "Choline", "mg", rawAmount, unit)
+                id == 1009 || name == "starch" ->
+                    putMicro("starch", "Starch", "g", rawAmount, unit)
+                id == 1051 || name == "water" ->
+                    putMicro("water", "Water", "g", rawAmount, unit)
+                id == 1018 || name.startsWith("alcohol, ethyl") ->
+                    putMicro("alcohol", "Alcohol", "g", rawAmount, unit)
+                id == 1253 || name == "cholesterol" ->
+                    putMicro("cholesterol", "Cholesterol", "mg", rawAmount, unit)
+                id == 1292 || name.startsWith("fatty acids, total monounsaturated") ->
+                    putMicro("monounsaturated_fat", "Monounsaturated fat", "g", rawAmount, unit)
+                id == 1293 || name.startsWith("fatty acids, total polyunsaturated") ->
+                    putMicro("polyunsaturated_fat", "Polyunsaturated fat", "g", rawAmount, unit)
+                id == 1257 || name.startsWith("fatty acids, total trans") ->
+                    putMicro("trans_fat", "Trans fat", "g", rawAmount, unit)
+                name.startsWith("fatty acids, total n-3") || name.startsWith("omega-3") ->
+                    putMicro("omega_3", "Omega-3 fatty acids", "g", rawAmount, unit)
+                name.startsWith("fatty acids, total n-6") || name.startsWith("omega-6") ->
+                    putMicro("omega_6", "Omega-6 fatty acids", "g", rawAmount, unit)
+                name == "caffeine" ->
+                    putMicro("caffeine", "Caffeine", "mg", rawAmount, unit)
             }
         }
 
@@ -1246,6 +1301,7 @@ internal object LargeLocalFoodDatabase {
             put("plant_food", if (plantIdentity.isPlantFood) 1 else 0)
             put("plant_food_kind", plantIdentity.kind.name)
             put("plant_diversity_key", plantIdentity.diversityKey)
+            put("plant_diversity_eligible", if (plantIdentity.diversityEligible) 1 else 0)
             put("food_tags_json", encodeFoodTags(foodTags))
             put("taxonomy_version", FoodTaxonomyClassifier.SCHEMA_VERSION)
         }
@@ -1285,6 +1341,17 @@ internal object LargeLocalFoodDatabase {
               AND sugar_known = 1
               AND saturated_fat_known = 1
               AND sodium_known = 1
+              AND protein BETWEEN 0.0 AND 100.5
+              AND carbs BETWEEN 0.0 AND 100.5
+              AND fat BETWEEN 0.0 AND 100.5
+              AND fibre BETWEEN 0.0 AND 100.5
+              AND sugar BETWEEN 0.0 AND 100.5
+              AND saturated_fat BETWEEN 0.0 AND 100.5
+              AND sodium_mg BETWEEN 0.0 AND 50000.0
+              AND sugar <= carbs + MAX(0.5, carbs * 0.05)
+              AND saturated_fat <= fat + MAX(0.2, fat * 0.03)
+              AND (protein + carbs + fat) <= 105.0
+              AND (protein * 4.0 + carbs * 4.0 + fat * 9.0) <= kcal + MAX(35.0, kcal * 0.30)
               AND essential_micronutrient_count >= $CORE_MIN_MICRONUTRIENTS
             """.trimIndent(),
             null
@@ -1431,7 +1498,7 @@ internal object LargeLocalFoodDatabase {
                        micronutrient_count, essential_micronutrient_count,
                        salt_g, salt_known, unknown_micronutrients_json, source_record_id,
                        plant_food, plant_food_kind, plant_diversity_key,
-                       food_tags_json, taxonomy_version
+                       plant_diversity_eligible, food_tags_json, taxonomy_version
                 FROM food_reference
                 WHERE id = ?
                 LIMIT 1
@@ -1478,8 +1545,9 @@ internal object LargeLocalFoodDatabase {
                     put("plant_food", cursor.getInt(28))
                     put("plant_food_kind", cursor.getString(29))
                     put("plant_diversity_key", cursor.getString(30))
-                    put("food_tags_json", cursor.getString(31))
-                    put("taxonomy_version", cursor.getInt(32))
+                    put("plant_diversity_eligible", cursor.getInt(31))
+                    put("food_tags_json", cursor.getString(32))
+                    put("taxonomy_version", cursor.getInt(33))
                 }
             }
             if (source != null) {
@@ -1522,6 +1590,15 @@ internal object LargeLocalFoodDatabase {
         putMeta(db, "project_superhuman_core_food_tagged_count", taggedCount.toString())
         putMeta(db, "project_superhuman_core_food_other_only_count", otherOnlyCount.toString())
         putMeta(db, "project_superhuman_core_food_plant_count", plantCount.toString())
+        putMeta(
+            db,
+            "project_superhuman_core_food_plant_diversity_eligible_count",
+            DatabaseUtils.longForQuery(
+                db,
+                "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%' AND plant_diversity_eligible = 1",
+                null
+            ).toString()
+        )
         putMeta(db, CORE_SCHEMA_META, CORE_SCHEMA_VERSION.toString())
         putMeta(db, "project_superhuman_core_food_storage", "materialized-local-snapshot")
         putMeta(db, "project_superhuman_core_food_min_essential", CORE_MIN_MICRONUTRIENTS.toString())
@@ -1706,11 +1783,11 @@ internal object LargeLocalFoodDatabase {
     }
 }
 
-private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
+internal class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    11
+    12
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -1750,6 +1827,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 plant_food INTEGER NOT NULL DEFAULT 0,
                 plant_food_kind TEXT NOT NULL DEFAULT 'NONE',
                 plant_diversity_key TEXT NOT NULL DEFAULT '',
+                plant_diversity_eligible INTEGER NOT NULL DEFAULT 0,
                 food_tags_json TEXT NOT NULL DEFAULT '[]',
                 taxonomy_version INTEGER NOT NULL DEFAULT 1
             )
@@ -1771,12 +1849,17 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        if (oldVersion == 10 && newVersion >= 11) {
-            // Preserve the already-downloaded USDA source library. The owning database object will
-            // backfill tags and rebuild the 3k core snapshot into the 10k core on first open.
-            db.execSQL("ALTER TABLE food_reference ADD COLUMN food_tags_json TEXT NOT NULL DEFAULT '[]'")
-            db.execSQL("ALTER TABLE food_reference ADD COLUMN taxonomy_version INTEGER NOT NULL DEFAULT 0")
-            db.execSQL("CREATE INDEX IF NOT EXISTS food_reference_taxonomy_idx ON food_reference(taxonomy_version)")
+        if (oldVersion >= 10) {
+            // Preserve downloaded authoritative rows; only derived metadata is migrated in-place.
+            if (oldVersion < 11) {
+                db.execSQL("ALTER TABLE food_reference ADD COLUMN food_tags_json TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE food_reference ADD COLUMN taxonomy_version INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("CREATE INDEX IF NOT EXISTS food_reference_taxonomy_idx ON food_reference(taxonomy_version)")
+            }
+            if (oldVersion < 12) {
+                db.execSQL("ALTER TABLE food_reference ADD COLUMN plant_diversity_eligible INTEGER NOT NULL DEFAULT 0")
+            }
+            db.delete("food_reference_meta", "key = ?", arrayOf("plant_classifier_schema"))
             db.delete("food_reference_meta", "key = ?", arrayOf("food_taxonomy_schema"))
             db.delete("food_reference_meta", "key = ?", arrayOf("project_superhuman_core_food_schema"))
             return
