@@ -70,6 +70,8 @@ internal object LargeLocalFoodDatabase {
     private const val USER_AGENT = "ProjectSuperhuman/11.4 (Android food reference importer)"
     private const val PLANT_CLASSIFIER_META = "plant_classifier_schema"
     private const val FOOD_TAXONOMY_META = "food_taxonomy_schema"
+    private const val CORE_SCHEMA_META = "project_superhuman_core_food_schema"
+    private const val CORE_SCHEMA_VERSION = 8
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val bootstrapStarted = AtomicBoolean(false)
@@ -567,6 +569,7 @@ internal object LargeLocalFoodDatabase {
             priorityFoods().forEach { insertFood(db, it, replace = false) }
             backfillPlantClassificationIfNeeded(db)
             backfillFoodTaxonomyIfNeeded(db)
+            if (sourcesComplete(db)) rebuildCoreFoodsIfNeeded(db)
             seedCanonicalLocalVariants(db)
             db.execSQL("UPDATE food_reference SET core_rank = 0 WHERE id LIKE 'core:%'")
             synchronized(localSearchCacheLock) { localSearchCache.clear() }
@@ -622,6 +625,30 @@ internal object LargeLocalFoodDatabase {
         } finally {
             db.endTransaction()
         }
+    }
+
+    private fun sourcesComplete(db: SQLiteDatabase): Boolean =
+        listOf(FOUNDATION_META, FNDDS_META, SR_META).all { key ->
+            db.rawQuery(
+                "SELECT value FROM food_reference_meta WHERE key = ? LIMIT 1",
+                arrayOf(key)
+            ).use { cursor -> cursor.moveToFirst() && cursor.getString(0) == "1" }
+        }
+
+    private fun rebuildCoreFoodsIfNeeded(db: SQLiteDatabase) {
+        val schema = db.rawQuery(
+            "SELECT value FROM food_reference_meta WHERE key = ? LIMIT 1",
+            arrayOf(CORE_SCHEMA_META)
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0).toIntOrNull() ?: 0 else 0
+        }
+        val count = DatabaseUtils.longForQuery(
+            db,
+            "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%'",
+            null
+        )
+        if (schema >= CORE_SCHEMA_VERSION && count >= CORE_FOOD_TARGET) return
+        rebuildCoreFoods(db)
     }
 
     /**
@@ -1465,7 +1492,7 @@ internal object LargeLocalFoodDatabase {
 
         putMeta(db, "project_superhuman_core_food_count", materializedCount.toString())
         putMeta(db, "project_superhuman_core_food_strict_count", strictCount.toString())
-        putMeta(db, "project_superhuman_core_food_schema", "8")
+        putMeta(db, CORE_SCHEMA_META, CORE_SCHEMA_VERSION.toString())
         putMeta(db, "project_superhuman_core_food_storage", "materialized-local-snapshot")
         putMeta(db, "project_superhuman_core_food_min_essential", CORE_MIN_MICRONUTRIENTS.toString())
         putMeta(db, "project_superhuman_core_food_preferred_essential", CORE_PREFERRED_MICRONUTRIENTS.toString())
@@ -1714,9 +1741,18 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        // Reference data is reproducible from bundled priority rows + USDA archives. Rebuilding is
-        // safer than carrying forward rows where missing fibre/sugar had previously been stored as
-        // known zero.
+        if (oldVersion == 10 && newVersion >= 11) {
+            // Preserve the already-downloaded USDA source library. The owning database object will
+            // backfill tags and rebuild the 3k core snapshot into the 10k core on first open.
+            db.execSQL("ALTER TABLE food_reference ADD COLUMN food_tags_json TEXT NOT NULL DEFAULT '[]'")
+            db.execSQL("ALTER TABLE food_reference ADD COLUMN taxonomy_version INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("CREATE INDEX IF NOT EXISTS food_reference_taxonomy_idx ON food_reference(taxonomy_version)")
+            db.delete("food_reference_meta", "key = ?", arrayOf("food_taxonomy_schema"))
+            db.delete("food_reference_meta", "key = ?", arrayOf("project_superhuman_core_food_schema"))
+            return
+        }
+
+        // Older schemas predate nutrition-integrity fixes; rebuild those from authoritative sources.
         db.execSQL("DROP TABLE IF EXISTS food_reference")
         db.execSQL("DROP TABLE IF EXISTS food_reference_meta")
         onCreate(db)
