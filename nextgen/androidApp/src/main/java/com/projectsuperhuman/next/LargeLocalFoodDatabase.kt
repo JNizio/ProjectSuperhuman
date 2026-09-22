@@ -38,7 +38,7 @@ import java.util.zip.ZipInputStream
  */
 internal object LargeLocalFoodDatabase {
     const val MINIMUM_FOOD_TARGET = 10_000
-    const val CORE_FOOD_TARGET = 3_000
+    const val CORE_FOOD_TARGET = 10_000
 
     private val CORE_MICRONUTRIENTS = setOf(
         "calcium", "chloride", "copper", "iron", "iodine", "magnesium", "manganese",
@@ -47,7 +47,10 @@ internal object LargeLocalFoodDatabase {
         "vitamin_b6", "biotin", "folate", "vitamin_b12", "vitamin_c", "vitamin_d",
         "vitamin_e", "vitamin_k", "choline"
     )
-    private const val CORE_MIN_MICRONUTRIENTS = 18
+    // Every generated core food must have broad source-backed micronutrient coverage.
+    // Prefer substantially richer profiles, but never fabricate missing values to fill a quota.
+    private const val CORE_MIN_MICRONUTRIENTS = 12
+    private const val CORE_PREFERRED_MICRONUTRIENTS = 18
 
     private val localSearchCache = object : LinkedHashMap<String, List<NativeFood>>(48, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<NativeFood>>?): Boolean = size > 48
@@ -66,6 +69,7 @@ internal object LargeLocalFoodDatabase {
     private const val SR_META = "usda_sr_legacy_complete"
     private const val USER_AGENT = "ProjectSuperhuman/11.4 (Android food reference importer)"
     private const val PLANT_CLASSIFIER_META = "plant_classifier_schema"
+    private const val FOOD_TAXONOMY_META = "food_taxonomy_schema"
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val bootstrapStarted = AtomicBoolean(false)
@@ -137,7 +141,7 @@ internal object LargeLocalFoodDatabase {
         LargeFoodDb(context.applicationContext).use { helper ->
             DatabaseUtils.longForQuery(
                 helper.readableDatabase,
-                "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%' AND micronutrient_count >= 4",
+                "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%' AND essential_micronutrient_count >= $CORE_MIN_MICRONUTRIENTS",
                 null
             ) >= CORE_FOOD_TARGET
         }
@@ -160,6 +164,11 @@ internal object LargeLocalFoodDatabase {
             val retrievalQuery = when {
                 queryTokens.any { it == "egg" || it == "eggs" } -> "egg"
                 "chicken" in queryTokens && "breast" in queryTokens -> "chicken breast"
+                q == "rocket" || q.startsWith("rocket ") -> q.replaceFirst("rocket", "arugula")
+                q == "courgette" || q.startsWith("courgette ") -> q.replaceFirst("courgette", "zucchini")
+                q == "aubergine" || q.startsWith("aubergine ") -> q.replaceFirst("aubergine", "eggplant")
+                q == "swede" || q.startsWith("swede ") -> q.replaceFirst("swede", "rutabaga")
+                q == "coriander" || q.startsWith("coriander ") -> q.replaceFirst("coriander", "cilantro")
                 else -> q
             }
             val prefix = retrievalQuery + "%"
@@ -176,7 +185,8 @@ internal object LargeLocalFoodDatabase {
                                unit, source, search_text, brand, micronutrients_json, core_rank,
                                saturated_fat, saturated_fat_known, sodium_mg, sodium_known,
                                salt_g, salt_known, unknown_micronutrients_json, source_record_id,
-                               plant_food, plant_food_kind, plant_diversity_key
+                               plant_food, plant_food_kind, plant_diversity_key,
+                               food_tags_json, taxonomy_version
                         FROM food_reference
                         WHERE normalized_name LIKE ? OR search_text LIKE ?
                         ORDER BY
@@ -244,6 +254,8 @@ internal object LargeLocalFoodDatabase {
                                         plantFoodKind = cursor.getString(29)
                                             .let { raw -> runCatching { PlantFoodKind.valueOf(raw) }.getOrDefault(PlantFoodKind.NONE) },
                                         plantDiversityKey = cursor.getString(30),
+                                        foodTags = decodeFoodTags(cursor.getString(31)),
+                                        foodTaxonomyVersion = cursor.getInt(32),
                                         sourceType = when {
                                             source.startsWith("USDA Foundation Foods") -> FoodDataSourceType.USDA_FOUNDATION
                                             source.startsWith("USDA FNDDS") -> FoodDataSourceType.USDA_FNDDS
@@ -325,7 +337,8 @@ internal object LargeLocalFoodDatabase {
                        unit, source, search_text, brand, micronutrients_json,
                        saturated_fat, saturated_fat_known, sodium_mg, sodium_known,
                        salt_g, salt_known, source_record_id,
-                       plant_food, plant_food_kind, plant_diversity_key
+                       plant_food, plant_food_kind, plant_diversity_key,
+                       food_tags_json, taxonomy_version
                 FROM food_reference
                 WHERE source LIKE 'USDA%' AND $where
                 ORDER BY
@@ -550,6 +563,7 @@ internal object LargeLocalFoodDatabase {
             val db = helper.writableDatabase
             priorityFoods().forEach { insertFood(db, it, replace = false) }
             backfillPlantClassificationIfNeeded(db)
+            backfillFoodTaxonomyIfNeeded(db)
             seedCanonicalLocalVariants(db)
             db.execSQL("UPDATE food_reference SET core_rank = 0 WHERE id LIKE 'core:%'")
             synchronized(localSearchCacheLock) { localSearchCache.clear() }
@@ -601,6 +615,67 @@ internal object LargeLocalFoodDatabase {
                 }
             }
             putMeta(db, PLANT_CLASSIFIER_META, PlantFoodClassifier.SCHEMA_VERSION.toString())
+            db.setTransactionSuccessful()
+        } finally {
+            db.endTransaction()
+        }
+    }
+
+    /**
+     * Food tags are derived metadata. A taxonomy schema bump reclassifies every existing local row
+     * once, so old installs and future rule improvements stay consistent without manual row edits.
+     */
+    private fun backfillFoodTaxonomyIfNeeded(db: SQLiteDatabase) {
+        val current = db.rawQuery(
+            "SELECT value FROM food_reference_meta WHERE key = ? LIMIT 1",
+            arrayOf(FOOD_TAXONOMY_META)
+        ).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0).toIntOrNull() ?: 0 else 0
+        }
+        if (current >= FoodTaxonomyClassifier.SCHEMA_VERSION) return
+
+        db.beginTransaction()
+        try {
+            db.rawQuery(
+                """
+                SELECT id, name, search_text, brand, plant_food, plant_food_kind, plant_diversity_key
+                FROM food_reference
+                """.trimIndent(),
+                null
+            ).use { cursor ->
+                val update = db.compileStatement(
+                    """
+                    UPDATE food_reference
+                    SET food_tags_json = ?, taxonomy_version = ?
+                    WHERE id = ?
+                    """.trimIndent()
+                )
+                while (cursor.moveToNext()) {
+                    val id = cursor.getString(0)
+                    val name = cursor.getString(1)
+                    val searchText = buildString {
+                        append(cursor.getString(2).orEmpty())
+                        append(' ')
+                        append(cursor.getString(3).orEmpty())
+                    }
+                    val plant = if (cursor.getInt(4) != 0 && cursor.getString(6).isNotBlank()) {
+                        PlantFoodIdentity(
+                            true,
+                            runCatching { PlantFoodKind.valueOf(cursor.getString(5)) }.getOrDefault(PlantFoodKind.NONE),
+                            cursor.getString(6)
+                        )
+                    } else {
+                        PlantFoodClassifier.classify(name, searchText)
+                    }
+                    val tags = FoodTaxonomyClassifier.classify(name, searchText, plantIdentity = plant)
+                    update.clearBindings()
+                    update.bindString(1, encodeFoodTags(tags))
+                    update.bindLong(2, FoodTaxonomyClassifier.SCHEMA_VERSION.toLong())
+                    update.bindString(3, id)
+                    update.executeUpdateDelete()
+                }
+            }
+            putMeta(db, FOOD_TAXONOMY_META, FoodTaxonomyClassifier.SCHEMA_VERSION.toString())
             db.setTransactionSuccessful()
         } finally {
             db.endTransaction()
@@ -1094,6 +1169,12 @@ internal object LargeLocalFoodDatabase {
         } else {
             PlantFoodClassifier.classify(food.name, food.searchText, food.ingredientsText)
         }
+        val foodTags = (food.foodTags + FoodTaxonomyClassifier.classify(
+            food.name,
+            food.searchText,
+            food.ingredientsText,
+            plantIdentity
+        )).toSet()
         val values = ContentValues().apply {
             put("id", food.id)
             put("name", food.name)
@@ -1135,6 +1216,8 @@ internal object LargeLocalFoodDatabase {
             put("plant_food", if (plantIdentity.isPlantFood) 1 else 0)
             put("plant_food_kind", plantIdentity.kind.name)
             put("plant_diversity_key", plantIdentity.diversityKey)
+            put("food_tags_json", encodeFoodTags(foodTags))
+            put("taxonomy_version", FoodTaxonomyClassifier.SCHEMA_VERSION)
         }
         db.insertWithOnConflict(
             "food_reference",
@@ -1149,11 +1232,12 @@ internal object LargeLocalFoodDatabase {
         val name: String,
         val source: String,
         val microCount: Int,
-        val essentialCount: Int
+        val essentialCount: Int,
+        val tags: Set<FoodTag>
     )
 
     /**
-     * Builds the 3,000-food Project Superhuman core library inside the local reference DB.
+     * Builds the 10,000-food Project Superhuman core library inside the local reference DB.
      * Selection is deterministic and source-backed. FNDDS contributes common consumed foods,
      * Foundation Foods contributes analytical ingredients, and SR Legacy fills preparation variants.
      */
@@ -1161,7 +1245,7 @@ internal object LargeLocalFoodDatabase {
         val candidates = mutableListOf<CoreCandidate>()
         db.rawQuery(
             """
-            SELECT id, name, source, micronutrient_count, essential_micronutrient_count
+            SELECT id, name, source, micronutrient_count, essential_micronutrient_count, food_tags_json
             FROM food_reference
             WHERE id LIKE 'usda:%'
               AND protein_known = 1
@@ -1171,7 +1255,7 @@ internal object LargeLocalFoodDatabase {
               AND sugar_known = 1
               AND saturated_fat_known = 1
               AND sodium_known = 1
-              AND micronutrient_count >= 4
+              AND essential_micronutrient_count >= $CORE_MIN_MICRONUTRIENTS
             """.trimIndent(),
             null
         ).use { cursor ->
@@ -1181,7 +1265,8 @@ internal object LargeLocalFoodDatabase {
                     name = cursor.getString(1),
                     source = cursor.getString(2),
                     microCount = cursor.getInt(3),
-                    essentialCount = cursor.getInt(4)
+                    essentialCount = cursor.getInt(4),
+                    tags = decodeFoodTags(cursor.getString(5))
                 )
             }
         }
@@ -1194,8 +1279,18 @@ internal object LargeLocalFoodDatabase {
                 candidate.source.startsWith("USDA SR Legacy") -> 260
                 else -> 180
             }
-            score += candidate.essentialCount * 10
+            score += candidate.essentialCount * 14
             score += candidate.microCount.coerceAtMost(40)
+            if (candidate.essentialCount >= CORE_PREFERRED_MICRONUTRIENTS) score += 120
+
+            // Keep the 10k core useful for ordinary supermarket logging rather than allowing
+            // obscure analytical variants to dominate purely on nutrient count.
+            if (candidate.tags.any { it in setOf(
+                    FoodTag.FRUIT, FoodTag.VEGETABLE, FoodTag.LEGUME, FoodTag.GRAIN,
+                    FoodTag.DAIRY, FoodTag.MEAT, FoodTag.POULTRY, FoodTag.FISH,
+                    FoodTag.SEAFOOD, FoodTag.BREAD, FoodTag.BAKED_GOOD,
+                    FoodTag.BAKING_INGREDIENT
+                ) }) score += 45
 
             val commonTerms = listOf(
                 "egg", "milk", "yogurt", "cheese", "chicken", "turkey", "beef", "pork",
@@ -1203,8 +1298,10 @@ internal object LargeLocalFoodDatabase {
                 "potato", "sweet potato", "bean", "lentil", "chickpea", "pea",
                 "apple", "banana", "orange", "berry", "strawberry", "blueberry",
                 "tomato", "onion", "garlic", "carrot", "broccoli", "spinach",
-                "cabbage", "pepper", "cucumber", "mushroom", "avocado",
-                "almond", "walnut", "peanut", "seed", "olive oil", "butter",
+                "cabbage", "pepper", "cucumber", "mushroom", "avocado", "arugula", "rocket",
+                "courgette", "zucchini", "aubergine", "eggplant", "leek", "asparagus",
+                "almond", "walnut", "peanut", "seed", "olive oil", "butter", "kefir", "skyr",
+                "chicken breast", "chicken leg", "chicken thigh", "drumstick", "chicken wing",
                 "raw", "boiled", "cooked", "baked", "roasted", "fried", "grilled"
             )
             score += commonTerms.count(text::contains) * 16
@@ -1218,7 +1315,7 @@ internal object LargeLocalFoodDatabase {
             return score
         }
 
-        val comparator = compareByDescending<CoreCandidate> { it.essentialCount >= CORE_MIN_MICRONUTRIENTS }
+        val comparator = compareByDescending<CoreCandidate> { it.essentialCount >= CORE_PREFERRED_MICRONUTRIENTS }
             .thenByDescending { commonnessScore(it) }
             .thenByDescending { it.essentialCount }
             .thenByDescending { it.microCount }
@@ -1289,6 +1386,8 @@ internal object LargeLocalFoodDatabase {
                     put("plant_food", cursor.getInt(28))
                     put("plant_food_kind", cursor.getString(29))
                     put("plant_diversity_key", cursor.getString(30))
+                    put("food_tags_json", cursor.getString(31))
+                    put("taxonomy_version", cursor.getInt(32))
                 }
             }
             if (source != null) {
@@ -1309,13 +1408,15 @@ internal object LargeLocalFoodDatabase {
             "SELECT COUNT(*) FROM food_reference WHERE id LIKE 'core:usda:%'",
             null
         ).toInt()
-        val strictCount = selected.count { it.essentialCount >= CORE_MIN_MICRONUTRIENTS }
+        val strictCount = selected.count { it.essentialCount >= CORE_PREFERRED_MICRONUTRIENTS }
 
         putMeta(db, "project_superhuman_core_food_count", materializedCount.toString())
         putMeta(db, "project_superhuman_core_food_strict_count", strictCount.toString())
-        putMeta(db, "project_superhuman_core_food_schema", "7")
+        putMeta(db, "project_superhuman_core_food_schema", "8")
         putMeta(db, "project_superhuman_core_food_storage", "materialized-local-snapshot")
         putMeta(db, "project_superhuman_core_food_min_essential", CORE_MIN_MICRONUTRIENTS.toString())
+        putMeta(db, "project_superhuman_core_food_preferred_essential", CORE_PREFERRED_MICRONUTRIENTS.toString())
+        putMeta(db, "project_superhuman_core_food_taxonomy_schema", FoodTaxonomyClassifier.SCHEMA_VERSION.toString())
         putMeta(db, "project_superhuman_core_food_essential_total", CORE_MICRONUTRIENTS.size.toString())
     }
 
@@ -1329,6 +1430,21 @@ internal object LargeLocalFoodDatabase {
             },
             SQLiteDatabase.CONFLICT_REPLACE
         )
+    }
+
+    private fun encodeFoodTags(tags: Set<FoodTag>): String =
+        JSONArray(tags.map { it.name }.sorted()).toString()
+
+    private fun decodeFoodTags(raw: String?): Set<FoodTag> {
+        if (raw.isNullOrBlank()) return emptySet()
+        return runCatching {
+            val array = JSONArray(raw)
+            buildSet {
+                for (i in 0 until array.length()) {
+                    runCatching { FoodTag.valueOf(array.optString(i)) }.getOrNull()?.let(::add)
+                }
+            }
+        }.getOrDefault(emptySet())
     }
 
     private fun encodeMicros(micros: Map<String, NativeNutrient>): String {
@@ -1484,7 +1600,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
     context.applicationContext,
     "superhuman_large_food_reference.db",
     null,
-    10
+    11
 ) {
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
@@ -1523,7 +1639,9 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
                 core_rank INTEGER,
                 plant_food INTEGER NOT NULL DEFAULT 0,
                 plant_food_kind TEXT NOT NULL DEFAULT 'NONE',
-                plant_diversity_key TEXT NOT NULL DEFAULT ''
+                plant_diversity_key TEXT NOT NULL DEFAULT '',
+                food_tags_json TEXT NOT NULL DEFAULT '[]',
+                taxonomy_version INTEGER NOT NULL DEFAULT 1
             )
             """.trimIndent()
         )
@@ -1531,6 +1649,7 @@ private class LargeFoodDb(context: Context) : SQLiteOpenHelper(
         db.execSQL("CREATE INDEX food_reference_micro_idx ON food_reference(micronutrient_count DESC)")
         db.execSQL("CREATE INDEX food_reference_core_idx ON food_reference(core_rank)")
         db.execSQL("CREATE INDEX food_reference_plant_idx ON food_reference(plant_food, plant_diversity_key)")
+        db.execSQL("CREATE INDEX food_reference_taxonomy_idx ON food_reference(taxonomy_version)")
         db.execSQL(
             """
             CREATE TABLE food_reference_meta(
