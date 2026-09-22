@@ -114,6 +114,7 @@ private data class N2Entry(
     val isPlantFood: Boolean,
     val plantFoodKind: PlantFoodKind,
     val plantDiversityKey: String,
+    val plantDiversityEligible: Boolean,
     val foodTags: Set<FoodTag>
 )
 
@@ -154,7 +155,7 @@ private data class N2PlantDiversitySnapshot(
 
 private fun n2PlantDiversity(days: List<N2Day>): N2PlantDiversitySnapshot {
     val entries = days.flatMap { it.entries }
-        .filter { it.isPlantFood && it.plantDiversityKey.isNotBlank() }
+        .filter { it.plantDiversityEligible && it.plantDiversityKey.isNotBlank() }
 
     val uniqueByKey = entries
         .groupBy { it.plantDiversityKey }
@@ -2320,10 +2321,18 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
         val plantKey = anchor.metadata["plantDiversityKey"]
             ?.takeIf { it.isNotBlank() }
             ?: inferredPlant.diversityKey
+        val plantDiversityEligible = anchor.metadata["plantDiversityEligible"]
+            ?.toBooleanStrictOrNull()
+            ?: inferredPlant.diversityEligible
         val inferredTags = FoodTaxonomyClassifier.classify(
             anchor.metadata["name"] ?: "Food",
             anchor.metadata["brand"].orEmpty(),
-            plantIdentity = PlantFoodIdentity(resolvedPlant, plantKind, plantKey)
+            plantIdentity = PlantFoodIdentity(
+                isPlantFood = resolvedPlant,
+                kind = plantKind,
+                diversityKey = plantKey,
+                diversityEligible = plantDiversityEligible
+            )
         )
         val storedTags = anchor.metadata["foodTags"]
             ?.split(',')
@@ -2369,6 +2378,7 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             isPlantFood = resolvedPlant,
             plantFoodKind = plantKind,
             plantDiversityKey = plantKey,
+            plantDiversityEligible = plantDiversityEligible,
             foodTags = storedTags + inferredTags
         )
     }.sortedByDescending { it.timestamp }
