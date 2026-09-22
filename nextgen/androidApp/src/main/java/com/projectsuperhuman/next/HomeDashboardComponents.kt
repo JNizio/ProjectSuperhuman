@@ -592,453 +592,49 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
         )
 
         Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "TRAINING",
-                    color = Color.White.copy(alpha = .64f),
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.15.sp
-                )
-                Box(
-                    Modifier.width(36.dp).height(36.dp)
-                        .background(Color.White.copy(alpha = .09f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        "→",
-                        color = Color.White.copy(alpha = .88f),
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(7.dp))
-            Text(headline, color = Color.White, fontSize = 25.sp, lineHeight = 27.sp, fontWeight = FontWeight.Black)
-            Text(
-                summaryLine,
-                color = Color.White.copy(alpha = .56f),
-                fontSize = 9.sp
-            )
-
-            Spacer(Modifier.height(11.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = .10f)))
-            Spacer(Modifier.height(11.dp))
-
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                TrainingSummaryColumn(
-                    title = "STRENGTH",
-                    accent = strengthAccent,
-                    primary = if (snapshot.strengthWorkoutsToday > 0) {
-                        "${snapshot.strengthWorkoutsToday} session${if (snapshot.strengthWorkoutsToday == 1) "" else "s"}"
-                    } else {
-                        "No session"
-                    },
-                    secondary = "",
-                    modifier = Modifier.weight(1f)
-                )
-
-                Box(
-                    Modifier.width(1.dp).height(49.dp)
-                        .background(Color.White.copy(alpha = .10f))
-                )
-
-                TrainingSummaryColumn(
-                    title = "CARDIO",
-                    accent = cardioAccent,
-                    primary = if (snapshot.cardioWorkoutsToday > 0) {
-                        "${snapshot.cardioWorkoutsToday} session${if (snapshot.cardioWorkoutsToday == 1) "" else "s"}"
-                    } else {
-                        "No session"
-                    },
-                    secondary = "",
-                    modifier = Modifier.weight(1f).padding(start = 14.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun TrainingSummaryColumn(
-    title: String,
-    accent: Color,
-    primary: String,
-    secondary: String,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(7.dp).height(7.dp).background(accent, CircleShape))
-            Spacer(Modifier.width(6.dp))
-            Text(
-                title,
-                color = accent,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = .65.sp,
-                maxLines = 1
-            )
-        }
-        Spacer(Modifier.height(5.dp))
-        Text(
-            primary,
-            color = Color.White,
-            fontSize = 12.5.sp,
-            lineHeight = 15.sp,
-            fontWeight = FontWeight.Black,
-            maxLines = 1
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            secondary,
-            color = Color.White.copy(alpha = .50f),
-            fontSize = 7.sp,
-            lineHeight = 9.sp,
-            maxLines = 1
-        )
-    }
-}
-
-@Composable
-internal fun LegacyBodyCard(snapshot: NativeHomeSnapshot, modifier: Modifier, onClick: () -> Unit) {
-    val weightLabel = snapshot.bodyWeightKg?.let { "%.1f kg".format(it) } ?: "—"
-    val changeLabel = snapshot.bodyWeightChange30d?.let {
-        val sign = if (it > 0) "+" else ""
-        "$sign${"%.1f".format(it)} kg"
-    } ?: "—"
-    val entriesLabel = snapshot.bodyWeightTrend.size.takeIf { it > 0 }?.toString() ?: "—"
-    val gradient = if (SuperhumanAppearance.darkMode) {
-        listOf(superhumanSurfaceElevated, Color(0xFF1B1929))
-    } else {
-        listOf(Color(0xFFFCFCFF), Color(0xFFF7F5FC))
-    }
-
-    Column(
-        modifier.height(116.dp)
-            .clip(RoundedCornerShape(23.dp))
-            .background(Brush.horizontalGradient(gradient))
-            .border(1.dp, HomeBorder, RoundedCornerShape(23.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 13.dp)
-    ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("BODY", color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-            Text("→", color = HomeMuted, fontSize = 21.sp)
-        }
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            BodyHomeStat("WEIGHT", weightLabel, Modifier.weight(1f))
-            BodyHomeStat("30 DAYS", changeLabel, Modifier.weight(1f))
-            BodyHomeStat("ENTRIES", entriesLabel, Modifier.weight(1f))
-        }
-    }
-}
-
-@Composable
-private fun BodyHomeStat(label: String, value: String, modifier: Modifier) {
-    Column(modifier) {
-        Text(label, color = HomeMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp, maxLines = 1)
-        Spacer(Modifier.height(3.dp))
-        Text(value, color = HomePurple, fontSize = 17.sp, fontWeight = FontWeight.Black, maxLines = 1)
-    }
-}
-
-@Composable
-internal fun HomeBodyMindfulnessRow(snapshot: NativeHomeSnapshot, openBody: () -> Unit, openMindfulness: () -> Unit) {
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        LegacyBodyCard(snapshot, Modifier.fillMaxWidth(), openBody)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            LegacyMindfulnessCard(snapshot, Modifier.weight(1f), openMindfulness)
-            LegacyBreathworkCard(Modifier.weight(1f), openMindfulness)
-        }
-    }
-}
-
-@Composable
-private fun LegacyMindfulnessCard(snapshot: NativeHomeSnapshot, modifier: Modifier, onClick: () -> Unit) {
-    val minutes = snapshot.mindfulnessMinutesToday
-    val card = if (SuperhumanAppearance.darkMode) Color(0xFF0F252A) else Color(0xFFF4FAFB)
-    Column(modifier.height(132.dp).clip(RoundedCornerShape(23.dp)).background(card).border(1.dp, HomeBorder, RoundedCornerShape(23.dp)).clickable(onClick = onClick).padding(15.dp)) {
-        LegacyCardHeader("MINDFULNESS")
-        Spacer(Modifier.height(7.dp))
-        Text(if (minutes > 0) "$minutes min" else "Ready", color = if (SuperhumanAppearance.darkMode) Color(0xFF75D5D0) else Color(0xFF176B72), fontSize = 19.sp, fontWeight = FontWeight.Black)
-        Text(if (minutes > 0) "mindful time today" else "Meditate · reflect · reset", color = HomeMuted, fontSize = 8.sp)
-        Spacer(Modifier.height(11.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.Bottom) {
-            listOf(10, 17, 25, 18, 12).forEachIndexed { index, height ->
-                Box(Modifier.weight(1f).height(height.dp).background(if (minutes > 0 && index < 3) Color(0xFF5CB7AE) else superhumanSurfaceSoft, RoundedCornerShape(8.dp)))
-            }
-        }
-    }
-}
-
-@Composable
-private fun LegacyBreathworkCard(modifier: Modifier, onClick: () -> Unit) {
-    Box(
-        modifier.height(132.dp)
-            .clip(RoundedCornerShape(23.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF0A3769), Color(0xFF0D7394), Color(0xFF24AFB0))))
-            .border(1.dp, Color(0xFF3A9BB0), RoundedCornerShape(23.dp))
-            .clickable(onClick = onClick)
-    ) {
-        Canvas(Modifier.fillMaxSize()) {
-            drawCircle(Color.White.copy(alpha = .08f), radius = size.minDimension * .32f, center = Offset(size.width * .77f, size.height * .54f))
-            drawCircle(Color.White.copy(alpha = .06f), radius = size.minDimension * .21f, center = Offset(size.width * .77f, size.height * .54f), style = Stroke(width = 2f))
-        }
-        Column(Modifier.fillMaxSize().padding(15.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("BREATHWORK", color = Color.White.copy(alpha = .68f), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                Text("→", color = Color.White.copy(alpha = .72f), fontSize = 18.sp)
-            }
-            Spacer(Modifier.height(8.dp))
-            Text("3 rounds", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Black)
-            Text("30 breaths · guided retention", color = Color.White.copy(alpha = .72f), fontSize = 8.sp)
-            Spacer(Modifier.height(12.dp))
-            Box(Modifier.width(56.dp).height(6.dp).clip(CircleShape).background(Color.White.copy(alpha = .18f))) {
-                Box(Modifier.fillMaxWidth(.66f).fillMaxSize().background(Color(0xFF8DEBDD)))
-            }
-        }
-    }
-}
-
-@Composable
-private fun BodySparkline(values: List<Double>) {
-    Canvas(Modifier.fillMaxWidth().height(42.dp)) {
-        if (values.size < 2) { drawLine(HomePurple.copy(alpha = .32f), Offset(0f, size.height * .65f), Offset(size.width, size.height * .65f), strokeWidth = 3f); return@Canvas }
-        val min = values.minOrNull() ?: return@Canvas
-        val max = values.maxOrNull() ?: return@Canvas
-        val range = (max - min).coerceAtLeast(.2)
-        val path = Path()
-        values.forEachIndexed { i, value ->
-            val x = i.toFloat() / (values.size - 1) * size.width
-            val y = size.height - (((value - min) / range).toFloat() * size.height * .78f) - size.height * .08f
-            if (i == 0) path.moveTo(x, y) else path.lineTo(x, y)
-        }
-        drawPath(path, HomePurple, style = Stroke(width = 4f))
-        val last = values.last()
-        val lastY = size.height - (((last - min) / range).toFloat() * size.height * .78f) - size.height * .08f
-        drawCircle(superhumanSurface, 7f, Offset(size.width - 2f, lastY))
-        drawCircle(HomePurple, 7f, Offset(size.width - 2f, lastY), style = Stroke(width = 3f))
-    }
-}
-
-@Composable
-internal fun LegacySleepCard(snapshot: NativeHomeSnapshot, modifier: Modifier, onClick: () -> Unit) {
-    Box(modifier.height(148.dp).clip(RoundedCornerShape(23.dp)).background(HomeCard).border(1.dp, HomeBorder, RoundedCornerShape(23.dp)).clickable(onClick = onClick)) {
-        LegacyAssetImage("dashboard_sleep.png", Modifier.width(115.dp).fillMaxSize().align(Alignment.CenterEnd), alpha = if (SuperhumanAppearance.darkMode) .28f else .62f)
-        Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(listOf(HomeCard, HomeCard.copy(alpha = .93f), Color.Transparent))))
-        Column(Modifier.fillMaxSize().padding(15.dp)) {
-            LegacyCardHeader("SLEEP")
-            Spacer(Modifier.height(8.dp))
-            Text(snapshot.sleepMinutes?.let(::formatMinutesHome) ?: "—", color = HomeNavy, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(8.dp))
-            Box(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(superhumanSurfaceSoft)) {
-                val progress = ((snapshot.sleepMinutes ?: 0) / 480f).coerceIn(0f, 1f)
-                Box(Modifier.fillMaxWidth(progress.coerceAtLeast(.02f)).fillMaxSize().background(Brush.horizontalGradient(listOf(Color(0xFF5C84DE), Color(0xFF7C9EE9)))))
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(snapshot.sleepScore?.let { "Sleep score $it · 8.0 h target" } ?: "Sync sleep data", color = HomeMuted, fontSize = 8.sp)
-        }
-    }
-}
-
-@Composable
-private fun LegacyCardHeader(label: String) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, color = HomeMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-        Text("→", color = HomeMuted, fontSize = 18.sp)
-    }
-}
-
-@Composable
-internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
-    val hasFood = snapshot.nutritionEntriesToday > 0
-    val nutritionGradient = if (SuperhumanAppearance.darkMode) {
-        listOf(Color(0xFF06151F), Color(0xFF0A222B), Color(0xFF103238))
-    } else {
-        listOf(Color(0xFFF8FBFA), Color(0xFFF0F7F4), Color(0xFFE8F2EE))
-    }
-    val accent = if (SuperhumanAppearance.darkMode) Color(0xFF70D9C7) else Color(0xFF167C6B)
-    val carbsAccent = if (SuperhumanAppearance.darkMode) Color(0xFF69B8E9) else Color(0xFF2A79A9)
-    val muted = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .54f) else HomeMuted
-    val strong = if (SuperhumanAppearance.darkMode) Color.White else HomeNavy
-    val track = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .09f) else HomeBorder
-
-    val calorieRemaining = snapshot.calorieGoal?.let { it - snapshot.caloriesToday }
-    val calorieProgress = snapshot.calorieGoal
-        ?.takeIf { it > 0 }
-        ?.let { (snapshot.caloriesToday.toFloat() / it.toFloat()).coerceIn(0f, 1f) }
-        ?: 0f
-    val caloriePercent = (calorieProgress * 100f).roundToInt()
-
-    val insight = when {
-        !hasFood -> "Log food to start today’s nutrition picture"
-        snapshot.proteinGoal != null && snapshot.proteinToday >= snapshot.proteinGoal ->
-            "Protein target reached"
-        snapshot.fibreGoal != null && snapshot.fibreToday < snapshot.fibreGoal ->
-            "${snapshot.fibreGoal - snapshot.fibreToday} g fibre remaining"
-        calorieRemaining != null && calorieRemaining > 0 ->
-            "$calorieRemaining kcal remaining"
-        calorieRemaining == 0 -> "Calorie target reached"
-        calorieRemaining != null && calorieRemaining < 0 ->
-            "${kotlin.math.abs(calorieRemaining)} kcal over target"
-        else -> "Today’s nutrition"
-    }
-
-    Box(
-        Modifier.fillMaxWidth()
-            .height(206.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Brush.linearGradient(nutritionGradient))
-            .border(
-                1.dp,
-                accent.copy(alpha = if (SuperhumanAppearance.darkMode) .22f else .13f),
-                RoundedCornerShape(28.dp)
-            )
-            .clickable(onClick = onClick)
-    ) {
-        LegacyAssetImage(
-            "dashboard_nutrition.png",
-            Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            alpha = if (SuperhumanAppearance.darkMode) .045f else .09f
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(
-                    listOf(
-                        nutritionGradient.first(),
-                        nutritionGradient.first().copy(alpha = .995f),
-                        nutritionGradient[1].copy(alpha = .97f),
-                        nutritionGradient.last().copy(alpha = .82f),
-                        Color.Transparent
-                    )
-                )
-            )
-        )
-
-        Column(
-            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 15.dp)
-        ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    "NUTRITION",
-                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.15.sp
-                )
-                Box(
-                    Modifier.size(36.dp).background(accent.copy(alpha = .12f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("→", color = accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Spacer(Modifier.height(7.dp))
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(17.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                HomeNutritionCalorieRing(
-                    calories = snapshot.caloriesToday,
-                    calorieGoal = snapshot.calorieGoal,
-                    caloriesComplete = snapshot.nutritionCaloriesComplete,
-                    progress = calorieProgress,
-                    accent = accent,
-                    track = track,
-                    modifier = Modifier.size(104.dp)
-                )
-
-                Column(
-                    Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    HomeNutritionMacroRow(
-                        label = "Protein",
-                        value = snapshot.proteinToday,
-                        target = snapshot.proteinGoal,
-                        accent = accent
-                    )
-                    HomeNutritionMacroRow(
-                        label = "Carbs",
-                        value = snapshot.carbsToday,
-                        target = snapshot.carbsGoal,
-                        accent = carbsAccent
-                    )
-                    HomeNutritionMacroRow(
-                        label = "Fat",
-                        value = snapshot.fatToday,
-                        target = snapshot.fatGoal,
-                        accent = HomeAmber
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(9.dp))
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    insight,
-                    color = muted,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f)
-                )
-                if (snapshot.calorieGoal != null) {
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        "$caloriePercent%",
-                        color = strong.copy(alpha = .70f),
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.End
-                    )
-                }
-            }
         }
     }
 }
 
 @Composable
 private fun HomeNutritionCalorieRing(
+    snapshot: NativeHomeSnapshot,
     calories: Int,
     calorieGoal: Int?,
     caloriesComplete: Boolean,
     progress: Float,
     accent: Color,
+    proteinColor: Color,
+    carbsColor: Color,
+    fatColor: Color,
+    fibreColor: Color,
     track: Color,
     modifier: Modifier = Modifier
 ) {
     val remaining = calorieGoal?.let { (it - calories).coerceAtLeast(0) }
+    val macroEnergy = listOf(
+        snapshot.proteinToday * 4f,
+        snapshot.carbsToday * 4f,
+        snapshot.fatToday * 9f,
+        snapshot.fibreToday * 2f
+    )
+    val macroColors = listOf(proteinColor, carbsColor, fatColor, fibreColor)
+    val macroTotal = macroEnergy.sum().coerceAtLeast(0f)
 
     Box(modifier, contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
-            val stroke = 8.dp.toPx()
-            val inset = 7.dp.toPx()
-            val arcSize = androidx.compose.ui.geometry.Size(
-                size.width - inset * 2f,
-                size.height - inset * 2f
+            val calorieStroke = 8.dp.toPx()
+            val macroStroke = 4.dp.toPx()
+            val calorieInset = 17.dp.toPx()
+            val macroInset = 4.dp.toPx()
+
+            val calorieSize = androidx.compose.ui.geometry.Size(
+                size.width - calorieInset * 2f,
+                size.height - calorieInset * 2f
+            )
+            val macroSize = androidx.compose.ui.geometry.Size(
+                size.width - macroInset * 2f,
+                size.height - macroInset * 2f
             )
 
             drawArc(
@@ -1046,43 +642,79 @@ private fun HomeNutritionCalorieRing(
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
-                topLeft = Offset(inset, inset),
-                size = arcSize,
-                style = Stroke(width = stroke, cap = StrokeCap.Round)
+                topLeft = Offset(calorieInset, calorieInset),
+                size = calorieSize,
+                style = Stroke(width = calorieStroke, cap = StrokeCap.Round)
             )
 
             if (calorieGoal != null && progress > 0f) {
                 drawArc(
-                    brush = Brush.sweepGradient(
-                        listOf(
-                            accent.copy(alpha = .72f),
-                            accent,
-                            accent.copy(alpha = .88f)
-                        )
-                    ),
+                    color = Color.White,
                     startAngle = -90f,
                     sweepAngle = 360f * progress,
                     useCenter = false,
-                    topLeft = Offset(inset, inset),
-                    size = arcSize,
-                    style = Stroke(width = stroke, cap = StrokeCap.Round)
+                    topLeft = Offset(calorieInset, calorieInset),
+                    size = calorieSize,
+                    style = Stroke(width = calorieStroke, cap = StrokeCap.Round)
+                )
+            }
+
+            if (macroTotal > 0f) {
+                val gap = 5f
+                val available = 360f - gap * 4f
+                var startAngle = -90f
+
+                macroEnergy.forEachIndexed { index, energy ->
+                    val sweep = available * (energy / macroTotal)
+                    if (sweep > 0f) {
+                        drawArc(
+                            color = macroColors[index],
+                            startAngle = startAngle,
+                            sweepAngle = sweep,
+                            useCenter = false,
+                            topLeft = Offset(macroInset, macroInset),
+                            size = macroSize,
+                            style = Stroke(width = macroStroke, cap = StrokeCap.Round)
+                        )
+                    }
+                    startAngle += sweep + gap
+                }
+            } else {
+                drawArc(
+                    color = track.copy(alpha = .7f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = Offset(macroInset, macroInset),
+                    size = macroSize,
+                    style = Stroke(width = macroStroke, cap = StrokeCap.Round)
                 )
             }
         }
 
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+            modifier = Modifier.width(70.dp)
+        ) {
             Text(
                 (if (caloriesComplete) "" else "~") + calories,
                 color = if (SuperhumanAppearance.darkMode) Color.White else HomeNavy,
-                fontSize = 22.sp,
-                lineHeight = 23.sp,
-                fontWeight = FontWeight.Black
+                fontSize = 21.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                textAlign = TextAlign.Center
             )
+            Spacer(Modifier.height(1.dp))
             Text(
-                "kcal eaten",
+                "kcal",
                 color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .48f) else HomeMuted,
                 fontSize = 7.sp,
-                fontWeight = FontWeight.SemiBold
+                lineHeight = 8.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                textAlign = TextAlign.Center
             )
             if (remaining != null) {
                 Spacer(Modifier.height(2.dp))
@@ -1090,7 +722,10 @@ private fun HomeNutritionCalorieRing(
                     if (remaining > 0) "$remaining left" else "target met",
                     color = accent,
                     fontSize = 7.sp,
-                    fontWeight = FontWeight.Bold
+                    lineHeight = 8.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    textAlign = TextAlign.Center
                 )
             }
         }
