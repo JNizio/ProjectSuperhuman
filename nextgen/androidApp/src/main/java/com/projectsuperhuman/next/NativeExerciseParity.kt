@@ -726,10 +726,11 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     onProgress = { mode = "progress" }
                 )
 
-                StrengthPresetEntryCard(
-                    savedCount = routines.size,
-                    hasNext = nextRoutineName.isNotBlank(),
-                    onClick = { mode = "routines" }
+                StrengthToolsCard(
+                    savedPresetCount = routines.size,
+                    exerciseCount = catalog.size,
+                    onPresets = { mode = "routines" },
+                    onLibrary = { mode = "library" }
                 )
 
                 StrengthProgressCard(
@@ -781,20 +782,6 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     )
                 }
 
-                StrengthLibraryEntry(exerciseCount = catalog.size, onClick = { mode = "library" })
-
-                if (routines.isNotEmpty()) {
-                    val nextRoutine = routines.firstOrNull { it.name == nextRoutineName } ?: routines.first()
-                    StrengthRoutineShortcut(
-                        routine = nextRoutine,
-                        catalog = catalog,
-                        label = if (nextRoutine.name == nextRoutineName) "NEXT WORKOUT" else "ROUTINE",
-                        onStart = {
-                            startWorkout(it)
-                            workoutName = nextRoutine.name
-                        }
-                    )
-                }
             }
             "start_picker" -> {
                 val savedPresets = routines
@@ -2085,7 +2072,7 @@ private fun StrengthQuickActions(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        StrengthQuickAction("Routines", ExerciseBlue, Modifier.weight(1f), onRoutines)
+        StrengthQuickAction("Presets", ExerciseBlue, Modifier.weight(1f), onRoutines)
         StrengthQuickDivider()
         StrengthQuickAction("History", ExercisePurple, Modifier.weight(1f), onHistory)
         StrengthQuickDivider()
@@ -2218,51 +2205,93 @@ private fun StrengthStartPresetRow(
 }
 
 @Composable
-private fun StrengthPresetEntryCard(
-    savedCount: Int,
-    hasNext: Boolean,
-    onClick: () -> Unit
+private fun StrengthToolsCard(
+    savedPresetCount: Int,
+    exerciseCount: Int,
+    onPresets: () -> Unit,
+    onLibrary: () -> Unit
 ) {
     Row(
         Modifier.fillMaxWidth()
             .background(ExerciseSurface, RoundedCornerShape(18.dp))
             .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
-            .superhumanClickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Box(
-            Modifier.size(36.dp)
-                .background(ExerciseBlue.copy(alpha = .14f), CircleShape),
-            contentAlignment = Alignment.Center
+        Row(
+            Modifier.weight(1f)
+                .background(ExerciseBlue.copy(alpha = .08f), RoundedCornerShape(14.dp))
+                .superhumanClickable(onClick = onPresets)
+                .padding(horizontal = 11.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.tabler_dumbbell),
-                contentDescription = null,
-                tint = ExerciseBlue,
-                modifier = Modifier.size(19.dp)
-            )
+            Box(
+                Modifier.size(32.dp)
+                    .background(ExerciseBlue.copy(alpha = .14f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.tabler_dumbbell),
+                    contentDescription = null,
+                    tint = ExerciseBlue,
+                    modifier = Modifier.size(17.dp)
+                )
+            }
+            Column(
+                Modifier.weight(1f).padding(start = 9.dp)
+            ) {
+                Text(
+                    "Presets",
+                    color = ExerciseInk,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    if (savedPresetCount == 1) "1 saved" else "$savedPresetCount saved",
+                    color = ExerciseMuted,
+                    fontSize = 8.sp
+                )
+            }
+            Text("→", color = ExerciseBlue, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
-        Column(
-            Modifier.weight(1f).padding(horizontal = 11.dp)
+
+        Row(
+            Modifier.weight(1f)
+                .background(ExercisePurple.copy(alpha = .08f), RoundedCornerShape(14.dp))
+                .superhumanClickable(onClick = onLibrary)
+                .padding(horizontal = 11.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "Workout presets",
-                color = ExerciseInk,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Black
-            )
-            Text(
-                when {
-                    savedCount == 0 -> "Starter presets available"
-                    hasNext -> "$savedCount saved · next workout selected"
-                    else -> "$savedCount saved"
-                },
-                color = ExerciseMuted,
-                fontSize = 9.sp
-            )
+            Box(
+                Modifier.size(32.dp)
+                    .background(ExercisePurple.copy(alpha = .14f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "DB",
+                    color = ExercisePurple,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+            Column(
+                Modifier.weight(1f).padding(start = 9.dp)
+            ) {
+                Text(
+                    "Exercise library",
+                    color = ExerciseInk,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1
+                )
+                Text(
+                    "$exerciseCount exercises",
+                    color = ExerciseMuted,
+                    fontSize = 8.sp
+                )
+            }
+            Text("→", color = ExercisePurple, fontSize = 15.sp, fontWeight = FontWeight.Bold)
         }
-        Text("→", color = ExerciseBlue, fontSize = 18.sp, fontWeight = FontWeight.Bold)
     }
 }
 
