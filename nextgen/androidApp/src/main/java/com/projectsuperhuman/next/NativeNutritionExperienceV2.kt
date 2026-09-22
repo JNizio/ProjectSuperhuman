@@ -755,19 +755,19 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
     Row(
         Modifier
             .width(350.dp)
-            .background(N2SoftGreen, RoundedCornerShape(20.dp))
-            .border(1.dp, N2Green.copy(alpha = .22f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .background(N2SoftGreen, RoundedCornerShape(18.dp))
+            .border(1.dp, N2Green.copy(alpha = .22f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp)
+        horizontalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         Box(
-            Modifier.size(50.dp)
+            Modifier.size(44.dp)
                 .background(N2Green.copy(alpha = .10f), CircleShape)
                 .border(1.dp, N2Green.copy(alpha = .20f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(Modifier.size(44.dp)) {
+            Canvas(Modifier.size(38.dp)) {
                 val stemX = size.width * .5f
                 val stemTop = size.height * .30f
                 val stemBottom = size.height * .72f
@@ -776,7 +776,7 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
                     color = N2Green,
                     start = Offset(stemX, stemBottom),
                     end = Offset(stemX, stemTop),
-                    strokeWidth = 3.dp.toPx(),
+                    strokeWidth = 2.5.dp.toPx(),
                     cap = StrokeCap.Round
                 )
 
@@ -812,7 +812,7 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
                         size.width - 4.dp.toPx(),
                         size.height - 4.dp.toPx()
                     ),
-                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                    style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
                 )
 
                 if (progress > 0f) {
@@ -826,43 +826,57 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
                             size.width - 4.dp.toPx(),
                             size.height - 4.dp.toPx()
                         ),
-                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                        style = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round)
                     )
                 }
             }
         }
 
         Column(
-            Modifier.width(245.dp),
+            Modifier.width(286.dp),
             verticalArrangement = Arrangement.spacedBy(1.dp)
         ) {
-            Text(
-                "PLANT DIVERSITY",
-                color = N2Green,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = .75.sp
-            )
-            Text(
-                "${snapshot.uniquePlants} / $weeklyTarget this week",
-                color = N2Ink,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Black
-            )
-            Text(
-                if (snapshot.uniquePlants >= weeklyTarget) "Weekly target reached"
-                else "${weeklyTarget - snapshot.uniquePlants} more unique plants to reach 30",
-                color = N2Muted,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.SemiBold
-            )
-            if (detail.isNotBlank()) {
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
                 Text(
-                    detail,
+                    "PLANT DIVERSITY",
+                    color = N2Green,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = .7.sp
+                )
+                Text(
+                    "${snapshot.uniquePlants} / $weeklyTarget",
+                    color = N2Ink,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    if (snapshot.uniquePlants >= weeklyTarget) "Weekly target reached"
+                    else "${weeklyTarget - snapshot.uniquePlants} more to reach 30",
                     color = N2Muted,
-                    fontSize = 8.sp,
+                    fontSize = 7.sp,
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1
                 )
+                if (detail.isNotBlank()) {
+                    Text(
+                        detail,
+                        color = N2Muted,
+                        fontSize = 7.sp,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
