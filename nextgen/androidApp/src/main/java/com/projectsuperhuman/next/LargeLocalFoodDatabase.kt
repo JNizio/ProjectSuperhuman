@@ -301,9 +301,12 @@ internal object LargeLocalFoodDatabase {
             }
 
             val result = visible
+                .map { food ->
+                    if (retrievalQuery == q) food else food.copy(searchText = food.searchText + " " + q)
+                }
                 .distinctBy { it.id }
                 .sortedWith(
-                    compareBy<NativeFood> { canonicalQueryRank(it, q) }
+                    compareBy<NativeFood> { canonicalQueryRank(it, if (retrievalQuery == q) q else retrievalQuery) }
                         .thenBy { if (it.id.startsWith("core:")) 0 else 1 }
                         .thenByDescending { it.micronutrients.size }
                         .thenBy { it.name.length }
@@ -1339,7 +1342,8 @@ internal object LargeLocalFoodDatabase {
                        unit, source, search_text, brand, micronutrients_json,
                        micronutrient_count, essential_micronutrient_count,
                        salt_g, salt_known, unknown_micronutrients_json, source_record_id,
-                       plant_food, plant_food_kind, plant_diversity_key
+                       plant_food, plant_food_kind, plant_diversity_key,
+                       food_tags_json, taxonomy_version
                 FROM food_reference
                 WHERE id = ?
                 LIMIT 1
