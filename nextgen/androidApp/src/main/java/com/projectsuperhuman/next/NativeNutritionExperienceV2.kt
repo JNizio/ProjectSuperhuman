@@ -736,6 +736,8 @@ private fun N2Hero(
 
 @Composable
 private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
+    val weeklyTarget = 30
+    val progress = (snapshot.uniquePlants / weeklyTarget.toFloat()).coerceIn(0f, 1f)
     val kindOrder = listOf(
         PlantFoodKind.FRUIT to "fruit",
         PlantFoodKind.VEGETABLE to "veg",
@@ -751,25 +753,114 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
 
     Row(
         Modifier.fillMaxWidth()
-            .background(N2SoftGreen, RoundedCornerShape(16.dp))
-            .border(1.dp, N2Green.copy(alpha = .20f), RoundedCornerShape(16.dp))
-            .padding(horizontal = 13.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .background(N2SoftGreen, RoundedCornerShape(20.dp))
+            .border(1.dp, N2Green.copy(alpha = .22f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-        Column(Modifier.weight(1f)) {
+        Box(
+            Modifier.size(74.dp)
+                .background(N2Green.copy(alpha = .10f), CircleShape)
+                .border(1.dp, N2Green.copy(alpha = .20f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(Modifier.size(62.dp)) {
+                val stemX = size.width * .5f
+                val stemTop = size.height * .30f
+                val stemBottom = size.height * .72f
+
+                drawLine(
+                    color = N2Green,
+                    start = Offset(stemX, stemBottom),
+                    end = Offset(stemX, stemTop),
+                    strokeWidth = 3.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+
+                val leftLeaf = Path().apply {
+                    moveTo(stemX - 1.dp.toPx(), size.height * .48f)
+                    cubicTo(
+                        size.width * .25f, size.height * .27f,
+                        size.width * .17f, size.height * .43f,
+                        stemX - 1.dp.toPx(), size.height * .55f
+                    )
+                    close()
+                }
+                drawPath(leftLeaf, N2Green.copy(alpha = .92f))
+
+                val rightLeaf = Path().apply {
+                    moveTo(stemX + 1.dp.toPx(), size.height * .38f)
+                    cubicTo(
+                        size.width * .73f, size.height * .18f,
+                        size.width * .84f, size.height * .36f,
+                        stemX + 1.dp.toPx(), size.height * .48f
+                    )
+                    close()
+                }
+                drawPath(rightLeaf, N2Green)
+
+                drawArc(
+                    color = N2Green.copy(alpha = .22f),
+                    startAngle = -90f,
+                    sweepAngle = 360f,
+                    useCenter = false,
+                    topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
+                    size = androidx.compose.ui.geometry.Size(
+                        size.width - 4.dp.toPx(),
+                        size.height - 4.dp.toPx()
+                    ),
+                    style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                )
+
+                if (progress > 0f) {
+                    drawArc(
+                        color = N2Green,
+                        startAngle = -90f,
+                        sweepAngle = 360f * progress,
+                        useCenter = false,
+                        topLeft = Offset(2.dp.toPx(), 2.dp.toPx()),
+                        size = androidx.compose.ui.geometry.Size(
+                            size.width - 4.dp.toPx(),
+                            size.height - 4.dp.toPx()
+                        ),
+                        style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round)
+                    )
+                }
+            }
+
             Text(
-                "PLANT DIVERSITY · 7 DAYS",
+                snapshot.uniquePlants.toString(),
+                color = N2Ink,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.padding(top = 30.dp)
+            )
+        }
+
+        Column(
+            Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                "PLANT DIVERSITY",
                 color = N2Green,
                 fontSize = 7.sp,
                 fontWeight = FontWeight.Black,
-                letterSpacing = .7.sp
+                letterSpacing = .75.sp
             )
-            Spacer(Modifier.height(2.dp))
             Text(
-                if (snapshot.uniquePlants == 1) "1 unique plant" else "${snapshot.uniquePlants} unique plants",
+                "${snapshot.uniquePlants} / $weeklyTarget this week",
                 color = N2Ink,
-                fontSize = 14.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.Black
+            )
+            Text(
+                if (snapshot.uniquePlants >= weeklyTarget) "Weekly target reached"
+                else "${weeklyTarget - snapshot.uniquePlants} more unique plants to reach 30",
+                color = N2Muted,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.SemiBold
             )
             if (detail.isNotBlank()) {
                 Text(
@@ -778,21 +869,8 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
                     fontSize = 8.sp,
                     maxLines = 1
                 )
-            } else {
-                Text(
-                    "Plant foods you log will build this automatically.",
-                    color = N2Muted,
-                    fontSize = 8.sp,
-                    maxLines = 1
-                )
             }
         }
-        Text(
-            snapshot.uniquePlants.toString(),
-            color = N2Green,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Black
-        )
     }
 }
 
