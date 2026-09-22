@@ -31,7 +31,7 @@ internal data class PlantFoodIdentity(
 )
 
 internal object PlantFoodClassifier {
-    const val SCHEMA_VERSION = 3
+    const val SCHEMA_VERSION = 4
 
     private val animalOrAmbiguousTerms = listOf(
         "beef", "pork", "chicken", "turkey", "lamb", "veal", "venison", "duck",
@@ -248,6 +248,11 @@ internal object PlantFoodClassifier {
             .trim()
             .replace(Regex("\\s+"), " ")
 
+    private fun containsWholePhrase(text: String, phrase: String): Boolean {
+        val p = normalizePlantText(phrase)
+        return text == p || text.startsWith("$p ") || text.endsWith(" $p") || text.contains(" $p ")
+    }
+
     private fun fallbackDiversityKey(name: String): String {
         val tokens = normalizePlantText(name)
             .split(' ')
@@ -265,15 +270,16 @@ internal object PlantFoodClassifier {
         if (text.isBlank()) return PlantFoodIdentity(false)
 
         val explicitPlantSubstitute = listOf(
-            "soy milk", "almond milk", "oat milk", "rice milk", "cashew milk", "coconut milk"
-        ).any { phrase -> text == phrase || text.startsWith("$phrase ") || text.contains(" $phrase ") }
+            "soy milk", "almond milk", "oat milk", "rice milk", "cashew milk", "coconut milk",
+            "pea milk", "hemp milk", "hazelnut milk", "plant milk", "plant based milk", "non dairy milk"
+        ).any { phrase -> containsWholePhrase(text, phrase) }
 
         val hasAnimalSignal = animalOrAmbiguousTerms.any { term ->
             if (term == "milk" && explicitPlantSubstitute) return@any false
-            if (term == "butter" && listOf("butter bean", "butter beans").any { contains ->
-                    text == contains || text.startsWith("$contains ") || text.contains(" $contains ")
-                }) return@any false
-            text == term || text.startsWith("$term ") || text.contains(" $term ")
+            if (term == "butter" && listOf("butter bean", "butter beans").any { containsWholePhrase(text, it) }) {
+                return@any false
+            }
+            containsWholePhrase(text, term)
         }
 
         val compositePlantIdentityUnsafe = listOf(
@@ -310,9 +316,7 @@ internal object PlantFoodClassifier {
         val match = identities.mapNotNull { identity ->
             val longestMatchedTerm = identity.third
                 .map(::normalizePlantText)
-                .filter { normalized ->
-                    text == normalized || text.startsWith("$normalized ") || text.contains(" $normalized ")
-                }
+                .filter { normalized -> containsWholePhrase(text, normalized) }
                 .maxByOrNull { it.length }
             longestMatchedTerm?.let { identity to it.length }
         }.maxByOrNull { it.second }?.first
@@ -440,7 +444,7 @@ internal enum class FoodTag {
  * This makes the taxonomy repeatable for the 10k local catalogue and for every future food import.
  */
 internal object FoodTaxonomyClassifier {
-    const val SCHEMA_VERSION = 2
+    const val SCHEMA_VERSION = 3
 
     private fun normalize(value: String): String =
         value.lowercase()
@@ -571,16 +575,33 @@ internal object FoodTaxonomyClassifier {
             tags += FoodTag.EGG
         }
 
-        val yogurt = nHas("yogurt", "yoghurt", "skyr", "kefir")
+        val plantDairyAlternative = nHas(
+            "soy yogurt", "soy yoghurt", "coconut yogurt", "coconut yoghurt", "oat yogurt", "oat yoghurt",
+            "almond yogurt", "almond yoghurt", "cashew yogurt", "cashew yoghurt", "plant based yogurt",
+            "plant based yoghurt", "vegan yogurt", "vegan yoghurt", "non dairy yogurt", "non dairy yoghurt",
+            "vegan cheese", "plant based cheese", "non dairy cheese", "soy cheese", "cashew cheese",
+            "coconut cream", "oat cream", "soy cream", "plant based cream", "non dairy cream",
+            "cocoa butter", "coconut butter", "cashew butter", "sunflower seed butter", "sunflower butter",
+            "hazelnut butter", "seed butter"
+        )
+        val yogurt = nHas("yogurt", "yoghurt", "skyr", "kefir") && !plantDairyAlternative
         val cheese = nHas(
             "cheese", "cheddar", "mozzarella", "parmesan", "ricotta", "cottage cheese",
             "feta", "brie", "camembert", "gouda", "edam", "halloumi", "mascarpone"
-        )
+        ) && !plantDairyAlternative
         val milk = nHas("milk", "buttermilk") &&
-            !nHas("soy milk", "almond milk", "oat milk", "rice milk", "cashew milk", "coconut milk")
+            !nHas(
+                "soy milk", "almond milk", "oat milk", "rice milk", "cashew milk", "coconut milk",
+                "pea milk", "hemp milk", "hazelnut milk", "plant milk", "plant based milk", "non dairy milk"
+            )
         val cream = nHas("cream", "creme fraiche", "sour cream", "half and half") &&
-            !nHas("cream of", "ice cream", "cream cheese")
-        val butter = nHas("butter") && !nHas("butter bean", "butter beans", "peanut butter", "almond butter")
+            !nHas("cream of", "ice cream", "cream cheese") &&
+            !plantDairyAlternative
+        val butter = nHas("butter") && !nHas(
+            "butter bean", "butter beans", "peanut butter", "almond butter", "cashew butter",
+            "cocoa butter", "coconut butter", "sunflower seed butter", "sunflower butter",
+            "hazelnut butter", "seed butter"
+        )
         val otherDairy = nHas("whey", "casein")
         if (yogurt || cheese || milk || cream || butter || otherDairy) {
             tags += FoodTag.ANIMAL_DERIVED
