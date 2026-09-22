@@ -743,42 +743,33 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
             )
         )
 
-        Column(
+        Box(
             Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp)
         ) {
-            Row(
-                Modifier.fillMaxWidth().height(32.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Shared left/right grid anchors:
+            // title begins at the circle's left edge; arrow ends at the macro values' right edge.
+            Text(
+                "NUTRITION",
+                color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.15.sp,
+                modifier = Modifier.align(Alignment.TopStart)
+            )
+
+            Box(
+                Modifier.align(Alignment.TopEnd)
+                    .size(32.dp)
+                    .background(accent.copy(alpha = .12f), CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    "NUTRITION",
-                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.15.sp,
-                    modifier = Modifier.width(112.dp),
-                    textAlign = TextAlign.Start
-                )
-
-                Spacer(Modifier.width(16.dp))
-
-                Box(
-                    Modifier.weight(1f).fillMaxHeight(),
-                    contentAlignment = Alignment.CenterEnd
-                ) {
-                    Box(
-                        Modifier.size(32.dp).background(accent.copy(alpha = .12f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text("→", color = accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    }
-                }
+                Text("→", color = accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
             }
 
-            Spacer(Modifier.height(4.dp))
-
             Row(
-                Modifier.fillMaxWidth(),
+                Modifier.fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .height(118.dp),
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -798,8 +789,8 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                 )
 
                 Column(
-                    Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    Modifier.weight(1f).height(112.dp),
+                    verticalArrangement = Arrangement.SpaceEvenly
                 ) {
                     HomeNutritionMacroRow(
                         label = "Protein",
