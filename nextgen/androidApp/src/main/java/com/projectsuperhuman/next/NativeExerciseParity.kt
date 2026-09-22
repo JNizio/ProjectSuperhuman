@@ -219,6 +219,12 @@ internal fun saveNextWorkoutRoutineName(context: android.content.Context, name: 
         .apply()
 }
 
+internal fun loadNextWorkoutRoutine(context: android.content.Context): WorkoutRoutine? {
+    val name = loadNextWorkoutRoutineName(context)
+    if (name.isBlank()) return null
+    return loadWorkoutRoutines(context).firstOrNull { it.name == name }
+}
+
 @Composable
 private fun RepDbImage(path: String?, modifier: Modifier) {
     val context = LocalContext.current
@@ -2093,6 +2099,7 @@ private fun StrengthRoutineShortcut(
     label: String = "ROUTINE",
     onStart: (List<NativeExercise>) -> Unit
 ) {
+    val plannedSets = routine.exerciseIds.sumOf { routine.targetFor(it).sets }
     Row(
         Modifier.fillMaxWidth()
             .background(ExerciseSurface, RoundedCornerShape(18.dp))
@@ -2106,7 +2113,7 @@ private fun StrengthRoutineShortcut(
             Text(routine.name, color = ExerciseInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
             Text(
                 routine.exerciseIds.size.toString() + " exercises · " +
-                    routine.plannedDurationMin + " min · " + routine.intensity,
+                    plannedSets + " sets · " + routine.plannedDurationMin + " min · " + routine.intensity,
                 color = ExerciseMuted,
                 fontSize = 9.sp
             )
@@ -2128,6 +2135,13 @@ private fun RoutineVisualCard(
     onDelete: () -> Unit
 ) {
     val exercises = routine.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } }
+    val plannedSets = routine.exerciseIds.sumOf { routine.targetFor(it).sets }
+    val repValues = routine.exerciseIds.map { routine.targetFor(it).reps }
+    val repSummary = when {
+        repValues.isEmpty() -> ""
+        repValues.minOrNull() == repValues.maxOrNull() -> repValues.first().toString() + " reps"
+        else -> repValues.minOrNull().toString() + "–" + repValues.maxOrNull().toString() + " reps"
+    }
     Column(
         Modifier.fillMaxWidth()
             .background(ExerciseSurface, RoundedCornerShape(20.dp))
@@ -2139,6 +2153,7 @@ private fun RoutineVisualCard(
                 Text(routine.name, color = ExerciseInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
                 Text(
                     routine.exerciseIds.size.toString() + " exercises · " +
+                        plannedSets + " sets · " + repSummary + " · " +
                         routine.plannedDurationMin + " min · " + routine.intensity,
                     color = ExerciseMuted,
                     fontSize = 9.sp
