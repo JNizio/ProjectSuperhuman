@@ -701,7 +701,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     workingSets = session.count { it.type != "Warmup" },
                     volumeKg = session.filter { it.type != "Warmup" }.sumOf { it.volume }.roundToInt(),
                     lastWorkout = lastSession?.name ?: "No completed workout yet",
-                    onAction = { if (startedAt > 0L) resumeWorkout() else startWorkout() },
+                    onAction = { if (startedAt > 0L) resumeWorkout() else mode = "start_picker" },
                     onDelete = {
                         if (startedAt > 0L) {
                             clearActiveWorkoutDraft(context)
@@ -794,6 +794,109 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             workoutName = nextRoutine.name
                         }
                     )
+                }
+            }
+            "start_picker" -> {
+                val savedPresets = routines
+                if (savedPresets.isNotEmpty()) {
+                    Text(
+                        "SAVED PRESETS",
+                        color = ExerciseMuted,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    savedPresets.forEach { routine ->
+                        StrengthStartPresetRow(
+                            routine = routine,
+                            catalog = catalog,
+                            isNext = routine.name == nextRoutineName,
+                            onStart = {
+                                startWorkout(routine.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } })
+                                workoutName = routine.name
+                            }
+                        )
+                    }
+                } else {
+                    Column(
+                        Modifier.fillMaxWidth()
+                            .background(ExerciseSurface, RoundedCornerShape(18.dp))
+                            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
+                            .padding(16.dp)
+                    ) {
+                        Text(
+                            "No saved presets",
+                            color = ExerciseInk,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            "Create a workout now, then save it as a preset.",
+                            color = ExerciseMuted,
+                            fontSize = 9.sp
+                        )
+                    }
+                }
+
+                Text(
+                    "NEW WORKOUT",
+                    color = ExerciseMuted,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+
+                Row(
+                    Modifier.fillMaxWidth()
+                        .background(ExerciseBlue.copy(alpha = .11f), RoundedCornerShape(18.dp))
+                        .border(1.dp, ExerciseBlue.copy(alpha = .22f), RoundedCornerShape(18.dp))
+                        .superhumanClickable {
+                            startWorkout()
+                        }
+                        .padding(horizontal = 15.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        Modifier.size(40.dp)
+                            .background(ExerciseBlue.copy(alpha = .15f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("+", color = ExerciseBlue, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                    }
+                    Column(
+                        Modifier.weight(1f).padding(horizontal = 12.dp)
+                    ) {
+                        Text(
+                            "Create new workout",
+                            color = ExerciseInk,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                        Text(
+                            "Start blank and add exercises",
+                            color = ExerciseMuted,
+                            fontSize = 9.sp
+                        )
+                    }
+                    Text("→", color = ExerciseBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Row(
+                    Modifier.fillMaxWidth()
+                        .background(ExerciseSurface, RoundedCornerShape(16.dp))
+                        .border(1.dp, ExerciseCardBorder, RoundedCornerShape(16.dp))
+                        .superhumanClickable { mode = "routines" }
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Manage presets",
+                        color = ExerciseInk,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text("→", color = ExerciseMuted, fontSize = 17.sp)
                 }
             }
             "library" -> {
@@ -1885,7 +1988,7 @@ private fun StrengthActiveExercisePanel(
     }
 }
 
-@Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back" }, contentAlignment = Alignment.Center) { Text("←", color = ExerciseBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "session_detail" -> "Workout detail"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Strength" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); if (mode == "workout") Text("Saved automatically", color = ExerciseMuted, fontSize = 12.sp) } } }
+@Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back" }, contentAlignment = Alignment.Center) { Text("←", color = ExerciseBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "start_picker" -> "Start workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "session_detail" -> "Workout detail"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Strength" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); if (mode == "workout") Text("Saved automatically", color = ExerciseMuted, fontSize = 12.sp) } } }
 @Composable
 private fun StrengthSessionPanel(
     activeWorkout: Boolean,
