@@ -831,6 +831,9 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             editingRoutineIndex = null
                             routineName = ""
                             routineSelection = emptyList()
+                            routineTargets = emptyMap()
+                            routineDurationText = "60"
+                            routineIntensity = "Moderate"
                             routineQuery = ""
                             pendingRoutineDelete = null
                             showRoutineEditor = true
@@ -843,6 +846,9 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         editingRoutineIndex = null
                         routineName = ""
                         routineSelection = emptyList()
+                        routineTargets = emptyMap()
+                        routineDurationText = "60"
+                        routineIntensity = "Moderate"
                         routineQuery = ""
                         showRoutineEditor = true
                     }
@@ -851,6 +857,12 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         RoutineVisualCard(
                             routine = routine,
                             catalog = catalog,
+                            isNext = routine.name == nextRoutineName,
+                            onSetNext = {
+                                nextRoutineName = if (routine.name == nextRoutineName) "" else routine.name
+                                saveNextWorkoutRoutineName(context, nextRoutineName)
+                                feedbackMessage = if (nextRoutineName.isBlank()) "Next workout cleared" else "Next workout set"
+                            },
                             onStart = {
                                 startWorkout(routine.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } })
                                 workoutName = routine.name
@@ -859,6 +871,9 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                 editingRoutineIndex = index
                                 routineName = routine.name
                                 routineSelection = routine.exerciseIds
+                                routineTargets = routine.exerciseIds.associateWith { routine.targetFor(it) }
+                                routineDurationText = routine.plannedDurationMin.toString()
+                                routineIntensity = routine.intensity
                                 routineQuery = ""
                                 pendingRoutineDelete = null
                                 showRoutineEditor = true
@@ -872,7 +887,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                     candidate = "$base $suffix"
                                     suffix++
                                 }
-                                routines = routines + WorkoutRoutine(candidate, routine.exerciseIds.toList())
+                                routines = routines + routine.copy(name = candidate)
                                 saveWorkoutRoutines(context, routines)
                                 feedbackMessage = "Routine duplicated"
                             },
@@ -881,6 +896,10 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                 if (pendingRoutineDelete != index) {
                                     pendingRoutineDelete = index
                                 } else {
+                                    if (nextRoutineName == routine.name) {
+                                        nextRoutineName = ""
+                                        saveNextWorkoutRoutineName(context, "")
+                                    }
                                     routines = routines.filterIndexed { idx, _ -> idx != index }
                                     saveWorkoutRoutines(context, routines)
                                     pendingRoutineDelete = null
@@ -888,6 +907,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                         editingRoutineIndex = null
                                         routineName = ""
                                         routineSelection = emptyList()
+                                        routineTargets = emptyMap()
                                         routineQuery = ""
                                         showRoutineEditor = false
                                     }
@@ -904,11 +924,25 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         routineName = routineName,
                         onRoutineNameChange = { routineName = it.take(60) },
                         selectedIds = routineSelection,
+                        targets = routineTargets,
+                        onTargetChange = { id, sets, reps ->
+                            routineTargets = routineTargets + (id to RoutineExerciseTarget(sets.coerceIn(1, 12), reps.coerceIn(1, 100)))
+                        },
+                        durationText = routineDurationText,
+                        onDurationChange = { routineDurationText = it.filter(Char::isDigit).take(3) },
+                        intensity = routineIntensity,
+                        onIntensityChange = { routineIntensity = it },
                         catalog = catalog,
                         query = routineQuery,
                         onQueryChange = { routineQuery = it.take(50) },
                         onToggleExercise = { id ->
-                            routineSelection = if (id in routineSelection) routineSelection - id else routineSelection + id
+                            if (id in routineSelection) {
+                                routineSelection = routineSelection - id
+                                routineTargets = routineTargets - id
+                            } else {
+                                routineSelection = routineSelection + id
+                                routineTargets = routineTargets + (id to RoutineExerciseTarget())
+                            }
                         },
                         onMoveUp = { index ->
                             if (index > 0) {
@@ -926,17 +960,36 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                 routineSelection = mutable
                             }
                         },
-                        onRemove = { index -> routineSelection = routineSelection.filterIndexed { idx, _ -> idx != index } },
+                        onRemove = { index ->
+                            val id = routineSelection.getOrNull(index)
+                            routineSelection = routineSelection.filterIndexed { idx, _ -> idx != index }
+                            if (id != null) routineTargets = routineTargets - id
+                        },
                         onSave = {
                             if (routineName.isNotBlank() && routineSelection.isNotEmpty()) {
-                                val newRoutine = WorkoutRoutine(routineName.trim(), routineSelection)
+                                val duration = routineDurationText.toIntOrNull()?.coerceIn(10, 240) ?: 60
+                                val newRoutine = WorkoutRoutine(
+                                    name = routineName.trim(),
+                                    exerciseIds = routineSelection,
+                                    targets = routineSelection.associateWith { routineTargets[it] ?: RoutineExerciseTarget() },
+                                    plannedDurationMin = duration,
+                                    intensity = routineIntensity
+                                )
                                 val editIndex = editingRoutineIndex
+                                val oldName = editIndex?.let { routines.getOrNull(it)?.name }
                                 routines = if (editIndex == null) routines + newRoutine else routines.mapIndexed { idx, old -> if (idx == editIndex) newRoutine else old }
                                 saveWorkoutRoutines(context, routines)
+                                if (oldName != null && oldName == nextRoutineName) {
+                                    nextRoutineName = newRoutine.name
+                                    saveNextWorkoutRoutineName(context, newRoutine.name)
+                                }
                                 feedbackMessage = if (editIndex == null) "Routine saved" else "Routine updated"
                                 editingRoutineIndex = null
                                 routineName = ""
                                 routineSelection = emptyList()
+                                routineTargets = emptyMap()
+                                routineDurationText = "60"
+                                routineIntensity = "Moderate"
                                 routineQuery = ""
                                 showRoutineEditor = false
                             } else {
@@ -947,6 +1000,9 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             editingRoutineIndex = null
                             routineName = ""
                             routineSelection = emptyList()
+                            routineTargets = emptyMap()
+                            routineDurationText = "60"
+                            routineIntensity = "Moderate"
                             routineQuery = ""
                             showRoutineEditor = false
                         }
