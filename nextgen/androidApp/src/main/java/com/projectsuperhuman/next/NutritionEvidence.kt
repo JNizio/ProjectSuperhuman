@@ -350,7 +350,9 @@ internal object FoodEvidenceEngine {
             total = if (f.carbohydrateDefinition == CarbohydrateDefinition.TOTAL_INCLUDING_FIBRE) carbNutrient else null,
             available = if (f.carbohydrateDefinition == CarbohydrateDefinition.AVAILABLE_EXCLUDING_FIBRE) carbNutrient else null,
             fibre = nutrients["fibre"],
-            sugars = nutrients["sugars"]
+            sugars = nutrients["sugars"],
+            addedSugars = nutrients["added_sugars"],
+            starch = nutrients["starch"]
         )
 
         return CanonicalFoodRecord(
