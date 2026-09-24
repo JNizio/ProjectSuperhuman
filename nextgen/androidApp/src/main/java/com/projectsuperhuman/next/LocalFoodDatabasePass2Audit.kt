@@ -137,8 +137,10 @@ internal object LocalFoodDatabasePass2Auditor {
     fun audit(context: Context): Result =
         LargeFoodDb(context.applicationContext).use { audit(it.readableDatabase) }
 
-    fun writeReports(context: Context): List<File> {
-        val result = audit(context)
+    fun writeReports(context: Context): List<File> =
+        writeReports(context, audit(context))
+
+    internal fun writeReports(context: Context, result: Result): List<File> {
         val dir = File(context.filesDir, "nutrition_audits").apply { mkdirs() }
         val files = listOf(
             File(dir, "food_audit_pass2_summary.json"),
