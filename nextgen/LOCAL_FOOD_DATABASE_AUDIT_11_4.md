@@ -13,6 +13,37 @@ The generated Project Superhuman core remains a materialized subset of source-ba
 
 **Important:** the repository does not contain a checked-in copy of the populated ~10,000-row SQLite database. Therefore exact row-level after-counts depend on the user's populated device database. The app now generates those counts automatically from the real SQLite database after USDA bootstrap.
 
+## Pass 2 completion status
+
+Pass 2 now includes the deeper failure modes that matter for a source-backed nutrition database:
+
+- strict USDA nutrient ID + semantic-name matching for mapped nutrients;
+- explicit separation of folate total, folic acid, food folate and DFE;
+- vitamin A RAE and vitamin D mass measures kept separate from incompatible IU measures;
+- explicit added-sugars evidence kept separate from total sugars;
+- importer regression tests for energy priority and g/mg/µg conversion;
+- a regression proving absent source nutrients remain unknown rather than becoming synthetic zero;
+- raw USDA rows compared field-for-field with generated `core:usda:` snapshots;
+- duplicate USDA source-record IDs reported separately from intentional raw/core snapshot pairs;
+- deterministic SHA-256 fingerprinting of the materialized nutrition database, independent of SQLite row order;
+- stratified Pass 2 sampling across source families, taxonomy, preparation states, sparse/rich profiles, duplicate candidates and macro-energy outliers;
+- database-wide category, preparation-state and nutrient-coverage reporting.
+
+The remaining distinction is deliberate: software checks may assign HIGH confidence, but never VERIFIED. VERIFIED is reserved for a separately documented direct comparison with the authoritative source record. The Pass 2 report therefore records external source-row verification as pending when no source archive/device export is available, rather than overstating confidence.
+
+### USDA source contract independently checked
+
+The importer contract was checked against current USDA FoodData Central documentation:
+
+- Foundation Foods current download release: April 2026.
+- FNDDS current release: 2021-2023, published October 2024.
+- SR Legacy remains the final 2018 release.
+- Foundation nutrient values are reported on a 100 g / percent edible-portion basis.
+- Foundation metabolizable-energy nutrient IDs 2047 and 2048 represent Atwater general and Atwater specific energy respectively.
+- Foundation documentation distinguishes vitamin A RAE from historical IU representations and reports vitamin D in micrograms.
+
+These checks validate the source contract and mapping assumptions. They do not substitute for comparing every populated SQLite row with its original USDA record.
+
 ## Before → after
 
 | Area | Before | After |
@@ -28,21 +59,23 @@ The generated Project Superhuman core remains a materialized subset of source-ba
 | Preparation | Mostly inferred at consumption/evidence layer | Explicit preparation state persisted in SQLite and backfilled |
 | Serving reference | Canonical serving values could be lost after insertion | Serving quantity/unit/label persisted |
 | Provenance | Source fields existed | Source record ID is preserved through generated core and evidence layers |
-| Extra nutrients | Core vitamins/minerals | Adds source-backed water, starch, alcohol, cholesterol, MUFA, PUFA, trans fat, omega-3, omega-6, caffeine when present |
+| Extra nutrients | Core vitamins/minerals | Adds source-backed added sugars, water, starch, alcohol, cholesterol, MUFA, PUFA, trans fat, omega-3, omega-6, caffeine when present |
 | Duplicate review | Search de-duplication only | Exact/alias/near-identity candidate reporting; no automatic destructive merge |
 | Identical profiles | Not systematically reported | Suspicious identical nutrition profiles across different foods are reported |
 | Representative checks | Manual/ad hoc | Required representative foods are snapshotted into every audit report |
-| Repeatability | One-off integrity helpers | Validator runs against the current SQLite DB and is schema-versioned |
+| Repeatability | One-off integrity helpers | Schema-versioned validator plus stable SHA-256 database fingerprint for repeat-import comparison |
 
 ## Database safety
 
-Database version 13 uses additive migrations for recent schemas.
+Database version 15 preserves recent derived-schema migrations and forces authoritative USDA rows to be re-imported when nutrient semantics change.
 
-For existing v10+ databases the migration:
-- preserves downloaded USDA rows and their IDs;
-- adds derived metadata columns only;
+For existing v10+ databases the migration path:
+
+- preserves authoritative rows across ordinary derived-metadata migrations;
+- adds taxonomy, plant-diversity, preparation and serving-reference fields additively;
+- v14 invalidates the Foundation completion marker so current Atwater energy IDs can be re-parsed;
+- v15 deliberately removes only USDA-derived raw/core rows and re-imports them from the authoritative configured archives after the strict nutrient-semantic mapping change;
 - invalidates derived classifier/core/audit metadata so it can be rebuilt deterministically;
-- does not delete legitimate source foods;
 - does not replace official nutrient values merely to satisfy a validation equation.
 
 Older database schemas that predate the nutrition-integrity model retain the existing rebuild-from-authoritative-source behavior.
@@ -215,6 +248,13 @@ After all configured USDA sources have completed, the app creates:
 
 - `filesDir/nutrition_audits/local_food_audit_latest.json`
 - `filesDir/nutrition_audits/local_food_audit_latest.md`
+- `filesDir/nutrition_audits/food_audit_pass2_summary.json`
+- `filesDir/nutrition_audits/food_audit_pass2_sample.csv`
+- `filesDir/nutrition_audits/food_audit_pass2_anomalies.csv`
+- `filesDir/nutrition_audits/food_audit_pass2_duplicates.csv`
+- `filesDir/nutrition_audits/food_audit_pass2_source_conflicts.csv`
+- `filesDir/nutrition_audits/food_audit_pass2_taxonomy_issues.csv`
+- `filesDir/nutrition_audits/food_audit_pass2_missing_nutrients.csv`
 
 The JSON report retains all structured findings. The Markdown report keeps the human-facing output manageable and does not dump the entire database into normal logs.
 
