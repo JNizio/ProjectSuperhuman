@@ -137,4 +137,20 @@ class UsdaNutrientSemanticsTest {
         assertEquals(canonicalIds.size, canonicalIds.toSet().size)
     }
 
+    @Test
+    fun canonicalRegistryHasNoStableIdOrCanonicalKeyCollisions() {
+        val specs = UsdaNutrientSemantics.micronutrients
+
+        assertEquals(specs.size, specs.map { it.canonicalId }.distinct().size)
+
+        val stableIds = specs.mapNotNull { it.fdcNutrientId }
+        assertEquals(stableIds.size, stableIds.distinct().size)
+
+        val allowedUnits = setOf("g", "mg", "µg")
+        assertTrue(specs.all { it.targetUnit in allowedUnits })
+
+        specs.filter { it.fdcNutrientId != null }.forEach { spec ->
+            assertTrue(spec.sourceNames.isNotEmpty() || spec.sourceNamePrefixes.isNotEmpty(), spec.canonicalId)
+        }
+    }
 }
