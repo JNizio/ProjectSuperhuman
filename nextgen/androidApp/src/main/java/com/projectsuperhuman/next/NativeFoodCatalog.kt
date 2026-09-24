@@ -250,7 +250,13 @@ internal object PlantFoodClassifier {
 
     private fun containsWholePhrase(text: String, phrase: String): Boolean {
         val p = normalizePlantText(phrase)
-        return text == p || text.startsWith("$p ") || text.endsWith(" $p") || text.contains(" $p ")
+        val forms = if (p.endsWith("s")) listOf(p) else listOf(p, p + "s")
+        return forms.any { form ->
+            text == form ||
+                text.startsWith("$form ") ||
+                text.endsWith(" $form") ||
+                text.contains(" $form ")
+        }
     }
 
     private fun fallbackDiversityKey(name: String): String {
