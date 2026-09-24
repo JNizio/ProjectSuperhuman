@@ -594,7 +594,7 @@ A previous full-module test run surfaced one nutrition-specific regression in pl
 
 Repository-side nutrition validation is therefore green.
 
-One validation boundary remains: the populated ~10,000-row SQLite database is generated on-device and is not checked into the repository. Final release acceptance for the local food database still requires running `LocalFoodDatabasePass2Auditor` against a fully populated database and reviewing the generated Pass 2 reports for hard errors, source conflicts, duplicate USDA source IDs, nutrient coverage, taxonomy issues and the deterministic database fingerprint.
+One validation boundary remains: the populated ~10,000-row SQLite database is generated on-device and is not checked into the repository. Audit schema v2 now runs `LocalFoodDatabasePass2Auditor` automatically after all configured USDA sources complete and writes the Pass 2 JSON/CSV reports plus key counters/fingerprint metadata. Final release acceptance therefore consists of reviewing those generated artifacts from a fully populated device/database for hard errors, source conflicts, duplicate USDA source IDs, nutrient coverage, taxonomy issues and the deterministic database fingerprint.
 
 ## 24. Rule for future Nutrition work
 
