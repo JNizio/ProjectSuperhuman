@@ -24,8 +24,16 @@ class NutritionMealStructureTest {
     @Test
     fun customMealNamesAreDeduplicatedCaseInsensitively() {
         assertEquals(
-            listOf("Breakfast", "Pre-workout"),
+            listOf("Breakfast", "pre-workout"),
             n2MealOrder(listOf("pre-workout", "Breakfast", "Pre-workout"))
+        )
+    }
+
+    @Test
+    fun defaultMealNamesAreCanonicalizedByOrder() {
+        assertEquals(
+            listOf("Breakfast", "Snack"),
+            n2MealOrder(listOf("snack", "BREAKFAST", "Snack"))
         )
     }
 
