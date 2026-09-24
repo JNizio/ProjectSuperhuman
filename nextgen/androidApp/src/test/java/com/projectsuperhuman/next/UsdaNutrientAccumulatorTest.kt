@@ -2,6 +2,7 @@ package com.projectsuperhuman.next
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 class UsdaNutrientAccumulatorTest {
@@ -65,5 +66,21 @@ class UsdaNutrientAccumulatorTest {
         out.accept(1093, "Sodium, Na", "mg", 120.0)
         assertEquals(120.0, out.sodiumMg)
         assertEquals(120.0, out.micros["sodium"]?.valuePer100)
+    }
+    @Test
+    fun absentSourceNutrientsRemainUnknownRatherThanSyntheticZero() {
+        val out = LargeLocalFoodDatabase.NutrientAccumulator()
+
+        out.accept(1008, "Energy", "kcal", 100.0)
+        out.accept(1003, "Protein", "g", 10.0)
+        out.accept(1005, "Carbohydrate, by difference", "g", 20.0)
+        out.accept(1004, "Total lipid (fat)", "g", 5.0)
+
+        assertNull(out.fibre)
+        assertNull(out.sugar)
+        assertNull(out.saturatedFat)
+        assertNull(out.sodiumMg)
+        assertFalse("sodium" in out.micros)
+        assertFalse("calcium" in out.micros)
     }
 }
