@@ -579,17 +579,22 @@ These are intentional uncertainty boundaries, not values to fill with guesses.
 
 ## 23. Validation status for this branch
 
-The 11.4 source and migration changes have been structurally audited in-repository, including call-site, brace/import, migration and evidence-flow checks.
+The 11.4 nutrition source, migration, importer and evidence changes have been structurally audited in-repository.
 
-A temporary no-APK GitHub Actions validation workflow was attempted, but GitHub failed the job before any step was allocated: checkout, Java setup, Gradle and tests never started and no job log was produced. The temporary workflow was removed.
+The dedicated `Validate 11.4 Nutrition` GitHub Actions workflow is active. Run 58, commit `deb64b8f9b18eb971f6aee1c7087e1fe1a221c8c`, completed successfully:
 
-Therefore 11.4 must still be run once through the real Android/Gradle environment before release:
+- Android Kotlin compilation passed;
+- the scoped food/nutrition/USDA regression suite passed;
+- USDA nutrient mapping/conversion tests passed;
+- missing-vs-zero regression coverage passed;
+- taxonomy/plant classification tests passed;
+- Pass 2 database fingerprint/determinism tests passed.
 
-```bash
-gradle --no-daemon -p nextgen :androidApp:testDebugUnitTest
-```
+A previous full-module test run surfaced one nutrition-specific regression in plural plant identity matching (`Pumpkin seeds, roasted`), which was fixed before the successful nutrition run. Unrelated Trudy tests from that older whole-module run are outside this nutrition acceptance gate.
 
-Then compile the existing NextGen Android project in Android Studio. Do not interpret the unavailable runner attempt as either a passing or failing unit-test result.
+Repository-side nutrition validation is therefore green.
+
+One validation boundary remains: the populated ~10,000-row SQLite database is generated on-device and is not checked into the repository. Final release acceptance for the local food database still requires running `LocalFoodDatabasePass2Auditor` against a fully populated database and reviewing the generated Pass 2 reports for hard errors, source conflicts, duplicate USDA source IDs, nutrient coverage, taxonomy issues and the deterministic database fingerprint.
 
 ## 24. Rule for future Nutrition work
 
