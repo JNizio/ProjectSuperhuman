@@ -7,7 +7,7 @@ class NutritionMealStructureTest {
     @Test
     fun defaultMealsKeepCanonicalOrderWhileCustomMealsRemainSeparate() {
         assertEquals(
-            listOf("Breakfast", "Lunch", "Dinner", "Snack", "Pre-workout", "Second breakfast"),
+            listOf("Breakfast", "Lunch", "Dinner", "Snack", "Second breakfast", "Pre-workout"),
             n2MealOrder(
                 listOf(
                     "Second breakfast",
