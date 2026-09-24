@@ -183,19 +183,7 @@ internal object LargeLocalFoodDatabase {
                 localSearchCache[cacheKey]?.let { return@withContext it }
             }
 
-            val queryTokens = q.split(' ').filter(String::isNotBlank)
-            val retrievalQuery = when {
-                queryTokens.any { it == "egg" || it == "eggs" } -> "egg"
-                "chicken" in queryTokens && "breast" in queryTokens -> "chicken breast"
-                q == "wild rocket" || q.startsWith("wild rocket ") ->
-                    q.replaceFirst("wild rocket", "arugula")
-                q == "rocket" || q.startsWith("rocket ") -> q.replaceFirst("rocket", "arugula")
-                q == "courgette" || q.startsWith("courgette ") -> q.replaceFirst("courgette", "zucchini")
-                q == "aubergine" || q.startsWith("aubergine ") -> q.replaceFirst("aubergine", "eggplant")
-                q == "swede" || q.startsWith("swede ") -> q.replaceFirst("swede", "rutabaga")
-                q == "coriander" || q.startsWith("coriander ") -> q.replaceFirst("coriander", "cilantro")
-                else -> q
-            }
+            val retrievalQuery = retrievalQueryFor(q)
             val prefix = retrievalQuery + "%"
             val contains = "%" + retrievalQuery + "%"
 
@@ -348,6 +336,23 @@ internal object LargeLocalFoodDatabase {
             synchronized(localSearchCacheLock) { localSearchCache[cacheKey] = result }
             result
         }
+
+    internal fun retrievalQueryFor(normalizedQuery: String): String {
+        val q = normalize(normalizedQuery)
+        val queryTokens = q.split(' ').filter(String::isNotBlank)
+        return when {
+            queryTokens.any { it == "egg" || it == "eggs" } -> "egg"
+            "chicken" in queryTokens && "breast" in queryTokens -> "chicken breast"
+            q == "wild rocket" || q.startsWith("wild rocket ") ->
+                q.replaceFirst("wild rocket", "arugula")
+            q == "rocket" || q.startsWith("rocket ") -> q.replaceFirst("rocket", "arugula")
+            q == "courgette" || q.startsWith("courgette ") -> q.replaceFirst("courgette", "zucchini")
+            q == "aubergine" || q.startsWith("aubergine ") -> q.replaceFirst("aubergine", "eggplant")
+            q == "swede" || q.startsWith("swede ") -> q.replaceFirst("swede", "rutabaga")
+            q == "coriander" || q.startsWith("coriander ") -> q.replaceFirst("coriander", "cilantro")
+            else -> q
+        }
+    }
 
     private fun canonicalQueryRank(food: NativeFood, normalizedQuery: String): Int {
         val name = normalize(food.name)
