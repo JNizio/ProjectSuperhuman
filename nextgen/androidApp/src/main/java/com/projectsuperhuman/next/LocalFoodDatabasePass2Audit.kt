@@ -5,6 +5,7 @@ import android.database.sqlite.SQLiteDatabase
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.security.MessageDigest
 import java.util.Locale
 import kotlin.math.abs
 
@@ -98,6 +99,8 @@ internal object LocalFoodDatabasePass2Auditor {
         val srLegacyCount: Int,
         val nonUsdaLocalCount: Int,
         val validFdcIdCount: Int,
+        val duplicateUsdaSourceRecordIds: Int,
+        val databaseFingerprintSha256: String,
         val caloriesKnownCount: Int,
         val proteinKnownCount: Int,
         val carbsKnownCount: Int,
@@ -197,6 +200,14 @@ internal object LocalFoodDatabasePass2Auditor {
         val preparationCounts = FoodPreparationState.entries.associate { prep ->
             prep.name to rows.count { it.preparationState == prep }
         }.filterValues { it > 0 }
+        val duplicateUsdaSourceRecordIds = rows.asSequence()
+            .filter { it.id.startsWith("usda:") }
+            .map { it.sourceRecordId }
+            .filter { it.isNotBlank() }
+            .groupingBy { it }
+            .eachCount()
+            .count { (_, count) -> count > 1 }
+        val databaseFingerprintSha256 = databaseFingerprint(rows)
 
         return Result(
             generatedEpochMs = System.currentTimeMillis(),
@@ -210,6 +221,8 @@ internal object LocalFoodDatabasePass2Auditor {
             srLegacyCount = rows.count { it.source.contains("SR Legacy", ignoreCase = true) && it.id.startsWith("usda:") },
             nonUsdaLocalCount = rows.count { !it.isUsda },
             validFdcIdCount = rows.count { it.isUsda && it.sourceRecordId.toLongOrNull() != null },
+            duplicateUsdaSourceRecordIds = duplicateUsdaSourceRecordIds,
+            databaseFingerprintSha256 = databaseFingerprintSha256,
             caloriesKnownCount = rows.count { it.kcalKnown() },
             proteinKnownCount = rows.count { it.proteinKnown },
             carbsKnownCount = rows.count { it.carbsKnown },
@@ -239,6 +252,42 @@ internal object LocalFoodDatabasePass2Auditor {
             baseline = baseline,
             golden = golden
         )
+    }
+
+    /**
+     * Stable digest of the persisted food database. The digest deliberately excludes timestamps and
+     * row order, so two imports from identical source data must produce the same value. Any nutrition,
+     * knownness, provenance, taxonomy, preparation or serving change changes the digest.
+     */
+    internal fun databaseFingerprint(rows: List<Row>): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        rows.sortedBy { it.id }.forEach { row ->
+            val canonical = buildString {
+                append(row.id).append('\u001f')
+                append(row.name).append('\u001f')
+                append(row.kcal).append('|').append(row.protein).append('|').append(row.carbs)
+                    .append('|').append(row.fat).append('|').append(row.fibre).append('|')
+                    .append(row.sugar).append('|').append(row.saturatedFat).append('|')
+                    .append(row.sodiumMg).append('|').append(row.saltG).append('\u001f')
+                append(row.proteinKnown).append('|').append(row.carbsKnown).append('|')
+                    .append(row.fatKnown).append('|').append(row.fibreKnown).append('|')
+                    .append(row.sugarKnown).append('|').append(row.saturatedFatKnown).append('|')
+                    .append(row.sodiumKnown).append('|').append(row.saltKnown).append('\u001f')
+                append(row.unit).append('\u001f').append(row.source).append('\u001f')
+                    .append(row.sourceRecordId).append('\u001f')
+                append(row.micronutrientsJson).append('\u001f')
+                    .append(row.unknownMicronutrientsJson).append('\u001f')
+                append(row.tags.map { it.name }.sorted().joinToString("|")).append('\u001f')
+                append(row.preparationState.name).append('\u001f')
+                append(row.servingQuantity?.toString().orEmpty()).append('\u001f')
+                append(row.servingUnit).append('\u001f').append(row.servingLabel)
+            }
+            digest.update(canonical.toByteArray(Charsets.UTF_8))
+            digest.update(0)
+        }
+        return digest.digest().joinToString("") { byte ->
+            (byte.toInt() and 0xff).toString(16).padStart(2, '0')
+        }
     }
 
     private fun confidenceFor(
@@ -536,6 +585,8 @@ internal object LocalFoodDatabasePass2Auditor {
             put("totalCoreRecords", r.totalCoreRecords)
             put("uniqueCanonicalFoodIdentities", r.uniqueCanonicalFoods)
             put("duplicateCandidateGroups", r.duplicateCandidateGroups)
+            put("duplicateUsdaSourceRecordIds", r.duplicateUsdaSourceRecordIds)
+            put("fingerprintSha256", r.databaseFingerprintSha256)
         })
         put("sources", JSONObject().apply {
             put("foundation", r.foundationCount)
@@ -570,6 +621,8 @@ internal object LocalFoodDatabasePass2Auditor {
             put("LOW", r.lowCount)
             put("NEEDS_REVIEW", r.needsReviewCount)
             put("note", "VERIFIED is intentionally not assigned by software-only checks")
+            put("externalSourceRowSampleCount", 0)
+            put("externalSourceRowStatus", "REQUIRES_POPULATED_DB_EXPORT_OR_SOURCE_ARCHIVE_COMPARISON")
         })
         put("coreSnapshotIntegrity", JSONObject().apply {
             put("pairs", r.coreSnapshotPairs)
