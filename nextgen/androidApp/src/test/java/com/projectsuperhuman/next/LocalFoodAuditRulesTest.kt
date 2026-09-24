@@ -6,7 +6,7 @@ import kotlin.test.assertTrue
 
 class LocalFoodAuditRulesTest {
     private fun row(
-        id: String = "test:food",
+        id: String = "usda:123",
         name: String = "Apple, raw",
         kcal: Double = 52.0,
         protein: Double = 0.3,
@@ -22,8 +22,14 @@ class LocalFoodAuditRulesTest {
         plantKey: String = "apple",
         plantEligible: Boolean = true,
         micros: Map<String, NativeNutrient> = mapOf(
-            "calcium" to NativeNutrient("calcium", "Calcium", 6.0, "mg", NutrientEvidenceKind.REFERENCE_DATABASE),
-            "potassium" to NativeNutrient("potassium", "Potassium", 107.0, "mg", NutrientEvidenceKind.REFERENCE_DATABASE)
+            "calcium" to NativeNutrient(
+                "calcium", "Calcium", 6.0, "mg", NutrientEvidenceKind.REFERENCE_DATABASE,
+                source = "USDA Foundation Foods test", sourceRecordId = "123"
+            ),
+            "potassium" to NativeNutrient(
+                "potassium", "Potassium", 107.0, "mg", NutrientEvidenceKind.REFERENCE_DATABASE,
+                source = "USDA Foundation Foods test", sourceRecordId = "123"
+            )
         )
     ) = LocalFoodAuditRow(
         id = id,
@@ -48,7 +54,7 @@ class LocalFoodAuditRulesTest {
         saltKnown = true,
         unit = "100 g",
         source = "USDA Foundation Foods test",
-        sourceRecordId = id,
+        sourceRecordId = id.removePrefix("usda:"),
         micronutrients = micros,
         unknownMicronutrients = emptySet(),
         foodTags = tags,
