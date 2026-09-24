@@ -91,6 +91,7 @@ internal object LocalFoodDatabasePass2Auditor {
         val generatedEpochMs: Long,
         val totalRecords: Int,
         val totalUsdaRecords: Int,
+        val totalUsdaBackedRecords: Int,
         val totalCoreRecords: Int,
         val uniqueCanonicalFoods: Int,
         val duplicateCandidateGroups: Int,
@@ -123,6 +124,10 @@ internal object LocalFoodDatabasePass2Auditor {
         val coreSnapshotConflictCount: Int,
         val goldenMatched: Int,
         val goldenFailures: Int,
+        val hardErrorFindingCount: Int,
+        val warningFindingCount: Int,
+        val infoFindingCount: Int,
+        val recordsWithHardErrors: Int,
         val sample: List<Pair<Row, Confidence>>,
         val sourceConflicts: List<SourceConflict>,
         val baseline: LocalFoodDatabaseAuditReport,
@@ -213,6 +218,7 @@ internal object LocalFoodDatabasePass2Auditor {
             generatedEpochMs = System.currentTimeMillis(),
             totalRecords = rows.size,
             totalUsdaRecords = rows.count { it.id.startsWith("usda:") },
+            totalUsdaBackedRecords = rows.count { it.isUsda },
             totalCoreRecords = rows.count { it.id.startsWith("core:") },
             uniqueCanonicalFoods = baseline.uniqueCanonicalFoods,
             duplicateCandidateGroups = baseline.duplicateCandidateGroups,
@@ -247,6 +253,15 @@ internal object LocalFoodDatabasePass2Auditor {
             coreSnapshotConflictCount = conflictResult.second.values.sumOf { it.size },
             goldenMatched = golden.count { it.matched != null },
             goldenFailures = golden.sumOf { it.failures.size },
+            hardErrorFindingCount = baseline.findings.count { it.severity == LocalFoodAuditSeverity.ERROR },
+            warningFindingCount = baseline.findings.count { it.severity == LocalFoodAuditSeverity.WARNING },
+            infoFindingCount = baseline.findings.count { it.severity == LocalFoodAuditSeverity.INFO },
+            recordsWithHardErrors = baseline.findings
+                .asSequence()
+                .filter { it.severity == LocalFoodAuditSeverity.ERROR }
+                .map { it.foodId }
+                .distinct()
+                .count(),
             sample = sample,
             sourceConflicts = conflictResult.second.values.flatten(),
             baseline = baseline,
@@ -581,7 +596,8 @@ internal object LocalFoodDatabasePass2Auditor {
         put("generatedEpochMs", r.generatedEpochMs)
         put("database", JSONObject().apply {
             put("totalRecords", r.totalRecords)
-            put("totalUsdaRecords", r.totalUsdaRecords)
+            put("rawUsdaRecords", r.totalUsdaRecords)
+            put("usdaBackedRecords", r.totalUsdaBackedRecords)
             put("totalCoreRecords", r.totalCoreRecords)
             put("uniqueCanonicalFoodIdentities", r.uniqueCanonicalFoods)
             put("duplicateCandidateGroups", r.duplicateCandidateGroups)
@@ -642,8 +658,12 @@ internal object LocalFoodDatabasePass2Auditor {
                 }
             })
         })
-        put("errors", JSONObject().apply {
-            put("allFindings", r.baseline.findings.size)
+        put("findings", JSONObject().apply {
+            put("total", r.baseline.findings.size)
+            put("errors", r.hardErrorFindingCount)
+            put("warnings", r.warningFindingCount)
+            put("info", r.infoFindingCount)
+            put("recordsWithHardErrors", r.recordsWithHardErrors)
             put("recordsNeedingReview", r.baseline.recordsNeedingReview)
             put("coreSnapshotConflicts", r.coreSnapshotConflictCount)
         })
