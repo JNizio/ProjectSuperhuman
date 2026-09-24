@@ -187,6 +187,8 @@ internal object LargeLocalFoodDatabase {
             val retrievalQuery = when {
                 queryTokens.any { it == "egg" || it == "eggs" } -> "egg"
                 "chicken" in queryTokens && "breast" in queryTokens -> "chicken breast"
+                q == "wild rocket" || q.startsWith("wild rocket ") ->
+                    q.replaceFirst("wild rocket", "arugula")
                 q == "rocket" || q.startsWith("rocket ") -> q.replaceFirst("rocket", "arugula")
                 q == "courgette" || q.startsWith("courgette ") -> q.replaceFirst("courgette", "zucchini")
                 q == "aubergine" || q.startsWith("aubergine ") -> q.replaceFirst("aubergine", "eggplant")
@@ -519,6 +521,22 @@ internal object LargeLocalFoodDatabase {
                     preparation = prep.prep
                 )
             }
+        }
+
+        // USDA Foundation Foods includes "Arugula, baby, raw". Expose the familiar
+        // UK/European name as a first-class generic option while retaining exact USDA nutrition
+        // and provenance. "wild rocket" is included only as a search alias; the displayed identity
+        // stays rocket/arugula because wild rocket can be a botanically distinct species.
+        findUsda("arugula", "raw")?.let { base ->
+            saveVariant(
+                base = base,
+                id = "vegetable:rocket:raw",
+                name = "Rocket (arugula), raw",
+                searchText = "rocket arugula salad rocket baby rocket generic raw wild rocket",
+                servingGrams = null,
+                servingLabel = "",
+                preparation = FoodPreparationState.RAW
+            )
         }
 
         findUsda("chicken breast", "grilled")?.let { base ->
