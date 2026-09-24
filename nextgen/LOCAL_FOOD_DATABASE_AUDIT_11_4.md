@@ -310,11 +310,12 @@ The dedicated `Validate 11.4 Nutrition` workflow now runs:
 - Android Kotlin compilation;
 - the scoped Project Superhuman food/nutrition/USDA regression suite.
 
-Validation run 58 on commit `deb64b8f9b18eb971f6aee1c7087e1fe1a221c8c` completed successfully:
+Validation run 58 on commit `deb64b8f9b18eb971f6aee1c7087e1fe1a221c8c` completed successfully, establishing the dedicated nutrition gate. Final integration run 60 on commit `4289ac5544a4367c112f13ee032e8661943338c0` also completed successfully after Pass 2 was wired into the post-USDA-bootstrap path:
 - checkout: PASS;
 - Java/Gradle setup: PASS;
 - `:androidApp:compileDebugKotlin`: PASS;
-- scoped nutrition unit tests: PASS.
+- scoped nutrition unit tests: PASS;
+- automatic Pass 2 post-bootstrap integration: COMPILES + REGRESSION GATE PASS.
 
 An earlier full-module test run also exposed a real plant-classification regression: `Pumpkin seeds, roasted` could be captured by the generic `pumpkin` vegetable identity. The classifier was fixed to support simple plural forms while still preferring the longest/specific plant identity. The nutrition regression gate passes with that correction.
 
