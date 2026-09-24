@@ -14,6 +14,7 @@ on:
       - 'nextgen/androidApp/src/test/java/com/projectsuperhuman/next/LocalFoodAuditRulesTest.kt'
       - 'nextgen/androidApp/src/test/java/com/projectsuperhuman/next/UsdaNutrientSemanticsTest.kt'
       - 'nextgen/androidApp/src/test/java/com/projectsuperhuman/next/UsdaNutrientAccumulatorTest.kt'
+      - 'nextgen/androidApp/src/test/java/com/projectsuperhuman/next/LocalFoodPass2DeterminismTest.kt'
       - 'nextgen/androidApp/src/test/java/com/projectsuperhuman/next/FoodTaxonomyAdversarialTest.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeDataHub.kt'
       - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeNutritionExperienceV2.kt'
