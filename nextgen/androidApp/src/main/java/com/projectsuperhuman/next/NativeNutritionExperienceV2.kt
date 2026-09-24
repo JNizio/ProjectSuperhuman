@@ -556,6 +556,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                             lastRemoved = entry
                             status = "Removed " + entry.name
                             refresh()
+                            refreshWeek()
                             refreshNutrients()
                         }
                     }
