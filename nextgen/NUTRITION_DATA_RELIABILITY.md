@@ -581,14 +581,15 @@ These are intentional uncertainty boundaries, not values to fill with guesses.
 
 The 11.4 nutrition source, migration, importer and evidence changes have been structurally audited in-repository.
 
-The dedicated `Validate 11.4 Nutrition` GitHub Actions workflow is active. Run 58, commit `deb64b8f9b18eb971f6aee1c7087e1fe1a221c8c`, completed successfully:
+The dedicated `Validate 11.4 Nutrition` GitHub Actions workflow is active. Run 58 established a green nutrition gate, and final integration run 60 on commit `4289ac5544a4367c112f13ee032e8661943338c0` also completed successfully after automatic Pass 2 post-bootstrap reporting was added:
 
 - Android Kotlin compilation passed;
 - the scoped food/nutrition/USDA regression suite passed;
 - USDA nutrient mapping/conversion tests passed;
 - missing-vs-zero regression coverage passed;
 - taxonomy/plant classification tests passed;
-- Pass 2 database fingerprint/determinism tests passed.
+- Pass 2 database fingerprint/determinism tests passed;
+- automatic post-bootstrap Pass 2 report generation compiles and passes the nutrition regression gate.
 
 A previous full-module test run surfaced one nutrition-specific regression in plural plant identity matching (`Pumpkin seeds, roasted`), which was fixed before the successful nutrition run. Unrelated Trudy tests from that older whole-module run are outside this nutrition acceptance gate.
 
