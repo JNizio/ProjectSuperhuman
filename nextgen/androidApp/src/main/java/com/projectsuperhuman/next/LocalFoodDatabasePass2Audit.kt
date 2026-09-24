@@ -97,6 +97,19 @@ internal object LocalFoodDatabasePass2Auditor {
         val fnddsCount: Int,
         val srLegacyCount: Int,
         val nonUsdaLocalCount: Int,
+        val validFdcIdCount: Int,
+        val caloriesKnownCount: Int,
+        val proteinKnownCount: Int,
+        val carbsKnownCount: Int,
+        val fatKnownCount: Int,
+        val fibreKnownCount: Int,
+        val sodiumKnownCount: Int,
+        val plantTaggedCount: Int,
+        val lowMicronutrientCoverageCount: Int,
+        val averageKnownNutrientCount: Double,
+        val medianKnownNutrientCount: Double,
+        val categoryCounts: Map<String, Int>,
+        val preparationCounts: Map<String, Int>,
         val deepSampleCount: Int,
         val verifiedCount: Int,
         val highCount: Int,
@@ -156,6 +169,34 @@ internal object LocalFoodDatabasePass2Auditor {
             row to confidenceFor(row, findingsById[row.id].orEmpty(), conflictResult.second[row.id].orEmpty())
         }
         val golden = goldenSpecs().map { validateGolden(it, rows) }
+        val knownCounts = rows.map { row ->
+            listOf(
+                row.kcalKnown(),
+                row.proteinKnown,
+                row.carbsKnown,
+                row.fatKnown,
+                row.fibreKnown,
+                row.sugarKnown,
+                row.saturatedFatKnown,
+                row.sodiumKnown,
+                row.saltKnown
+            ).count { it } + row.micronutrientCount
+        }.sorted()
+        val averageKnown = if (knownCounts.isEmpty()) 0.0 else knownCounts.average()
+        val medianKnown = when {
+            knownCounts.isEmpty() -> 0.0
+            knownCounts.size % 2 == 1 -> knownCounts[knownCounts.size / 2].toDouble()
+            else -> {
+                val hi = knownCounts.size / 2
+                (knownCounts[hi - 1] + knownCounts[hi]) / 2.0
+            }
+        }
+        val categoryCounts = FoodTag.entries.associate { tag ->
+            tag.name to rows.count { tag in it.tags }
+        }.filterValues { it > 0 }
+        val preparationCounts = FoodPreparationState.entries.associate { prep ->
+            prep.name to rows.count { it.preparationState == prep }
+        }.filterValues { it > 0 }
 
         return Result(
             generatedEpochMs = System.currentTimeMillis(),
@@ -168,6 +209,19 @@ internal object LocalFoodDatabasePass2Auditor {
             fnddsCount = rows.count { it.source.contains("FNDDS", ignoreCase = true) && it.id.startsWith("usda:") },
             srLegacyCount = rows.count { it.source.contains("SR Legacy", ignoreCase = true) && it.id.startsWith("usda:") },
             nonUsdaLocalCount = rows.count { !it.isUsda },
+            validFdcIdCount = rows.count { it.isUsda && it.sourceRecordId.toLongOrNull() != null },
+            caloriesKnownCount = rows.count { it.kcalKnown() },
+            proteinKnownCount = rows.count { it.proteinKnown },
+            carbsKnownCount = rows.count { it.carbsKnown },
+            fatKnownCount = rows.count { it.fatKnown },
+            fibreKnownCount = rows.count { it.fibreKnown },
+            sodiumKnownCount = rows.count { it.sodiumKnown },
+            plantTaggedCount = rows.count { FoodTag.PLANT in it.tags },
+            lowMicronutrientCoverageCount = rows.count { it.micronutrientCount < 4 },
+            averageKnownNutrientCount = averageKnown,
+            medianKnownNutrientCount = medianKnown,
+            categoryCounts = categoryCounts,
+            preparationCounts = preparationCounts,
             deepSampleCount = sample.size,
             // This audit deliberately never promotes a row to VERIFIED merely because it passed
             // software checks. VERIFIED is reserved for a separately documented direct source check.
@@ -488,6 +542,25 @@ internal object LocalFoodDatabasePass2Auditor {
             put("fndds", r.fnddsCount)
             put("srLegacy", r.srLegacyCount)
             put("nonUsdaLocalPriority", r.nonUsdaLocalCount)
+            put("validFdcIds", r.validFdcIdCount)
+        })
+        put("coverage", JSONObject().apply {
+            put("caloriesKnown", r.caloriesKnownCount)
+            put("proteinKnown", r.proteinKnownCount)
+            put("carbohydrateKnown", r.carbsKnownCount)
+            put("fatKnown", r.fatKnownCount)
+            put("fibreKnown", r.fibreKnownCount)
+            put("sodiumKnown", r.sodiumKnownCount)
+            put("plantTagged", r.plantTaggedCount)
+            put("foodsWithFewerThan4Micronutrients", r.lowMicronutrientCoverageCount)
+            put("averageKnownNutrientCount", r.averageKnownNutrientCount)
+            put("medianKnownNutrientCount", r.medianKnownNutrientCount)
+        })
+        put("categoryCounts", JSONObject().apply {
+            r.categoryCounts.toSortedMap().forEach { (tag, count) -> put(tag, count) }
+        })
+        put("preparationCounts", JSONObject().apply {
+            r.preparationCounts.toSortedMap().forEach { (prep, count) -> put(prep, count) }
         })
         put("verification", JSONObject().apply {
             put("deepSampleCount", r.deepSampleCount)
