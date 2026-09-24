@@ -105,6 +105,9 @@ internal object UsdaNutrientSemantics {
         UsdaNutrientSpec("vitamin_b12", "Vitamin B12", 1178, setOf("vitamin b-12", "vitamin b12"), targetUnit = "µg"),
         UsdaNutrientSpec("choline", "Choline, total", 1180, setOf("choline", "choline, total"), targetUnit = "mg"),
 
+        // USDA nutrient 1235 is an explicit added-sugars measure. Keep it separate from total
+        // sugars: it is a subset/label concept and must never replace the canonical total-sugars field.
+        UsdaNutrientSpec("added_sugars", "Added sugars", 1235, setOf("sugars, added"), targetUnit = "g"),
         UsdaNutrientSpec("starch", "Starch", 1009, setOf("starch"), targetUnit = "g"),
         UsdaNutrientSpec("water", "Water", 1051, setOf("water"), targetUnit = "g"),
         UsdaNutrientSpec("alcohol", "Alcohol", 1018, setOf("alcohol, ethyl"), targetUnit = "g"),
