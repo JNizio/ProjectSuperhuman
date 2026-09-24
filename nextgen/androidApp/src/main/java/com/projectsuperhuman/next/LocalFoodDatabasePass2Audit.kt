@@ -572,7 +572,7 @@ internal object LocalFoodDatabasePass2Auditor {
     }
 
     private fun csv(value: String): String {
-        val escaped = value.replace(""", """")
-        return if (escaped.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) ""$escaped"" else escaped
+        val escaped = value.replace("\"", "\"\"")
+        return if (escaped.any { it == ',' || it == '"' || it == '\n' || it == '\r' }) "\"$escaped\"" else escaped
     }
 }
