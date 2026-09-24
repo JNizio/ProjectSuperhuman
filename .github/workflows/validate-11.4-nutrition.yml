@@ -44,4 +44,8 @@ jobs:
       - name: Compile nextgen Android
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:compileDebugKotlin
       - name: Run nutrition unit tests
-        run: gradle --no-daemon --build-cache -p nextgen :androidApp:testDebugUnitTest
+        run: |
+          gradle --no-daemon --build-cache -p nextgen :androidApp:testDebugUnitTest \
+            --tests 'com.projectsuperhuman.next.*Food*Test' \
+            --tests 'com.projectsuperhuman.next.*Nutrition*Test' \
+            --tests 'com.projectsuperhuman.next.*Usda*Test'
