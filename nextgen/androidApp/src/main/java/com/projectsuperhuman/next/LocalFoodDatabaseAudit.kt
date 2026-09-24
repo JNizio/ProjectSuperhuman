@@ -262,6 +262,7 @@ internal object LocalFoodAuditRules {
         "choline" to 10_000.0,
         "cholesterol" to 10_000.0,
         "caffeine" to 10_000.0,
+        "added_sugars" to 100.5,
         "water" to 100.5,
         "alcohol" to 100.5,
         "starch" to 100.5,
@@ -304,6 +305,7 @@ internal object LocalFoodAuditRules {
         "choline" to "mg",
         "cholesterol" to "mg",
         "caffeine" to "mg",
+        "added_sugars" to "g",
         "water" to "g",
         "alcohol" to "g",
         "starch" to "g",
@@ -375,6 +377,29 @@ internal object LocalFoodAuditRules {
         knownInvalid(row.sodiumMg, row.sodiumKnown, "sodium")
         knownInvalid(row.saltG, row.saltKnown, "salt")
 
+        // The schema stores numeric placeholders alongside explicit knownness flags. Unknown must
+        // therefore remain a neutral zero placeholder; a non-zero value hidden behind known=false
+        // is ambiguous evidence and can silently corrupt downstream aggregation if a caller ignores
+        // the flag.
+        listOf(
+            "protein" to (row.protein to row.proteinKnown),
+            "carbohydrate" to (row.carbs to row.carbsKnown),
+            "fat" to (row.fat to row.fatKnown),
+            "fibre" to (row.fibre to row.fibreKnown),
+            "sugars" to (row.sugar to row.sugarKnown),
+            "saturated_fat" to (row.saturatedFat to row.saturatedFatKnown),
+            "sodium" to (row.sodiumMg to row.sodiumKnown),
+            "salt" to (row.saltG to row.saltKnown)
+        ).forEach { (label, valueKnown) ->
+            if (!valueKnown.second && abs(valueKnown.first) > 1e-12) {
+                add(
+                    "unknown_nonzero_" + label,
+                    LocalFoodAuditSeverity.ERROR,
+                    "$label carries a non-zero value while its knownness flag is false"
+                )
+            }
+        }
+
         if (row.unit.trim().lowercase(Locale.ROOT) != "100 g") {
             add("reference_basis", LocalFoodAuditSeverity.WARNING, "Local reference row is not stored on a 100 g basis")
         }
@@ -396,6 +421,17 @@ internal object LocalFoodAuditRules {
         if (row.saturatedFatKnown && row.fatKnown && row.saturatedFat > row.fat + max(0.2, row.fat * 0.03)) {
             add("satfat_gt_fat", LocalFoodAuditSeverity.ERROR, "Saturated fat exceeds total fat")
         }
+
+        row.micronutrients["added_sugars"]
+            ?.takeIf { canonicalNutrientUnit(it.unit) == "g" }
+            ?.let { added ->
+                if (row.sugarKnown && added.valuePer100 > row.sugar + max(0.5, row.sugar * 0.05)) {
+                    add("added_sugars_gt_sugars", LocalFoodAuditSeverity.ERROR, "Added sugars exceed total sugars")
+                }
+                if (row.carbsKnown && added.valuePer100 > row.carbs + max(0.5, row.carbs * 0.05)) {
+                    add("added_sugars_gt_carbs", LocalFoodAuditSeverity.ERROR, "Added sugars exceed total carbohydrate")
+                }
+            }
 
         if (row.fatKnown) {
             fun fatComponent(id: String): Double? = row.micronutrients[id]
@@ -498,6 +534,34 @@ internal object LocalFoodAuditRules {
                 )
             ) {
                 add("micro_zero_uncertain_$id", LocalFoodAuditSeverity.INFO, "$id is zero without strong source evidence; verify that zero is not a missing-value placeholder")
+            }
+        }
+
+        val usdaBacked = row.id.startsWith("usda:") || row.id.startsWith("core:usda:") ||
+            row.source.contains("USDA", ignoreCase = true)
+        if (usdaBacked) {
+            row.micronutrients.forEach { (id, nutrient) ->
+                if (nutrient.evidenceKind != NutrientEvidenceKind.REFERENCE_DATABASE) {
+                    add(
+                        "usda_micro_evidence_$id",
+                        LocalFoodAuditSeverity.ERROR,
+                        "$id on a USDA-backed row is not marked as reference-database evidence"
+                    )
+                }
+                if (nutrient.sourceRecordId.isBlank() || nutrient.sourceRecordId != row.sourceRecordId) {
+                    add(
+                        "usda_micro_record_$id",
+                        LocalFoodAuditSeverity.ERROR,
+                        "$id does not retain the same USDA/FDC source record ID as its food row"
+                    )
+                }
+                if (nutrient.source.isBlank() || !nutrient.source.contains("USDA", ignoreCase = true)) {
+                    add(
+                        "usda_micro_source_$id",
+                        LocalFoodAuditSeverity.WARNING,
+                        "$id does not retain explicit USDA nutrient-source provenance"
+                    )
+                }
             }
         }
 
@@ -640,7 +704,7 @@ internal object LocalFoodDatabaseAuditor {
         "potassium", "calcium", "magnesium", "phosphorus", "iron", "zinc", "copper", "manganese",
         "selenium", "vitamin_a", "vitamin_c", "vitamin_d", "vitamin_e", "vitamin_k",
         "vitamin_b1", "vitamin_b2", "niacin", "pantothenic_acid", "vitamin_b6", "folate",
-        "folic_acid", "folate_food", "folate_dfe", "vitamin_b12", "choline", "omega_3", "omega_6", "cholesterol", "caffeine", "water",
+        "folic_acid", "folate_food", "folate_dfe", "vitamin_b12", "choline", "added_sugars", "omega_3", "omega_6", "cholesterol", "caffeine", "water",
         "starch", "alcohol", "monounsaturated_fat", "polyunsaturated_fat", "trans_fat"
     )
 
