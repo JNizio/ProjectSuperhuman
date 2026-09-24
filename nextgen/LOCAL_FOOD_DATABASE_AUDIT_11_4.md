@@ -11,7 +11,7 @@ The local reference database is generated on-device from:
 
 The generated Project Superhuman core remains a materialized subset of source-backed rows. Stable source IDs are preserved.
 
-**Important:** the repository does not contain a checked-in copy of the populated ~10,000-row SQLite database. Therefore exact row-level after-counts depend on the user's populated device database. The app now generates those counts automatically from the real SQLite database after USDA bootstrap.
+**Important:** the repository does not contain a checked-in copy of the populated ~10,000-row SQLite database. Therefore exact row-level after-counts depend on the user's populated device database. The app now generates those counts automatically from the real SQLite database after USDA bootstrap. Audit schema v2 also runs the full Pass 2 auditor automatically once all configured USDA sources are complete.
 
 ## Pass 2 completion status
 
@@ -275,7 +275,7 @@ The report includes:
 - suspicious identical-profile examples;
 - representative-food snapshots.
 
-Summary values are also written to `food_reference_meta` for lightweight diagnostics.
+Summary values are also written to `food_reference_meta` for lightweight diagnostics. Pass 2 persists the database SHA-256 fingerprint, hard-error count, warning count, core-snapshot conflict count and duplicate-USDA-source-ID count there so release diagnostics do not require parsing the full CSV set.
 
 ## Confidence policy
 
