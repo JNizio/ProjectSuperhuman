@@ -1,5 +1,6 @@
 package com.projectsuperhuman.next
 
+import android.content.Context
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
@@ -215,6 +216,39 @@ private val n2Refs = listOf(
 private val n2RefById = n2Refs.associateBy { it.id }
 private val n2FocusIds = listOf("magnesium", "potassium", "calcium", "vitamin_d", "iron", "folate", "vitamin_b12", "zinc")
 private val n2Meals = listOf("Breakfast", "Lunch", "Dinner", "Snack")
+private const val N2_MEAL_PREFS = "nutrition_meal_preferences"
+private const val N2_CUSTOM_MEALS_KEY = "custom_meals"
+
+internal fun n2MealOrder(meals: List<String>): List<String> {
+    val cleaned = meals.map { it.trim().ifBlank { "Other" } }
+    val defaultsPresent = n2Meals.filter { default ->
+        cleaned.any { it.equals(default, ignoreCase = true) }
+    }
+    val custom = cleaned.filter { meal ->
+        n2Meals.none { it.equals(meal, ignoreCase = true) }
+    }.distinctBy { it.lowercase(Locale.ROOT) }
+    return defaultsPresent + custom
+}
+
+private fun n2LoadCustomMeals(context: Context): List<String> =
+    context.getSharedPreferences(N2_MEAL_PREFS, Context.MODE_PRIVATE)
+        .getStringSet(N2_CUSTOM_MEALS_KEY, emptySet())
+        .orEmpty()
+        .map(String::trim)
+        .filter(String::isNotBlank)
+        .filter { candidate -> n2Meals.none { it.equals(candidate, ignoreCase = true) } }
+        .distinctBy { it.lowercase(Locale.ROOT) }
+        .sortedBy { it.lowercase(Locale.ROOT) }
+
+private fun n2SaveCustomMeals(context: Context, meals: List<String>) {
+    context.getSharedPreferences(N2_MEAL_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putStringSet(
+            N2_CUSTOM_MEALS_KEY,
+            meals.map(String::trim).filter(String::isNotBlank).toSet()
+        )
+        .apply()
+}
 
 @Composable
 internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
@@ -231,6 +265,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     var portion by remember { mutableStateOf("100") }
     var portionUnit by remember { mutableStateOf(FoodUnit.G) }
     var meal by remember { mutableStateOf("Breakfast") }
+    var customMeals by remember { mutableStateOf(n2LoadCustomMeals(context)) }
     var searching by remember { mutableStateOf(false) }
     var foodSearchOpen by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("") }
@@ -250,7 +285,18 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
         val date = selectedDate
         val from = date.atStartOfDay(zone).toInstant().toEpochMilli()
         val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
-        day = n2BuildDay(NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to))
+        val refreshedDay = n2BuildDay(NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to))
+        day = refreshedDay
+        val loggedCustomMeals = refreshedDay.entries.map { it.meal }
+            .filter { candidate -> n2Meals.none { it.equals(candidate, ignoreCase = true) } }
+            .filter { it.isNotBlank() }
+        val mergedCustomMeals = (customMeals + loggedCustomMeals)
+            .distinctBy { it.lowercase(Locale.ROOT) }
+            .sortedBy { it.lowercase(Locale.ROOT) }
+        if (mergedCustomMeals != customMeals) {
+            customMeals = mergedCustomMeals
+            n2SaveCustomMeals(context, mergedCustomMeals)
+        }
         goals = n2LoadGoals()
     }
 
@@ -468,7 +514,23 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                             )
                         },
                         meal = meal,
+                        mealOptions = n2Meals + customMeals,
                         onMealChange = { meal = it },
+                        onAddMeal = { requested ->
+                            val trimmed = requested.trim().replace(Regex("\\s+"), " ").take(40)
+                            if (trimmed.isNotBlank()) {
+                                val default = n2Meals.firstOrNull { it.equals(trimmed, ignoreCase = true) }
+                                val existing = customMeals.firstOrNull { it.equals(trimmed, ignoreCase = true) }
+                                val resolved = default ?: existing ?: trimmed
+                                if (default == null && existing == null) {
+                                    customMeals = (customMeals + resolved)
+                                        .distinctBy { it.lowercase(Locale.ROOT) }
+                                        .sortedBy { it.lowercase(Locale.ROOT) }
+                                    n2SaveCustomMeals(context, customMeals)
+                                }
+                                meal = resolved
+                            }
+                        },
                         onFoodCorrected = { corrected ->
                             selected = corrected
                             results = results.map { if (it.id == corrected.id) corrected else it }
@@ -533,6 +595,27 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                 N2Diary(
                     day = day,
                     onDuplicate = { entry -> scope.launch { repeatEntry(entry) } },
+                    onClearMeal = { mealName, mealEntries ->
+                        scope.launch {
+                            val matching = mealEntries.flatMap { entry ->
+                                day.records.filter { row ->
+                                    val id = row.metadata["diaryEntryId"]
+                                    if (entry.id.startsWith("legacy:")) {
+                                        id == null && row.timestampEpochMs == entry.timestamp &&
+                                            row.metadata["foodId"] == entry.foodId
+                                    } else {
+                                        id == entry.id
+                                    }
+                                }
+                            }.distinct()
+                            NativeDataHub.deleteValues(matching)
+                            lastRemoved = null
+                            status = "Cleared " + mealName
+                            refresh()
+                            refreshWeek()
+                            refreshNutrients()
+                        }
+                    },
                     onRenameGroup = { groupEntries, newName ->
                         scope.launch {
                             val ids = groupEntries.map { it.id }.toSet()
@@ -1318,7 +1401,9 @@ private fun N2AddFoodCard(
     portionUnit: FoodUnit,
     onPortionUnitChange: (FoodUnit) -> Unit,
     meal: String,
+    mealOptions: List<String>,
     onMealChange: (String) -> Unit,
+    onAddMeal: (String) -> Unit,
     onFoodCorrected: (NativeFood) -> Unit,
     onRemoveCorrection: () -> Unit,
     onAdd: () -> Unit
@@ -1330,6 +1415,8 @@ private fun N2AddFoodCard(
     val context = LocalContext.current
     val correctionScope = rememberCoroutineScope()
     var editingNutrition by remember(food.id, food.sourceRevision) { mutableStateOf(false) }
+    var addingMeal by remember(food.id) { mutableStateOf(false) }
+    var newMealName by remember(food.id) { mutableStateOf("") }
     var kcalText by remember(food.id, food.sourceRevision) {
         mutableStateOf(if (food.kcalKnown) n2CorrectionText(food.kcal) else "")
     }
@@ -1534,14 +1621,65 @@ private fun N2AddFoodCard(
             }
         }
 
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            n2Meals.forEach { item ->
-                val active = meal == item
+        Row(
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            mealOptions.distinctBy { it.lowercase(Locale.ROOT) }.forEach { item ->
+                val active = meal.equals(item, ignoreCase = true)
                 Box(
                     Modifier.background(if (active) N2Blue else N2Surface, RoundedCornerShape(13.dp))
                         .border(1.dp, if (active) N2Blue else N2Border, RoundedCornerShape(13.dp))
                         .clickable { onMealChange(item) }.padding(horizontal = 14.dp, vertical = 9.dp)
-                ) { Text(item, color = if (active) Color.White else N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+                ) {
+                    Text(item, color = if (active) Color.White else N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Box(
+                Modifier.background(N2Surface, RoundedCornerShape(13.dp))
+                    .border(1.dp, N2Border, RoundedCornerShape(13.dp))
+                    .clickable { addingMeal = true }
+                    .padding(horizontal = 14.dp, vertical = 9.dp)
+            ) {
+                Text("+ Add meal", color = N2Blue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            }
+        }
+        if (addingMeal) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = newMealName,
+                    onValueChange = { newMealName = it.take(40) },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true,
+                    label = { Text("Meal name") }
+                )
+                Text(
+                    "Add",
+                    color = N2Blue,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.clickable {
+                        if (newMealName.isNotBlank()) {
+                            onAddMeal(newMealName)
+                            newMealName = ""
+                            addingMeal = false
+                        }
+                    }.padding(8.dp)
+                )
+                Text(
+                    "Cancel",
+                    color = N2Muted,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable {
+                        newMealName = ""
+                        addingMeal = false
+                    }.padding(8.dp)
+                )
             }
         }
         N2Button("Add to $meal", N2Green, Modifier.fillMaxWidth(), true, onAdd)
@@ -1628,6 +1766,7 @@ private fun N2UndoBar(name: String, onUndo: () -> Unit) {
 private fun N2Diary(
     day: N2Day,
     onDuplicate: (N2Entry) -> Unit,
+    onClearMeal: (String, List<N2Entry>) -> Unit,
     onRenameGroup: (List<N2Entry>, String) -> Unit,
     onRemove: (N2Entry) -> Unit
 ) {
@@ -1659,12 +1798,12 @@ private fun N2Diary(
                 fontWeight = FontWeight.Bold
             )
         }
-        n2Meals.forEach { meal ->
-            val entries = day.entries.filter { it.meal.equals(meal, ignoreCase = true) }
-            if (entries.isNotEmpty()) N2MealCard(meal, entries, onDuplicate, onRenameGroup, onRemove)
+        n2MealOrder(day.entries.map { it.meal }).forEach { mealName ->
+            val entries = day.entries.filter { it.meal.equals(mealName, ignoreCase = true) }
+            if (entries.isNotEmpty()) {
+                N2MealCard(mealName, entries, onDuplicate, onClearMeal, onRenameGroup, onRemove)
+            }
         }
-        val other = day.entries.filter { e -> n2Meals.none { it.equals(e.meal, ignoreCase = true) } }
-        if (other.isNotEmpty()) N2MealCard("Other", other, onDuplicate, onRenameGroup, onRemove)
     }
 }
 
@@ -1673,10 +1812,12 @@ private fun N2MealCard(
     meal: String,
     entries: List<N2Entry>,
     onDuplicate: (N2Entry) -> Unit,
+    onClearMeal: (String, List<N2Entry>) -> Unit,
     onRenameGroup: (List<N2Entry>, String) -> Unit,
     onRemove: (N2Entry) -> Unit
 ) {
-    var expanded by remember(meal, entries.size) { mutableStateOf(false) }
+    var expanded by remember(meal) { mutableStateOf(false) }
+    var confirmingClear by remember(meal) { mutableStateOf(false) }
     val mealKcal = entries.sumOf { it.kcal }
     val mealProtein = entries.sumOf { it.protein }
     val mealKcalComplete = entries.all { it.kcalKnown }
@@ -1702,6 +1843,20 @@ private fun N2MealCard(
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    if (confirmingClear) "Confirm clear" else "Clear",
+                    color = if (confirmingClear) N2Amber else N2Muted,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.clickable {
+                        if (confirmingClear) {
+                            onClearMeal(meal, entries)
+                            confirmingClear = false
+                        } else {
+                            confirmingClear = true
+                        }
+                    }.padding(horizontal = 5.dp, vertical = 7.dp)
+                )
                 Text(
                     (if (mealKcalComplete) "" else "~") + mealKcal.roundToInt().toString() + " kcal",
                     color = N2Ink,
