@@ -280,6 +280,28 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     var weekDays by remember { mutableStateOf<List<N2Day>>(emptyList()) }
     var lastRemoved by remember { mutableStateOf<N2Entry?>(null) }
 
+    fun selectOrCreateMeal(requested: String, openSearch: Boolean = false) {
+        val trimmed = requested.trim().replace(Regex("\\s+"), " ").take(40)
+        if (trimmed.isBlank()) return
+        val default = n2Meals.firstOrNull { it.equals(trimmed, ignoreCase = true) }
+        val existing = customMeals.firstOrNull { it.equals(trimmed, ignoreCase = true) }
+        val resolved = default ?: existing ?: trimmed
+        if (default == null && existing == null) {
+            customMeals = (customMeals + resolved)
+                .distinctBy { it.lowercase(Locale.ROOT) }
+                .sortedBy { it.lowercase(Locale.ROOT) }
+            n2SaveCustomMeals(context, customMeals)
+        }
+        meal = resolved
+        if (openSearch) {
+            foodSearchOpen = true
+            selected = null
+            results = emptyList()
+            query = ""
+            status = ""
+        }
+    }
+
     suspend fun refresh() {
         val zone = ZoneId.systemDefault()
         val date = selectedDate
@@ -516,21 +538,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                         meal = meal,
                         mealOptions = n2Meals + customMeals,
                         onMealChange = { meal = it },
-                        onAddMeal = { requested ->
-                            val trimmed = requested.trim().replace(Regex("\\s+"), " ").take(40)
-                            if (trimmed.isNotBlank()) {
-                                val default = n2Meals.firstOrNull { it.equals(trimmed, ignoreCase = true) }
-                                val existing = customMeals.firstOrNull { it.equals(trimmed, ignoreCase = true) }
-                                val resolved = default ?: existing ?: trimmed
-                                if (default == null && existing == null) {
-                                    customMeals = (customMeals + resolved)
-                                        .distinctBy { it.lowercase(Locale.ROOT) }
-                                        .sortedBy { it.lowercase(Locale.ROOT) }
-                                    n2SaveCustomMeals(context, customMeals)
-                                }
-                                meal = resolved
-                            }
-                        },
+                        onAddMeal = { requested -> selectOrCreateMeal(requested) },
                         onFoodCorrected = { corrected ->
                             selected = corrected
                             results = results.map { if (it.id == corrected.id) corrected else it }
@@ -594,6 +602,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 
                 N2Diary(
                     day = day,
+                    onAddMeal = { requested -> selectOrCreateMeal(requested, openSearch = true) },
                     onDuplicate = { entry -> scope.launch { repeatEntry(entry) } },
                     onClearMeal = { mealName, mealEntries ->
                         scope.launch {
@@ -1765,11 +1774,15 @@ private fun N2UndoBar(name: String, onUndo: () -> Unit) {
 @Composable
 private fun N2Diary(
     day: N2Day,
+    onAddMeal: (String) -> Unit,
     onDuplicate: (N2Entry) -> Unit,
     onClearMeal: (String, List<N2Entry>) -> Unit,
     onRenameGroup: (List<N2Entry>, String) -> Unit,
     onRemove: (N2Entry) -> Unit
 ) {
+    var addingMeal by remember { mutableStateOf(false) }
+    var newMealName by remember { mutableStateOf("") }
+
     if (day.entries.isEmpty()) {
         Column(
             Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(22.dp))
@@ -1779,6 +1792,31 @@ private fun N2Diary(
             Text("Nothing logged yet", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(4.dp))
             Text("Search, scan or add a recent food above.", color = N2Muted, fontSize = 9.sp, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "+ Add meal",
+                color = N2Blue,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Black,
+                modifier = Modifier.clickable { addingMeal = true }.padding(8.dp)
+            )
+            if (addingMeal) {
+                N2AddMealEditor(
+                    value = newMealName,
+                    onValueChange = { newMealName = it.take(40) },
+                    onAdd = {
+                        if (newMealName.isNotBlank()) {
+                            onAddMeal(newMealName)
+                            newMealName = ""
+                            addingMeal = false
+                        }
+                    },
+                    onCancel = {
+                        newMealName = ""
+                        addingMeal = false
+                    }
+                )
+            }
         }
         return
     }
@@ -1789,7 +1827,16 @@ private fun N2Diary(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Diary", color = N2Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Diary", color = N2Ink, fontSize = 22.sp, fontWeight = FontWeight.Black)
+                Text(
+                    "+ Add meal",
+                    color = N2Blue,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    modifier = Modifier.clickable { addingMeal = true }.padding(horizontal = 4.dp, vertical = 6.dp)
+                )
+            }
             Text(
                 day.entries.size.toString() + " items · " +
                     (if (day.kcalComplete) "" else "~") + day.kcal.roundToInt().toString() + " kcal",
@@ -1798,12 +1845,65 @@ private fun N2Diary(
                 fontWeight = FontWeight.Bold
             )
         }
+        if (addingMeal) {
+            N2AddMealEditor(
+                value = newMealName,
+                onValueChange = { newMealName = it.take(40) },
+                onAdd = {
+                    if (newMealName.isNotBlank()) {
+                        onAddMeal(newMealName)
+                        newMealName = ""
+                        addingMeal = false
+                    }
+                },
+                onCancel = {
+                    newMealName = ""
+                    addingMeal = false
+                }
+            )
+        }
         n2MealOrder(day.entries.map { it.meal }).forEach { mealName ->
             val entries = day.entries.filter { it.meal.equals(mealName, ignoreCase = true) }
             if (entries.isNotEmpty()) {
                 N2MealCard(mealName, entries, onDuplicate, onClearMeal, onRenameGroup, onRemove)
             }
         }
+    }
+}
+
+@Composable
+private fun N2AddMealEditor(
+    value: String,
+    onValueChange: (String) -> Unit,
+    onAdd: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+            label = { Text("Meal name") }
+        )
+        Text(
+            "Add",
+            color = N2Blue,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Black,
+            modifier = Modifier.clickable(onClick = onAdd).padding(8.dp)
+        )
+        Text(
+            "Cancel",
+            color = N2Muted,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.clickable(onClick = onCancel).padding(8.dp)
+        )
     }
 }
 
