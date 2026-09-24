@@ -31,6 +31,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -1865,7 +1866,9 @@ private fun N2Diary(
         n2MealOrder(day.entries.map { it.meal }).forEach { mealName ->
             val entries = day.entries.filter { it.meal.equals(mealName, ignoreCase = true) }
             if (entries.isNotEmpty()) {
-                N2MealCard(mealName, entries, onDuplicate, onClearMeal, onRenameGroup, onRemove)
+                key(mealName.lowercase(Locale.ROOT)) {
+                    N2MealCard(mealName, entries, onDuplicate, onClearMeal, onRenameGroup, onRemove)
+                }
             }
         }
     }
