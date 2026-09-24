@@ -306,13 +306,19 @@ Questionable source nutrition remains visible for review instead of being replac
 
 ## CI / verification status
 
-The Nutrition workflow now requests:
+The dedicated `Validate 11.4 Nutrition` workflow now runs:
 - Android Kotlin compilation;
-- Nutrition unit tests including the new audit and taxonomy cases.
+- the scoped Project Superhuman food/nutrition/USDA regression suite.
 
-At the time of this audit, GitHub Actions stops before Kotlin compilation because Gradle cannot resolve the existing `app.cash.sqldelight:2.1.0` plugin from the configured plugin repositories. This is a build/dependency-resolution blocker and not a validator test result.
+Validation run 58 on commit `deb64b8f9b18eb971f6aee1c7087e1fe1a221c8c` completed successfully:
+- checkout: PASS;
+- Java/Gradle setup: PASS;
+- `:androidApp:compileDebugKotlin`: PASS;
+- scoped nutrition unit tests: PASS.
 
-The audit should therefore not be declared fully runtime-verified solely from CI until that dependency-resolution issue is repaired and the populated-device report has been reviewed.
+An earlier full-module test run also exposed a real plant-classification regression: `Pumpkin seeds, roasted` could be captured by the generic `pumpkin` vegetable identity. The classifier was fixed to support simple plural forms while still preferring the longest/specific plant identity. The nutrition regression gate passes with that correction.
+
+The repository-side Pass 2 implementation is therefore compile- and regression-tested. This does **not** mean every materialized food row has been independently compared with USDA. The final row-level acceptance step still requires a populated device/database run of the Pass 2 auditor and review of its exported source/conflict/coverage reports.
 
 ## Final acceptance standard
 
