@@ -117,4 +117,24 @@ class UsdaNutrientSemanticsTest {
             )
         )
     }
+    @Test
+    fun keepsAddedSugarsSeparateFromTotalSugars() {
+        val added = UsdaNutrientSemantics.matchMicronutrient(1235, "Sugars, added")
+        assertNotNull(added)
+        assertEquals("added_sugars", added.canonicalId)
+        assertEquals("g", added.targetUnit)
+
+        assertNull(UsdaNutrientSemantics.matchMicronutrient(1235, "Sugars, total"))
+        assertNull(UsdaNutrientSemantics.matchMicronutrient(2000, "Sugars, added"))
+    }
+
+    @Test
+    fun stableCanonicalMappingsDoNotReuseFdcIds() {
+        val stableIds = UsdaNutrientSemantics.micronutrients.mapNotNull { it.fdcNutrientId }
+        assertEquals(stableIds.size, stableIds.toSet().size)
+
+        val canonicalIds = UsdaNutrientSemantics.micronutrients.map { it.canonicalId }
+        assertEquals(canonicalIds.size, canonicalIds.toSet().size)
+    }
+
 }
