@@ -173,4 +173,58 @@ class LocalFoodAuditRulesTest {
         )
         assertTrue(findings.any { it.code == "plant_diversity_processed" })
     }
+    @Test
+    fun catchesUnknownMacroWithHiddenNonZeroValue() {
+        val findings = LocalFoodAuditRules.validate(
+            row().copy(protein = 12.0, proteinKnown = false)
+        )
+        assertTrue(findings.any { it.code == "unknown_nonzero_protein" })
+    }
+
+    @Test
+    fun catchesAddedSugarsThatExceedTotalSugars() {
+        val findings = LocalFoodAuditRules.validate(
+            row(
+                carbs = 20.0,
+                sugar = 8.0,
+                micros = mapOf(
+                    "added_sugars" to NativeNutrient(
+                        "added_sugars",
+                        "Added sugars",
+                        12.0,
+                        "g",
+                        NutrientEvidenceKind.REFERENCE_DATABASE,
+                        source = "USDA FNDDS test",
+                        sourceRecordId = "123"
+                    )
+                )
+            ).copy(
+                id = "usda:123",
+                sourceRecordId = "123"
+            )
+        )
+        assertTrue(findings.any { it.code == "added_sugars_gt_sugars" })
+    }
+
+    @Test
+    fun catchesUsdaMicronutrientProvenanceMismatch() {
+        val findings = LocalFoodAuditRules.validate(
+            row(
+                id = "usda:123",
+                micros = mapOf(
+                    "calcium" to NativeNutrient(
+                        "calcium",
+                        "Calcium",
+                        6.0,
+                        "mg",
+                        NutrientEvidenceKind.REFERENCE_DATABASE,
+                        source = "USDA Foundation Foods test",
+                        sourceRecordId = "999"
+                    )
+                )
+            ).copy(sourceRecordId = "123")
+        )
+        assertTrue(findings.any { it.code == "usda_micro_record_calcium" })
+    }
+
 }
