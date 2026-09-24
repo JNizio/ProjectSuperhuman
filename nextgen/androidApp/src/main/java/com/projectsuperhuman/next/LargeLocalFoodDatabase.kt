@@ -75,7 +75,7 @@ internal object LargeLocalFoodDatabase {
     private const val CORE_SCHEMA_META = "project_superhuman_core_food_schema"
     private const val CORE_SCHEMA_VERSION = 10
     private const val AUDIT_SCHEMA_META = "local_food_audit_schema"
-    private const val AUDIT_SCHEMA_VERSION = 1
+    private const val AUDIT_SCHEMA_VERSION = 2
 
     private val bootstrapScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val bootstrapStarted = AtomicBoolean(false)
@@ -611,6 +611,10 @@ internal object LargeLocalFoodDatabase {
 
                 val report = LocalFoodDatabaseAuditor.audit(db)
                 LocalFoodDatabaseAuditor.writeReports(context.applicationContext, report)
+
+                val pass2 = LocalFoodDatabasePass2Auditor.audit(db)
+                LocalFoodDatabasePass2Auditor.writeReports(context.applicationContext, pass2)
+
                 putMeta(db, AUDIT_SCHEMA_META, AUDIT_SCHEMA_VERSION.toString())
                 putMeta(db, "local_food_audit_total_records", report.totalRecords.toString())
                 putMeta(db, "local_food_audit_unique_canonical", report.uniqueCanonicalFoods.toString())
@@ -619,6 +623,11 @@ internal object LargeLocalFoodDatabase {
                 putMeta(db, "local_food_audit_needing_review", report.recordsNeedingReview.toString())
                 putMeta(db, "local_food_audit_missing_tags", report.foodsMissingTags.toString())
                 putMeta(db, "local_food_audit_plant_tag_missing", report.plantFoodsMissingPlantTag.toString())
+                putMeta(db, "local_food_pass2_fingerprint_sha256", pass2.databaseFingerprintSha256)
+                putMeta(db, "local_food_pass2_hard_errors", pass2.hardErrorFindingCount.toString())
+                putMeta(db, "local_food_pass2_warning_findings", pass2.warningFindingCount.toString())
+                putMeta(db, "local_food_pass2_core_snapshot_conflicts", pass2.coreSnapshotConflictCount.toString())
+                putMeta(db, "local_food_pass2_duplicate_usda_source_ids", pass2.duplicateUsdaSourceRecordIds.toString())
             }
         }.onFailure {
             auditGenerated.set(false)
