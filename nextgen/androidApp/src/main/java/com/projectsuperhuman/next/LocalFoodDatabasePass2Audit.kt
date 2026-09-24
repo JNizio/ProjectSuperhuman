@@ -651,11 +651,11 @@ internal object LocalFoodDatabasePass2Auditor {
             r.baseline.nutrientCoverage.forEach { n ->
                 put(JSONObject().apply {
                     put("nutrient", n.nutrient)
-                    put("valid", n.validCount)
-                    put("missing", n.missingCount)
-                    put("zero", n.zeroCount)
-                    put("suspiciousZero", n.suspiciousZeroCount)
-                    put("coveragePercent", if (r.totalRecords == 0) 0.0 else n.validCount * 100.0 / r.totalRecords)
+                    put("valid", n.valid)
+                    put("missing", n.missing)
+                    put("zero", n.zero)
+                    put("suspiciousZero", n.suspiciousZero)
+                    put("coveragePercent", if (r.totalRecords == 0) 0.0 else n.valid * 100.0 / r.totalRecords)
                 })
             }
         })
@@ -689,7 +689,7 @@ internal object LocalFoodDatabasePass2Auditor {
 
     private fun missingNutrientsCsv(coverage: List<LocalFoodNutrientCoverage>): String = buildString {
         appendLine("nutrient,known_count,missing_count,zero_count,suspicious_zero_count")
-        coverage.forEach { appendCsvRow(it.nutrient, it.validCount, it.missingCount, it.zeroCount, it.suspiciousZeroCount) }
+        coverage.forEach { appendCsvRow(it.nutrient, it.valid, it.missing, it.zero, it.suspiciousZero) }
     }
 
     private fun StringBuilder.appendCsvRow(vararg fields: Any?) {
