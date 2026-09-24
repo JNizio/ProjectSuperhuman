@@ -517,6 +517,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                                 query = ""
                                 status = "Added to $meal"
                                 refresh()
+                                refreshWeek()
                                 refreshNutrients()
                             }
                         }
