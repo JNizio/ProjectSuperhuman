@@ -90,6 +90,27 @@ class PlantFoodClassifierTest {
     }
 
     @Test
+    fun tomatoAndRocketArePlantDiversityEligible() {
+        val tomato = PlantFoodClassifier.classify("Tomato, raw")
+        assertTrue(tomato.isPlantFood)
+        assertEquals(PlantFoodKind.VEGETABLE, tomato.kind)
+        assertEquals("tomato", tomato.diversityKey)
+        assertTrue(tomato.diversityEligible)
+
+        val rocket = PlantFoodClassifier.classify("Rocket, raw")
+        assertTrue(rocket.isPlantFood)
+        assertEquals(PlantFoodKind.VEGETABLE, rocket.kind)
+        assertEquals("rocket", rocket.diversityKey)
+        assertTrue(rocket.diversityEligible)
+
+        val wildRocket = PlantFoodClassifier.classify("Wild rocket, raw")
+        assertTrue(wildRocket.isPlantFood)
+        assertEquals(PlantFoodKind.VEGETABLE, wildRocket.kind)
+        assertEquals("rocket", wildRocket.diversityKey)
+        assertTrue(wildRocket.diversityEligible)
+    }
+
+    @Test
     fun deterministicTaxonomyCoversRepresentativeFoodFamilies() {
         val rocket = FoodTaxonomyClassifier.classify("Arugula, raw")
         assertTrue(FoodTag.PLANT in rocket)
