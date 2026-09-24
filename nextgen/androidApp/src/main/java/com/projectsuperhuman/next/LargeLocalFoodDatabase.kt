@@ -1245,7 +1245,11 @@ internal object LargeLocalFoodDatabase {
         out.accept(nutrientId, nutrientName, unitName, value)
     }
 
-    private class NutrientAccumulator {
+    /**
+     * Kept internal so JVM regression tests can exercise the USDA nutrient mapping/conversion layer
+     * without Android I/O or a downloaded FoodData Central archive.
+     */
+    internal class NutrientAccumulator {
         var kcal: Double? = null
         private var kcalPriority: Int = 0
         var protein: Double? = null
