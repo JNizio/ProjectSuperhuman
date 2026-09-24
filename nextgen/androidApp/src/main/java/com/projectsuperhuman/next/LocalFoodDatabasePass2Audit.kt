@@ -283,7 +283,7 @@ internal object LocalFoodDatabasePass2Auditor {
                 append(row.servingUnit).append('\u001f').append(row.servingLabel)
             }
             digest.update(canonical.toByteArray(Charsets.UTF_8))
-            digest.update(0)
+            digest.update(0.toByte())
         }
         return digest.digest().joinToString("") { byte ->
             (byte.toInt() and 0xff).toString(16).padStart(2, '0')
