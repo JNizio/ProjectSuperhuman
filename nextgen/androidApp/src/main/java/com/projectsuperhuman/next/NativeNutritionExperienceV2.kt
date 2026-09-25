@@ -46,6 +46,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -879,112 +880,89 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
     Column(
         Modifier
             .fillMaxWidth()
-            .background(N2SoftGreen, RoundedCornerShape(20.dp))
-            .border(1.dp, N2Green.copy(alpha = .24f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            .background(N2SoftGreen, RoundedCornerShape(22.dp))
+            .border(1.dp, N2Green.copy(alpha = .34f), RoundedCornerShape(22.dp))
+            .padding(horizontal = 15.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(
             Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Column(
                 Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
                     "PLANT DIVERSITY",
-                    color = N2Ink,
-                    fontSize = 11.sp,
-                    lineHeight = 12.sp,
+                    color = N2Green,
+                    fontSize = 10.5.sp,
+                    lineHeight = 11.sp,
                     fontWeight = FontWeight.Black,
-                    letterSpacing = .35.sp
+                    letterSpacing = .9.sp
                 )
                 Text(
                     if (snapshot.uniquePlants == 1) "1 unique plant" else "${snapshot.uniquePlants} unique plants",
                     color = N2Ink,
-                    fontSize = 17.sp,
-                    lineHeight = 19.sp,
+                    fontSize = 18.sp,
+                    lineHeight = 20.sp,
                     fontWeight = FontWeight.Black
                 )
             }
-            Text(
-                "7-day view",
-                color = N2Muted,
-                fontSize = 8.5.sp,
-                lineHeight = 10.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+
+            Box(
+                Modifier
+                    .background(N2Surface.copy(alpha = .58f), RoundedCornerShape(999.dp))
+                    .border(1.dp, N2Green.copy(alpha = .18f), RoundedCornerShape(999.dp))
+                    .padding(horizontal = 11.dp, vertical = 6.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    "7-day view",
+                    color = N2Muted,
+                    fontSize = 8.5.sp,
+                    lineHeight = 9.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
 
-        /*
-         * Petals and their labels now share the same composable container.
-         * This keeps count/category text locked inside its petal at every density.
-         */
         Box(
-            Modifier.size(184.dp),
+            Modifier.size(210.dp),
             contentAlignment = Alignment.TopStart
         ) {
-            val center = 92f
+            val center = 105f
             val orbit = 58f
-            val petalWidth = 66f
-            val petalHeight = 42f
+            val petalBox = 82f
 
             petals.forEachIndexed { index, (family, baseColor, count) ->
                 val angleDegrees = -90f + index * 60f
                 val radians = Math.toRadians(angleDegrees.toDouble())
                 val centerX = center + orbit * kotlin.math.cos(radians).toFloat()
                 val centerY = center + orbit * kotlin.math.sin(radians).toFloat()
-                val x = centerX - petalWidth / 2f
-                val y = centerY - petalHeight / 2f
-                val labelColor = if (count > 0) N2Ink else N2Muted.copy(alpha = .62f)
-                val fill = baseColor.copy(alpha = n2PlantPetalAlpha(count))
-                val outline = baseColor.copy(alpha = if (count > 0) .72f else .20f)
 
-                Box(
-                    Modifier
-                        .offset(x = x.dp, y = y.dp)
-                        .width(petalWidth.dp)
-                        .height(petalHeight.dp)
-                        .background(fill, CircleShape)
-                        .border(1.dp, outline, CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(
-                        Modifier.padding(horizontal = 4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy((-1).dp)
-                    ) {
-                        Text(
-                            count.toString(),
-                            color = if (count > 0) baseColor.copy(alpha = 1f) else labelColor,
-                            fontSize = 12.sp,
-                            lineHeight = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            maxLines = 1,
-                            textAlign = TextAlign.Center
+                N2PlantPetal(
+                    family = family,
+                    count = count,
+                    baseColor = baseColor,
+                    angleDegrees = angleDegrees,
+                    modifier = Modifier
+                        .offset(
+                            x = (centerX - petalBox / 2f).dp,
+                            y = (centerY - petalBox / 2f).dp
                         )
-                        Text(
-                            family.shortLabel,
-                            color = labelColor,
-                            fontSize = if (family == N2PlantFlowerFamily.NUTS_SEEDS) 6.5.sp else 7.sp,
-                            lineHeight = 8.sp,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+                        .size(petalBox.dp)
+                )
             }
 
             Box(
                 Modifier
-                    .size(58.dp)
+                    .size(64.dp)
                     .align(Alignment.Center)
                     .background(N2Surface.copy(alpha = .98f), CircleShape)
-                    .border(1.5.dp, N2Green.copy(alpha = .46f), CircleShape),
+                    .border(1.5.dp, N2Green.copy(alpha = .58f), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
                 Column(
@@ -994,14 +972,14 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
                     Text(
                         snapshot.uniquePlants.toString(),
                         color = N2Ink,
-                        fontSize = 20.sp,
-                        lineHeight = 20.sp,
+                        fontSize = 21.sp,
+                        lineHeight = 21.sp,
                         fontWeight = FontWeight.Black
                     )
                     Text(
                         "plants",
                         color = N2Muted,
-                        fontSize = 7.sp,
+                        fontSize = 7.5.sp,
                         lineHeight = 8.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1011,12 +989,102 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
 
         Text(
             "Each petal is one plant family. More variety makes the flower richer.",
-            color = N2Muted,
+            color = N2Muted.copy(alpha = .92f),
             fontSize = 8.sp,
             lineHeight = 11.sp,
             textAlign = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 6.dp)
         )
+    }
+}
+
+@Composable
+private fun N2PlantPetal(
+    family: N2PlantFlowerFamily,
+    count: Int,
+    baseColor: Color,
+    angleDegrees: Float,
+    modifier: Modifier = Modifier
+) {
+    val labelColor = if (count > 0) N2Ink else N2Muted.copy(alpha = .66f)
+    val fill = baseColor.copy(alpha = n2PlantPetalAlpha(count))
+    val outline = baseColor.copy(alpha = if (count > 0) .82f else .30f)
+
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(Modifier.fillMaxSize()) {
+            val cx = size.width / 2f
+            val top = 5.dp.toPx()
+            val bottom = size.height - 5.dp.toPx()
+            val halfWidth = 27.dp.toPx()
+
+            val petal = Path().apply {
+                moveTo(cx, top)
+                cubicTo(
+                    cx + halfWidth,
+                    top + 10.dp.toPx(),
+                    cx + halfWidth,
+                    bottom - 17.dp.toPx(),
+                    cx,
+                    bottom
+                )
+                cubicTo(
+                    cx - halfWidth,
+                    bottom - 17.dp.toPx(),
+                    cx - halfWidth,
+                    top + 10.dp.toPx(),
+                    cx,
+                    top
+                )
+                close()
+            }
+
+            rotate(angleDegrees + 90f, pivot = center) {
+                drawPath(petal, color = fill)
+                drawPath(
+                    petal,
+                    color = outline,
+                    style = Stroke(width = 1.dp.toPx())
+                )
+                drawLine(
+                    color = baseColor.copy(alpha = if (count > 0) .22f else .10f),
+                    start = Offset(cx, bottom - 10.dp.toPx()),
+                    end = Offset(cx, top + 10.dp.toPx()),
+                    strokeWidth = .8.dp.toPx()
+                )
+            }
+        }
+
+        Column(
+            Modifier
+                .width(58.dp)
+                .padding(horizontal = 2.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy((-1).dp)
+        ) {
+            Text(
+                count.toString(),
+                color = if (count > 0) baseColor else labelColor,
+                fontSize = 12.5.sp,
+                lineHeight = 13.sp,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                family.shortLabel,
+                color = labelColor,
+                fontSize = if (family == N2PlantFlowerFamily.NUTS_SEEDS) 6.4.sp else 7.sp,
+                lineHeight = 8.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
