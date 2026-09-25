@@ -432,9 +432,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
         }
         NativeDataHub.duplicateNutritionEntry(matching, timestamp)
         status = "Added " + entry.name + " again"
-        refresh()
-        refreshWeek()
-        refreshNutrients()
+        refreshAllNutrition()
     }
 
     suspend fun performFoodSearch() {
@@ -651,9 +649,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                                 results = emptyList()
                                 query = ""
                                 status = "Added to $meal"
-                                refresh()
-                                refreshWeek()
-                                refreshNutrients()
+                                refreshAllNutrition()
                             }
                         }
                     )
@@ -685,9 +681,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                             NativeDataHub.deleteValues(matching)
                             lastRemoved = null
                             status = "Cleared " + mealName
-                            refresh()
-                            refreshWeek()
-                            refreshNutrients()
+                            refreshAllNutrition()
                         }
                     },
                     onRenameGroup = { groupEntries, newName ->
@@ -696,9 +690,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                             val matching = day.records.filter { row -> row.metadata["diaryEntryId"] in ids }
                             NativeDataHub.renameNutritionMealGroup(matching, newName)
                             status = "Meal renamed"
-                            refresh()
-                            refreshWeek()
-                            refreshNutrients()
+                            refreshAllNutrition()
                         }
                     },
                     onRemove = { entry ->
@@ -712,9 +704,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                             NativeDataHub.deleteValues(matching)
                             lastRemoved = entry
                             status = "Removed " + entry.name
-                            refresh()
-                            refreshWeek()
-                            refreshNutrients()
+                            refreshAllNutrition()
                         }
                     }
                 )
