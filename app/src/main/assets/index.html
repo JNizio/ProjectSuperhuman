@@ -233,7 +233,7 @@ const ICON='icon.png';
 const app=document.getElementById('app');
 function syncNativeAppVersion(){try{const v=(window.SuperhumanApp&&SuperhumanApp.getVersionName)?SuperhumanApp.getVersionName():'';if(v){setTimeout(()=>{const e=document.getElementById('psAppVersion');if(e)e.textContent='v'+v+' · developer tools'},0)}}catch(_){}}
 const EX_BY_ID=Object.fromEntries(EXERCISES.map(x=>[x.id,x]));
-const WATER_GOAL_KEY='ps_water_goal_ml',WATER_INTAKE_KEY='ps_water_intake_ml',WATER_DAY_KEY='ps_water_day',WATER_LOG_KEY='ps_water_log_v2';
+const WATER_GOAL_KEY='ps_water_goal_ml',WATER_INTAKE_KEY='ps_water_intake_ml',WATER_DAY_KEY='ps_water_day',WATER_LOG_KEY='ps_water_log_v2',WATER_PRESETS_KEY='ps_water_presets_v1';
 const CLINICAL_INBOX_KEY='ps_clinical_inbox_v1';const DEV_DATA_KEY='ps_dev_dataset_v981';
 const HISTORY_KEY='ps_workout_history_v1',ACTIVE_KEY='ps_active_workout_v1',ROUTINES_KEY='ps_custom_routines_v1',CUSTOM_EX_KEY='ps_custom_exercises_v1',FAV_KEY='ps_favourite_exercises_v1',REST_KEY='ps_rest_seconds_v1',ADV_KEY='ps_advanced_logging_v1',SLEEP_LOG_KEY='ps_sleep_log_v1',SLEEP_GOAL_HOURS_KEY='ps_sleep_goal_hours_v1',HEALTH_PROFILE_KEY='ps_health_profile_v1',BODY_LOG_KEY='ps_body_log_v1',SCALE_MAC_KEY='ps_scale_mac_v1';
 let route={view:'home'};let bodyProfileDraft=null;let libraryMode='browse',librarySearch='',libraryFilter='All';let routineDraft=null;let lastCompleted=null;let mindful={active:false,end:0,duration:0,phase:'Ready',phaseEnd:0,inhale:true};
@@ -265,9 +265,44 @@ function weightTrendText(ctx){const d=ctx.weightDelta30,u=ctx.profile.units;if(d
 function todayKey(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
 function fmtDate(ts){const d=new Date(ts);return d.toLocaleDateString(undefined,{day:'numeric',month:'short',year:'numeric'})}
 function fmtDuration(sec){sec=Math.max(0,Math.round(sec));const h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;return h?`${h}h ${String(m).padStart(2,'0')}m`:`${m}:${String(s).padStart(2,'0')}`}
-let waterEditId=null,waterCustomOpen=false;
+let waterEditId=null,waterCustomOpen=false,waterPresetEditOpen=false,waterSelectedDay=null,waterLastUndo=null;
 function waterDayKey(ts=Date.now()){const d=new Date(ts);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate()}
 function waterMlLabel(ml){const n=Math.round(Number(ml)||0);if(n>=1000){const l=n/1000;return (Number.isInteger(l)?l.toFixed(0):l.toFixed(1))+' L'}return n.toLocaleString()+' ml'}
+function defaultWaterPresets(){return[{label:'Glass',ml:250},{label:'Small bottle',ml:330},{label:'Bottle',ml:500},{label:'Large bottle',ml:750}]}
+function getWaterPresets(){
+  const raw=loadJSON(WATER_PRESETS_KEY,null);
+  if(!Array.isArray(raw)||raw.length!==4)return defaultWaterPresets();
+  return raw.map((x,i)=>{const d=defaultWaterPresets()[i],ml=Math.round(Number(x?.ml));return{label:String(x?.label||d.label).trim().slice(0,18)||d.label,ml:Number.isFinite(ml)&&ml>=50&&ml<=3000?ml:d.ml}})
+}
+function saveWaterPresets(rows){saveJSON(WATER_PRESETS_KEY,rows.slice(0,4).map((x,i)=>{const d=defaultWaterPresets()[i],ml=Math.round(Number(x?.ml));return{label:String(x?.label||d.label).trim().slice(0,18)||d.label,ml:Number.isFinite(ml)&&ml>=50&&ml<=3000?ml:d.ml}}))}
+function waterDayDateLabel(key){
+  const p=String(key||'').split('-').map(Number);if(p.length!==3||!p[0]||!p[1]||!p[2])return 'Selected day';
+  return new Date(p[0],p[1]-1,p[2],12).toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'short'})
+}
+function waterPaceModel(intake=getWaterIntake(),goal=getWaterGoal()){
+  const d=new Date(),h=d.getHours()+d.getMinutes()/60,start=7,end=22;
+  const fraction=Math.max(0,Math.min(1,(h-start)/(end-start))),expected=Math.round(goal*fraction/50)*50,delta=intake-expected;
+  if(h<start)return{expected:0,delta:intake,label:'Fresh start',copy:'The pace guide begins at 07:00 and spreads your current goal evenly through the day.'};
+  if(h>=end)return{expected:goal,delta:intake-goal,label:intake>=goal?'Goal covered':'Day summary',copy:intake>=goal?'You reached your current reference target today.':'This compares today with your current reference target; it is not a prompt to catch up quickly.'};
+  if(Math.abs(delta)<=150)return{expected,delta,label:'On pace',copy:'You are close to an even spread of your current goal across 07:00–22:00.'};
+  if(delta>0)return{expected,delta,label:'Ahead of pace',copy:waterMlLabel(delta)+' ahead of an even daytime spread. No need to force extra water.'};
+  return{expected,delta,label:'Below even pace',copy:waterMlLabel(Math.abs(delta))+' below an even daytime spread. Use this only as context, not a reason to drink rapidly.'}
+}
+function waterConsistencyModel(){
+  const rows=getWaterEntries(),goal=getWaterGoal(),days=[];
+  for(let i=29;i>=0;i--){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-i);const key=waterDayKey(d.getTime()),total=rows.filter(x=>x.day===key).reduce((n,x)=>n+Number(x.ml||0),0);days.push({key,total,hit:total>=goal*.9})}
+  const complete=days.filter(x=>x.hit).length;let streak=0;
+  for(let i=days.length-1;i>=0;i--){if(i===days.length-1&&!days[i].hit)continue;if(days[i].hit)streak++;else break}
+  return{complete,tracked:days.filter(x=>x.total>0).length,streak}
+}
+function waterUndoMarkup(){return waterLastUndo?`<div class="hydra-undo"><span>${esc(waterLastUndo.message||'Hydration updated')}</span><button data-action="water-undo">Undo</button><button class="dismiss" data-action="water-undo-dismiss">×</button></div>`:''}
+function undoWaterMutation(){
+  const u=waterLastUndo;if(!u)return;
+  let rows=getWaterEntries();
+  if(u.type==='remove')rows=rows.filter(x=>String(x.id)!==String(u.id));
+  else if(u.type==='restore'){rows=rows.filter(x=>String(x.id)!==String(u.entry.id));rows.push(u.entry)}
+  saveWaterEntries(rows);waterLastUndo=null
+}
 function getWaterGoal(){return Math.min(6000,Math.max(1000,Number(localStorage.getItem(WATER_GOAL_KEY))||4000))}
 function getWaterEntries(){
   let rows=loadJSON(WATER_LOG_KEY,null);
@@ -301,22 +336,22 @@ function setWaterIntake(v){
   saveWaterEntries(other);return ml
 }
 function addWaterEntry(v,label='Water'){
-  const raw=Number(v);if(!Number.isFinite(raw)||raw<10||raw>3000)return false;const ml=Math.round(raw);
-  const rows=getWaterEntries();rows.push({id:'water-'+Date.now()+'-'+Math.floor(Math.random()*100000),ml,ts:Date.now(),day:todayKey(),label});saveWaterEntries(rows);return true
+  const raw=Number(v);if(!Number.isFinite(raw)||raw<10||raw>3000)return false;const ml=Math.round(raw),entry={id:'water-'+Date.now()+'-'+Math.floor(Math.random()*100000),ml,ts:Date.now(),day:todayKey(),label:String(label||'Water').slice(0,24)};
+  const rows=getWaterEntries();rows.push(entry);saveWaterEntries(rows);waterLastUndo={type:'remove',id:entry.id,message:waterMlLabel(ml)+' logged'};return true
 }
 function updateWaterEntry(id,ml,timeValue){
   const rows=getWaterEntries(),i=rows.findIndex(x=>String(x.id)===String(id));if(i<0)return false;
-  const raw=Number(ml);if(!Number.isFinite(raw)||raw<10||raw>3000)return false;const amount=Math.round(raw);
+  const raw=Number(ml);if(!Number.isFinite(raw)||raw<10||raw>3000)return false;const amount=Math.round(raw),previous={...rows[i]};
   let ts=Number(rows[i].ts)||Date.now();
   if(timeValue&&/^\d{2}:\d{2}$/.test(timeValue)){const [h,m]=timeValue.split(':').map(Number),d=new Date();d.setHours(h,m,0,0);ts=d.getTime()}
-  rows[i]={...rows[i],ml:amount,ts,day:todayKey(),legacy:false,label:'Water'};saveWaterEntries(rows);return true
+  rows[i]={...rows[i],ml:amount,ts,day:todayKey(),legacy:false};saveWaterEntries(rows);waterLastUndo={type:'restore',entry:previous,message:'Drink updated'};return true
 }
-function deleteWaterEntry(id){saveWaterEntries(getWaterEntries().filter(x=>String(x.id)!==String(id)))}
+function deleteWaterEntry(id){const rows=getWaterEntries(),entry=rows.find(x=>String(x.id)===String(id));if(!entry)return;saveWaterEntries(rows.filter(x=>String(x.id)!==String(id)));waterLastUndo={type:'restore',entry,message:'Drink removed'}}
 function waterEntryTime(ts){const d=new Date(Number(ts)||Date.now());return d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}
 function waterTimeInput(ts){const d=new Date(Number(ts)||Date.now());return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 function waterWeekModel(){
   const rows=getWaterEntries(),goal=getWaterGoal(),out=[];
-  for(let i=6;i>=0;i--){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-i);const key=waterDayKey(d.getTime()),total=Math.round(rows.filter(x=>x.day===key).reduce((n,x)=>n+Number(x.ml||0),0));out.push({key,total,pct:goal?Math.round(total/goal*100):0,label:d.toLocaleDateString(undefined,{weekday:'short'}),today:i===0})}
+  for(let i=6;i>=0;i--){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-i);const key=waterDayKey(d.getTime()),total=Math.round(rows.filter(x=>x.day===key).reduce((n,x)=>n+Number(x.ml||0),0));out.push({key,total,pct:goal?Math.round(total/goal*100):0,label:d.toLocaleDateString(undefined,{weekday:'short'}),dateLabel:d.toLocaleDateString(undefined,{day:'numeric',month:'short'}),today:i===0})}
   return out
 }
 function waterWeekAverage(){const days=waterWeekModel().filter(x=>x.total>0);return days.length?Math.round(days.reduce((n,x)=>n+x.total,0)/days.length):0}
@@ -878,7 +913,7 @@ function psVaultSchedule(){clearTimeout(psVaultTimer);psVaultTimer=setTimeout(()
 async function psVaultRead(){try{const db=await psVaultOpen();return await new Promise((res,rej)=>{const tx=db.transaction(PS_VAULT_STORE,'readonly'),r=tx.objectStore(PS_VAULT_STORE).get('latest');r.onsuccess=()=>res(r.result||null);r.onerror=()=>rej(r.error)})}catch(_){return null}}
 async function initDataVault(){try{const snap=await psVaultRead();if(localStorage.length===0&&snap?.data){Object.entries(snap.data).forEach(([k,v])=>localStorage.setItem(k,v));psVaultStatus='Recovered from local database'}else psVaultStatus='Protected in local database';psVaultReady=true;await psVaultWrite();const set=Storage.prototype.setItem,rem=Storage.prototype.removeItem,clr=Storage.prototype.clear;if(!Storage.prototype.__psVaultWrapped){Storage.prototype.setItem=function(k,v){set.call(this,k,v);if(this===localStorage&&k!=='ps_vault_last_snapshot')psVaultSchedule()};Storage.prototype.removeItem=function(k){rem.call(this,k);if(this===localStorage)psVaultSchedule()};Storage.prototype.clear=function(){clr.call(this);if(this===localStorage)psVaultSchedule()};Storage.prototype.__psVaultWrapped=true}}catch(e){psVaultStatus='Local database unavailable';psVaultReady=false}}
 function psVaultCounts(){let records=0;for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i),v=localStorage.getItem(k);try{const x=JSON.parse(v);if(Array.isArray(x))records+=x.length;else if(x&&typeof x==='object')records++}catch(_){}}return{keys:localStorage.length,records}}
-const PS_VAULT_LABELS={ps_clinical_v90:'Clinical results',ps_clinical_inbox_v1:'Clinical import inbox',ps_health_connect_sleep_v1:'Wearable sleep',ps_body_log_v1:'Body measurements',ps_health_profile_v1:'Body profile',ps_workout_history_v1:'Workout history',ps_active_workout_v1:'Active workout',ps_custom_routines_v1:'Custom routines',ps_custom_exercises_v1:'Custom exercises',ps_favourite_exercises_v1:'Favourite exercises',ps_water_goal_ml:'Hydration target',ps_water_intake_ml:'Today hydration',ps_water_day:'Hydration date',ps_water_log_v2:'Hydration entries',ps_sleep_goal_hours_v1:'Sleep target',ps_rest_seconds_v1:'Rest timer setting',ps_advanced_logging_v1:'Training logging setting',ps_scale_mac_v1:'Smart scale device',ps_bp_layout_profile_v1:'BP monitor profile',ps_vault_last_snapshot:'Vault snapshot time',ps_vault_last_export:'External backup time'};
+const PS_VAULT_LABELS={ps_clinical_v90:'Clinical results',ps_clinical_inbox_v1:'Clinical import inbox',ps_health_connect_sleep_v1:'Wearable sleep',ps_body_log_v1:'Body measurements',ps_health_profile_v1:'Body profile',ps_workout_history_v1:'Workout history',ps_active_workout_v1:'Active workout',ps_custom_routines_v1:'Custom routines',ps_custom_exercises_v1:'Custom exercises',ps_favourite_exercises_v1:'Favourite exercises',ps_water_goal_ml:'Hydration target',ps_water_intake_ml:'Today hydration',ps_water_day:'Hydration date',ps_water_log_v2:'Hydration entries',ps_water_presets_v1:'Hydration quick-log containers',ps_sleep_goal_hours_v1:'Sleep target',ps_rest_seconds_v1:'Rest timer setting',ps_advanced_logging_v1:'Training logging setting',ps_scale_mac_v1:'Smart scale device',ps_bp_layout_profile_v1:'BP monitor profile',ps_vault_last_snapshot:'Vault snapshot time',ps_vault_last_export:'External backup time'};
 function psVaultEntries(){const a=[];for(let i=0;i<localStorage.length;i++){const key=localStorage.key(i);if(!key)continue;const raw=localStorage.getItem(key)??'';let parsed=raw,type='Value',records=1;try{parsed=JSON.parse(raw);if(Array.isArray(parsed)){type='Records';records=parsed.length}else if(parsed&&typeof parsed==='object'){type='Object';records=1}else type='Value'}catch(_){type='Value'}a.push({key,label:PS_VAULT_LABELS[key]||key.replace(/^ps_/,'').replace(/_v\d+$/,'').replaceAll('_',' ').replace(/\b\w/g,m=>m.toUpperCase()),raw,parsed,type,records})}return a.sort((x,y)=>x.label.localeCompare(y.label))}
 function psVaultFriendlySize(raw){const n=new Blob([String(raw||'')]).size;if(n<1024)return n+' B';if(n<1048576)return (n/1024).toFixed(1)+' KB';return (n/1048576).toFixed(1)+' MB'}
 function renderVaultBrowser(){const entries=psVaultEntries(),userEntries=entries.filter(x=>!x.key.startsWith('ps_vault_')),recordTotal=userEntries.reduce((n,x)=>n+(x.type==='Records'?x.records:1),0);screen(topbar(true,'Stored data')+`<section class="hero"><div class="kicker">DATA VAULT · LIVE CONTENTS</div><h1>What Project Superhuman remembers.</h1><p class="lead">This is the structured data currently stored on this installation. Use it after an update to confirm your records survived.</p></section><div class="vault-browser-summary"><b>${userEntries.length} data groups · ${recordTotal} stored items</b><span>System-only snapshot timestamps are shown too, but separated from your health and app records.</span></div>${entries.length?`<div class="vault-list">${entries.map(x=>`<button class="vault-group" data-action="vault-open-group" data-key="${encodeURIComponent(x.key)}"><div><span class="vault-group-name">${esc(x.label)}</span><span class="vault-group-key">${esc(x.key)}</span></div><div class="vault-group-meta"><b>${x.type==='Records'?x.records+' record'+(x.records===1?'':'s'):x.type}</b><span>${psVaultFriendlySize(x.raw)} · ›</span></div></button>`).join('')}</div>`:`<div class="vault-empty">Nothing has been stored yet. Add a result, measurement or setting and return here.</div>`}`)}
