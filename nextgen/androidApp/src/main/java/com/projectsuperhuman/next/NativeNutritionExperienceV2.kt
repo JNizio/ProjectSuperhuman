@@ -1008,9 +1008,13 @@ private fun N2PlantPetal(
     angleDegrees: Float,
     modifier: Modifier = Modifier
 ) {
-    val labelColor = if (count > 0) N2Ink else N2Muted.copy(alpha = .66f)
+    val labelColor = if (count > 0) N2Ink else N2Muted.copy(alpha = .78f)
     val fill = baseColor.copy(alpha = n2PlantPetalAlpha(count))
     val outline = baseColor.copy(alpha = if (count > 0) .82f else .30f)
+    val labelShift = 7.5f
+    val labelRadians = Math.toRadians(angleDegrees.toDouble())
+    val labelOffsetX = (labelShift * kotlin.math.cos(labelRadians)).toFloat()
+    val labelOffsetY = (labelShift * kotlin.math.sin(labelRadians)).toFloat()
 
     Box(
         modifier = modifier,
@@ -1061,16 +1065,17 @@ private fun N2PlantPetal(
 
         Column(
             Modifier
-                .width(58.dp)
+                .offset(x = labelOffsetX.dp, y = labelOffsetY.dp)
+                .width(64.dp)
                 .padding(horizontal = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy((-1).dp)
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Text(
                 count.toString(),
                 color = if (count > 0) baseColor else labelColor,
-                fontSize = 12.5.sp,
-                lineHeight = 13.sp,
+                fontSize = 12.sp,
+                lineHeight = 12.sp,
                 fontWeight = FontWeight.Black,
                 maxLines = 1,
                 textAlign = TextAlign.Center
@@ -1078,8 +1083,8 @@ private fun N2PlantPetal(
             Text(
                 family.shortLabel,
                 color = labelColor,
-                fontSize = if (family == N2PlantFlowerFamily.NUTS_SEEDS) 6.4.sp else 7.sp,
-                lineHeight = 8.sp,
+                fontSize = if (family == N2PlantFlowerFamily.NUTS_SEEDS) 6.2.sp else 6.8.sp,
+                lineHeight = 7.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 textAlign = TextAlign.Center
