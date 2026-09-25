@@ -378,6 +378,41 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
         nutrientDay = n2BuildDay(NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to))
     }
 
+    suspend fun refreshAllNutrition() {
+        val zone = ZoneId.systemDefault()
+        val date = selectedDate
+        val weekStart = date.minusDays(6)
+        val nutrientStart = date.minusDays(nutrientRange.days - 1)
+        val earliest = if (weekStart.isBefore(nutrientStart)) weekStart else nutrientStart
+        val from = earliest.atStartOfDay(zone).toInstant().toEpochMilli()
+        val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+        val rows = NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to)
+
+        fun rowsFor(target: LocalDate): List<HealthValue> {
+            val start = target.atStartOfDay(zone).toInstant().toEpochMilli()
+            val end = target.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+            return rows.filter { it.timestampEpochMs in start..end }
+        }
+
+        val refreshedDay = n2BuildDay(rowsFor(date))
+        day = refreshedDay
+        weekDays = (0L..6L).map { offset -> n2BuildDay(rowsFor(weekStart.plusDays(offset))) }
+        val nutrientFrom = nutrientStart.atStartOfDay(zone).toInstant().toEpochMilli()
+        nutrientDay = n2BuildDay(rows.filter { it.timestampEpochMs >= nutrientFrom })
+
+        val loggedCustomMeals = refreshedDay.entries.map { it.meal }
+            .filter { candidate -> n2Meals.none { it.equals(candidate, ignoreCase = true) } }
+            .filter { it.isNotBlank() }
+        val mergedCustomMeals = (customMeals + loggedCustomMeals)
+            .distinctBy { it.lowercase(Locale.ROOT) }
+            .sortedBy { it.lowercase(Locale.ROOT) }
+        if (mergedCustomMeals != customMeals) {
+            customMeals = mergedCustomMeals
+            n2SaveCustomMeals(context, mergedCustomMeals)
+        }
+        goals = n2LoadGoals()
+    }
+
     suspend fun repeatEntry(entry: N2Entry) {
         val matching = day.records.filter { row ->
             val id = row.metadata["diaryEntryId"]
@@ -400,6 +435,33 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
         refresh()
         refreshWeek()
         refreshNutrients()
+    }
+
+    suspend fun performFoodSearch() {
+        val requestedQuery = query.trim()
+        if (requestedQuery.length < 2) {
+            status = "Type at least two characters"
+            return
+        }
+
+        searching = true
+        status = "Searching local foods…"
+        val local = NativeFoodCatalog.searchLocalOnly(context, requestedQuery)
+        if (query.trim() != requestedQuery) return
+        results = local
+        searching = false
+        status = if (local.isEmpty()) "Checking online…" else ""
+
+        if (local.size < 6) {
+            val found = NativeFoodCatalog.search(context, requestedQuery)
+            if (query.trim() != requestedQuery) return
+            results = found.foods
+            status = when {
+                results.isEmpty() -> "No matching foods found"
+                !found.remoteAvailable -> "Local results shown · Open Food Facts unavailable"
+                else -> ""
+            }
+        }
     }
 
     suspend fun lookupBarcode(raw: String) {
@@ -445,8 +507,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 
     DisposableEffect(Unit) { onDispose { imageScanner.close() } }
     LaunchedEffect(Unit) { NativeFoodCatalog.all(context) }
-    LaunchedEffect(selectedDate) { refresh(); refreshWeek(); refreshNutrients() }
-    LaunchedEffect(selectedDate, nutrientRange) { refreshNutrients() }
+    LaunchedEffect(selectedDate, nutrientRange) { refreshAllNutrition() }
     LaunchedEffect(Unit) { recommendation = n2LoadGoalRecommendation() }
 
     if (foodSearchOpen) {
@@ -461,22 +522,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                 status = ""
             },
             onSearch = {
-                scope.launch {
-                    if (query.trim().length < 2) {
-                        status = "Type at least two characters"
-                        return@launch
-                    }
-                    searching = true
-                    status = "Searching…"
-                    val found = NativeFoodCatalog.search(context, query)
-                    results = found.foods
-                    searching = false
-                    status = when {
-                        results.isEmpty() -> "No matching foods found"
-                        !found.remoteAvailable -> "Local results shown · Open Food Facts unavailable"
-                        else -> ""
-                    }
-                }
+                scope.launch { performFoodSearch() }
             },
             onSelect = { food ->
                 selected = food
@@ -529,22 +575,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                     onSearch = {
                         foodSearchOpen = true
                         selected = null
-                        scope.launch {
-                            if (query.trim().length < 2) {
-                                status = "Type at least two characters"
-                                return@launch
-                            }
-                            searching = true
-                            status = "Searching…"
-                            val found = NativeFoodCatalog.search(context, query)
-                            results = found.foods
-                            searching = false
-                            status = when {
-                                results.isEmpty() -> "No matching foods found"
-                                !found.remoteAvailable -> "Local results shown · Open Food Facts unavailable"
-                                else -> ""
-                            }
-                        }
+                        scope.launch { performFoodSearch() }
                     },
                     onScan = {
                         liveScan.launch(ScanOptions().setPrompt("Scan a food barcode").setBeepEnabled(false).setOrientationLocked(true))
@@ -2673,14 +2704,15 @@ private suspend fun n2SaveGoals(goals: N2Goals) {
 
 private fun n2BuildDay(rows: List<HealthValue>): N2Day {
     val foodRows = rows.filter { it.metric.startsWith("food_") }
+    fun entryId(row: HealthValue): String =
+        row.metadata["diaryEntryId"] ?: "legacy:${row.timestampEpochMs}:${row.metadata["foodId"].orEmpty()}"
+    val rowsByEntry = foodRows.groupBy(::entryId)
     val anchorRows = foodRows.filter { it.metric == "food_entry" || it.metric == "food_kcal" }
-    val groups = anchorRows.groupBy { row -> row.metadata["diaryEntryId"] ?: "legacy:${row.timestampEpochMs}:${row.metadata["foodId"].orEmpty()}" }
+    val groups = anchorRows.groupBy(::entryId)
 
     fun metric(entryId: String, metric: String, fallback: String? = null): Double {
-        val direct = foodRows.firstOrNull { row ->
-            val id = row.metadata["diaryEntryId"] ?: "legacy:${row.timestampEpochMs}:${row.metadata["foodId"].orEmpty()}"
-            id == entryId && row.metric == metric
-        }?.value
+        val entryRows = rowsByEntry[entryId].orEmpty()
+        val direct = entryRows.firstOrNull { it.metric == metric }?.value
         if (direct != null) return direct
         return fallback?.let { key -> groups[entryId]?.firstOrNull()?.metadata?.get(key)?.toDoubleOrNull() } ?: 0.0
     }
@@ -2689,6 +2721,7 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
         val anchor = group.firstOrNull { it.metric == "food_entry" }
             ?: group.maxByOrNull { it.timestampEpochMs }
             ?: return@mapNotNull null
+        val entryRows = rowsByEntry[entryId].orEmpty()
         val kcalValue = metric(entryId, "food_kcal")
         val inferredPlant = PlantFoodClassifier.classify(
             anchor.metadata["name"] ?: "Food",
@@ -2740,24 +2773,24 @@ private fun n2BuildDay(rows: List<HealthValue>): N2Day {
             meal = anchor.metadata["meal"] ?: "Other",
             kcal = kcalValue,
             kcalKnown = anchor.metadata["kcalKnown"]?.toBooleanStrictOrNull()
-                ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_kcal" },
+                ?: entryRows.any { it.metric == "food_kcal" },
             protein = metric(entryId, "food_protein"),
             proteinKnown = anchor.metadata["proteinKnown"]?.toBooleanStrictOrNull()
-                ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_protein" },
+                ?: entryRows.any { it.metric == "food_protein" },
             carbs = metric(entryId, "food_carbs", "carbs"),
             carbsKnown = anchor.metadata["carbsKnown"]?.toBooleanStrictOrNull()
-                ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_carbs" },
+                ?: entryRows.any { it.metric == "food_carbs" },
             carbohydrateDefinition = anchor.metadata["carbohydrateDefinition"]
                 ?.let { runCatching { CarbohydrateDefinition.valueOf(it) }.getOrNull() }
                 ?: CarbohydrateDefinition.UNKNOWN,
             fat = metric(entryId, "food_fat", "fat"),
             fatKnown = anchor.metadata["fatKnown"]?.toBooleanStrictOrNull()
-                ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_fat" },
+                ?: entryRows.any { it.metric == "food_fat" },
             fibre = metric(entryId, "food_fibre", "fibre"),
             fibreKnown = anchor.metadata["fibreKnown"]?.toBooleanStrictOrNull()
-                ?: foodRows.any { it.metadata["diaryEntryId"] == entryId && it.metric == "food_fibre" },
-            micronutrientCount = foodRows.count { row ->
-                row.metadata["diaryEntryId"] == entryId && !row.metadata["nutrientId"].isNullOrBlank()
+                ?: entryRows.any { it.metric == "food_fibre" },
+            micronutrientCount = entryRows.count { row ->
+                !row.metadata["nutrientId"].isNullOrBlank()
             },
             barcode = anchor.metadata["barcode"].orEmpty(),
             sourceName = anchor.metadata["sourceName"].orEmpty(),
