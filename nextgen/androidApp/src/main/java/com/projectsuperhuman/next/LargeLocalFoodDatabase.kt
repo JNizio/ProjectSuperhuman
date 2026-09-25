@@ -86,7 +86,7 @@ internal object LargeLocalFoodDatabase {
         val app = context.applicationContext
         seedPriorityFoodsOnce(app)
         if (sourcesComplete(app)) {
-            ensureAuditReportOnce(app)
+            bootstrapScope.launch { ensureAuditReportOnce(app) }
             return
         }
         if (!bootstrapStarted.compareAndSet(false, true)) return
@@ -185,13 +185,30 @@ internal object LargeLocalFoodDatabase {
 
             val retrievalQuery = retrievalQueryFor(q)
             val prefix = retrievalQuery + "%"
+            val prefixGlob = retrievalQuery + "*"
             val contains = "%" + retrievalQuery + "%"
 
             val raw = LargeFoodDb(app).use { helper ->
                 val db = helper.readableDatabase
 
-                fun queryRows(namePattern: String, searchPattern: String, rowLimit: Int): List<NativeFood> =
-                    db.rawQuery(
+                fun queryRows(
+                    namePattern: String,
+                    searchPattern: String,
+                    rowLimit: Int,
+                    prefixOnly: Boolean = false
+                ): List<NativeFood> {
+                    val whereClause = if (prefixOnly) {
+                        "normalized_name GLOB ?"
+                    } else {
+                        "normalized_name LIKE ? OR search_text LIKE ?"
+                    }
+                    val orderPrefix = if (prefixOnly) prefixGlob else prefix
+                    val args = if (prefixOnly) {
+                        arrayOf(namePattern, retrievalQuery, orderPrefix, rowLimit.toString())
+                    } else {
+                        arrayOf(namePattern, searchPattern, retrievalQuery, orderPrefix, rowLimit.toString())
+                    }
+                    return db.rawQuery(
                         """
                         SELECT id, name, country, kcal, protein, carbs, fat, fibre, sugar,
                                protein_known, carbs_known, fat_known, fibre_known, sugar_known,
@@ -202,13 +219,13 @@ internal object LargeLocalFoodDatabase {
                                plant_diversity_eligible, food_tags_json, taxonomy_version,
                                preparation_state, serving_quantity, serving_unit, serving_label
                         FROM food_reference
-                        WHERE normalized_name LIKE ? OR search_text LIKE ?
+                        WHERE ${whereClause}
                         ORDER BY
                             CASE WHEN core_rank IS NULL THEN 1 ELSE 0 END,
                             core_rank,
                             CASE
                                 WHEN normalized_name = ? THEN 0
-                                WHEN normalized_name LIKE ? THEN 1
+                                WHEN normalized_name ${if (prefixOnly) "GLOB" else "LIKE"} ? THEN 1
                                 ELSE 2
                             END,
                             CASE
@@ -223,7 +240,7 @@ internal object LargeLocalFoodDatabase {
                             name COLLATE NOCASE
                         LIMIT ?
                         """.trimIndent(),
-                        arrayOf(namePattern, searchPattern, retrievalQuery, prefix, rowLimit.toString())
+                        args
                     ).use { cursor ->
                         buildList {
                             while (cursor.moveToNext()) {
@@ -289,8 +306,9 @@ internal object LargeLocalFoodDatabase {
                             }
                         }
                     }
+                }
 
-                val fast = queryRows(prefix, prefix, requested.coerceAtLeast(12))
+                val fast = queryRows(prefixGlob, "", requested.coerceAtLeast(12), prefixOnly = true)
                 if (fast.size >= minOf(requested, 6)) {
                     fast
                 } else {
