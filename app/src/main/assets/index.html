@@ -292,8 +292,8 @@ function waterPaceModel(intake=getWaterIntake(),goal=getWaterGoal()){
   return{expected,delta,label:'Below even pace',copy:waterMlLabel(Math.abs(delta))+' below an even daytime spread. Use this only as context, not a reason to drink rapidly.'}
 }
 function waterConsistencyModel(){
-  const rows=getWaterEntries(),goal=getWaterGoal(),days=[];
-  for(let i=29;i>=0;i--){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-i);const key=waterDayKey(d.getTime()),total=rows.filter(x=>x.day===key).reduce((n,x)=>n+Number(x.ml||0),0);days.push({key,total,hit:total>=goal*.9})}
+  const totals=waterSnapshot().totals,goal=getWaterGoal(),days=[];
+  for(let i=29;i>=0;i--){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-i);const key=waterDayKey(d.getTime()),total=Math.round(totals[key]||0);days.push({key,total,hit:total>=goal*.9})}
   const complete=days.filter(x=>x.hit).length;let streak=0;
   for(let i=days.length-1;i>=0;i--){if(i===days.length-1&&!days[i].hit)continue;if(days[i].hit)streak++;else break}
   return{complete,tracked:days.filter(x=>x.total>0).length,streak}
@@ -307,32 +307,36 @@ function undoWaterMutation(){
   saveWaterEntries(rows);waterLastUndo=null
 }
 function getWaterGoal(){return Math.min(6000,Math.max(1000,Number(localStorage.getItem(WATER_GOAL_KEY))||4000))}
-function getWaterEntries(){
-  let rows=loadJSON(WATER_LOG_KEY,null);
+let waterDataCache={raw:null,rows:null,byDay:null,totals:null};
+function waterIndexRows(rows,raw){
+  const clean=(Array.isArray(rows)?rows:[]).filter(x=>x&&Number.isFinite(Number(x.ml))&&Number(x.ml)>0&&x.day).sort((a,b)=>Number(a.ts||0)-Number(b.ts||0)).slice(-500),byDay=Object.create(null),totals=Object.create(null);
+  for(const x of clean){const day=String(x.day);(byDay[day]||(byDay[day]=[])).push(x);totals[day]=(totals[day]||0)+Number(x.ml||0)}
+  waterDataCache={raw,rows:clean,byDay,totals};return waterDataCache
+}
+function waterSnapshot(){
+  let raw=localStorage.getItem(WATER_LOG_KEY);
+  if(waterDataCache.rows&&raw===waterDataCache.raw)return waterDataCache;
+  let rows=null;
+  if(raw!==null){try{rows=JSON.parse(raw)}catch(_){}}
   if(!Array.isArray(rows)){
     rows=[];
-    const legacyMl=Math.max(0,Math.min(12000,Math.round(Number(localStorage.getItem(WATER_INTAKE_KEY))||0)));
-    const legacyDay=localStorage.getItem(WATER_DAY_KEY)||todayKey();
+    const legacyMl=Math.max(0,Math.min(12000,Math.round(Number(localStorage.getItem(WATER_INTAKE_KEY))||0))),legacyDay=localStorage.getItem(WATER_DAY_KEY)||todayKey();
     if(legacyMl>0)rows.push({id:'legacy-'+Date.now(),ml:legacyMl,ts:Date.now(),day:legacyDay,label:'Imported total',legacy:true});
-    saveJSON(WATER_LOG_KEY,rows);
+    raw=JSON.stringify(rows);localStorage.setItem(WATER_LOG_KEY,raw)
   }
-  return rows.filter(x=>x&&Number.isFinite(Number(x.ml))&&Number(x.ml)>0&&x.day).sort((a,b)=>Number(a.ts||0)-Number(b.ts||0)).slice(-500);
+  return waterIndexRows(rows,raw)
 }
+function getWaterEntries(){return waterSnapshot().rows}
 function saveWaterEntries(rows){
-  const clean=(rows||[]).filter(x=>x&&Number.isFinite(Number(x.ml))&&Number(x.ml)>0&&x.day).sort((a,b)=>Number(a.ts||0)-Number(b.ts||0)).slice(-500);
-  saveJSON(WATER_LOG_KEY,clean);
-  const today=clean.filter(x=>x.day===todayKey()).reduce((n,x)=>n+Number(x.ml||0),0);
-  localStorage.setItem(WATER_DAY_KEY,todayKey());
-  localStorage.setItem(WATER_INTAKE_KEY,String(Math.round(today)));
+  const clean=(rows||[]).filter(x=>x&&Number.isFinite(Number(x.ml))&&Number(x.ml)>0&&x.day).sort((a,b)=>Number(a.ts||0)-Number(b.ts||0)).slice(-500),raw=JSON.stringify(clean);
+  if(localStorage.getItem(WATER_LOG_KEY)!==raw)localStorage.setItem(WATER_LOG_KEY,raw);
+  const snap=waterIndexRows(clean,raw),day=todayKey(),today=Math.round(snap.totals[day]||0);
+  if(localStorage.getItem(WATER_DAY_KEY)!==day)localStorage.setItem(WATER_DAY_KEY,day);
+  if(Number(localStorage.getItem(WATER_INTAKE_KEY))!==today)localStorage.setItem(WATER_INTAKE_KEY,String(today))
 }
-function waterEntriesForDay(day=todayKey()){return getWaterEntries().filter(x=>x.day===day)}
-function getWaterIntake(){
-  const rows=getWaterEntries(),today=todayKey();
-  const total=rows.filter(x=>x.day===today).reduce((n,x)=>n+Number(x.ml||0),0);
-  localStorage.setItem(WATER_DAY_KEY,today);
-  localStorage.setItem(WATER_INTAKE_KEY,String(Math.round(total)));
-  return Math.round(total);
-}
+function waterEntriesForDay(day=todayKey()){return waterSnapshot().byDay[day]||[]}
+function waterDayTotal(day=todayKey()){return Math.round(waterSnapshot().totals[day]||0)}
+function getWaterIntake(){return waterDayTotal(todayKey())}
 function setWaterIntake(v){
   const ml=Math.max(0,Math.min(12000,Math.round(Number(v)||0))),day=todayKey(),other=getWaterEntries().filter(x=>x.day!==day);
   if(ml>0)other.push({id:'adjusted-'+Date.now(),ml,ts:Date.now(),day,label:'Adjusted total'});
@@ -340,10 +344,10 @@ function setWaterIntake(v){
 }
 function addWaterEntry(v,label='Water'){
   const raw=Number(v);if(!Number.isFinite(raw)||raw<10||raw>3000)return false;const ml=Math.round(raw),entry={id:'water-'+Date.now()+'-'+Math.floor(Math.random()*100000),ml,ts:Date.now(),day:todayKey(),label:String(label||'Water').slice(0,24)};
-  const rows=getWaterEntries();rows.push(entry);saveWaterEntries(rows);waterLastUndo={type:'remove',id:entry.id,message:waterMlLabel(ml)+' logged'};return true
+  const rows=getWaterEntries().slice();rows.push(entry);saveWaterEntries(rows);waterLastUndo={type:'remove',id:entry.id,message:waterMlLabel(ml)+' logged'};return true
 }
 function updateWaterEntry(id,ml,timeValue){
-  const rows=getWaterEntries(),i=rows.findIndex(x=>String(x.id)===String(id));if(i<0)return false;
+  const rows=getWaterEntries().slice(),i=rows.findIndex(x=>String(x.id)===String(id));if(i<0)return false;
   const raw=Number(ml);if(!Number.isFinite(raw)||raw<10||raw>3000)return false;const amount=Math.round(raw),previous={...rows[i]};
   let ts=Number(rows[i].ts)||Date.now();
   if(timeValue&&/^\d{2}:\d{2}$/.test(timeValue)){const [h,m]=timeValue.split(':').map(Number),d=new Date();d.setHours(h,m,0,0);ts=d.getTime()}
@@ -353,11 +357,11 @@ function deleteWaterEntry(id){const rows=getWaterEntries(),entry=rows.find(x=>St
 function waterEntryTime(ts){const d=new Date(Number(ts)||Date.now());return d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}
 function waterTimeInput(ts){const d=new Date(Number(ts)||Date.now());return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 function waterWeekModel(){
-  const rows=getWaterEntries(),goal=getWaterGoal(),out=[];
-  for(let i=6;i>=0;i--){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-i);const key=waterDayKey(d.getTime()),total=Math.round(rows.filter(x=>x.day===key).reduce((n,x)=>n+Number(x.ml||0),0));out.push({key,total,pct:goal?Math.round(total/goal*100):0,label:d.toLocaleDateString(undefined,{weekday:'short'}),dateLabel:d.toLocaleDateString(undefined,{day:'numeric',month:'short'}),today:i===0})}
+  const snap=waterSnapshot(),goal=getWaterGoal(),out=[];
+  for(let i=6;i>=0;i--){const d=new Date();d.setHours(12,0,0,0);d.setDate(d.getDate()-i);const key=waterDayKey(d.getTime()),total=Math.round(snap.totals[key]||0);out.push({key,total,pct:goal?Math.round(total/goal*100):0,label:d.toLocaleDateString(undefined,{weekday:'short'}),dateLabel:d.toLocaleDateString(undefined,{day:'numeric',month:'short'}),today:i===0})}
   return out
 }
-function waterWeekAverage(){const days=waterWeekModel().filter(x=>x.total>0);return days.length?Math.round(days.reduce((n,x)=>n+x.total,0)/days.length):0}
+function waterWeekAverage(days=waterWeekModel()){const tracked=days.filter(x=>x.total>0);return tracked.length?Math.round(tracked.reduce((n,x)=>n+x.total,0)/tracked.length):0}
 function getSleepGoal(){return Math.min(10,Math.max(5,Number(localStorage.getItem(SLEEP_GOAL_HOURS_KEY))||8))}
 function setSleepGoal(v){localStorage.setItem(SLEEP_GOAL_HOURS_KEY,String(Math.min(10,Math.max(5,Number(v)||8))))}
 function getSleepLog(){return loadJSON(SLEEP_LOG_KEY,{date:todayKey(),bed:'23:00',wake:'07:00'})}
@@ -996,7 +1000,7 @@ function waterPresetEditorMarkup(){
   const p=getWaterPresets();return `<div class="hydra-preset-editor"><div class="hydra-preset-editor-head"><b>Your containers</b><span>Set the four sizes you actually use.</span></div><div class="hydra-preset-rows">${p.map((x,i)=>`<div><input id="waterPresetLabel${i}" maxlength="18" value="${esc(x.label)}" aria-label="Container name"><label><input id="waterPresetMl${i}" type="number" inputmode="numeric" min="50" max="3000" step="10" value="${x.ml}"><span>ml</span></label></div>`).join('')}</div><div class="hydra-preset-actions"><button data-action="water-presets-reset">Reset</button><button data-action="water-presets-close">Cancel</button><button class="primary" data-action="water-presets-save">Save containers</button></div></div>`
 }
 function waterWeekMarkup(){
-  const days=waterWeekModel(),avg=waterWeekAverage(),tracked=days.filter(x=>x.total>0).length,cons=waterConsistencyModel();
+  const days=waterWeekModel(),avg=waterWeekAverage(days),tracked=days.filter(x=>x.total>0).length,cons=waterConsistencyModel();
   return `<section class="hydra-card hydra-week"><div class="hydra-section-head"><div><span>7-day rhythm</span><b>${tracked?waterMlLabel(avg)+' average':'Build your baseline'}</b></div><small>Tap a day</small></div><div class="hydra-consistency"><div><span>30-day goal days</span><b>${cons.complete}</b></div><div><span>Tracked days</span><b>${cons.tracked}</b></div><div><span>Current streak</span><b>${cons.streak}d</b></div></div><div class="hydra-bars">${days.map(d=>`<button class="hydra-bar ${d.today?'today':''} ${waterSelectedDay===d.key?'selected':''}" data-action="water-select-day" data-day="${d.key}"><div class="hydra-bar-track"><i style="height:${Math.max(d.total?7:0,Math.min(100,d.pct))}%"></i></div><b>${d.label.slice(0,2)}</b><span>${d.total?waterMlLabel(d.total):'—'}</span></button>`).join('')}</div></section>`
 }
 function waterSelectedDayMarkup(){
