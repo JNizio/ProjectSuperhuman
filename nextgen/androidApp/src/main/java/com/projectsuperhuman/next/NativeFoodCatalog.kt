@@ -943,27 +943,11 @@ internal object NativeFoodCatalog {
      * product query. The UI therefore gets the most useful 8-10 results quickly; typing a more
      * specific query is the cheap way to drill further into the catalogue.
      */
-    suspend fun search(context: Context, query: String, limit: Int = MAX_RESULT_COUNT): NativeFoodSearchResult =
-        withContext(Dispatchers.IO) {
-        FoodNutritionOverrideStore.attach(context)
-        startLargeLocalSafely(context)
+    private suspend fun buildLocalCandidates(
+        context: Context,
+        query: String
+    ): List<NativeFood> {
         val q = query.trim()
-        if (q.length < 2) return@withContext NativeFoodSearchResult(emptyList(), remoteAvailable = true, remoteCount = 0)
-
-        // A pasted/scanned GTIN is an exact identity query and must outrank fuzzy text search.
-        val typedDigits = q.filter(Char::isDigit)
-        val barcodeLike = q.all { it.isDigit() || it.isWhitespace() || it == '-' }
-        if (barcodeLike && NutritionMath.isValidBarcode(typedDigits)) {
-            lookupBarcode(context, typedDigits)?.let { exact ->
-                return@withContext NativeFoodSearchResult(
-                    foods = listOf(exact),
-                    remoteAvailable = true,
-                    remoteCount = if (exact.sourceType == FoodDataSourceType.OPEN_FOOD_FACTS) 1 else 0
-                )
-            }
-        }
-
-        val requested = limit.coerceIn(1, MAX_RESULT_COUNT)
         val bundledLocal = searchLocal(context, q, limit = 10)
         val expandedLocal = try {
             LargeLocalFoodDatabase.search(context, q, limit = 16)
@@ -985,10 +969,56 @@ internal object NativeFoodCatalog {
             }
         }
 
-        val localCandidates = (nutrientRichCore + expandedLocal + bundledVisible)
+        return (nutrientRichCore + expandedLocal + bundledVisible)
             .map(FoodEvidenceEngine::enrich)
             .sortedWith(foodComparator(q))
             .distinctBy(FoodEvidenceEngine::dedupKey)
+    }
+
+    /**
+     * Fast local-only phase for interactive search. This deliberately avoids all network I/O so
+     * common foods can appear immediately while the caller optionally enriches thin result sets
+     * with [search] afterwards.
+     */
+    suspend fun searchLocalOnly(
+        context: Context,
+        query: String,
+        limit: Int = MAX_RESULT_COUNT
+    ): List<NativeFood> = withContext(Dispatchers.IO) {
+        FoodNutritionOverrideStore.attach(context)
+        startLargeLocalSafely(context)
+        val q = query.trim()
+        if (q.length < 2) return@withContext emptyList()
+
+        val requested = limit.coerceIn(1, MAX_RESULT_COUNT)
+        FoodNutritionOverrideStore.applyAll(
+            context,
+            buildLocalCandidates(context, q)
+        ).take(requested)
+    }
+
+    suspend fun search(context: Context, query: String, limit: Int = MAX_RESULT_COUNT): NativeFoodSearchResult =
+        withContext(Dispatchers.IO) {
+        FoodNutritionOverrideStore.attach(context)
+        startLargeLocalSafely(context)
+        val q = query.trim()
+        if (q.length < 2) return@withContext NativeFoodSearchResult(emptyList(), remoteAvailable = true, remoteCount = 0)
+
+        // A pasted/scanned GTIN is an exact identity query and must outrank fuzzy text search.
+        val typedDigits = q.filter(Char::isDigit)
+        val barcodeLike = q.all { it.isDigit() || it.isWhitespace() || it == '-' }
+        if (barcodeLike && NutritionMath.isValidBarcode(typedDigits)) {
+            lookupBarcode(context, typedDigits)?.let { exact ->
+                return@withContext NativeFoodSearchResult(
+                    foods = listOf(exact),
+                    remoteAvailable = true,
+                    remoteCount = if (exact.sourceType == FoodDataSourceType.OPEN_FOOD_FACTS) 1 else 0
+                )
+            }
+        }
+
+        val requested = limit.coerceIn(1, MAX_RESULT_COUNT)
+        val localCandidates = buildLocalCandidates(context, q)
 
         // Stay local when we already have enough strong matches. Network search is the fallback,
         // not a tax paid on every multi-word query.
