@@ -188,8 +188,8 @@ private fun n2PlantPetalAlpha(count: Int): Float = when {
     else -> 0.90f
 }
 
-private fun n2PlantDiversity(days: List<N2Day>): N2PlantDiversitySnapshot {
-    val entries = days.flatMap { it.entries }
+private fun n2PlantDiversity(day: N2Day): N2PlantDiversitySnapshot {
+    val entries = day.entries
         .filter { it.plantDiversityEligible && it.plantDiversityKey.isNotBlank() }
 
     val uniqueByKey = entries
@@ -311,7 +311,6 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     var selectedDate by remember { mutableStateOf(LocalDate.now(ZoneId.systemDefault())) }
     var nutrientRange by remember { mutableStateOf(N2Range.DAY) }
     var nutrientDay by remember { mutableStateOf(N2Day()) }
-    var weekDays by remember { mutableStateOf<List<N2Day>>(emptyList()) }
     var lastRemoved by remember { mutableStateOf<N2Entry?>(null) }
 
     fun selectOrCreateMeal(requested: String, openSearch: Boolean = false) {
@@ -356,20 +355,6 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
         goals = n2LoadGoals()
     }
 
-    suspend fun refreshWeek() {
-        val zone = ZoneId.systemDefault()
-        val startDate = selectedDate.minusDays(6)
-        val from = startDate.atStartOfDay(zone).toInstant().toEpochMilli()
-        val to = selectedDate.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
-        val rows = NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to)
-        weekDays = (0L..6L).map { offset ->
-            val date = startDate.plusDays(offset)
-            val dayFrom = date.atStartOfDay(zone).toInstant().toEpochMilli()
-            val dayTo = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
-            n2BuildDay(rows.filter { it.timestampEpochMs in dayFrom..dayTo })
-        }
-    }
-
     suspend fun refreshNutrients() {
         val zone = ZoneId.systemDefault()
         val fromDate = selectedDate.minusDays(nutrientRange.days - 1)
@@ -381,10 +366,8 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     suspend fun refreshAllNutrition() {
         val zone = ZoneId.systemDefault()
         val date = selectedDate
-        val weekStart = date.minusDays(6)
         val nutrientStart = date.minusDays(nutrientRange.days - 1)
-        val earliest = if (weekStart.isBefore(nutrientStart)) weekStart else nutrientStart
-        val from = earliest.atStartOfDay(zone).toInstant().toEpochMilli()
+        val from = nutrientStart.atStartOfDay(zone).toInstant().toEpochMilli()
         val to = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
         val rows = NativeDataHub.domainBetween(HealthDomain.NUTRITION, from, to)
 
@@ -396,7 +379,6 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 
         val refreshedDay = n2BuildDay(rowsFor(date))
         day = refreshedDay
-        weekDays = (0L..6L).map { offset -> n2BuildDay(rowsFor(weekStart.plusDays(offset))) }
         val nutrientFrom = nutrientStart.atStartOfDay(zone).toInstant().toEpochMilli()
         nutrientDay = n2BuildDay(rows.filter { it.timestampEpochMs >= nutrientFrom })
 
@@ -557,7 +539,6 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                 N2Hero(
                     day = day,
                     goals = goals,
-                    weekDays = weekDays,
                     selectedDate = selectedDate,
                     onSelectDate = { selectedDate = it }
                 )
@@ -851,7 +832,6 @@ private fun N2Tab(label: String, selected: Boolean, modifier: Modifier, onClick:
 private fun N2Hero(
     day: N2Day,
     goals: N2Goals,
-    weekDays: List<N2Day>,
     selectedDate: LocalDate,
     onSelectDate: (LocalDate) -> Unit
 ) {
@@ -882,7 +862,7 @@ private fun N2Hero(
             }
         }
 
-        N2PlantDiversityCard(n2PlantDiversity(weekDays))
+        N2PlantDiversityCard(n2PlantDiversity(day))
     }
 }
 
@@ -941,7 +921,7 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "7-day view",
+                    "Day view",
                     color = N2Muted,
                     fontSize = 8.5.sp,
                     lineHeight = 9.sp,
