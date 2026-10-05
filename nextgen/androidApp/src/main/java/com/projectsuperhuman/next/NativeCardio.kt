@@ -1,9 +1,6 @@
 package com.projectsuperhuman.next
 
-import android.Manifest
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -74,7 +71,9 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     val cardioViewModel: CardioViewModel = viewModel()
     val cardioState by cardioViewModel.state.collectAsState()
     val sensorMetrics by CardioSensorRuntime.liveMetrics.collectAsState()
-    val movementMetrics by CardioGpsRuntime.metrics.collectAsState()
+    val movementMetrics = CardioLiveMovementMetrics(
+        message = "External movement sensor not connected"
+    )
     val sessions = cardioState.sessions
 
     var screen by remember { mutableStateOf(CardioScreen.HOME) }
@@ -113,18 +112,6 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var showFormWorkoutTypePicker by remember { mutableStateOf(false) }
     var showAdditionalDetails by remember { mutableStateOf(false) }
     val zoneMinutes = remember { mutableStateListOf("", "", "", "", "") }
-
-    val locationPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        if (granted) {
-            cardioViewModel.start(liveActivity, liveWorkoutType) {
-                screen = CardioScreen.LIVE
-            }
-        } else {
-            feedback = "Location permission was not granted. Outdoor GPS tracking stays unavailable."
-        }
-    }
 
     fun resetForm(activity: CardioActivityType = CardioActivityType.WALKING) {
         formActivity = activity
@@ -446,12 +433,8 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     onQuickStart = { activity ->
                         liveActivity = activity
                         liveWorkoutType = CardioWorkoutType.FREE
-                        if (CardioGpsProcessor.gpsEligible(activity) && !CardioGpsRuntime.hasPermission()) {
-                            locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                        } else {
-                            cardioViewModel.start(activity, CardioWorkoutType.FREE) {
-                                screen = CardioScreen.LIVE
-                            }
+                        cardioViewModel.start(activity, CardioWorkoutType.FREE) {
+                            screen = CardioScreen.LIVE
                         }
                     },
                     onMoreActivities = { screen = CardioScreen.PICK_ACTIVITY },
@@ -496,12 +479,8 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     "${liveWorkoutType.label} session · begin live timer",
                     CardioAccent
                 ) {
-                    if (CardioGpsProcessor.gpsEligible(liveActivity) && !CardioGpsRuntime.hasPermission()) {
-                        locationPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-                    } else {
-                        cardioViewModel.start(liveActivity, liveWorkoutType) {
-                            screen = CardioScreen.LIVE
-                        }
+                    cardioViewModel.start(liveActivity, liveWorkoutType) {
+                        screen = CardioScreen.LIVE
                     }
                 }
             }
