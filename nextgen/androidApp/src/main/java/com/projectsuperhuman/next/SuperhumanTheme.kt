@@ -3,10 +3,12 @@ package com.projectsuperhuman.next
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -252,5 +254,7 @@ internal fun ProjectSuperhumanTheme(content: @Composable () -> Unit) {
         )
     }
 
-    MaterialTheme(colorScheme = scheme, content = content)
+    CompositionLocalProvider(LocalIndication provides SuperhumanNoIndication) {
+        MaterialTheme(colorScheme = scheme, content = content)
+    }
 }
