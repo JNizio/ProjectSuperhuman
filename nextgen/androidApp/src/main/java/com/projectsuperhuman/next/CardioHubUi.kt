@@ -407,26 +407,25 @@ private fun CardioHubOverviewPanel(
     } else null
 
     Column(
-        Modifier.fillMaxWidth()
-            .background(superhumanSurface, RoundedCornerShape(20.dp))
-            .padding(horizontal = 15.dp, vertical = 14.dp),
+        Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CardioHubIconBadge(CardioHubGlyph.TREND, metric.accent)
-            Spacer(Modifier.width(10.dp))
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    "YOUR CARDIO",
+                    "PROGRESS",
                     color = superhumanTextMuted,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Black,
-                    letterSpacing = .6.sp
+                    letterSpacing = .8.sp
                 )
                 Text(
-                    metric.label,
+                    "Your cardio",
                     color = superhumanTextPrimary,
-                    fontSize = 15.sp,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Black
                 )
             }
@@ -435,104 +434,166 @@ private fun CardioHubOverviewPanel(
                 color = superhumanBlue,
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Black,
-                modifier = Modifier.clickable { onEditGoals() }.padding(horizontal = 5.dp, vertical = 7.dp)
+                modifier = Modifier.clickable { onEditGoals() }.padding(horizontal = 8.dp, vertical = 8.dp)
             )
         }
 
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        Column(
+            Modifier.fillMaxWidth()
+                .background(superhumanSurface, RoundedCornerShape(22.dp))
+                .padding(horizontal = 15.dp, vertical = 15.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            primaryMetrics.forEach { option ->
-                CardioHubSelectorChip(
-                    label = option.shortLabel,
-                    selected = metric == option,
-                    accent = option.accent,
-                    modifier = Modifier.weight(1f)
-                ) { metric = option }
-            }
-            CardioHubSelectorChip(
-                label = selectedSecondary?.shortLabel ?: "More ▾",
-                selected = selectedSecondary != null,
-                accent = selectedSecondary?.accent ?: superhumanBlue,
-                modifier = Modifier.weight(1f)
-            ) { showMetricSheet = true }
-        }
-
-        CardioHubProgressChart(
-            points = points,
-            metric = metric,
-            modifier = Modifier.fillMaxWidth().height(150.dp),
-            onLog = onLog
-        )
-
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            CardioHubProgressRange.entries.forEach { option ->
-                CardioHubRangeChip(
-                    label = option.label,
-                    selected = range == option,
-                    modifier = Modifier.weight(1f)
-                ) { range = option }
-            }
-        }
-
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            CardioHubProgressStat(
-                "CURRENT",
-                cardioHubFormatProgressMetric(metric, current),
-                Modifier.weight(1f)
-            )
-            CardioHubProgressStat(
-                "PREVIOUS",
-                cardioHubFormatProgressMetric(metric, previous),
-                Modifier.weight(1f)
-            )
-            CardioHubProgressStat(
-                "CHANGE",
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CardioHubIconBadge(CardioHubGlyph.TREND, metric.accent)
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        metric.shortLabel.uppercase(),
+                        color = metric.accent,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = .5.sp
+                    )
+                    Text(
+                        cardioHubFormatProgressMetric(metric, current),
+                        color = superhumanTextPrimary,
+                        fontSize = 25.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                }
                 change?.let {
                     val sign = if (it > 0) "+" else ""
-                    "${sign}${String.format(Locale.US, "%.0f", it)}%"
-                } ?: "—",
-                Modifier.weight(1f),
-                valueColor = when {
-                    change == null -> superhumanTextMuted
-                    change > 0 -> superhumanGreen
-                    change < 0 -> Color(0xFFE36E75)
-                    else -> superhumanTextPrimary
+                    val changeColor = when {
+                        it > 0 -> superhumanGreen
+                        it < 0 -> Color(0xFFE36E75)
+                        else -> superhumanTextMuted
+                    }
+                    Box(
+                        Modifier.background(changeColor.copy(alpha = .12f), RoundedCornerShape(999.dp))
+                            .padding(horizontal = 9.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            "${sign}${String.format(Locale.US, "%.0f", it)}%",
+                            color = changeColor,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
                 }
-            )
+            }
+
+            Row(
+                Modifier.fillMaxWidth()
+                    .background(superhumanSurfaceSoft, RoundedCornerShape(16.dp))
+                    .padding(5.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                primaryMetrics.forEach { option ->
+                    CardioHubSelectorChip(
+                        label = option.shortLabel,
+                        selected = metric == option,
+                        accent = option.accent,
+                        modifier = Modifier.weight(1f)
+                    ) { metric = option }
+                }
+                CardioHubSelectorChip(
+                    label = selectedSecondary?.shortLabel ?: "More",
+                    selected = selectedSecondary != null,
+                    accent = selectedSecondary?.accent ?: superhumanBlue,
+                    modifier = Modifier.weight(1f)
+                ) { showMetricSheet = true }
+            }
+
+            Box(
+                Modifier.fillMaxWidth()
+                    .background(superhumanSurfaceSoft, RoundedCornerShape(17.dp))
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+            ) {
+                CardioHubProgressChart(
+                    points = points,
+                    metric = metric,
+                    modifier = Modifier.fillMaxWidth().height(142.dp),
+                    onLog = onLog
+                )
+            }
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                CardioHubProgressRange.entries.forEach { option ->
+                    CardioHubRangeChip(
+                        label = option.label,
+                        selected = range == option,
+                        modifier = Modifier.weight(1f)
+                    ) { range = option }
+                }
+            }
+
+            Row(
+                Modifier.fillMaxWidth()
+                    .background(superhumanSurfaceSoft, RoundedCornerShape(16.dp))
+                    .padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                CardioHubProgressStat(
+                    "CURRENT",
+                    cardioHubFormatProgressMetric(metric, current),
+                    Modifier.weight(1f)
+                )
+                CardioHubProgressStat(
+                    "PREVIOUS",
+                    cardioHubFormatProgressMetric(metric, previous),
+                    Modifier.weight(1f)
+                )
+                CardioHubProgressStat(
+                    "CHANGE",
+                    change?.let {
+                        val sign = if (it > 0) "+" else ""
+                        "${sign}${String.format(Locale.US, "%.0f", it)}%"
+                    } ?: "—",
+                    Modifier.weight(1f),
+                    valueColor = when {
+                        change == null -> superhumanTextMuted
+                        change > 0 -> superhumanGreen
+                        change < 0 -> Color(0xFFE36E75)
+                        else -> superhumanTextPrimary
+                    }
+                )
+            }
         }
 
         val readiness = model.readiness
         Row(
             Modifier.fillMaxWidth()
-                .heightIn(min = 48.dp)
+                .background(superhumanSurface, RoundedCornerShape(18.dp))
                 .clickable { onReadiness() }
-                .padding(vertical = 5.dp),
+                .padding(horizontal = 15.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            SuperhumanDomainIcon(
-                glyph = SuperhumanDomainGlyph.HEARTBEAT,
-                tint = superhumanBlue,
-                modifier = Modifier.size(18.dp)
-            )
-            Spacer(Modifier.width(9.dp))
+            Box(
+                Modifier.size(36.dp)
+                    .background(superhumanBlue.copy(alpha = .12f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                SuperhumanDomainIcon(
+                    glyph = SuperhumanDomainGlyph.HEARTBEAT,
+                    tint = superhumanBlue,
+                    modifier = Modifier.size(19.dp)
+                )
+            }
+            Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
                 Text(
                     "Training capacity",
                     color = superhumanTextPrimary,
-                    fontSize = 10.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Black
                 )
                 Text(
                     if (readiness.availableSignals > 0) {
-                        "${readiness.availableSignals}/${readiness.totalSignals} inputs available"
+                        "${readiness.availableSignals}/${readiness.totalSignals} recovery inputs available"
                     } else {
                         "Add recovery data to build your capacity view"
                     },
@@ -541,7 +602,7 @@ private fun CardioHubOverviewPanel(
                 )
             }
             CardioHubSignalDots(readiness.availableSignals, readiness.totalSignals, superhumanBlue)
-            Spacer(Modifier.width(7.dp))
+            Spacer(Modifier.width(8.dp))
             Text("›", color = superhumanBlue, fontSize = 18.sp)
         }
     }
