@@ -569,7 +569,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                                 fontWeight = FontWeight.Black,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
-                                    .clickable { showFormActivityPicker = !showFormActivityPicker }
+                                    .superhumanClickable { showFormActivityPicker = !showFormActivityPicker }
                                     .padding(horizontal = 9.dp, vertical = 7.dp)
                             )
                         }
@@ -600,7 +600,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                                 fontWeight = FontWeight.Black,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
-                                    .clickable { showFormWorkoutTypePicker = !showFormWorkoutTypePicker }
+                                    .superhumanClickable { showFormWorkoutTypePicker = !showFormWorkoutTypePicker }
                                     .padding(horizontal = 9.dp, vertical = 7.dp)
                             )
                         }
@@ -681,7 +681,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                     Row(
                         Modifier.fillMaxWidth()
                             .background(CardioSoft, RoundedCornerShape(14.dp))
-                            .clickable { showAdditionalDetails = !showAdditionalDetails }
+                            .superhumanClickable { showAdditionalDetails = !showAdditionalDetails }
                             .padding(horizontal = 12.dp, vertical = 11.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -906,7 +906,7 @@ private fun CardioHero(
             Modifier.fillMaxWidth()
                 .heightIn(min = 62.dp)
                 .background(CardioSurface, RoundedCornerShape(18.dp))
-                .clickable { onPrimary() }
+                .superhumanClickable { onPrimary() }
                 .padding(horizontal = 13.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1313,7 +1313,7 @@ private fun CardioQuickAccessItem(
     onClick: () -> Unit
 ) {
     Row(
-        modifier.heightIn(min = 64.dp).clickable { onClick() }.padding(horizontal = 8.dp, vertical = 8.dp),
+        modifier.heightIn(min = 64.dp).superhumanClickable { onClick() }.padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -1447,7 +1447,7 @@ private fun CardioLatestActivityPanel(session: CardioSession, onOpen: () -> Unit
         Modifier.fillMaxWidth()
             .background(CardioSurface, RoundedCornerShape(21.dp))
             .border(1.dp, CardioBorder.copy(alpha = .72f), RoundedCornerShape(21.dp))
-            .clickable { onOpen() }
+            .superhumanClickable { onOpen() }
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -1553,7 +1553,7 @@ private fun CardioControlButton(
         modifier
             .height(72.dp)
             .background(Color.White.copy(alpha = .075f), RoundedCornerShape(16.dp))
-            .clickable { onClick() }
+            .superhumanClickable { onClick() }
             .padding(horizontal = 4.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -1984,7 +1984,7 @@ private fun cardioZoneColor(zone: Int): Color = when (zone) {
 private fun CardioActionCompact(title: String, subtitle: String, accent: Color, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().heightIn(min = 50.dp)
-            .clickable { onClick() }
+            .superhumanClickable { onClick() }
             .padding(horizontal = 2.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2154,7 +2154,7 @@ private fun CardioQuickAction(
     Row(
         modifier.heightIn(min = 68.dp)
             .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .14f else .08f), RoundedCornerShape(16.dp))
-            .clickable { onClick() }
+            .superhumanClickable { onClick() }
             .padding(11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2189,7 +2189,7 @@ private fun CardioNavTile(mark: String, title: String, subtitle: String, accent:
     Column(
         modifier.heightIn(min = 96.dp).background(CardioSurface, RoundedCornerShape(20.dp))
             .border(1.dp, CardioBorder, RoundedCornerShape(20.dp))
-            .clickable { onClick() }.padding(12.dp)
+            .superhumanClickable { onClick() }.padding(12.dp)
     ) {
         Box(Modifier.size(32.dp).background(accent.copy(alpha = .13f), CircleShape), contentAlignment = Alignment.Center) {
             Text(mark, color = accent, fontWeight = FontWeight.Black)
@@ -2205,7 +2205,7 @@ private fun CardioAction(title: String, subtitle: String, accent: Color, onClick
     Row(
         Modifier.fillMaxWidth().heightIn(min = 56.dp)
             .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .09f), RoundedCornerShape(17.dp))
-            .clickable { onClick() }.padding(13.dp),
+            .superhumanClickable { onClick() }.padding(13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(Modifier.size(8.dp).background(accent, CircleShape))
@@ -2227,7 +2227,7 @@ private fun CardioUndoBanner(onUndo: () -> Unit) {
                 RoundedCornerShape(14.dp)
             )
             .border(1.dp, CardioBlue.copy(alpha = .28f), RoundedCornerShape(14.dp))
-            .clickable { onUndo() }
+            .superhumanClickable { onUndo() }
             .padding(horizontal = 14.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -2283,7 +2283,7 @@ private fun CardioActivityPicker(selected: CardioActivityType, onSelect: (Cardio
                 Row(
                     Modifier.weight(1f).heightIn(min = 52.dp)
                         .background(if (active) CardioAccent else CardioSoft, RoundedCornerShape(13.dp))
-                        .clickable { onSelect(activity) }
+                        .superhumanClickable { onSelect(activity) }
                         .padding(horizontal = 10.dp, vertical = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center
@@ -2323,7 +2323,7 @@ private fun CardioWorkoutTypePicker(
                         .weight(1f)
                         .height(64.dp)
                         .background(if (active) CardioBlue else CardioSoft, RoundedCornerShape(13.dp))
-                        .clickable { onSelect(type) }
+                        .superhumanClickable { onSelect(type) }
                         .padding(horizontal = 10.dp, vertical = 9.dp),
                     verticalArrangement = Arrangement.Center
                 ) {
@@ -2360,7 +2360,7 @@ private fun CardioSessionRow(session: CardioSession, onOpen: () -> Unit) {
     }
     Row(
         Modifier.fillMaxWidth().background(CardioSoft, RoundedCornerShape(16.dp))
-            .clickable { onOpen() }.padding(12.dp),
+            .superhumanClickable { onOpen() }.padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
