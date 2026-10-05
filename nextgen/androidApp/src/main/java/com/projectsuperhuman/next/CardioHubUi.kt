@@ -157,7 +157,7 @@ internal fun CardioVisualHub(
                     .fillMaxWidth()
                     .heightIn(min = 48.dp)
                     .background(superhumanSurface, RoundedCornerShape(16.dp))
-                    .clickable { onSessions() }
+                    .superhumanClickable { onSessions() }
                     .padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -186,7 +186,7 @@ internal fun CardioVisualHub(
         Row(
             Modifier.fillMaxWidth()
                 .heightIn(min = 46.dp)
-                .clickable { onLog() }
+                .superhumanClickable { onLog() }
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -275,7 +275,7 @@ private fun CardioHubStartBar(
                 color = superhumanBlue,
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Black,
-                modifier = Modifier.clickable { onEdit() }.padding(horizontal = 8.dp, vertical = 6.dp)
+                modifier = Modifier.superhumanClickable { onEdit() }.padding(horizontal = 8.dp, vertical = 6.dp)
             )
         }
         Spacer(Modifier.height(10.dp))
@@ -309,7 +309,7 @@ private fun CardioHubStartActivityAction(
     Column(
         modifier
             .heightIn(min = 60.dp)
-            .clickable { onClick() }
+            .superhumanClickable { onClick() }
             .padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -344,7 +344,7 @@ private fun CardioHubStartMoreAction(
     Column(
         modifier
             .heightIn(min = 58.dp)
-            .clickable { onClick() }
+            .superhumanClickable { onClick() }
             .padding(horizontal = 2.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -434,7 +434,7 @@ private fun CardioHubOverviewPanel(
                 color = superhumanBlue,
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Black,
-                modifier = Modifier.clickable { onEditGoals() }.padding(horizontal = 8.dp, vertical = 8.dp)
+                modifier = Modifier.superhumanClickable { onEditGoals() }.padding(horizontal = 8.dp, vertical = 8.dp)
             )
         }
 
@@ -568,7 +568,7 @@ private fun CardioHubOverviewPanel(
         Row(
             Modifier.fillMaxWidth()
                 .background(superhumanSurface, RoundedCornerShape(18.dp))
-                .clickable { onReadiness() }
+                .superhumanClickable { onReadiness() }
                 .padding(horizontal = 15.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -638,7 +638,7 @@ private fun CardioHubOverviewPanel(
                                 if (selected) option.accent.copy(alpha = .12f) else Color.Transparent,
                                 RoundedCornerShape(14.dp)
                             )
-                            .clickable {
+                            .superhumanClickable {
                                 metric = option
                                 showMetricSheet = false
                             }
@@ -691,7 +691,7 @@ private fun CardioHubSelectorChip(
                 else superhumanSurfaceSoft,
                 RoundedCornerShape(999.dp)
             )
-            .clickable { onClick() }
+            .superhumanClickable { onClick() }
             .padding(horizontal = 11.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -719,7 +719,7 @@ private fun CardioHubRangeChip(
                 else Color.Transparent,
                 RoundedCornerShape(12.dp)
             )
-            .clickable { onClick() },
+            .superhumanClickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -770,7 +770,7 @@ private fun CardioHubProgressChart(
                 Box(
                     Modifier
                         .background(metric.accent.copy(alpha = .16f), RoundedCornerShape(12.dp))
-                        .clickable { onLog() }
+                        .superhumanClickable { onLog() }
                         .padding(horizontal = 18.dp, vertical = 9.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -990,7 +990,7 @@ private fun CardioHubSensorStrip(metrics: CardioLiveSensorMetrics) {
     Row(
         Modifier.fillMaxWidth()
             .heightIn(min = 48.dp)
-            .clickable { SmartDevicesNavigationBridge.open?.invoke() }
+            .superhumanClickable { SmartDevicesNavigationBridge.open?.invoke() }
             .semantics {
                 role = Role.Button
                 contentDescription = cardioProductSensorStatus(metrics) + ". Manage devices."
@@ -1042,7 +1042,7 @@ private fun CardioHubQuickStart(onQuickStart: (CardioActivityType) -> Unit) {
                 Modifier.weight(1f)
                     .heightIn(min = 70.dp)
                     .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .12f else .07f), RoundedCornerShape(17.dp))
-                    .clickable { onQuickStart(activity) }
+                    .superhumanClickable { onQuickStart(activity) }
                     .padding(horizontal = 6.dp, vertical = 10.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
@@ -1066,7 +1066,7 @@ private fun CardioHubRecordsTile(
     Column(
         Modifier.fillMaxWidth()
             .background(superhumanSurface, RoundedCornerShape(20.dp))
-            .clickable { onRecords() }
+            .superhumanClickable { onRecords() }
             .padding(horizontal = 14.dp, vertical = 12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1144,7 +1144,7 @@ private fun CardioHubRecentSessionCard(session: CardioSession, onClick: () -> Un
         Modifier.width(150.dp)
             .heightIn(min = 112.dp)
             .background(superhumanSurface, RoundedCornerShape(19.dp))
-            .clickable { onClick() }
+            .superhumanClickable { onClick() }
             .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1193,7 +1193,7 @@ private fun CardioHubPreviewTile(
         modifier
             .heightIn(min = 112.dp)
             .background(superhumanSurface, RoundedCornerShape(19.dp))
-            .clickable { onClick() }
+            .superhumanClickable { onClick() }
             .padding(11.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1429,7 +1429,7 @@ private fun CardioHubExpandableRow(
         Modifier.fillMaxWidth()
             .heightIn(min = 54.dp)
             .background(superhumanSurfaceSoft, RoundedCornerShape(17.dp))
-            .clickable { onClick() }
+            .superhumanClickable { onClick() }
             .padding(horizontal = 13.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -1693,7 +1693,7 @@ private fun CardioHubQuickStartEditor(
                             if (activeSlot == index) accent.copy(alpha = .14f) else superhumanSurfaceSoft,
                             RoundedCornerShape(14.dp)
                         )
-                        .clickable { activeSlot = index }
+                        .superhumanClickable { activeSlot = index }
                         .padding(horizontal = 5.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -1729,7 +1729,7 @@ private fun CardioHubQuickStartEditor(
             Row(
                 Modifier.fillMaxWidth()
                     .heightIn(min = 46.dp)
-                    .clickable {
+                    .superhumanClickable {
                         onActivitiesChange(
                             replaceCardioQuickActivity(
                                 current = activities,
@@ -1765,7 +1765,7 @@ private fun CardioHubQuickStartEditor(
             Modifier.fillMaxWidth()
                 .heightIn(min = 48.dp)
                 .background(superhumanBlue.copy(alpha = .12f), RoundedCornerShape(14.dp))
-                .clickable { onDone() }
+                .superhumanClickable { onDone() }
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1851,7 +1851,7 @@ private fun CardioHubGoalEditor(
                 Modifier.weight(1f)
                     .heightIn(min = 48.dp)
                     .background(superhumanSurfaceSoft, RoundedCornerShape(14.dp))
-                    .clickable { onCancel() },
+                    .superhumanClickable { onCancel() },
                 contentAlignment = Alignment.Center
             ) {
                 Text("CANCEL", color = superhumanTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
@@ -1860,7 +1860,7 @@ private fun CardioHubGoalEditor(
                 Modifier.weight(1f)
                     .heightIn(min = 48.dp)
                     .background(superhumanBlue.copy(alpha = .14f), RoundedCornerShape(14.dp))
-                    .clickable {
+                    .superhumanClickable {
                         onSave(
                             CardioHubGoals(
                                 totalMinutes = parsed(totalText),
@@ -1915,7 +1915,7 @@ private fun CardioHubSheetAction(label: String, accent: Color, onClick: () -> Un
         Modifier.fillMaxWidth()
             .heightIn(min = 50.dp)
             .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .10f), RoundedCornerShape(16.dp))
-            .clickable { onClick() }
+            .superhumanClickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
