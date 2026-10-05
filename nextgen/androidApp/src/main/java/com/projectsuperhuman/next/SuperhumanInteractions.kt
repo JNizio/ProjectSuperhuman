@@ -4,23 +4,21 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
-import androidx.compose.foundation.Indication
-import androidx.compose.foundation.IndicationInstance
 import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.drawscope.ContentDrawScope
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
@@ -28,16 +26,16 @@ import androidx.compose.ui.unit.dp
 /**
  * Global no-ripple indication. Project Superhuman owns its interaction feedback and never uses
  * Android/Material press ripples or rectangular touch highlights.
+ *
+ * Compose 1.7+ indication implementations use IndicationNodeFactory. A plain Modifier.Node draws
+ * nothing, so content renders normally while default ripple/highlight feedback is suppressed.
  */
-internal object SuperhumanNoIndication : Indication {
-    private object Instance : IndicationInstance {
-        override fun ContentDrawScope.drawIndication() {
-            drawContent()
-        }
-    }
+internal object SuperhumanNoIndication : IndicationNodeFactory {
+    override fun create(interactionSource: InteractionSource): DelegatableNode =
+        object : Modifier.Node() {}
 
-    @Composable
-    override fun rememberUpdatedInstance(interactionSource: InteractionSource): IndicationInstance = Instance
+    override fun equals(other: Any?): Boolean = other === this
+    override fun hashCode(): Int = 0x53555045
 }
 
 /** Shared Project Superhuman press behaviour without Android's grey ripple/highlight. */
