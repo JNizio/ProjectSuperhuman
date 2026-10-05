@@ -1034,7 +1034,7 @@ private fun CardioCompactHeroAction(
         modifier
             .heightIn(min = 42.dp)
             .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .14f else .08f), RoundedCornerShape(13.dp))
-            .clickable(enabled = enabled) { onClick() }
+            .superhumanClickable(enabled = enabled) { onClick() }
             .padding(horizontal = 8.dp, vertical = 9.dp),
         contentAlignment = Alignment.Center
     ) {
