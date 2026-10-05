@@ -366,6 +366,7 @@ private fun CardioHubStartMoreAction(
 }
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun CardioHubOverviewPanel(
     sessions: List<CardioSession>,
@@ -377,6 +378,25 @@ private fun CardioHubOverviewPanel(
 ) {
     var metric by remember { mutableStateOf(CardioHubProgressMetric.DISTANCE) }
     var range by remember { mutableStateOf(CardioHubProgressRange.WEEKS_8) }
+    var showMetricSheet by remember { mutableStateOf(false) }
+
+    val primaryMetrics = remember {
+        listOf(
+            CardioHubProgressMetric.DISTANCE,
+            CardioHubProgressMetric.MINUTES,
+            CardioHubProgressMetric.SESSIONS
+        )
+    }
+    val secondaryMetrics = remember {
+        listOf(
+            CardioHubProgressMetric.AVG_PACE,
+            CardioHubProgressMetric.AVG_SPEED,
+            CardioHubProgressMetric.AVG_HEART_RATE,
+            CardioHubProgressMetric.ZONE2
+        )
+    }
+    val selectedSecondary = metric.takeIf { it in secondaryMetrics }
+
     val points = remember(sessions, metric, range) {
         cardioHubProgressPoints(sessions, metric, range)
     }
@@ -420,16 +440,23 @@ private fun CardioHubOverviewPanel(
         }
 
         Row(
-            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            CardioHubProgressMetric.entries.forEach { option ->
+            primaryMetrics.forEach { option ->
                 CardioHubSelectorChip(
                     label = option.shortLabel,
                     selected = metric == option,
-                    accent = option.accent
+                    accent = option.accent,
+                    modifier = Modifier.weight(1f)
                 ) { metric = option }
             }
+            CardioHubSelectorChip(
+                label = selectedSecondary?.shortLabel ?: "More ▾",
+                selected = selectedSecondary != null,
+                accent = selectedSecondary?.accent ?: superhumanBlue,
+                modifier = Modifier.weight(1f)
+            ) { showMetricSheet = true }
         }
 
         CardioHubProgressChart(
@@ -470,7 +497,7 @@ private fun CardioHubOverviewPanel(
                 "CHANGE",
                 change?.let {
                     val sign = if (it > 0) "+" else ""
-                    "$sign${String.format(Locale.US, "%.0f", it)}%"
+                    "${sign}${String.format(Locale.US, "%.0f", it)}%"
                 } ?: "—",
                 Modifier.weight(1f),
                 valueColor = when {
@@ -479,19 +506,6 @@ private fun CardioHubOverviewPanel(
                     change < 0 -> Color(0xFFE36E75)
                     else -> superhumanTextPrimary
                 }
-            )
-        }
-
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            CardioHubSimpleStat("THIS WEEK", "${model.week.minutes} min", "${model.week.sessions} sessions", Modifier.weight(1f))
-            CardioHubSimpleStat(
-                "ZONE 2",
-                "${model.week.zone2Minutes} min",
-                goals.zone2Minutes?.let { "Goal $it min" } ?: "No goal",
-                Modifier.weight(1f)
             )
         }
 
@@ -531,6 +545,74 @@ private fun CardioHubOverviewPanel(
             Text("›", color = superhumanBlue, fontSize = 18.sp)
         }
     }
+
+    if (showMetricSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showMetricSheet = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = superhumanSurface
+        ) {
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    "More cardio metrics",
+                    color = superhumanTextPrimary,
+                    fontSize = 19.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    "Choose what you want to analyse on the main chart.",
+                    color = superhumanTextMuted,
+                    fontSize = 9.sp
+                )
+                Spacer(Modifier.height(14.dp))
+
+                secondaryMetrics.forEach { option ->
+                    val selected = metric == option
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .heightIn(min = 50.dp)
+                            .background(
+                                if (selected) option.accent.copy(alpha = .12f) else Color.Transparent,
+                                RoundedCornerShape(14.dp)
+                            )
+                            .clickable {
+                                metric = option
+                                showMetricSheet = false
+                            }
+                            .padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            Modifier.size(9.dp).background(option.accent, CircleShape)
+                        )
+                        Spacer(Modifier.width(11.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                option.shortLabel,
+                                color = superhumanTextPrimary,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                option.label,
+                                color = superhumanTextMuted,
+                                fontSize = 8.sp
+                            )
+                        }
+                        if (selected) {
+                            Text("SELECTED", color = option.accent, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                        } else {
+                            Text("›", color = superhumanTextMuted, fontSize = 18.sp)
+                        }
+                    }
+                    Spacer(Modifier.height(5.dp))
+                }
+                Spacer(Modifier.height(20.dp))
+            }
+        }
+    }
 }
 
 @Composable
@@ -538,10 +620,11 @@ private fun CardioHubSelectorChip(
     label: String,
     selected: Boolean,
     accent: Color,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Box(
-        Modifier
+        modifier
             .background(
                 if (selected) accent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .11f)
                 else superhumanSurfaceSoft,
