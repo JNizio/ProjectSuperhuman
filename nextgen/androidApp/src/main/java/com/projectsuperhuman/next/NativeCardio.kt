@@ -83,8 +83,6 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var confirmDiscard by remember { mutableStateOf(false) }
     var confirmHomeDiscard by remember { mutableStateOf(false) }
     var confirmHomeFinish by remember { mutableStateOf(false) }
-    var liveAutoPauseEnabled by remember { mutableStateOf(false) }
-    var showLiveOptions by remember { mutableStateOf(false) }
 
     var liveActivity by remember { mutableStateOf(CardioActivityType.WALKING) }
     var liveWorkoutType by remember { mutableStateOf(CardioWorkoutType.FREE) }
@@ -520,7 +518,6 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             if (confirmDiscard) {
                                 cardioViewModel.discardLive {
                                     confirmDiscard = false
-                                    showLiveOptions = false
                                     screen = CardioScreen.HOME
                                 }
                             } else {
@@ -528,43 +525,6 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             }
                         }
                     )
-                    CardioActionCompact(
-                        if (showLiveOptions) "Hide workout options" else "Workout options",
-                        "Paused " + cardioFormatDuration(cardioState.pausedElapsedSeconds) +
-                            if (liveAutoPauseEnabled) " · auto-pause on" else "",
-                        CardioBlue
-                    ) {
-                        showLiveOptions = !showLiveOptions
-                    }
-                    if (showLiveOptions) {
-                        CardioSection("OPTIONS", "") {
-                            if (CardioGpsProcessor.gpsEligible(draft.activity)) {
-                                CardioActionCompact(
-                                    if (liveAutoPauseEnabled) "Auto-pause: on" else "Auto-pause: off",
-                                    "Speed-based pause with stopped time preserved",
-                                    CardioBlue
-                                ) {
-                                    liveAutoPauseEnabled = !liveAutoPauseEnabled
-                                    cardioViewModel.setAutoPauseEnabled(liveAutoPauseEnabled)
-                                }
-                            }
-                            CardioActionCompact(
-                                if (confirmDiscard) "Confirm discard" else "Discard workout",
-                                if (confirmDiscard) "Tap again to discard the recoverable draft" else "Stop without saving",
-                                CardioCoral
-                            ) {
-                                if (confirmDiscard) {
-                                    cardioViewModel.discardLive {
-                                        confirmDiscard = false
-                                        showLiveOptions = false
-                                        screen = CardioScreen.HOME
-                                    }
-                                } else {
-                                    confirmDiscard = true
-                                }
-                            }
-                        }
-                    }
                     CardioLiveMetricsPanel(sensorMetrics)
                 }
             }
@@ -1571,15 +1531,13 @@ private fun CardioLiveControls(
             modifier = Modifier.weight(1f),
             onClick = onFinish
         )
-        if (!running) {
-            CardioControlButton(
-                icon = CardioUiIcon.DELETE,
-                label = if (confirmDiscard) "Confirm" else "Delete",
-                accent = Color(0xFFF08B8F),
-                modifier = Modifier.weight(1f),
-                onClick = onDiscard
-            )
-        }
+        CardioControlButton(
+            icon = CardioUiIcon.DELETE,
+            label = if (confirmDiscard) "Confirm" else "Delete",
+            accent = Color(0xFFF08B8F),
+            modifier = Modifier.weight(1f),
+            onClick = onDiscard
+        )
     }
 }
 
