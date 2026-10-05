@@ -227,10 +227,10 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
             if (developerMode) {
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.weight(1f).background(SettingsSoft, RoundedCornerShape(12.dp)).clickable { developerEvents = DeveloperDiagnostics.latest(context, 18) }.padding(10.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.weight(1f).background(SettingsSoft, RoundedCornerShape(12.dp)).superhumanClickable { developerEvents = DeveloperDiagnostics.latest(context, 18) }.padding(10.dp), contentAlignment = Alignment.Center) {
                         Text("REFRESH LOG", color = SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black)
                     }
-                    Box(Modifier.weight(1f).background(superhumanErrorSurface, RoundedCornerShape(12.dp)).clickable {
+                    Box(Modifier.weight(1f).background(superhumanErrorSurface, RoundedCornerShape(12.dp)).superhumanClickable {
                         DeveloperDiagnostics.clear(context); developerEvents = emptyList(); developerExportStatus = "Log cleared"
                     }.padding(10.dp), contentAlignment = Alignment.Center) {
                         Text("CLEAR LOG", color = SettingsRed, fontSize = 9.sp, fontWeight = FontWeight.Black)
@@ -340,7 +340,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
 
 @Composable
 private fun VaultButton(title: String, subtitle: String, accent: Color, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).superhumanClickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
             Text(subtitle, color = Color.White.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
@@ -351,7 +351,7 @@ private fun VaultButton(title: String, subtitle: String, accent: Color, onClick:
 
 @Composable
 private fun SyntheticSpanButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(modifier.background(if (selected) SettingsBlue else SettingsSoft, RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.background(if (selected) SettingsBlue else SettingsSoft, RoundedCornerShape(12.dp)).superhumanClickable(onClick = onClick).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
         Text(label, color = if (selected) Color.White else SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black)
     }
 }
