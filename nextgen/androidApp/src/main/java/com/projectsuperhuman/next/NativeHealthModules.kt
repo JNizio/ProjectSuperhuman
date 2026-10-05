@@ -106,7 +106,7 @@ internal fun NativeBloodPressurePage(onBack: () -> Unit, openLegacy: () -> Unit)
             Text("Until native BP work resumes, the proven existing capture flow remains accessible without affecting the rest of the native app.", color = ModuleMuted, fontSize = 9.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(10.dp))
             Box(
-                Modifier.fillMaxWidth().background(if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else Color(0xFF082D66), RoundedCornerShape(15.dp)).clickable(onClick = openLegacy).padding(13.dp),
+                Modifier.fillMaxWidth().background(if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else Color(0xFF082D66), RoundedCornerShape(15.dp)).superhumanClickable(onClick = openLegacy).padding(13.dp),
                 contentAlignment = Alignment.Center
             ) { Text("OPEN BLOOD PRESSURE TOOLS", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black) }
         }
