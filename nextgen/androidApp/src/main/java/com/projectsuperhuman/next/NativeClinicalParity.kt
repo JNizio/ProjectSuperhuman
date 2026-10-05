@@ -188,7 +188,7 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             }
 
             Box(
-                Modifier.fillMaxWidth().background(ClinicalSoft, RoundedCornerShape(16.dp)).clickable {
+                Modifier.fillMaxWidth().background(ClinicalSoft, RoundedCornerShape(16.dp)).superhumanClickable {
                     drafts = drafts + ClinicalDraft(name = "", value = "", unit = "", confidence = 1.0)
                 }.padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center
@@ -266,7 +266,7 @@ private fun ClinicalLegacyReviewRow(draft: ClinicalDraft, onChange: (ClinicalDra
         Row(verticalAlignment = Alignment.CenterVertically) {
             ClinicalChip(statusLabel, statusColor, Modifier.weight(1f, fill = false))
             Spacer(Modifier.weight(1f))
-            Text("Remove", color = ClinicalBad, fontSize = 12.sp, modifier = Modifier.clickable(onClick = onRemove).padding(6.dp))
+            Text("Remove", color = ClinicalBad, fontSize = 12.sp, modifier = Modifier.superhumanClickable(onClick = onRemove).padding(6.dp))
         }
         OutlinedTextField(draft.name, { onChange(draft.copy(name = it)) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("TEST") })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -337,7 +337,7 @@ private fun ClinicalReviewCard(draft: ClinicalDraft, onChange: (ClinicalDraft) -
                 }.joinToString(" · ")
                 if (provenance.isNotBlank()) Text(provenance, color = ClinicalMuted, fontSize = 8.sp)
             }
-            Text("REMOVE", color = ClinicalBad, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onRemove).padding(6.dp))
+            Text("REMOVE", color = ClinicalBad, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.superhumanClickable(onClick = onRemove).padding(6.dp))
         }
         OutlinedTextField(draft.name, { onChange(draft.copy(name = it)) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Test") })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -370,14 +370,14 @@ private fun ClinicalResultRow(value: HealthValue, onDelete: () -> Unit) {
             val qualifier = value.metadata["qualifier"].orEmpty()
             Text("${qualifier}${trimNumber(value.value)} ${value.unit}", color = ClinicalInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
             Text(status, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black)
-            Text("Remove", color = ClinicalBad, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable(onClick = onDelete).padding(top = 5.dp))
+            Text("Remove", color = ClinicalBad, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.superhumanClickable(onClick = onDelete).padding(top = 5.dp))
         }
     }
 }
 
 @Composable
 private fun ClinicalButton(title: String, accent: Color, onClick: () -> Unit) {
-    Box(Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).superhumanClickable(onClick = onClick).padding(vertical = 14.dp), contentAlignment = Alignment.Center) {
         Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
