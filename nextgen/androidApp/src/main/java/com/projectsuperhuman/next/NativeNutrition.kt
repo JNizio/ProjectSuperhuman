@@ -323,7 +323,7 @@ private fun NutritionViewToggle(view: NutritionView, onChange: (NutritionView) -
 private fun NutritionTab(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
         modifier.background(if (selected) NutritionBlue else Color.Transparent, RoundedCornerShape(13.dp))
-            .clickable(onClick = onClick).padding(vertical = 10.dp),
+            .superhumanClickable(onClick = onClick).padding(vertical = 10.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(label, color = if (selected) Color.White else NutritionMuted, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
@@ -413,7 +413,7 @@ private fun NativeFoodSearchCard(
 private fun FoodResult(food: NativeFood, selected: Boolean, onClick: () -> Unit) {
     Row(
         Modifier.fillMaxWidth().background(if (selected) NutritionSoft else NutritionBg, RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick).padding(11.dp),
+            .superhumanClickable(onClick = onClick).padding(11.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
@@ -511,7 +511,7 @@ private fun MealChip(label: String, selected: Boolean, onClick: () -> Unit) {
     Box(
         Modifier.background(if (selected) NutritionGreen else NutritionBg, RoundedCornerShape(99.dp))
             .border(1.dp, if (selected) NutritionGreen else NutritionBorder, RoundedCornerShape(99.dp))
-            .clickable(onClick = onClick).padding(horizontal = 13.dp, vertical = 8.dp),
+            .superhumanClickable(onClick = onClick).padding(horizontal = 13.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(label, color = if (selected) Color.White else NutritionMuted, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
@@ -577,7 +577,7 @@ private fun DiaryEntryRow(entry: FoodDiaryEntry, onRemove: () -> Unit) {
             }
         }
         Box(
-            Modifier.background(Color.White, RoundedCornerShape(10.dp)).clickable(onClick = onRemove)
+            Modifier.background(Color.White, RoundedCornerShape(10.dp)).superhumanClickable(onClick = onRemove)
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -716,7 +716,7 @@ private fun ActionButton(
 @Composable
 private fun SmallAction(title: String, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.background(NutritionSoft, RoundedCornerShape(15.dp)).clickable(onClick = onClick).padding(vertical = 13.dp),
+        modifier.background(NutritionSoft, RoundedCornerShape(15.dp)).superhumanClickable(onClick = onClick).padding(vertical = 13.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(title, color = NutritionGreen, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
