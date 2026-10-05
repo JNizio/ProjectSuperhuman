@@ -146,7 +146,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
             Modifier.fillMaxWidth().background(
                 Brush.linearGradient(listOf(Color(0xFF082D66), Color(0xFF0D6CB4), Color(0xFF24A6B7))),
                 RoundedCornerShape(24.dp)
-            ).clickable { guidedRoutineOpen = true }.padding(17.dp)
+            ).superhumanClickable { guidedRoutineOpen = true }.padding(17.dp)
         ) {
             Text("GUIDED BREATHWORK", color = Color.White.copy(alpha = .68f), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
             Spacer(Modifier.height(5.dp))
@@ -165,7 +165,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
                 MindMode.values().forEach { item ->
                     val active = mode == item
                     Box(
-                        Modifier.weight(1f).background(if (active) MindPurple else MindPurple.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .08f), RoundedCornerShape(14.dp)).clickable { mode = item }.padding(vertical = 12.dp),
+                        Modifier.weight(1f).background(if (active) MindPurple else MindPurple.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .08f), RoundedCornerShape(14.dp)).superhumanClickable { mode = item }.padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(item.label, color = if (active) Color.White else MindPurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -182,7 +182,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
             )
             Spacer(Modifier.height(10.dp))
             Box(
-                Modifier.fillMaxWidth().background(if (running) MindOrange else MindPurple, RoundedCornerShape(16.dp)).clickable { if (running) running = false else startTimer() }.padding(14.dp),
+                Modifier.fillMaxWidth().background(if (running) MindOrange else MindPurple, RoundedCornerShape(16.dp)).superhumanClickable { if (running) running = false else startTimer() }.padding(14.dp),
                 contentAlignment = Alignment.Center
             ) {
                 val timer = if (running) String.format("%02d:%02d", secondsLeft / 60, secondsLeft % 60) else "START ${mode.label.uppercase()}"
@@ -203,7 +203,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
                 OutlinedTextField(value = stressAfter, onValueChange = { stressAfter = it.filter { c -> c.isDigit() || c == '.' }.take(4) }, modifier = Modifier.weight(1f), singleLine = true, label = { Text("After") })
             }
             Spacer(Modifier.height(10.dp))
-            Box(Modifier.fillMaxWidth().background(MindGreen, RoundedCornerShape(16.dp)).clickable { saveSession() }.padding(14.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().background(MindGreen, RoundedCornerShape(16.dp)).superhumanClickable { saveSession() }.padding(14.dp), contentAlignment = Alignment.Center) {
                 Text("SAVE SESSION", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(7.dp))
@@ -219,7 +219,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
             Text("Existing guided tools", color = MindBlue, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
             Text("The previous mindfulness tools remain available as a compatibility fallback during parity testing.", color = MindMuted, fontSize = 9.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(9.dp))
-            Box(Modifier.fillMaxWidth().background(MindBlue, RoundedCornerShape(15.dp)).clickable(onClick = openLegacy).padding(13.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().background(MindBlue, RoundedCornerShape(15.dp)).superhumanClickable(onClick = openLegacy).padding(13.dp), contentAlignment = Alignment.Center) {
                 Text("OPEN EXISTING TOOLS", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
             }
         }
