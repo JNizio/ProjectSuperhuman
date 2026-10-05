@@ -109,6 +109,9 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
     var formLiveSessionId by remember { mutableStateOf<String?>(null) }
     var formLivePausedSeconds by remember { mutableIntStateOf(0) }
     var showZones by remember { mutableStateOf(false) }
+    var showFormActivityPicker by remember { mutableStateOf(false) }
+    var showFormWorkoutTypePicker by remember { mutableStateOf(false) }
+    var showAdditionalDetails by remember { mutableStateOf(false) }
     val zoneMinutes = remember { mutableStateListOf("", "", "", "", "") }
 
     val locationPermissionLauncher = rememberLauncherForActivityResult(
@@ -143,6 +146,9 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
         formLiveSessionId = null
         formLivePausedSeconds = 0
         showZones = false
+        showFormActivityPicker = false
+        showFormWorkoutTypePicker = false
+        showAdditionalDetails = false
         for (i in zoneMinutes.indices) zoneMinutes[i] = ""
     }
 
@@ -586,25 +592,111 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
 
             CardioScreen.MANUAL -> {
                 val editing = formEditingId != null
+                val finishingLive = formSource == "live"
+
                 CardioHeroStrip(
-                    if (editing) "EDIT CARDIO" else if (formSource == "live") "FINISH CARDIO" else "LOG CARDIO",
-                    if (editing) "Update saved session" else if (formSource == "live") "Add your measured details" else "Log a previous activity",
-                    "Only enter data you actually measured. Pace and speed are derived automatically.",
+                    if (editing) "EDIT CARDIO" else if (finishingLive) "FINISH CARDIO" else "LOG CARDIO",
+                    if (editing) "Update saved session" else if (finishingLive) "Finish your workout" else "Log a previous activity",
+                    if (finishingLive) {
+                        "Review the essentials, add anything you measured, then save."
+                    } else {
+                        "Only enter data you actually measured. Pace and speed are derived automatically."
+                    },
                     CardioBlue
                 )
-                CardioSection("ACTIVITY", "Choose the session type") {
-                    CardioActivityPicker(formActivity) { formActivity = it }
+
+                if (finishingLive || editing) {
+                    CardioSection("SESSION", "Review before saving") {
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .background(CardioSoft, RoundedCornerShape(15.dp))
+                                .padding(horizontal = 12.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SuperhumanDomainIcon(
+                                glyph = cardioDomainGlyph(formActivity),
+                                tint = CardioAccent,
+                                modifier = Modifier.size(21.dp)
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text("Activity", color = CardioMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                Text(formActivity.displayName, color = CardioInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                            }
+                            Text(
+                                if (showFormActivityPicker) "CLOSE" else "CHANGE",
+                                color = CardioAccent,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { showFormActivityPicker = !showFormActivityPicker }
+                                    .padding(horizontal = 9.dp, vertical = 7.dp)
+                            )
+                        }
+                        if (showFormActivityPicker) {
+                            Spacer(Modifier.height(9.dp))
+                            CardioActivityPicker(formActivity) {
+                                formActivity = it
+                                showFormActivityPicker = false
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                        Row(
+                            Modifier.fillMaxWidth()
+                                .background(CardioSoft, RoundedCornerShape(15.dp))
+                                .padding(horizontal = 12.dp, vertical = 11.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Workout purpose", color = CardioMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                                Text(formWorkoutType.label, color = CardioInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
+                                Text(formWorkoutType.description, color = CardioMuted, fontSize = 9.sp)
+                            }
+                            Text(
+                                if (showFormWorkoutTypePicker) "CLOSE" else "CHANGE",
+                                color = CardioBlue,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable { showFormWorkoutTypePicker = !showFormWorkoutTypePicker }
+                                    .padding(horizontal = 9.dp, vertical = 7.dp)
+                            )
+                        }
+                        if (showFormWorkoutTypePicker) {
+                            Spacer(Modifier.height(9.dp))
+                            CardioWorkoutTypePicker(formWorkoutType) {
+                                formWorkoutType = it
+                                showFormWorkoutTypePicker = false
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+                        CardioDateTimePickerField(
+                            value = formDateTime,
+                            onValueChange = { formDateTime = it },
+                            label = "Finished"
+                        )
+                    }
+                } else {
+                    CardioSection("ACTIVITY", "Choose the session type") {
+                        CardioActivityPicker(formActivity) { formActivity = it }
+                    }
+                    CardioSection("WORKOUT PURPOSE", "Classify the training stimulus") {
+                        CardioWorkoutTypePicker(formWorkoutType) { formWorkoutType = it }
+                    }
+                    CardioSection("WHEN", "When did you finish?") {
+                        CardioDateTimePickerField(
+                            value = formDateTime,
+                            onValueChange = { formDateTime = it },
+                            label = "Finished"
+                        )
+                    }
                 }
-                CardioSection("WORKOUT PURPOSE", "Classify the training stimulus") {
-                    CardioWorkoutTypePicker(formWorkoutType) { formWorkoutType = it }
-                }
-                CardioSection("SESSION", "Duration is required; other fields are optional") {
-                    CardioDateTimePickerField(
-                        value = formDateTime,
-                        onValueChange = { formDateTime = it },
-                        label = "Finished"
-                    )
-                    Spacer(Modifier.height(8.dp))
+
+                CardioSection("MEASURED DETAILS", "Duration is required; everything else is optional") {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
                             formDurationMin,
@@ -612,7 +704,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             Modifier.weight(1f),
                             singleLine = true,
                             keyboardOptions = cardioDecimalKeyboardOptions,
-                            label = { Text("Duration (min)") }
+                            label = { Text("Duration (min) *") }
                         )
                         if (formActivity.supportsDistance) {
                             OutlinedTextField(
@@ -625,6 +717,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             )
                         }
                     }
+
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                         OutlinedTextField(
@@ -636,25 +729,6 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             label = { Text("Avg HR") }
                         )
                         OutlinedTextField(
-                            formMaxHr,
-                            { formMaxHr = it.filter(Char::isDigit).take(3) },
-                            Modifier.weight(1f),
-                            singleLine = true,
-                            keyboardOptions = cardioIntegerKeyboardOptions,
-                            label = { Text("Max HR") }
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                        OutlinedTextField(
-                            formCalories,
-                            { formCalories = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
-                            Modifier.weight(1f),
-                            singleLine = true,
-                            keyboardOptions = cardioDecimalKeyboardOptions,
-                            label = { Text("Calories (optional)") }
-                        )
-                        OutlinedTextField(
                             formRpe,
                             { formRpe = CardioUnits.sanitizeDecimalInput(it, maxLength = 4) },
                             Modifier.weight(1f),
@@ -663,68 +737,81 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
                             label = { Text("RPE 0-10") }
                         )
                     }
-                    if (formActivity.supportsCadence || formActivity.supportsElevation) {
-                        Spacer(Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                            if (formActivity.supportsCadence) {
-                                OutlinedTextField(
-                                    formCadence,
-                                    { formCadence = it.filter(Char::isDigit).take(4) },
-                                    Modifier.weight(1f),
-                                    singleLine = true,
-                                    keyboardOptions = cardioIntegerKeyboardOptions,
-                                    label = { Text("Cadence") }
-                                )
-                            }
-                            if (formActivity.supportsElevation) {
-                                OutlinedTextField(
-                                    formElevation,
-                                    { formElevation = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
-                                    Modifier.weight(1f),
-                                    singleLine = true,
-                                    keyboardOptions = cardioDecimalKeyboardOptions,
-                                    label = { Text("Elevation gain (m)") }
-                                )
-                            }
+
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .background(CardioSoft, RoundedCornerShape(14.dp))
+                            .clickable { showAdditionalDetails = !showAdditionalDetails }
+                            .padding(horizontal = 12.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Additional details", color = CardioInk, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            Text("Max HR, calories, cadence, elevation and notes", color = CardioMuted, fontSize = 8.sp)
                         }
+                        Text(if (showAdditionalDetails) "⌃" else "⌄", color = CardioAccent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     }
-                    Spacer(Modifier.height(8.dp))
-                    OutlinedTextField(
-                        formNotes,
-                        { formNotes = it.take(300) },
-                        Modifier.fillMaxWidth(),
-                        singleLine = false,
-                        minLines = 2,
-                        label = { Text("Notes (optional)") }
-                    )
-                }
-                CardioSection("HEART-RATE ZONES", "Optional - enter measured zone time only") {
-                    CardioAction(
-                        if (showZones) "HIDE ZONE TIMES" else "ADD ZONE TIMES",
-                        "Zone distribution is never guessed from average heart rate",
-                        Color(0xFF7B61C9)
-                    ) { showZones = !showZones }
-                    if (showZones) {
+
+                    if (showAdditionalDetails) {
                         Spacer(Modifier.height(9.dp))
-                        for (rowStart in listOf(0, 3)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(7.dp), modifier = Modifier.fillMaxWidth()) {
-                                val end = if (rowStart == 0) 3 else 5
-                                for (index in rowStart until end) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            OutlinedTextField(
+                                formMaxHr,
+                                { formMaxHr = it.filter(Char::isDigit).take(3) },
+                                Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = cardioIntegerKeyboardOptions,
+                                label = { Text("Max HR") }
+                            )
+                            OutlinedTextField(
+                                formCalories,
+                                { formCalories = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
+                                Modifier.weight(1f),
+                                singleLine = true,
+                                keyboardOptions = cardioDecimalKeyboardOptions,
+                                label = { Text("Calories") }
+                            )
+                        }
+
+                        if (formActivity.supportsCadence || formActivity.supportsElevation) {
+                            Spacer(Modifier.height(8.dp))
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                                if (formActivity.supportsCadence) {
                                     OutlinedTextField(
-                                        zoneMinutes[index],
-                                        { value -> zoneMinutes[index] = CardioUnits.sanitizeDecimalInput(value, maxLength = 6) },
+                                        formCadence,
+                                        { formCadence = it.filter(Char::isDigit).take(4) },
+                                        Modifier.weight(1f),
+                                        singleLine = true,
+                                        keyboardOptions = cardioIntegerKeyboardOptions,
+                                        label = { Text("Cadence") }
+                                    )
+                                }
+                                if (formActivity.supportsElevation) {
+                                    OutlinedTextField(
+                                        formElevation,
+                                        { formElevation = CardioUnits.sanitizeDecimalInput(it, maxLength = 7) },
                                         Modifier.weight(1f),
                                         singleLine = true,
                                         keyboardOptions = cardioDecimalKeyboardOptions,
-                                        label = { Text("Z${index + 1} min") }
+                                        label = { Text("Elevation gain (m)") }
                                     )
                                 }
-                                if (rowStart == 3) Spacer(Modifier.weight(1f))
                             }
-                            Spacer(Modifier.height(7.dp))
                         }
+
+                        Spacer(Modifier.height(8.dp))
+                        OutlinedTextField(
+                            formNotes,
+                            { formNotes = it.take(300) },
+                            Modifier.fillMaxWidth(),
+                            singleLine = false,
+                            minLines = 2,
+                            label = { Text("Notes (optional)") }
+                        )
                     }
                 }
+
                 CardioAction(
                     if (cardioState.saveInProgress) {
                         "SAVING…"
