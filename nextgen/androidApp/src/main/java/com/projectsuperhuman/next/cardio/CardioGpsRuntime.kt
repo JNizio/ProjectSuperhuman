@@ -43,7 +43,14 @@ internal data class CardioLiveTelemetrySnapshot(
 )
 
 internal object CardioGpsRuntime {
-    private val _metrics = MutableStateFlow(CardioLiveMovementMetrics())
+    // Project Superhuman source policy: the handset itself is never a movement-data source.
+    // Distance, speed, pace and elevation must come from an explicitly connected external
+    // source (wearable / bike sensor / Health Connect source) or be entered manually.
+    private const val DIRECT_PHONE_MOVEMENT_ENABLED = false
+
+    private val _metrics = MutableStateFlow(
+        CardioLiveMovementMetrics(message = "External movement sensor not connected")
+    )
     val metrics: StateFlow<CardioLiveMovementMetrics> = _metrics.asStateFlow()
 
     private val _autoPauseDecisions = MutableSharedFlow<CardioAutoPauseDecision>(extraBufferCapacity = 16)
@@ -90,15 +97,22 @@ internal object CardioGpsRuntime {
     fun initialize(context: Context) {
         if (appContext != null) return
         appContext = context.applicationContext
-        locationManager = appContext?.getSystemService(LocationManager::class.java)
+        // Do not attach Android LocationManager while direct phone movement is disabled.
+        locationManager = if (DIRECT_PHONE_MOVEMENT_ENABLED) {
+            appContext?.getSystemService(LocationManager::class.java)
+        } else {
+            null
+        }
     }
 
-    fun requiredPermissions(): Array<String> = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+    fun requiredPermissions(): Array<String> =
+        if (DIRECT_PHONE_MOVEMENT_ENABLED) arrayOf(Manifest.permission.ACCESS_FINE_LOCATION) else emptyArray()
 
     fun hasActiveSession(sessionId: String? = null): Boolean =
         activeSessionId != null && (sessionId == null || activeSessionId == sessionId)
 
     fun hasPermission(): Boolean {
+        if (!DIRECT_PHONE_MOVEMENT_ENABLED) return false
         val context = appContext ?: return false
         return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
             PackageManager.PERMISSION_GRANTED
@@ -125,8 +139,11 @@ internal object CardioGpsRuntime {
         autoPauseEngine = CardioAutoPauseEngine(autoPauseConfig)
         lapTracker = CardioLiveLapTracker(sessionId).also { it.start(startedAtEpochMs, autoLapMeters) }
         structuredState = null
-        startLocationUpdates()
-        refresh()
+        if (DIRECT_PHONE_MOVEMENT_ENABLED) startLocationUpdates()
+        refresh(
+            messageOverride = if (DIRECT_PHONE_MOVEMENT_ENABLED) null
+            else "External movement sensor not connected"
+        )
     }
 
     fun restoreSession(
@@ -275,6 +292,9 @@ internal object CardioGpsRuntime {
         session: CardioSession,
         snapshot: CardioLiveTelemetrySnapshot? = snapshot(session.endedAt)
     ): CardioSession {
+        // Never enrich a session from handset GPS/motion. External sources and manual entry
+        // remain authoritative for movement-related metrics.
+        if (!DIRECT_PHONE_MOVEMENT_ENABLED) return session
         val route = snapshot?.route ?: return session
         val durationSeconds = session.durationSeconds.coerceAtLeast(1)
         val distanceKm = route.distanceKm.takeIf { it > 0.0 }
@@ -320,6 +340,7 @@ internal object CardioGpsRuntime {
 
     @Synchronized
     internal fun acceptFix(fix: CardioGpsFix) {
+        if (!DIRECT_PHONE_MOVEMENT_ENABLED) return
         if (activeSessionId == null) return
         // Preserve raw GPS while the session owns the location stream, including pauses. Route
         // analytics only append distance during recording, preventing stopped time from becoming
@@ -388,16 +409,27 @@ internal object CardioGpsRuntime {
             autoPaused = autoPauseEngine.isAutoPaused(),
             laps = lapTracker?.all().orEmpty(),
             structuredProgress = progress,
-            message = messageOverride ?: when (route.gpsQuality) {
-                CardioGpsQualityLabel.GOOD -> "GPS good"
-                CardioGpsQualityLabel.WEAK -> "GPS weak"
-                CardioGpsQualityLabel.UNAVAILABLE -> if (!hasPermission()) "Location permission required" else "Location unavailable"
+            message = if (!DIRECT_PHONE_MOVEMENT_ENABLED) {
+                "External movement sensor not connected"
+            } else {
+                messageOverride ?: when (route.gpsQuality) {
+                    CardioGpsQualityLabel.GOOD -> "GPS good"
+                    CardioGpsQualityLabel.WEAK -> "GPS weak"
+                    CardioGpsQualityLabel.UNAVAILABLE -> if (!hasPermission()) "Location permission required" else "Location unavailable"
+                }
             }
         )
     }
 
     @Suppress("MissingPermission")
     private fun startLocationUpdates() {
+        if (!DIRECT_PHONE_MOVEMENT_ENABLED) {
+            stopLocationUpdates()
+            _metrics.value = CardioLiveMovementMetrics(
+                message = "External movement sensor not connected"
+            )
+            return
+        }
         if (locationUpdatesActive) return
         if (!CardioGpsProcessor.gpsEligible(activity) || !hasPermission()) {
             refresh()
