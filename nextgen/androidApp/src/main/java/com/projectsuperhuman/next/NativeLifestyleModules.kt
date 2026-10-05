@@ -86,7 +86,7 @@ private fun SectionLabel(text: String) {
 
 @Composable
 private fun ActionRow(title: String, subtitle: String, initials: String, background: Color, accent: Color, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(19.dp)).clickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(19.dp)).superhumanClickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.background(if (SuperhumanAppearance.darkMode) background.copy(alpha = .18f) else background, RoundedCornerShape(13.dp)).padding(horizontal = 12.dp, vertical = 12.dp), contentAlignment = Alignment.Center) {
             Text(initials, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
@@ -100,7 +100,7 @@ private fun ActionRow(title: String, subtitle: String, initials: String, backgro
 
 @Composable
 private fun BridgeNote(text: String, openLegacy: () -> Unit) {
-    Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(18.dp)).clickable(onClick = openLegacy).padding(15.dp)) {
+    Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(18.dp)).superhumanClickable(onClick = openLegacy).padding(15.dp)) {
         Text("Migration bridge", color = LifestyleNavy, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(4.dp))
         Text(text, color = LifestyleMuted, fontSize = 9.sp, lineHeight = 14.sp)
