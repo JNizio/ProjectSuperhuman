@@ -165,7 +165,7 @@ private fun BodyDataSourceCard() {
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Black,
                 modifier = Modifier
-                    .clickable { SmartDevicesNavigationBridge.open?.invoke() }
+                    .superhumanClickable { SmartDevicesNavigationBridge.open?.invoke() }
                     .padding(horizontal = 10.dp, vertical = 12.dp)
             )
         }
@@ -314,7 +314,7 @@ private fun BodyViewToggle(view: BodyView, onChange: (BodyView) -> Unit) {
 @Composable
 private fun ToggleButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.background(if (selected) BodyBlue else Color.Transparent, RoundedCornerShape(14.dp)).clickable(onClick = onClick).padding(vertical = 11.dp),
+        modifier.background(if (selected) BodyBlue else Color.Transparent, RoundedCornerShape(14.dp)).superhumanClickable(onClick = onClick).padding(vertical = 11.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(label, color = if (selected) Color.White else BodyMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
@@ -376,7 +376,7 @@ private fun EmptyProgressCard(onLog: () -> Unit) {
         Text("Your trend is building", color = BodyInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
         Text("Log at least two weight entries to see a useful progress trend.", color = BodyMuted, fontSize = 9.sp)
         Spacer(Modifier.height(12.dp))
-        Text("LOG AN ENTRY", color = BodyBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable(onClick = onLog))
+        Text("LOG AN ENTRY", color = BodyBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onLog))
     }
 }
 
