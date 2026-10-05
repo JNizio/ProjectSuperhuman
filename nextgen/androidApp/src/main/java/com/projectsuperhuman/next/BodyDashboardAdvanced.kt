@@ -120,7 +120,7 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
                 Text("Your profile", color = DashInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 Text("Used for body-composition estimates and goals", color = DashMuted, fontSize = 9.sp)
             }
-            Text(if (editing) "CLOSE" else "EDIT", color = DashBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable { editing = !editing })
+            Text(if (editing) "CLOSE" else "EDIT", color = DashBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable { editing = !editing })
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -166,7 +166,7 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
             }
         }
         if (editing) {
-            Box(Modifier.fillMaxWidth().background(DashGreen, RoundedCornerShape(15.dp)).clickable {
+            Box(Modifier.fillMaxWidth().background(DashGreen, RoundedCornerShape(15.dp)).superhumanClickable {
                 scope.launch {
                     profile.heightCm.toDoubleOrNull()?.let { NativeDataHub.saveMetric(HealthDomain.BODY, "body_height_cm", it, "cm") }
                     profile.age.toDoubleOrNull()?.let { NativeDataHub.saveMetric(HealthDomain.BODY, "body_age_years", it, "years") }
@@ -224,7 +224,7 @@ internal fun BodyOverTimeSection() {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     rowMetrics.forEach { metric ->
                         val active = metric.metric == selected.metric
-                        Box(Modifier.weight(1f).background(if (active) DashBlue else DashSoft, RoundedCornerShape(12.dp)).clickable { selected = metric }.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
+                        Box(Modifier.weight(1f).background(if (active) DashBlue else DashSoft, RoundedCornerShape(12.dp)).superhumanClickable { selected = metric }.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
                             Text(metric.title, color = if (active) Color.White else DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
                         }
                     }
@@ -239,7 +239,7 @@ internal fun BodyOverTimeSection() {
                 Box(
                     Modifier.weight(1f)
                         .background(if (active) DashBlue.copy(alpha = .11f) else DashSoft, RoundedCornerShape(11.dp))
-                        .clickable { range = item }
+                        .superhumanClickable { range = item }
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -407,7 +407,7 @@ private fun ProfileMini(label: String, value: String, modifier: Modifier) {
 
 @Composable
 private fun SexChoice(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(modifier.background(if (selected) DashBlue else Color.Transparent, RoundedCornerShape(11.dp)).clickable(onClick = onClick).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+    Box(modifier.background(if (selected) DashBlue else Color.Transparent, RoundedCornerShape(11.dp)).superhumanClickable(onClick = onClick).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
         Text(label, color = if (selected) Color.White else DashMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
     }
 }
