@@ -3192,7 +3192,7 @@ private fun LibraryFilterButton(
                 if (active) ExerciseBlue.copy(alpha = if (SuperhumanAppearance.darkMode) .22f else .12f) else ExerciseSoft,
                 RoundedCornerShape(14.dp)
             )
-            .clickable(enabled = enabled) { onClick() }
+            .superhumanClickable(enabled = enabled) { onClick() }
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.Center
     ) {
