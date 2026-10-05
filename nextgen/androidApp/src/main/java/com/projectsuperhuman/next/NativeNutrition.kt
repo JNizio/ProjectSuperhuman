@@ -702,7 +702,7 @@ private fun ActionButton(
 ) {
     Row(
         Modifier.fillMaxWidth().background(if (enabled) accent else accent.copy(alpha = .45f), RoundedCornerShape(16.dp))
-            .clickable(enabled = enabled, onClick = onClick).padding(14.dp),
+            .superhumanClickable(enabled = enabled, onClick = onClick).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
