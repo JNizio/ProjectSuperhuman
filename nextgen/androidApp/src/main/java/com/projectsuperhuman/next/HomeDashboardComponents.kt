@@ -161,7 +161,7 @@ internal fun LegacyHydrationCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                 )
             )
             .border(1.dp, accent.copy(alpha = .22f), RoundedCornerShape(29.dp))
-            .clickable(onClick = onClick)
+            .superhumanClickable(onClick = onClick)
     ) {
         Canvas(Modifier.fillMaxSize()) {
             val centre = Offset(size.width * .87f, size.height * .38f)
@@ -561,7 +561,7 @@ internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
                 )
             )
             .border(1.dp, Color(0xFF2D6F83).copy(alpha = .62f), RoundedCornerShape(29.dp))
-            .clickable(onClick = onClick)
+            .superhumanClickable(onClick = onClick)
     ) {
         LegacyAssetImage(
             "dashboard_training.png",
@@ -721,7 +721,7 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
                 accent.copy(alpha = if (SuperhumanAppearance.darkMode) .22f else .13f),
                 RoundedCornerShape(28.dp)
             )
-            .clickable(onClick = onClick)
+            .superhumanClickable(onClick = onClick)
     ) {
         LegacyAssetImage(
             "dashboard_nutrition.png",
@@ -1029,7 +1029,7 @@ internal fun LegacyHomeLinks(openMindfulness: () -> Unit, openExercise: () -> Un
 
 @Composable
 private fun HomeLinkCard(title: String, subtitle: String, modifier: Modifier, onClick: () -> Unit) {
-    Column(modifier.clickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp)) {
+    Column(modifier.superhumanClickable(onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp)) {
         Text(title, color = HomeInk, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(3.dp))
         Text(subtitle, color = HomeMuted, fontSize = 9.sp, lineHeight = 13.sp)
@@ -1038,5 +1038,5 @@ private fun HomeLinkCard(title: String, subtitle: String, modifier: Modifier, on
 
 @Composable
 internal fun LegacyBloodPressureLink(onClick: () -> Unit) {
-    Text("Blood pressure tools", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable(onClick = onClick).padding(vertical = 8.dp))
+    Text("Blood pressure tools", color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.superhumanClickable(onClick = onClick).padding(vertical = 8.dp))
 }
