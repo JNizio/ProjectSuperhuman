@@ -251,30 +251,28 @@ private fun NativeTopBar(
 
 @Composable
 private fun NativeHomeTitle() {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(78.dp)
-            .padding(horizontal = 22.dp),
-        contentAlignment = Alignment.Center
+    // Calm, aligned brand heading with the date available without a third summary column.
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = SuperhumanLayout.pageHorizontal, vertical = 9.dp),
+        horizontalAlignment = Alignment.Start
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                "PROJECT SUPERHUMAN",
-                color = ShellNavy,
-                fontWeight = FontWeight.Black,
-                fontSize = 15.sp,
-                letterSpacing = 1.65.sp,
-                maxLines = 1
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                "Human performance system",
-                color = ShellMuted,
-                fontSize = 10.sp,
-                maxLines = 1
-            )
-        }
+        Text(
+            "Superhuman",
+            color = ShellNavy,
+            fontWeight = FontWeight.Bold,
+            fontSize = 23.sp,
+            lineHeight = 28.sp,
+            letterSpacing = .1.sp
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            java.time.LocalDate.now().format(
+                java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM", java.util.Locale.ENGLISH)
+            ),
+            color = ShellMuted,
+            fontSize = 12.sp,
+            lineHeight = 17.sp
+        )
     }
 }
 
