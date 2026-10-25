@@ -63,7 +63,7 @@ private val TrudyWarningBg get() = superhumanWarningSurface
 private val TrudyWarningText get() = if (SuperhumanAppearance.darkMode) Color(0xFFE8C979) else Color(0xFF7B6430)
 private val TrudyErrorBg get() = superhumanErrorSurface
 private val TrudyErrorText get() = superhumanRed
-private val TrudyUserBubble get() = if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else Color(0xFF123D70)
+private val TrudyUserBubble get() = if (SuperhumanAppearance.darkMode) Color(0xFF293D3C) else Color(0xFF123D70)
 
 @Composable
 internal fun NativeTrudy(

@@ -297,7 +297,7 @@ private fun ShellBottomNavigation(
         modifier
             .fillMaxWidth()
             .height(72.dp)
-            .background(ShellBg)
+            .background(if (SuperhumanAppearance.darkMode) superhumanSurface else ShellBg)
             .padding(horizontal = 24.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
@@ -305,14 +305,14 @@ private fun ShellBottomNavigation(
         ShellBottomItem(
             label = "Home",
             selected = selectedPage == ShellPage.HOME,
-            accent = superhumanBlue,
+            accent = if (SuperhumanAppearance.darkMode) superhumanTextPrimary else superhumanBlue,
             onClick = onHome,
             icon = { color -> ShellTablerIcon(R.drawable.tabler_home, color) }
         )
         ShellBottomItem(
             label = "Body",
             selected = selectedPage == ShellPage.BODY,
-            accent = superhumanBlue,
+            accent = if (SuperhumanAppearance.darkMode) superhumanTextPrimary else superhumanBlue,
             onClick = onBody,
             icon = { color -> ShellTablerIcon(R.drawable.tabler_user, color) }
         )

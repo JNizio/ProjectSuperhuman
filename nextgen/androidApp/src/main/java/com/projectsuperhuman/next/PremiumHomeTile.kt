@@ -24,23 +24,23 @@ internal fun Modifier.premiumHomeTile(
     val dark = SuperhumanAppearance.darkMode
     val shape = RoundedCornerShape(SuperhumanLayout.homeCardRadius)
     val neutral = if (dark) {
-        listOf(Color(0xFF152632), Color(0xFF101D28))
+        listOf(superhumanSurfaceElevated, superhumanSurface)
     } else {
         listOf(Color(0xFFFDFEFF), Color(0xFFF5F8FA))
     }
     val edge = if (dark) {
-        listOf(Color.White.copy(alpha = .105f), Color.White.copy(alpha = .035f))
+        listOf(Color.White.copy(alpha = .055f), Color.White.copy(alpha = .020f))
     } else {
         listOf(Color(0xFFB1C4D1).copy(alpha = .52f), Color(0xFFB1C4D1).copy(alpha = .22f))
     }
     return this
-        .shadow(2.dp, shape, clip = false)
+        .shadow(if (dark) 1.dp else 2.dp, shape, clip = false)
         .clip(shape)
         .background(Brush.linearGradient(neutral))
         .background(
             Brush.linearGradient(
                 listOf(
-                    accent.copy(alpha = if (dark) .085f else .055f),
+                    accent.copy(alpha = if (dark) .030f else .055f),
                     Color.Transparent,
                     Color.Transparent
                 )

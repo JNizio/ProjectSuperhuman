@@ -79,8 +79,8 @@ private val N2Border get() = if (SuperhumanAppearance.darkMode) superhumanBorder
 private val N2Green get() = if (SuperhumanAppearance.darkMode) superhumanGreen else Color(0xFF4AAE91)
 private val N2Amber get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFB766) else Color(0xFFD98B2B)
 private val N2Purple get() = if (SuperhumanAppearance.darkMode) Color(0xFFA99BFF) else Color(0xFF7260BF)
-private val N2SoftBlue get() = if (SuperhumanAppearance.darkMode) Color(0xFF102838) else Color(0xFFEAF4FA)
-private val N2SoftGreen get() = if (SuperhumanAppearance.darkMode) Color(0xFF102A26) else Color(0xFFEEF8F4)
+private val N2SoftBlue get() = if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else Color(0xFFEAF4FA)
+private val N2SoftGreen get() = if (SuperhumanAppearance.darkMode) superhumanAccentSoft else Color(0xFFEEF8F4)
 private val N2Surface get() = superhumanSurface
 private val N2RowBg get() = if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else N2Bg
 
@@ -1872,7 +1872,7 @@ private fun N2QuickRepeat(entries: List<N2Entry>, onRepeat: (N2Entry) -> Unit) {
 
 @Composable
 private fun N2UndoBar(name: String, onUndo: () -> Unit) {
-    val snackbarBackground = Color(0xFF10202C)
+    val snackbarBackground = if (SuperhumanAppearance.darkMode) superhumanSurfaceElevated else Color(0xFF10202C)
     val snackbarText = Color(0xFFF3F7FA)
     val undoAccent = Color(0xFF63D2C3)
 

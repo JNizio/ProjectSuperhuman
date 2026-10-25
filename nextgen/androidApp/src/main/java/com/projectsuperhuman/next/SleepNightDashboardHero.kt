@@ -27,9 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.abs
 
-private val NightTop = Color(0xFF11173F)
-private val NightMid = Color(0xFF24205D)
-private val NightBottom = Color(0xFF4C3F9F)
+private val NightTop get() = if (SuperhumanAppearance.darkMode) Color(0xFF191A1F) else Color(0xFF11173F)
+private val NightMid get() = if (SuperhumanAppearance.darkMode) Color(0xFF201F29) else Color(0xFF24205D)
+private val NightBottom get() = if (SuperhumanAppearance.darkMode) Color(0xFF282337) else Color(0xFF4C3F9F)
 private val NightLavender = Color(0xFFD7D2FF)
 private val NightGold = Color(0xFFFFD98A)
 private val NightMint = Color(0xFF8FE2CE)
@@ -72,7 +72,7 @@ internal fun SleepNightDashboardHero(s: NativeSleepSnapshot?) {
                 RoundedCornerShape(28.dp)
             )
     ) {
-        NightSkyDecoration()
+        if (!SuperhumanAppearance.darkMode) NightSkyDecoration()
 
         Column(
             Modifier.fillMaxWidth().padding(20.dp),

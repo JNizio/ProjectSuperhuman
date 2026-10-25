@@ -455,7 +455,9 @@ private fun ExerciseModuleCard(
             .clip(shape)
             .background(
                 Brush.horizontalGradient(
-                    if (strength) {
+                    if (SuperhumanAppearance.darkMode) {
+                        listOf(superhumanSurfaceElevated, superhumanSurface, superhumanSurfaceSoft)
+                    } else if (strength) {
                         listOf(
                             Color(0xFF071B31),
                             Color(0xFF0A2B4B),
@@ -470,7 +472,7 @@ private fun ExerciseModuleCard(
                     }
                 )
             )
-            .border(1.dp, accent.copy(alpha = .34f), shape)
+            .border(1.dp, accent.copy(alpha = if (SuperhumanAppearance.darkMode) .12f else .34f), shape)
             .superhumanClickable(onClick = onClick)
     ) {
         ExerciseRemoteBackground(
@@ -482,7 +484,9 @@ private fun ExerciseModuleCard(
             modifier = Modifier.fillMaxSize()
         )
 
-        val tintOverlay = if (strength) {
+        val tintOverlay = if (SuperhumanAppearance.darkMode) {
+            Brush.horizontalGradient(listOf(Color(0xFF17191D).copy(alpha = .97f), Color(0xFF1B1D22).copy(alpha = .90f)))
+        } else if (strength) {
             Brush.horizontalGradient(
                 listOf(
                     Color(0xFF081C33).copy(alpha = .82f),

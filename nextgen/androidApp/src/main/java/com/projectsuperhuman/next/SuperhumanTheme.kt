@@ -17,8 +17,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Native appearance modes. SYSTEM is the default so Project Superhuman follows Android without
- * requiring a separate app toggle. LIGHT and DARK remain available as explicit user overrides.
+ * Native appearance modes. DARK is the fresh-install default for the matte black design.
+ * SYSTEM and LIGHT remain available as explicit user preferences.
  */
 internal enum class SuperhumanThemeMode { SYSTEM, LIGHT, DARK }
 
@@ -28,7 +28,7 @@ internal object SuperhumanAppearance {
     private const val THEME_MODE_KEY = "theme_mode"
     private const val LEGACY_DARK_MODE_KEY = "dark_mode"
 
-    var themeMode by mutableStateOf(SuperhumanThemeMode.SYSTEM)
+    var themeMode by mutableStateOf(SuperhumanThemeMode.DARK)
         private set
 
     /*
@@ -54,7 +54,7 @@ internal object SuperhumanAppearance {
             // Previous builds stored false by default, which unintentionally forced light mode.
             // Preserve an intentional old dark=true choice, but migrate false/missing to SYSTEM.
             prefs.getBoolean(LEGACY_DARK_MODE_KEY, false) -> SuperhumanThemeMode.DARK
-            else -> SuperhumanThemeMode.SYSTEM
+            else -> SuperhumanThemeMode.DARK
         }
 
         effectiveDarkMode = resolved(systemDarkFromConfiguration(appContext), themeMode)
@@ -180,22 +180,23 @@ private val LightSuperhumanPalette = SuperhumanPalette(
 )
 
 private val DarkSuperhumanPalette = SuperhumanPalette(
-    background = Color(0xFF07111B),
-    surface = Color(0xFF0E1B27),
-    surfaceElevated = Color(0xFF122230),
-    surfaceSoft = Color(0xFF152532),
-    textPrimary = Color(0xFFEAF2F8),
-    brandText = Color(0xFFD7E9F7),
-    textMuted = Color(0xFF96A8B8),
-    border = Color(0xFF263A4A),
-    divider = Color(0xFF203341),
-    accent = Color(0xFF35D3D0),
-    accentSoft = Color(0xFF123537),
-    blue = Color(0xFF68B8F0),
-    green = Color(0xFF59C8AF),
-    red = Color(0xFFFF8B8B),
-    warningSurface = Color(0xFF302A18),
-    errorSurface = Color(0xFF351D23)
+    // Satin-matte neutral foundation. Hue belongs to data and actions, not the canvas.
+    background = Color(0xFF090A0C),
+    surface = Color(0xFF17191D),
+    surfaceElevated = Color(0xFF1D1F23),
+    surfaceSoft = Color(0xFF22252A),
+    textPrimary = Color(0xFFF1F2F4),
+    brandText = Color(0xFFE9EAED),
+    textMuted = Color(0xFFA0A4AD),
+    border = Color(0xFF303238),
+    divider = Color(0xFF27292E),
+    accent = Color(0xFF6BCBAF),
+    accentSoft = Color(0xFF1E332D),
+    blue = Color(0xFF79B8F0),
+    green = Color(0xFF6BCBAF),
+    red = Color(0xFFFF9292),
+    warningSurface = Color(0xFF2F281D),
+    errorSurface = Color(0xFF322126)
 )
 
 /** Semantic palette for the app's custom Compose UI. */
@@ -227,9 +228,9 @@ internal fun ProjectSuperhumanTheme(content: @Composable () -> Unit) {
     val scheme = if (darkTheme) {
         darkColorScheme(
             primary = palette.accent,
-            onPrimary = Color(0xFF002020),
+            onPrimary = Color(0xFF0B1A14),
             secondary = palette.blue,
-            onSecondary = Color(0xFF07111B),
+            onSecondary = Color(0xFF090A0C),
             background = palette.background,
             onBackground = palette.textPrimary,
             surface = palette.surface,

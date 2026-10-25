@@ -82,7 +82,7 @@ internal fun LegacyHomeHero(snapshot: NativeHomeSnapshot) {
         snapshot.workoutsToday == 0 -> "Recovery data looks ready. Training is the clearest next performance signal."
         else -> "Your core signals are moving. Keep logging the things that change today."
     }
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.linearGradient(listOf(Color(0xFF0965A7), Color(0xFF13A7C3))))) {
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Brush.linearGradient(if (SuperhumanAppearance.darkMode) listOf(superhumanSurfaceElevated, superhumanSurface) else listOf(Color(0xFF0965A7), Color(0xFF13A7C3))))) {
         Canvas(Modifier.fillMaxSize()) {
             val centre = Offset(size.width * .88f, size.height * .26f)
             drawCircle(Color.White.copy(alpha = .055f), radius = size.width * .42f, center = centre, style = Stroke(width = 1.5f))
@@ -126,10 +126,10 @@ internal fun LegacyHydrationCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
     val progress = (currentMl / goalMl.toFloat()).coerceIn(0f, 1f)
     val pct = (progress * 100).roundToInt()
 
-    val accent = Color(0xFF6FD9FF)
-    val deepBlue = Color(0xFF061825)
-    val middleBlue = Color(0xFF092A3E)
-    val waterBlue = Color(0xFF0D5269)
+    val accent = if (SuperhumanAppearance.darkMode) superhumanBlue else Color(0xFF6FD9FF)
+    val deepBlue = if (SuperhumanAppearance.darkMode) superhumanSurface else Color(0xFF061825)
+    val middleBlue = if (SuperhumanAppearance.darkMode) superhumanSurfaceElevated else Color(0xFF092A3E)
+    val waterBlue = if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else Color(0xFF0D5269)
 
     fun hydrationAmountLabel(ml: Int): String {
         return if (ml >= 1000 && ml % 100 == 0) {
@@ -453,7 +453,7 @@ internal fun LegacyClinicalCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
         else -> "Import lab results or add your clinical context"
     }
     val cardGradient = if (SuperhumanAppearance.darkMode) {
-        listOf(superhumanSurfaceElevated, Color(0xFF171C2A), Color(0xFF211D32))
+        listOf(superhumanSurfaceElevated, superhumanSurface, superhumanSurfaceSoft)
     } else {
         listOf(Color(0xFFFCFDFE), Color(0xFFFAF9FF), Color(0xFFF7F5FF))
     }

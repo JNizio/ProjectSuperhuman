@@ -185,7 +185,7 @@ private fun VitalsHeader(onBack: () -> Unit) {
 
 @Composable
 private fun StatusStrip(message: String, dismiss: () -> Unit) {
-    val background = if (SuperhumanAppearance.darkMode) Color(0xFF102E2C) else Color(0xFFE8F6F4)
+    val background = if (SuperhumanAppearance.darkMode) superhumanAccentSoft else Color(0xFFE8F6F4)
     val text = if (SuperhumanAppearance.darkMode) Color(0xFF7BD8C8) else Color(0xFF13776C)
     Row(
         Modifier.fillMaxWidth().background(background, RoundedCornerShape(15.dp)).clickable(onClick = dismiss).padding(12.dp),
@@ -573,7 +573,7 @@ private fun ActionButton(label: String, enabled: Boolean = true, onClick: () -> 
     Button(
         onClick = onClick,
         enabled = enabled,
-        colors = ButtonDefaults.buttonColors(containerColor = if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else Color(0xFF082D66), disabledContainerColor = VitalsElevated),
+        colors = ButtonDefaults.buttonColors(containerColor = if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else Color(0xFF082D66), disabledContainerColor = VitalsElevated),
         shape = RoundedCornerShape(15.dp),
         modifier = Modifier.fillMaxWidth().height(48.dp)
     ) { Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black) }
