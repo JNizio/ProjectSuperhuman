@@ -520,121 +520,165 @@ private fun ClinicalHomeStat(value: String, label: String, accent: Color, modifi
 @Composable
 internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val trained = snapshot.workoutsToday > 0
-    val headline = if (trained) {
-        "${snapshot.workoutsToday} session${if (snapshot.workoutsToday == 1) "" else "s"}"
-    } else {
-        "Ready to train"
-    }
-    val timeLabel = if (trained && snapshot.trainingMinutesToday > 0) {
-        "${snapshot.trainingMinutesToday} min"
-    } else {
-        "Strength · Cardio"
-    }
+    val headline = if (trained) snapshot.workoutsToday.toString() else "—"
+    val strengthValue = if (snapshot.strengthWorkoutsToday > 0) {
+        snapshot.strengthWorkoutsToday.toString()
+    } else "0"
+    val cardioValue = if (snapshot.cardioWorkoutsToday > 0) {
+        snapshot.cardioWorkoutsToday.toString()
+    } else "0"
 
     Column(
-        Modifier.fillMaxWidth().premiumHomeTile(onClick)
-            .padding(SuperhumanLayout.homeCardPadding),
+        Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = HomeBlue)
+            .padding(horizontal = 18.dp, vertical = 15.dp),
         verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(7.dp).background(HomeBlue, CircleShape))
-                Spacer(Modifier.width(9.dp))
-                Text("Training", color = HomeInk, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold)
-            }
-            Text("›", color = HomeMuted, fontSize = 23.sp, lineHeight = 23.sp)
-        }
-
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-            Text(
-                headline,
-                modifier = Modifier.weight(1f),
-                color = HomeInk, fontSize = 27.sp, lineHeight = 32.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.width(8.dp))
-            Text(timeLabel, color = HomeMuted, fontSize = 12.sp, lineHeight = 18.sp,
-                modifier = Modifier.padding(bottom = 3.dp))
-        }
-
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Strength", color = HomeMuted, fontSize = 12.sp, lineHeight = 15.sp)
+            Box(
+                Modifier.width(3.dp).height(16.dp)
+                    .background(HomeBlue, RoundedCornerShape(3.dp))
+            )
+            Spacer(Modifier.width(10.dp))
+            Text("Training", modifier = Modifier.weight(1f), color = HomeInk,
+                fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
+            Text("›", color = HomeMuted, fontSize = 21.sp, lineHeight = 21.sp)
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.Bottom) {
                 Text(
-                    if (snapshot.strengthWorkoutsToday > 0) "${snapshot.strengthWorkoutsToday} completed" else "Ready",
-                    color = HomeInk, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold
+                    if (trained) headline else "Ready",
+                    color = HomeInk, fontSize = 30.sp, lineHeight = 35.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.width(7.dp))
+                Text(
+                    if (trained) "sessions" else "to train",
+                    color = HomeMuted, fontSize = 13.sp, lineHeight = 21.sp,
+                    modifier = Modifier.padding(bottom = 3.dp)
                 )
             }
-            Box(Modifier.width(1.dp).height(31.dp).background(HomeBorder.copy(alpha = .7f)))
-            Column(Modifier.weight(1f).padding(start = 16.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text("Cardio", color = HomeMuted, fontSize = 12.sp, lineHeight = 15.sp)
-                Text(
-                    if (snapshot.cardioWorkoutsToday > 0) "${snapshot.cardioWorkoutsToday} completed" else "Ready",
-                    color = HomeInk, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold
-                )
+            if (snapshot.trainingMinutesToday > 0) {
+                Box(
+                    Modifier.background(HomeBlue.copy(alpha = .115f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 11.dp, vertical = 7.dp)
+                ) {
+                    Text("${snapshot.trainingMinutesToday} min", color = HomeBlue,
+                        fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(HomeBorder.copy(alpha = .45f)))
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                Text(strengthValue, color = HomeInk, fontSize = 22.sp,
+                    lineHeight = 26.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(9.dp))
+                Column {
+                    Text("Strength", color = HomeMuted, fontSize = 12.sp, lineHeight = 15.sp)
+                    Text(if (snapshot.strengthWorkoutsToday > 0) "completed" else "not logged",
+                        color = HomeMuted, fontSize = 11.sp, lineHeight = 15.sp)
+                }
+            }
+            Box(Modifier.width(1.dp).height(31.dp).background(HomeBorder.copy(alpha = .55f)))
+            Row(Modifier.weight(1f).padding(start = 15.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(cardioValue, color = HomeInk, fontSize = 22.sp,
+                    lineHeight = 26.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.width(9.dp))
+                Column {
+                    Text("Cardio", color = HomeMuted, fontSize = 12.sp, lineHeight = 15.sp)
+                    Text(if (snapshot.cardioWorkoutsToday > 0) "completed" else "not logged",
+                        color = HomeMuted, fontSize = 11.sp, lineHeight = 15.sp)
+                }
             }
         }
     }
 }
+
 
 @Composable
 internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val goal = snapshot.calorieGoal?.takeIf { it > 0 }
     val progress = goal?.let { (snapshot.caloriesToday.toFloat() / it).coerceIn(0f, 1f) } ?: 0f
+    val macroEnergy = listOf(
+        snapshot.proteinToday.coerceAtLeast(0) * 4f,
+        snapshot.carbsToday.coerceAtLeast(0) * 4f,
+        snapshot.fatToday.coerceAtLeast(0) * 9f
+    )
+    val totalMacroEnergy = macroEnergy.sum()
+
     Column(
-        Modifier.fillMaxWidth().premiumHomeTile(onClick)
-            .padding(SuperhumanLayout.homeCardPadding),
+        Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = HomeGreen)
+            .padding(horizontal = 18.dp, vertical = 15.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(7.dp).background(HomeGreen, CircleShape))
-                Spacer(Modifier.width(9.dp))
-                Text("Nutrition", color = HomeInk, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.SemiBold)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.width(3.dp).height(16.dp).background(HomeGreen, RoundedCornerShape(3.dp)))
+            Spacer(Modifier.width(10.dp))
+            Text("Nutrition", modifier = Modifier.weight(1f), color = HomeInk,
+                fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
+            Box(
+                Modifier.size(31.dp).background(HomeGreen.copy(alpha = .12f), RoundedCornerShape(11.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("+", color = HomeGreen, fontSize = 22.sp, lineHeight = 24.sp,
+                    fontWeight = FontWeight.Medium)
             }
-            Text("+", color = HomeGreen, fontSize = 22.sp, lineHeight = 23.sp)
         }
-
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 "${if (snapshot.nutritionCaloriesComplete) "" else "~"}${snapshot.caloriesToday}",
-                color = HomeInk, fontSize = 30.sp, lineHeight = 34.sp,
+                color = HomeInk, fontSize = 31.sp, lineHeight = 36.sp,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(Modifier.width(6.dp))
-            Text("kcal", color = HomeMuted, fontSize = 13.sp, lineHeight = 19.sp, modifier = Modifier.padding(bottom = 2.dp))
+            Spacer(Modifier.width(7.dp))
+            Text("kcal today", color = HomeMuted, fontSize = 13.sp, lineHeight = 20.sp,
+                modifier = Modifier.padding(bottom = 4.dp))
             Spacer(Modifier.weight(1f))
             if (goal != null) {
-                Text("of $goal", color = HomeMuted, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 2.dp))
+                Text("Goal $goal", color = HomeMuted, fontSize = 12.sp, lineHeight = 19.sp,
+                    modifier = Modifier.padding(bottom = 4.dp))
             }
         }
-
-        if (goal != null) {
-            Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(superhumanSurfaceSoft)) {
-                if (progress > 0f) {
-                    Box(Modifier.fillMaxWidth(progress).height(5.dp).background(HomeGreen, CircleShape))
+        // When a calorie goal exists this is goal progress; otherwise show the
+        // composition of logged macros. Neither visual fabricates an unrecorded goal.
+        Row(
+            Modifier.fillMaxWidth().height(4.dp)
+                .background(HomeBorder.copy(alpha = .55f), RoundedCornerShape(5.dp)),
+            horizontalArrangement = Arrangement.Start
+        ) {
+            if (goal != null && progress > 0f) {
+                Box(Modifier.fillMaxWidth(progress).height(4.dp)
+                    .background(HomeGreen, RoundedCornerShape(5.dp)))
+            } else if (goal == null && totalMacroEnergy > 0f) {
+                val macroColours = listOf(HomeGreen, HomeBlue, HomeAmber)
+                macroEnergy.forEachIndexed { index, amount ->
+                    if (amount > 0f) {
+                        Box(Modifier.weight(amount / totalMacroEnergy).height(4.dp)
+                            .background(macroColours[index]))
+                    }
                 }
             }
         }
-
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(
                 Triple("Protein", snapshot.proteinToday, HomeGreen),
                 Triple("Carbs", snapshot.carbsToday, HomeBlue),
                 Triple("Fat", snapshot.fatToday, HomeAmber)
             ).forEach { (label, value, accent) ->
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(label, color = HomeMuted, fontSize = 12.sp, lineHeight = 16.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(6.dp).background(accent, CircleShape))
+                        Box(Modifier.size(5.dp).background(accent, CircleShape))
                         Spacer(Modifier.width(6.dp))
-                        Text(label, color = HomeMuted, fontSize = 12.sp, lineHeight = 15.sp)
+                        Text("$value g", color = HomeInk, fontSize = 16.sp,
+                            lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
                     }
-                    Text("$value g", color = HomeInk, fontSize = 16.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
     }
 }
+
 
 @Composable
 private fun HomeNutritionCalorieRing(
