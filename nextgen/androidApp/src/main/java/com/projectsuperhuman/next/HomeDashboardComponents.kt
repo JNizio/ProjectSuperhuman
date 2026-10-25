@@ -634,8 +634,9 @@ internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Un
             Text("kcal today", color = HomeMuted, fontSize = 13.sp, lineHeight = 20.sp,
                 modifier = Modifier.padding(bottom = 4.dp))
             Spacer(Modifier.weight(1f))
-            if (goal != null) {
-                Text("Goal $goal", color = HomeMuted, fontSize = 12.sp, lineHeight = 19.sp,
+            if (goal != null || totalMacroEnergy > 0f) {
+                Text(if (goal != null) "Goal $goal" else "Macro split",
+                    color = HomeMuted, fontSize = 12.sp, lineHeight = 19.sp,
                     modifier = Modifier.padding(bottom = 4.dp))
             }
         }
