@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -158,7 +159,7 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
-            Modifier.weight(1f).superhumanClickable { openMetric(HomeMiniMetric.HEART_RATE) },
+            Modifier.weight(1f).heightIn(min = 48.dp).superhumanClickable { openMetric(HomeMiniMetric.HEART_RATE) },
             verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
             Text("Heart rate", color = MiniMuted, fontSize = 12.sp, lineHeight = 15.sp)
@@ -178,7 +179,7 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
         }
         Box(Modifier.width(1.dp).height(29.dp).background(MiniBorder))
         Column(
-            Modifier.weight(1f).padding(start = 18.dp)
+            Modifier.weight(1f).heightIn(min = 48.dp).padding(start = 18.dp)
                 .superhumanClickable { openMetric(HomeMiniMetric.STEPS) },
             verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
