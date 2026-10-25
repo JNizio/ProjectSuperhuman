@@ -150,7 +150,7 @@ internal fun NativeLiveHome(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
-    val spacingPx = with(density) { 14.dp.toPx() }
+    val spacingPx = with(density) { 12.dp.toPx() }
     val edgeScrollZonePx = with(density) { 92.dp.toPx() }
     val edgeScrollMinStepPx = with(density) { 2.5.dp.toPx() }
     val edgeScrollMaxStepPx = with(density) { 15.dp.toPx() }
@@ -290,8 +290,8 @@ internal fun NativeLiveHome(
     ) {
         topContent()
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 17.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             HomeSummaryBar(openMiniMetric)
 
