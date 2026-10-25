@@ -133,9 +133,6 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
     val context = LocalContext.current
     val isForeground = rememberMiniMetricsForeground()
     var metrics by remember { mutableStateOf(MiniMetricSnapshot()) }
-    val date = remember {
-        LocalDate.now().format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.ENGLISH))
-    }
 
     LaunchedEffect(isForeground) {
         metrics = loadMiniMetricSnapshot()
@@ -152,104 +149,46 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
         }
     }
 
+    val shape = RoundedCornerShape(20.dp)
     Row(
         Modifier.fillMaxWidth()
-            .height(58.dp)
-            .background(superhumanSurface, RoundedCornerShape(18.dp))
-            .border(1.dp, MiniBorder, RoundedCornerShape(18.dp))
-            .padding(horizontal = 14.dp),
+            .background(superhumanSurface, shape)
+            .border(1.dp, MiniBorder.copy(alpha = .70f), shape)
+            .padding(horizontal = 16.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            Modifier
-                .weight(1f)
-                .height(36.dp)
-                .superhumanClickable { openMetric(HomeMiniMetric.HEART_RATE) },
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            Modifier.weight(1f).superhumanClickable { openMetric(HomeMiniMetric.HEART_RATE) },
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Text(
-                "HEART RATE",
-                color = MiniMuted,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = .6.sp,
-                lineHeight = 8.sp
-            )
-            Spacer(Modifier.width(10.dp))
+            Text("Heart rate", color = MiniMuted, fontSize = 12.sp, lineHeight = 15.sp)
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     metrics.heartRateBpm?.toString() ?: "—",
                     color = MiniNavy,
-                    fontSize = 15.sp,
-                    lineHeight = 17.sp,
-                    fontWeight = FontWeight.Black
+                    fontSize = 19.sp,
+                    lineHeight = 22.sp,
+                    fontWeight = FontWeight.Bold
                 )
                 if (metrics.heartRateBpm != null) {
-                    Spacer(Modifier.width(3.dp))
-                    Text(
-                        "bpm",
-                        color = MiniMuted,
-                        fontSize = 7.sp,
-                        lineHeight = 8.sp,
-                        modifier = Modifier.padding(bottom = 2.dp)
-                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("bpm", color = MiniMuted, fontSize = 11.sp, lineHeight = 17.sp)
                 }
             }
         }
-
-        Box(Modifier.width(1.dp).height(28.dp).background(MiniBorder))
-
-        Row(
-            Modifier
-                .weight(1f)
-                .height(36.dp)
-                .padding(start = 14.dp)
+        Box(Modifier.width(1.dp).height(29.dp).background(MiniBorder))
+        Column(
+            Modifier.weight(1f).padding(start = 18.dp)
                 .superhumanClickable { openMetric(HomeMiniMetric.STEPS) },
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(3.dp)
         ) {
-            Text(
-                "STEPS",
-                color = MiniMuted,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = .6.sp,
-                lineHeight = 8.sp
-            )
-            Spacer(Modifier.width(10.dp))
+            Text("Steps", color = MiniMuted, fontSize = 12.sp, lineHeight = 15.sp)
             Text(
                 metrics.steps?.let(::compactCount) ?: "—",
                 color = MiniNavy,
-                fontSize = 15.sp,
-                lineHeight = 17.sp,
-                fontWeight = FontWeight.Black
-            )
-        }
-
-        Box(Modifier.width(1.dp).height(28.dp).background(MiniBorder))
-
-        Row(
-            Modifier
-                .weight(1f)
-                .height(36.dp)
-                .padding(start = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "DATE",
-                color = MiniMuted,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = .6.sp,
-                lineHeight = 8.sp
-            )
-            Spacer(Modifier.width(10.dp))
-            Text(
-                date,
-                color = MiniNavy,
-                fontSize = 10.sp,
-                lineHeight = 17.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 1
+                fontSize = 19.sp,
+                lineHeight = 22.sp,
+                fontWeight = FontWeight.Bold
             )
         }
     }
