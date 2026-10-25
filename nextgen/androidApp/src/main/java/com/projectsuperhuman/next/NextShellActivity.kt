@@ -251,27 +251,35 @@ private fun NativeTopBar(
 
 @Composable
 private fun NativeHomeTitle() {
-    // Calm, aligned brand heading with the date available without a third summary column.
+    val date = java.time.LocalDate.now().format(
+        java.time.format.DateTimeFormatter.ofPattern("EEE, d MMMM", java.util.Locale.ENGLISH)
+    )
     Column(
-        Modifier.fillMaxWidth().padding(horizontal = SuperhumanLayout.pageHorizontal, vertical = 9.dp),
-        horizontalAlignment = Alignment.Start
+        Modifier.fillMaxWidth().padding(
+            horizontal = SuperhumanLayout.pageHorizontal,
+            vertical = 10.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(5.dp)
     ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "SUPERHUMAN",
+                color = ShellMuted,
+                fontSize = 11.sp,
+                lineHeight = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 1.5.sp
+            )
+            Text(date, color = ShellMuted, fontSize = 12.sp, lineHeight = 16.sp)
+        }
         Text(
-            "Superhuman",
+            "Today",
             color = ShellNavy,
             fontWeight = FontWeight.Bold,
-            fontSize = 23.sp,
-            lineHeight = 28.sp,
-            letterSpacing = .1.sp
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            java.time.LocalDate.now().format(
-                java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM", java.util.Locale.ENGLISH)
-            ),
-            color = ShellMuted,
-            fontSize = 12.sp,
-            lineHeight = 17.sp
+            fontSize = 28.sp,
+            lineHeight = 33.sp,
+            letterSpacing = -.4.sp
         )
     }
 }
