@@ -150,12 +150,16 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
         }
     }
 
-    val shape = RoundedCornerShape(20.dp)
+    // A supporting status strip, not a fourth competing headline card.
+    val shape = RoundedCornerShape(16.dp)
     Row(
         Modifier.fillMaxWidth()
-            .background(superhumanSurface, shape)
-            .border(1.dp, MiniBorder.copy(alpha = .70f), shape)
-            .padding(horizontal = 16.dp, vertical = 9.dp),
+            .background(
+                if (SuperhumanAppearance.darkMode) Color(0xFF0E1D28)
+                else superhumanSurfaceSoft,
+                shape
+            )
+            .padding(horizontal = 14.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(
@@ -177,7 +181,7 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
                 }
             }
         }
-        Box(Modifier.width(1.dp).height(29.dp).background(MiniBorder))
+        Box(Modifier.width(1.dp).height(28.dp).background(MiniBorder.copy(alpha = .50f)))
         Column(
             Modifier.weight(1f).heightIn(min = 48.dp).padding(start = 18.dp)
                 .superhumanClickable { openMetric(HomeMiniMetric.STEPS) },
