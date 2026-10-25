@@ -220,7 +220,7 @@ internal fun UnifiedSleepPage(onBack: () -> Unit, openLegacy: () -> Unit) {
         UnifiedHeader("Sleep", "Wearable sleep & recovery", onBack)
         Column(
             Modifier.fillMaxWidth().background(
-                Brush.linearGradient(listOf(Color(0xFF111E4D), Color(0xFF493F91))), RoundedCornerShape(28.dp)
+                Brush.linearGradient(if (SuperhumanAppearance.darkMode) listOf(superhumanSurfaceElevated, Color(0xFF24212F)) else listOf(Color(0xFF111E4D), Color(0xFF493F91))), RoundedCornerShape(28.dp)
             ).padding(20.dp)
         ) {
             Text("ONE HEALTH CONNECT SETUP", color = Color.White.copy(alpha = .68f), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)

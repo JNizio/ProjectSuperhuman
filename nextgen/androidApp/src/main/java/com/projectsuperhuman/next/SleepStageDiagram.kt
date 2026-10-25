@@ -48,17 +48,17 @@ internal fun SleepArchitectureDiagram(
     val rem = Color(0xFF8B69E8)
     val light = Color(0xFF6697E8)
     val deep = Color(0xFF315A9E)
-    val grid = Color(0xFFE9ECF4)
+    val grid = if (SuperhumanAppearance.darkMode) superhumanDivider else Color(0xFFE9ECF4)
     val duration = (endMs - startMs).toFloat()
 
     Column(
         Modifier.fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(22.dp))
+            .background(superhumanSurface, RoundedCornerShape(22.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Sleep architecture", color = Color(0xFF17233A), fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text("How your sleep moved through each stage overnight", color = Color(0xFF718096), fontSize = 9.sp)
+        Text("Sleep architecture", color = superhumanTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Black)
+        Text("How your sleep moved through each stage overnight", color = superhumanTextMuted, fontSize = 9.sp)
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             LegendDot("Awake", awake)
@@ -105,7 +105,7 @@ internal fun SleepArchitectureDiagram(
                     0f,
                     top + i * rowH + rowH * .62f,
                     android.graphics.Paint().apply {
-                        color = android.graphics.Color.rgb(113, 128, 150)
+                        color = if (SuperhumanAppearance.darkMode) android.graphics.Color.rgb(160, 164, 173) else android.graphics.Color.rgb(113, 128, 150)
                         textSize = 9.sp.toPx()
                         isAntiAlias = true
                     }
@@ -119,6 +119,6 @@ internal fun SleepArchitectureDiagram(
 private fun LegendDot(label: String, color: Color) {
     Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         Spacer(Modifier.width(7.dp).height(7.dp).background(color, RoundedCornerShape(99.dp)))
-        Text(label, color = Color(0xFF718096), fontSize = 8.sp)
+        Text(label, color = superhumanTextMuted, fontSize = 8.sp)
     }
 }

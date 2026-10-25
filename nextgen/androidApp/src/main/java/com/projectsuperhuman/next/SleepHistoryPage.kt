@@ -174,7 +174,7 @@ private fun HistorySleepDashboardHero(
 
     Column(
         Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(Color(0xFF08152F), Color(0xFF162D66), Color(0xFF41348F))),
+            Brush.linearGradient(if (SuperhumanAppearance.darkMode) listOf(Color(0xFF191A1F), Color(0xFF202029), Color(0xFF282337)) else listOf(Color(0xFF08152F), Color(0xFF162D66), Color(0xFF41348F))),
             RoundedCornerShape(28.dp)
         ).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -743,7 +743,7 @@ private fun historyTime(epochMs: Long): String = Instant.ofEpochMilli(epochMs)
     .format(DateTimeFormatter.ofPattern("HH:mm"))
 
 private fun BrushlessPurple(): androidx.compose.ui.graphics.Brush =
-    androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(0xFF4939A9), Color(0xFF6F5BE1)))
+    androidx.compose.ui.graphics.Brush.linearGradient(if (SuperhumanAppearance.darkMode) listOf(Color(0xFF282337), Color(0xFF191A1F)) else listOf(Color(0xFF4939A9), Color(0xFF6F5BE1)))
 
 private object NativeHistoricalSleepStore {
     private const val baselineDays = 10L

@@ -142,7 +142,7 @@ private fun EmotionalHeader(onBack: () -> Unit) {
 @Composable
 private fun EmotionalHero() {
     val gradient = if (SuperhumanAppearance.darkMode) {
-        listOf(Color(0xFF10292B), Color(0xFF211C31), superhumanSurfaceElevated)
+        listOf(superhumanSurfaceElevated, superhumanSurface, superhumanSurfaceSoft)
     } else listOf(Color(0xFFEAF7F7), Color(0xFFF3F0FB), Color.White)
     Column(
         Modifier.fillMaxWidth().background(Brush.linearGradient(gradient), RoundedCornerShape(26.dp))

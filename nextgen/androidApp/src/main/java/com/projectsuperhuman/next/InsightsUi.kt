@@ -109,7 +109,7 @@ private fun InsightsHeader(title: String, subtitle: String, onBack: () -> Unit) 
 private fun InsightsSummaryHero(state: InsightsPresentationState) {
     val leading = state.insights.maxByOrNull { it.strength }
     val gradient = if (SuperhumanAppearance.darkMode) {
-        listOf(Color(0xFF10292C), Color(0xFF1B1C2D), superhumanSurfaceElevated)
+        listOf(superhumanSurfaceElevated, superhumanSurface, superhumanSurfaceSoft)
     } else listOf(Color(0xFFE8F5F7), Color(0xFFF1F0FA), Color.White)
     Box(
         Modifier.fillMaxWidth().background(Brush.linearGradient(gradient), RoundedCornerShape(27.dp))
@@ -237,7 +237,7 @@ internal fun InsightDetailScreen(insight: InsightPresentation, onBack: () -> Uni
 
 @Composable
 private fun DetailHero(insight: InsightPresentation) {
-    val gradient = if (SuperhumanAppearance.darkMode) listOf(Color(0xFF10292C), Color(0xFF1B1C2D), superhumanSurfaceElevated)
+    val gradient = if (SuperhumanAppearance.darkMode) listOf(superhumanSurfaceElevated, superhumanSurface, superhumanSurfaceSoft)
         else listOf(Color(0xFFEAF6F7), Color(0xFFF3F0FB), Color.White)
     Column(Modifier.fillMaxWidth().background(Brush.linearGradient(gradient), RoundedCornerShape(27.dp)).border(1.dp, InsightsBorder, RoundedCornerShape(27.dp)).padding(19.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {

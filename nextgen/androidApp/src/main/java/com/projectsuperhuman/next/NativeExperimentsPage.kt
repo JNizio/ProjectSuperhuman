@@ -107,7 +107,7 @@ internal fun ExperimentsHeader(title: String, subtitle: String, onBack: () -> Un
 
 @Composable
 private fun ExperimentLabHero(onCreate: () -> Unit) {
-    val gradient = if (SuperhumanAppearance.darkMode) listOf(Color(0xFF211C31), Color(0xFF111D28), Color(0xFF102A28))
+    val gradient = if (SuperhumanAppearance.darkMode) listOf(superhumanSurfaceElevated, superhumanSurface, superhumanSurfaceSoft)
         else listOf(Color(0xFFF0ECFC), Color(0xFFF6FBFD), Color(0xFFEBF8F5))
     Column(Modifier.fillMaxWidth().background(Brush.linearGradient(gradient), RoundedCornerShape(27.dp)).border(1.dp, ExperimentBorder, RoundedCornerShape(27.dp)).padding(19.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -257,7 +257,7 @@ internal fun ExperimentDetailScreen(experiment: ExperimentPresentation, onBack: 
 
 @Composable
 private fun ExperimentDetailHero(experiment: ExperimentPresentation) {
-    Column(Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(Color(0xFF171E3B), Color(0xFF243C64), Color(0xFF226C71))), RoundedCornerShape(28.dp)).padding(19.dp)) {
+    Column(Modifier.fillMaxWidth().background(Brush.linearGradient(if (SuperhumanAppearance.darkMode) listOf(superhumanSurfaceElevated, Color(0xFF222129), superhumanSurface) else listOf(Color(0xFF171E3B), Color(0xFF243C64), Color(0xFF226C71))), RoundedCornerShape(28.dp)).padding(19.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(experiment.phase.label.uppercase(), color = Color(0xFF78DDD0), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
@@ -275,7 +275,7 @@ private fun ProtocolQuestionCard(experiment: ExperimentPresentation) {
     Column(Modifier.experimentCard()) {
         CardEyebrow("THE QUESTION"); Spacer(Modifier.height(6.dp)); Text(experiment.hypothesis, color = ExperimentInk, fontSize = 15.sp, fontWeight = FontWeight.Bold, lineHeight = 21.sp)
         Spacer(Modifier.height(13.dp))
-        Box(Modifier.fillMaxWidth().background(if (SuperhumanAppearance.darkMode) Color(0xFF211C31) else Color(0xFFF2F0FA), RoundedCornerShape(17.dp)).padding(12.dp)) {
+        Box(Modifier.fillMaxWidth().background(if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else Color(0xFFF2F0FA), RoundedCornerShape(17.dp)).padding(12.dp)) {
             Column {
                 Text("INTERVENTION", color = ExperimentViolet, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
                 Text(experiment.intervention.title, color = ExperimentNavy, fontSize = 13.sp, fontWeight = FontWeight.Black)
@@ -357,7 +357,7 @@ private fun NotesCard(notes: String) {
 
 @Composable
 internal fun ExperimentResultCard(experiment: ExperimentPresentation, result: ExperimentResultSummary) {
-    val gradient = if (SuperhumanAppearance.darkMode) listOf(Color(0xFF211C31), superhumanSurfaceElevated) else listOf(Color(0xFFF2EFFA), Color.White)
+    val gradient = if (SuperhumanAppearance.darkMode) listOf(superhumanSurfaceElevated, superhumanSurface) else listOf(Color(0xFFF2EFFA), Color.White)
     Column(Modifier.fillMaxWidth().background(Brush.linearGradient(gradient), RoundedCornerShape(25.dp)).border(1.dp, ExperimentViolet.copy(alpha = .20f), RoundedCornerShape(25.dp)).padding(17.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
