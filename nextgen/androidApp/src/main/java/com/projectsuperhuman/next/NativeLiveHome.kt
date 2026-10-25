@@ -115,21 +115,22 @@ private data class HomeTileBounds(
 )
 
 private val defaultHomeTileOrder = listOf(
-    HomeTile.INSIGHTS,
-    HomeTile.EMOTIONAL,
-    HomeTile.ENVIRONMENT,
-    HomeTile.EXPERIMENTS,
-    HomeTile.HYDRATION,
-    HomeTile.CLINICAL,
-    HomeTile.EXERCISE,
-    HomeTile.MINDFULNESS,
-    HomeTile.SLEEP,
     HomeTile.NUTRITION,
-    HomeTile.VITALS
+    HomeTile.EXERCISE,
+    HomeTile.SLEEP,
+    HomeTile.VITALS,
+    HomeTile.HYDRATION,
+    HomeTile.INSIGHTS,
+    HomeTile.EXPERIMENTS,
+    HomeTile.ENVIRONMENT,
+    HomeTile.EMOTIONAL,
+    HomeTile.CLINICAL,
+    HomeTile.MINDFULNESS
 )
 
 private const val HOME_PREFS = "project_superhuman_home"
-private const val HOME_TILE_ORDER_KEY = "tile_order_v1"
+private const val HOME_TILE_ORDER_KEY = "tile_order_v2"
+private const val LEGACY_HOME_TILE_ORDER_KEY = "tile_order_v1"
 
 @Composable
 internal fun NativeLiveHome(
@@ -150,7 +151,7 @@ internal fun NativeLiveHome(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
-    val spacingPx = with(density) { 12.dp.toPx() }
+    val spacingPx = with(density) { SuperhumanLayout.homeSectionGap.toPx() }
     val edgeScrollZonePx = with(density) { 92.dp.toPx() }
     val edgeScrollMinStepPx = with(density) { 2.5.dp.toPx() }
     val edgeScrollMaxStepPx = with(density) { 15.dp.toPx() }
@@ -290,8 +291,8 @@ internal fun NativeLiveHome(
     ) {
         topContent()
         Column(
-            Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            Modifier.fillMaxWidth().padding(horizontal = SuperhumanLayout.pageHorizontal),
+            verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.homeSectionGap)
         ) {
             HomeSummaryBar(openMiniMetric)
 
@@ -432,17 +433,27 @@ private fun ReorderableHomeTile(
 }
 
 private fun loadHomeTileOrder(context: Context): List<HomeTile> {
-    val saved = context.getSharedPreferences(HOME_PREFS, Context.MODE_PRIVATE)
-        .getString(HOME_TILE_ORDER_KEY, null)
-        .orEmpty()
+    val prefs = context.getSharedPreferences(HOME_PREFS, Context.MODE_PRIVATE)
+    fun decode(value: String?): List<HomeTile> =
+        value.orEmpty().split(',')
+            .mapNotNull { key -> HomeTile.entries.firstOrNull { it.storageKey == key.trim() } }
+            .distinct()
 
-    val parsed = saved.split(',')
-        .mapNotNull { key -> HomeTile.entries.firstOrNull { it.storageKey == key.trim() } }
-        .distinct()
+    // v2 is user-controlled: once dragged, no automatic module can jump in front of it.
+    prefs.getString(HOME_TILE_ORDER_KEY, null)?.let { saved ->
+        val parsed = decode(saved)
+        return (parsed + defaultHomeTileOrder.filterNot(parsed::contains))
+            .distinct().ifEmpty { defaultHomeTileOrder }
+    }
 
-    val newcomers = listOf(HomeTile.INSIGHTS, HomeTile.EMOTIONAL, HomeTile.ENVIRONMENT, HomeTile.EXPERIMENTS).filterNot(parsed::contains)
-    val existingAndDefaults = parsed + defaultHomeTileOrder.filterNot { it in parsed || it in newcomers }
-    return (newcomers + existingAndDefaults).ifEmpty { defaultHomeTileOrder }
+    // One-time default upgrade: make the requested three core cards the opening view.
+    // Preserve the prior order of all remaining cards rather than discarding it.
+    val core = listOf(HomeTile.NUTRITION, HomeTile.EXERCISE, HomeTile.SLEEP)
+    val legacy = decode(prefs.getString(LEGACY_HOME_TILE_ORDER_KEY, null))
+    val remaining = (legacy + defaultHomeTileOrder).filterNot { it in core }.distinct()
+    val initial = core + remaining
+    prefs.edit().putString(HOME_TILE_ORDER_KEY, initial.joinToString(",") { it.storageKey }).apply()
+    return initial
 }
 
 private fun saveHomeTileOrder(context: Context, order: List<HomeTile>) {
