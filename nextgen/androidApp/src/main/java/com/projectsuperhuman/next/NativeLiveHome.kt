@@ -294,8 +294,6 @@ internal fun NativeLiveHome(
             Modifier.fillMaxWidth().padding(horizontal = SuperhumanLayout.pageHorizontal),
             verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.homeSectionGap)
         ) {
-            HomeSummaryBar(openMiniMetric)
-
             tileOrder.forEach { tile ->
                 key(tile) {
                     val draggedTile = draggingTile
