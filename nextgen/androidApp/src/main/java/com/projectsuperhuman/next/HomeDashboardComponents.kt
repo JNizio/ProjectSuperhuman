@@ -520,308 +520,80 @@ private fun ClinicalHomeStat(value: String, label: String, accent: Color, modifi
 @Composable
 internal fun LegacyTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val trained = snapshot.workoutsToday > 0
-    val strengthAccent = Color(0xFF67B8FF)
-    val cardioAccent = Color(0xFF66D7B7)
-    val volumeLabel = if (snapshot.workoutVolumeToday >= 1000) {
-        String.format(Locale.US, "%.1fk kg", snapshot.workoutVolumeToday / 1000.0)
-    } else {
-        "${snapshot.workoutVolumeToday} kg"
-    }
-    val distanceLabel = if (snapshot.cardioDistanceTodayKm >= 10.0) {
-        String.format(Locale.US, "%.1f km", snapshot.cardioDistanceTodayKm)
-    } else {
-        String.format(Locale.US, "%.2f km", snapshot.cardioDistanceTodayKm)
-    }
-    val headline = if (trained) {
-        "${snapshot.workoutsToday} session${if (snapshot.workoutsToday == 1) "" else "s"} today"
-    } else {
-        "Ready to train"
-    }
-    val summaryLine = if (trained) {
-        buildList {
-            if (snapshot.strengthWorkoutsToday > 0) add("${snapshot.strengthWorkoutsToday} strength")
-            if (snapshot.cardioWorkoutsToday > 0) add("${snapshot.cardioWorkoutsToday} cardio")
-            if (snapshot.trainingMinutesToday > 0) add("${snapshot.trainingMinutesToday} min")
-        }.joinToString(" · ")
-    } else {
-        "Strength and cardio"
-    }
-
-    Box(
-        Modifier.fillMaxWidth()
-            .height(205.dp)
-            .clip(RoundedCornerShape(29.dp))
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        Color(0xFF061829),
-                        Color(0xFF092B43),
-                        Color(0xFF0C4B58)
-                    )
-                )
-            )
-            .border(1.dp, Color(0xFF2D6F83).copy(alpha = .62f), RoundedCornerShape(29.dp))
+    val title = if (trained) "${snapshot.workoutsToday} session${if (snapshot.workoutsToday == 1) "" else "s"} today" else "Ready to train"
+    val subtitle = if (trained) "${snapshot.trainingMinutesToday} min · ${snapshot.strengthWorkoutsToday} strength · ${snapshot.cardioWorkoutsToday} cardio" else "Strength and cardio"
+    val shape = RoundedCornerShape(22.dp)
+    Column(
+        Modifier.fillMaxWidth().clip(shape).background(HomeCard)
+            .border(1.dp, HomeBorder.copy(alpha = .68f), shape)
             .superhumanClickable(onClick = onClick)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        LegacyAssetImage(
-            "dashboard_training.png",
-            Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            alpha = .21f
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(
-                    listOf(
-                        Color(0xFF061829),
-                        Color(0xFF061829).copy(alpha = .97f),
-                        Color(0xFF08283D).copy(alpha = .83f),
-                        Color(0xFF0A4D57).copy(alpha = .40f),
-                        Color.Transparent
-                    )
-                )
-            )
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    listOf(
-                        Color.Transparent,
-                        Color(0xFF061829).copy(alpha = .18f),
-                        Color(0xFF061829).copy(alpha = .76f)
-                    )
-                )
-            )
-        )
-
-        Column(Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 16.dp)) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(34.dp)
-                            .background(strengthAccent.copy(alpha = .14f), RoundedCornerShape(11.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            painter = painterResource(id = R.drawable.tabler_dumbbell),
-                            contentDescription = null,
-                            tint = strengthAccent,
-                            modifier = Modifier.size(19.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(10.dp))
-                    Text(
-                        "TRAINING",
-                        color = Color.White.copy(alpha = .82f),
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 1.1.sp
-                    )
-                }
-                Box(
-                    Modifier.size(36.dp).background(Color.White.copy(alpha = .08f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("→", color = strengthAccent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Spacer(Modifier.height(13.dp))
-            Text(
-                headline,
-                color = Color.White,
-                fontSize = 21.sp,
-                lineHeight = 23.sp,
-                fontWeight = FontWeight.Black
-            )
-            Spacer(Modifier.height(3.dp))
-            Text(
-                summaryLine,
-                color = Color.White.copy(alpha = .60f),
-                fontSize = 9.sp,
-                maxLines = 1
-            )
-
-            Spacer(Modifier.weight(1f))
-
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(9.dp)
-            ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("TRAINING", color = HomeMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = .9.sp)
+            Text("›", color = HomeBlue, fontSize = 24.sp, lineHeight = 24.sp)
+        }
+        Text(title, color = HomeInk, fontSize = 25.sp, fontWeight = FontWeight.Bold, lineHeight = 29.sp)
+        Text(subtitle, color = HomeMuted, fontSize = 13.sp)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            listOf(
+                "STRENGTH" to (if (snapshot.strengthWorkoutsToday > 0) "${snapshot.strengthWorkoutsToday} done" else "Ready"),
+                "CARDIO" to (if (snapshot.cardioWorkoutsToday > 0) "${snapshot.cardioWorkoutsToday} done" else "Ready")
+            ).forEach { (label, value) ->
                 Column(
-                    Modifier.weight(1f)
-                        .background(strengthAccent.copy(alpha = .10f), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 11.dp, vertical = 9.dp)
+                    Modifier.weight(1f).background(superhumanSurfaceSoft, RoundedCornerShape(14.dp)).padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(5.dp)
                 ) {
-                    Text("STRENGTH", color = strengthAccent, fontSize = 7.sp, fontWeight = FontWeight.Black)
-                    Text(
-                        if (snapshot.strengthWorkoutsToday > 0) volumeLabel else "Ready",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-                Column(
-                    Modifier.weight(1f)
-                        .background(cardioAccent.copy(alpha = .10f), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 11.dp, vertical = 9.dp)
-                ) {
-                    Text("CARDIO", color = cardioAccent, fontSize = 7.sp, fontWeight = FontWeight.Black)
-                    Text(
-                        if (snapshot.cardioWorkoutsToday > 0) distanceLabel else "Ready",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-                Column(
-                    Modifier.weight(.82f)
-                        .background(Color.White.copy(alpha = .07f), RoundedCornerShape(14.dp))
-                        .padding(horizontal = 10.dp, vertical = 9.dp)
-                ) {
-                    Text("TIME", color = Color.White.copy(alpha = .48f), fontSize = 7.sp, fontWeight = FontWeight.Black)
-                    Text(
-                        if (snapshot.trainingMinutesToday > 0) snapshot.trainingMinutesToday.toString() + " min" else "—",
-                        color = Color.White,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Black
-                    )
+                    Text(label, color = HomeMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .5.sp)
+                    Text(value, color = HomeInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
     }
 }
-
 @Composable
 internal fun LegacyNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
-    val nutritionGradient = if (SuperhumanAppearance.darkMode) {
-        listOf(Color(0xFF06151F), Color(0xFF0A222B), Color(0xFF103238))
-    } else {
-        listOf(Color(0xFFF8FBFA), Color(0xFFF0F7F4), Color(0xFFE8F2EE))
-    }
-    val accent = if (SuperhumanAppearance.darkMode) Color(0xFF70D9C7) else Color(0xFF167C6B)
-    val carbsAccent = if (SuperhumanAppearance.darkMode) Color(0xFF69B8E9) else Color(0xFF2A79A9)
-    val track = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .09f) else HomeBorder
-    val calorieProgress = snapshot.calorieGoal
-        ?.takeIf { it > 0 }
-        ?.let { (snapshot.caloriesToday.toFloat() / it.toFloat()).coerceIn(0f, 1f) }
-        ?: 0f
-
-    Box(
-        Modifier.fillMaxWidth()
-            .height(192.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Brush.linearGradient(nutritionGradient))
-            .border(
-                1.dp,
-                accent.copy(alpha = if (SuperhumanAppearance.darkMode) .22f else .13f),
-                RoundedCornerShape(28.dp)
-            )
+    val shape = RoundedCornerShape(22.dp)
+    val goal = snapshot.calorieGoal?.takeIf { it > 0 }
+    val progress = goal?.let { (snapshot.caloriesToday.toFloat() / it).coerceIn(0f, 1f) } ?: 0f
+    Column(
+        Modifier.fillMaxWidth().clip(shape).background(HomeCard)
+            .border(1.dp, HomeBorder.copy(alpha = .68f), shape)
             .superhumanClickable(onClick = onClick)
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-        LegacyAssetImage(
-            "dashboard_nutrition.png",
-            Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            alpha = if (SuperhumanAppearance.darkMode) .045f else .09f
-        )
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.horizontalGradient(
-                    listOf(
-                        nutritionGradient.first(),
-                        nutritionGradient.first().copy(alpha = .995f),
-                        nutritionGradient[1].copy(alpha = .97f),
-                        nutritionGradient.last().copy(alpha = .82f),
-                        Color.Transparent
-                    )
-                )
-            )
-        )
-
-        // One shared layout grid keeps the header and data geometry locked together.
-        // The calorie ring's outer macro stroke is visually inset by 2.dp, so the
-        // title gets the same optical inset. The arrow and macro values share the
-        // exact same trailing edge.
-        Column(
-            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 14.dp)
-        ) {
-            Row(
-                Modifier.fillMaxWidth().height(32.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    "NUTRITION",
-                    color = if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .68f) else HomeMuted,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.15.sp,
-                    modifier = Modifier.padding(start = 2.dp)
-                )
-
-                Box(
-                    Modifier.size(32.dp).background(accent.copy(alpha = .12f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("→", color = accent, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            Row(
-                Modifier.fillMaxWidth().height(112.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                HomeNutritionCalorieRing(
-                    snapshot = snapshot,
-                    calories = snapshot.caloriesToday,
-                    calorieGoal = snapshot.calorieGoal,
-                    caloriesComplete = snapshot.nutritionCaloriesComplete,
-                    progress = calorieProgress,
-                    accent = accent,
-                    proteinColor = accent,
-                    carbsColor = carbsAccent,
-                    fatColor = HomeAmber,
-                    fibreColor = HomePurple,
-                    track = track,
-                    modifier = Modifier.size(112.dp)
-                )
-
-                Column(
-                    Modifier.weight(1f).fillMaxHeight(),
-                    verticalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    HomeNutritionMacroRow(
-                        label = "Protein",
-                        value = snapshot.proteinToday,
-                        target = snapshot.proteinGoal,
-                        accent = accent
-                    )
-                    HomeNutritionMacroRow(
-                        label = "Carbs",
-                        value = snapshot.carbsToday,
-                        target = snapshot.carbsGoal,
-                        accent = carbsAccent
-                    )
-                    HomeNutritionMacroRow(
-                        label = "Fat",
-                        value = snapshot.fatToday,
-                        target = snapshot.fatGoal,
-                        accent = HomeAmber
-                    )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text("NUTRITION", color = HomeMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = .9.sp)
+            Text("+", color = HomeGreen, fontSize = 25.sp, lineHeight = 25.sp)
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text("${snapshot.caloriesToday}", color = HomeInk, fontSize = 34.sp, fontWeight = FontWeight.Bold, lineHeight = 37.sp)
+            Spacer(Modifier.width(6.dp))
+            Text("kcal", color = HomeMuted, fontSize = 13.sp, modifier = Modifier.padding(bottom = 4.dp))
+        }
+        Box(Modifier.fillMaxWidth().height(5.dp).clip(CircleShape).background(superhumanSurfaceSoft)) {
+            Box(Modifier.fillMaxWidth(progress).height(5.dp).background(HomeGreen))
+        }
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            listOf(
+                Triple("Protein", snapshot.proteinToday, HomeGreen),
+                Triple("Carbs", snapshot.carbsToday, HomeBlue),
+                Triple("Fat", snapshot.fatToday, HomeAmber)
+            ).forEach { (label, value, color) ->
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(6.dp).background(color, CircleShape))
+                        Spacer(Modifier.width(5.dp))
+                        Text(label, color = HomeMuted, fontSize = 11.sp)
+                    }
+                    Text("${value} g", color = HomeInk, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
     }
 }
-
 @Composable
 private fun HomeNutritionCalorieRing(
     snapshot: NativeHomeSnapshot,
