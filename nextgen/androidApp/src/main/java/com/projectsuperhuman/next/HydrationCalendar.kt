@@ -50,29 +50,28 @@ internal fun HydrationCalendarCard(
 
     Column(
         Modifier.fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(22.dp))
-            .border(1.dp, Color(0xFFE3EAF0), RoundedCornerShape(22.dp))
+            .midnightModuleCard(accent = superhumanBlue, radius = 22.dp)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
-                Text("Water history", color = Color(0xFF16334E), fontSize = 16.sp, fontWeight = FontWeight.Black)
+                Text("Water history", color = superhumanTextPrimary, fontSize = 16.sp, fontWeight = FontWeight.Black)
                 Text(
                     "${month.month.getDisplayName(TextStyle.FULL, Locale.ENGLISH)} ${month.year}",
-                    color = Color(0xFF748294), fontSize = 9.sp
+                    color = superhumanTextMuted, fontSize = 9.sp
                 )
             }
             Text(
                 formatMlHydration(dailyTotals[selectedDate] ?: 0),
-                color = Color(0xFF0D6CB4), fontSize = 13.sp, fontWeight = FontWeight.Black
+                color = superhumanBlue, fontSize = 13.sp, fontWeight = FontWeight.Black
             )
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf("M", "T", "W", "T", "F", "S", "S").forEach { label ->
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    Text(label, color = Color(0xFF9AA6B3), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text(label, color = superhumanTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -91,24 +90,24 @@ internal fun HydrationCalendarCard(
                             Modifier.weight(1f).height(42.dp)
                                 .background(
                                     when {
-                                        selected -> Color(0xFFDDF1FA)
-                                        ml > 0 -> Color(0xFFF2F9FC)
+                                        selected -> if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else Color(0xFFDDF1FA)
+                                        ml > 0 -> if (SuperhumanAppearance.darkMode) superhumanSurface.copy(alpha = .74f) else Color(0xFFF2F9FC)
                                         else -> Color.Transparent
                                     }, RoundedCornerShape(11.dp)
                                 )
                                 .then(
-                                    if (isToday) Modifier.border(1.dp, Color(0xFF55A8CF), RoundedCornerShape(11.dp)) else Modifier
+                                    if (isToday) Modifier.border(1.dp, superhumanBlue.copy(alpha = .65f), RoundedCornerShape(11.dp)) else Modifier
                                 )
                                 .superhumanClickable { selectedDate = date },
                             contentAlignment = Alignment.Center
                         ) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(date.dayOfMonth.toString(), color = Color(0xFF29445D), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                                Text(date.dayOfMonth.toString(), color = superhumanTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                                 if (ml > 0) {
                                     Spacer(Modifier.height(3.dp))
                                     Box(
                                         Modifier.fillMaxWidth(fraction.coerceAtLeast(.14f)).height(3.dp)
-                                            .background(Color(0xFF5FB4D7), RoundedCornerShape(3.dp))
+                                            .background(superhumanBlue, RoundedCornerShape(3.dp))
                                     )
                                 }
                             }
@@ -120,7 +119,7 @@ internal fun HydrationCalendarCard(
 
         Text(
             "${selectedDate.dayOfMonth} ${selectedDate.month.getDisplayName(TextStyle.SHORT, Locale.ENGLISH)} · ${formatMlHydration(dailyTotals[selectedDate] ?: 0)} logged",
-            color = Color(0xFF748294), fontSize = 9.sp
+            color = superhumanTextMuted, fontSize = 9.sp
         )
     }
 }
