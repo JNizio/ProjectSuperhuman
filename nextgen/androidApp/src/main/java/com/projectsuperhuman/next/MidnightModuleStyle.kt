@@ -30,7 +30,7 @@ internal fun Modifier.midnightInsetPanel(
         )
         .border(
             1.dp,
-            if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .037f)
+            if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .022f)
             else superhumanBorder.copy(alpha = .5f),
             shape
         )
@@ -45,7 +45,7 @@ internal fun Modifier.midnightControlStrip(
         .background(superhumanSurface, shape)
         .border(
             1.dp,
-            if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .055f)
+            if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .028f)
             else superhumanBorder,
             shape
         )
@@ -65,6 +65,6 @@ internal fun midnightTabTextColor(selected: Boolean, accent: Color): Color = whe
 }
 
 internal fun midnightTabOutline(selected: Boolean): Color =
-    if (selected && SuperhumanAppearance.darkMode) Color.White.copy(alpha = .065f)
+    if (selected && SuperhumanAppearance.darkMode) Color.White.copy(alpha = .03f)
     else if (selected) superhumanBorder
     else Color.Transparent
