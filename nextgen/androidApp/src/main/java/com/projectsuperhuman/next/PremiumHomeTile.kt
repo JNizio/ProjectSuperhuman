@@ -26,24 +26,16 @@ internal fun Modifier.midnightCardSurface(
     } else {
         listOf(Color(0xFFFDFEFF), Color(0xFFF5F8FA))
     }
+    // Atmospheric depth comes from neutral tones, never a green/accent background wash.
     val edge = if (dark) {
-        listOf(Color.White.copy(alpha = .055f), Color.White.copy(alpha = .020f))
+        listOf(Color.White.copy(alpha = .028f), Color.White.copy(alpha = .009f))
     } else {
-        listOf(Color(0xFFB1C4D1).copy(alpha = .52f), Color(0xFFB1C4D1).copy(alpha = .22f))
+        listOf(Color(0xFFB1C4D1).copy(alpha = .35f), Color(0xFFB1C4D1).copy(alpha = .15f))
     }
     return this
-        .shadow(if (dark) 1.dp else 2.dp, shape, clip = false)
+        .shadow(if (dark) .5.dp else 2.dp, shape, clip = false)
         .clip(shape)
         .background(Brush.linearGradient(neutral))
-        .background(
-            Brush.linearGradient(
-                listOf(
-                    accent.copy(alpha = if (dark) .030f else .055f),
-                    Color.Transparent,
-                    Color.Transparent
-                )
-            )
-        )
         .border(1.dp, Brush.verticalGradient(edge), shape)
 }
 
