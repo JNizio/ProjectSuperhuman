@@ -8,21 +8,19 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * A single matte material shared by the three priority Home modules.
- *
- * The previous version had a conspicuous white border and near-identical cards.
- * This uses a quiet continuous silhouette and an individual low-energy tint per
- * module. The content layout (not a glowing border) carries the hierarchy.
+ * The real Home tile material, shared verbatim by the dashboard and detail modules.
+ * A restrained neutral gradient and optical border; no coloured card fills.
  */
-internal fun Modifier.premiumHomeTile(
-    onClick: () -> Unit,
-    accent: Color = Color(0xFF84BBDC)
+internal fun Modifier.midnightCardSurface(
+    accent: Color,
+    radius: Dp = SuperhumanLayout.homeCardRadius
 ): Modifier {
     val dark = SuperhumanAppearance.darkMode
-    val shape = RoundedCornerShape(SuperhumanLayout.homeCardRadius)
+    val shape = RoundedCornerShape(radius)
     val neutral = if (dark) {
         listOf(superhumanSurfaceElevated, superhumanSurface)
     } else {
@@ -47,5 +45,9 @@ internal fun Modifier.premiumHomeTile(
             )
         )
         .border(1.dp, Brush.verticalGradient(edge), shape)
-        .superhumanClickable(onClick = onClick)
 }
+
+internal fun Modifier.premiumHomeTile(
+    onClick: () -> Unit,
+    accent: Color = Color(0xFF84BBDC)
+): Modifier = midnightCardSurface(accent).superhumanClickable(onClick = onClick)
