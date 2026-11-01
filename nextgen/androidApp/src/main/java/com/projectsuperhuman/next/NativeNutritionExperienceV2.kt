@@ -542,6 +542,8 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                     selectedDate = selectedDate,
                     onSelectDate = { selectedDate = it }
                 )
+                // Plant diversity is a peer dashboard tile, not an elevated card inside the intake tile.
+                N2PlantDiversityCard(n2PlantDiversity(day))
                 N2LogCard(
                     query = query,
                     onQueryChange = { query = it },
@@ -764,8 +766,8 @@ private fun N2DateNav(
 ) {
     val today = LocalDate.now(ZoneId.systemDefault())
     Box(
-        Modifier.fillMaxWidth().height(54.dp)
-            .midnightModuleCard(accent = N2Green, radius = 18.dp)
+        Modifier.fillMaxWidth().height(50.dp)
+            .midnightControlStrip(radius = 18.dp)
     ) {
         Box(
             Modifier.align(Alignment.CenterStart).size(SuperhumanLayout.iconTouchTarget)
@@ -806,7 +808,7 @@ private fun N2DateNav(
 @Composable
 private fun N2Tabs(view: N2View, onChange: (N2View) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().midnightModuleCard(accent = N2Green, radius = 18.dp)
+        Modifier.fillMaxWidth().midnightControlStrip(radius = 18.dp)
             .padding(SuperhumanLayout.segmentedPadding),
         horizontalArrangement = Arrangement.spacedBy(SuperhumanLayout.segmentedGap)
     ) {
@@ -820,12 +822,12 @@ private fun N2Tabs(view: N2View, onChange: (N2View) -> Unit) {
 @Composable
 private fun N2Tab(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.height(SuperhumanLayout.controlHeight)
-            .background(midnightTabColor(selected, N2Blue), RoundedCornerShape(14.dp))
+        modifier.height(40.dp)
+            .background(midnightTabColor(selected, N2Green), RoundedCornerShape(14.dp))
             .border(1.dp, midnightTabOutline(selected), RoundedCornerShape(14.dp))
             .superhumanClickable(onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { Text(label, color = midnightTabTextColor(selected, N2Blue), fontSize = 12.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium) }
+    ) { Text(label, color = midnightTabTextColor(selected, N2Green), fontSize = 12.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium) }
 }
 
 @Composable
@@ -837,7 +839,7 @@ private fun N2Hero(
 ) {
     Column(
         Modifier.fillMaxWidth()
-            .midnightModuleCard(accent = N2Green, radius = 24.dp)
+            .midnightModuleCard(accent = N2Green, radius = 26.dp)
             .padding(19.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -861,7 +863,6 @@ private fun N2Hero(
             }
         }
 
-        N2PlantDiversityCard(n2PlantDiversity(day))
     }
 }
 
@@ -880,8 +881,8 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
     Column(
         Modifier
             .fillMaxWidth()
-            .midnightModuleCard(accent = N2Green, radius = 22.dp)
-            .padding(horizontal = 15.dp, vertical = 14.dp),
+            .midnightModuleCard(accent = N2Green, radius = 26.dp)
+            .padding(horizontal = 19.dp, vertical = 17.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
