@@ -305,12 +305,12 @@ private fun ShellBottomNavigation(
     Row(
         modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 7.dp)
-            .height(66.dp)
-            .background(if (dark) Color(0xFF191B1F) else superhumanSurfaceElevated, shape)
+            .padding(horizontal = 18.dp, vertical = 10.dp)
+            .height(68.dp)
+            .background(if (dark) Color(0xFF17191D) else superhumanSurfaceElevated, shape)
             .border(
                 1.dp,
-                if (dark) Color.White.copy(alpha = .10f) else superhumanBorder,
+                if (dark) Color.White.copy(alpha = .075f) else superhumanBorder,
                 shape
             )
             .padding(horizontal = 7.dp, vertical = 5.dp),
@@ -352,7 +352,7 @@ private fun ShellBottomItem(
             .height(54.dp)
             .background(
                 if (selected) {
-                    if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .075f)
+                    if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .095f)
                     else superhumanBlue.copy(alpha = .085f)
                 } else Color.Transparent,
                 selectedShape
