@@ -46,17 +46,7 @@ internal fun HomeExperimentsTile(experiment: ExperimentPresentation = MockExperi
 
     Box(
         Modifier.fillMaxWidth().height(184.dp)
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        if (dark) palette.accentSoft.copy(alpha = .72f) else Color(0xFFF1EDFC),
-                        palette.surface,
-                        if (dark) palette.surfaceElevated else Color(0xFFECF8F7)
-                    )
-                ),
-                RoundedCornerShape(28.dp)
-            )
-            .border(1.dp, palette.border, RoundedCornerShape(28.dp))
+            .midnightCardSurface(accent = violet, radius = 28.dp)
             .superhumanHomeTileClickable(onClick = onClick)
             .semantics(mergeDescendants = true) { contentDescription = description }
             .padding(horizontal = 18.dp, vertical = 15.dp)
