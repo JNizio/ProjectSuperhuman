@@ -4,46 +4,54 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * Unified Midnight material for native detail modules.
- *
- * Mirrors the matte charcoal home dashboard without painting whole cards in
- * their domain accent. Accent stays a quiet corner wash; information carries
- * the actual colour. Intentionally presentation-only: no domain or data logic.
+ * Exactly the same surface as a Home dashboard card; no second, brighter
+ * gradient, stronger outline or extra tint on internal module cards.
  */
 internal fun Modifier.midnightModuleCard(
     accent: Color = superhumanAccent,
     radius: Dp = SuperhumanLayout.homeCardRadius
+): Modifier = midnightCardSurface(accent = accent, radius = radius)
+
+/** Low-contrast interior content, deliberately not a second elevated card. */
+internal fun Modifier.midnightInsetPanel(
+    radius: Dp = 20.dp
 ): Modifier {
     val shape = RoundedCornerShape(radius)
-    val dark = SuperhumanAppearance.darkMode
     return this
-        .clip(shape)
         .background(
-            Brush.linearGradient(
-                if (dark) listOf(superhumanSurfaceElevated, superhumanSurface)
-                else listOf(Color.White, superhumanSurfaceElevated)
-            )
-        )
-        .background(
-            Brush.linearGradient(
-                listOf(accent.copy(alpha = if (dark) .035f else .045f), Color.Transparent, Color.Transparent)
-            )
+            if (SuperhumanAppearance.darkMode) superhumanSurface.copy(alpha = .34f)
+            else superhumanSurfaceSoft,
+            shape
         )
         .border(
             1.dp,
-            if (dark) Color.White.copy(alpha = .085f) else superhumanBorder,
+            if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .037f)
+            else superhumanBorder.copy(alpha = .5f),
             shape
         )
 }
 
-/** Subdued selected tabs instead of the old saturated blue solid fills. */
+/** Navigation-like strips are recessive, unlike the primary metric cards. */
+internal fun Modifier.midnightControlStrip(
+    radius: Dp = 18.dp
+): Modifier {
+    val shape = RoundedCornerShape(radius)
+    return this
+        .background(superhumanSurface, shape)
+        .border(
+            1.dp,
+            if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .055f)
+            else superhumanBorder,
+            shape
+        )
+}
+
+/** Low-chroma selection that does not pull focus away from the metrics. */
 internal fun midnightTabColor(selected: Boolean, accent: Color): Color = when {
     !selected -> Color.Transparent
     SuperhumanAppearance.darkMode -> superhumanSurfaceSoft
@@ -57,4 +65,6 @@ internal fun midnightTabTextColor(selected: Boolean, accent: Color): Color = whe
 }
 
 internal fun midnightTabOutline(selected: Boolean): Color =
-    if (selected) superhumanBorder else Color.Transparent
+    if (selected && SuperhumanAppearance.darkMode) Color.White.copy(alpha = .065f)
+    else if (selected) superhumanBorder
+    else Color.Transparent
