@@ -298,20 +298,26 @@ private fun ShellBottomNavigation(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Floating navigation: the canvas remains black around the card.
+    // Keep the container and selection intentionally calmer than primary dashboard metrics.
+    val dark = SuperhumanAppearance.darkMode
+    val shape = RoundedCornerShape(28.dp)
     Row(
-        modifier.fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 4.dp)
-            .height(68.dp)
-            .background(
-                if (SuperhumanAppearance.darkMode) superhumanSurface else superhumanSurfaceElevated,
-                RoundedCornerShape(29.dp)
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 7.dp)
+            .height(66.dp)
+            .background(if (dark) Color(0xFF191B1F) else superhumanSurfaceElevated, shape)
+            .border(
+                1.dp,
+                if (dark) Color.White.copy(alpha = .10f) else superhumanBorder,
+                shape
             )
-            .border(1.dp, superhumanBorder.copy(alpha = .7f), RoundedCornerShape(29.dp))
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 7.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val selectedTint = if (SuperhumanAppearance.darkMode) superhumanTextPrimary else superhumanBlue
+        val selectedTint = if (dark) Color(0xFFF2F3F5) else superhumanBlue
         ShellBottomItem("Home", selectedPage == ShellPage.HOME, selectedTint, onHome) {
             color -> ShellTablerIcon(R.drawable.tabler_home, color)
         }
@@ -321,8 +327,8 @@ private fun ShellBottomNavigation(
         ShellBottomItem("Trudy", selectedPage == ShellPage.TRUDY, selectedTint, onTrudy) {
             color -> ShellTablerIcon(R.drawable.tabler_message_circle, color)
         }
-        ShellBottomItem("Settings",
-            selectedPage == ShellPage.SETTINGS || selectedPage == ShellPage.SMART_DEVICES,
+        ShellBottomItem(
+            "Settings", selectedPage == ShellPage.SETTINGS || selectedPage == ShellPage.SMART_DEVICES,
             selectedTint, onSettings
         ) {
             color -> ShellTablerIcon(R.drawable.tabler_settings, color)
@@ -339,19 +345,30 @@ private fun ShellBottomItem(
     icon: @Composable (Color) -> Unit
 ) {
     val color = if (selected) accent else ShellMuted
+    val selectedShape = RoundedCornerShape(20.dp)
     Column(
-        Modifier.superhumanClickable(onClick = onClick)
-            .padding(horizontal = 13.dp, vertical = 2.dp),
+        Modifier
+            .width(70.dp)
+            .height(54.dp)
+            .background(
+                if (selected) {
+                    if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .075f)
+                    else superhumanBlue.copy(alpha = .085f)
+                } else Color.Transparent,
+                selectedShape
+            )
+            .superhumanClickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+        verticalArrangement = Arrangement.Center
     ) {
-        Box(Modifier.height(25.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.height(27.dp), contentAlignment = Alignment.Center) {
             icon(color)
         }
-        Text(label, color = color, fontSize = 10.sp, lineHeight = 13.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
-        Box(Modifier.size(5.dp).background(
-            if (selected) accent else Color.Transparent, CircleShape))
+        Spacer(Modifier.height(2.dp))
+        Text(
+            label, color = color, fontSize = 10.sp, lineHeight = 13.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
     }
 }
 
