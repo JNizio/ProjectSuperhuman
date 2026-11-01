@@ -312,19 +312,19 @@ private fun ShellBottomNavigation(
     ) {
         val selectedTint = if (dark) Color(0xFFF2F3F5) else superhumanBlue
         ShellBottomItem("Home", selectedPage == ShellPage.HOME, selectedTint, onHome) {
-            color -> ShellTablerIcon(R.drawable.tabler_home, color)
+            color -> ShellTablerIcon(if (selectedPage == ShellPage.HOME) R.drawable.tabler_home_filled else R.drawable.tabler_home, color)
         }
         ShellBottomItem("Body", selectedPage == ShellPage.BODY, selectedTint, onBody) {
-            color -> ShellTablerIcon(R.drawable.tabler_user, color)
+            color -> ShellTablerIcon(if (selectedPage == ShellPage.BODY) R.drawable.tabler_user_filled else R.drawable.tabler_user, color)
         }
         ShellBottomItem("Trudy", selectedPage == ShellPage.TRUDY, selectedTint, onTrudy) {
-            color -> ShellTablerIcon(R.drawable.tabler_message_circle, color)
+            color -> ShellTablerIcon(if (selectedPage == ShellPage.TRUDY) R.drawable.tabler_message_circle_filled else R.drawable.tabler_message_circle, color)
         }
         ShellBottomItem(
             "Settings", selectedPage == ShellPage.SETTINGS || selectedPage == ShellPage.SMART_DEVICES,
             selectedTint, onSettings
         ) {
-            color -> ShellTablerIcon(R.drawable.tabler_settings, color)
+            color -> ShellTablerIcon(if (selectedPage == ShellPage.SETTINGS || selectedPage == ShellPage.SMART_DEVICES) R.drawable.tabler_settings_filled else R.drawable.tabler_settings, color)
         }
     }
 }
@@ -338,18 +338,10 @@ private fun ShellBottomItem(
     icon: @Composable (Color) -> Unit
 ) {
     val color = if (selected) accent else ShellMuted
-    val selectedShape = RoundedCornerShape(20.dp)
     Column(
         Modifier
             .width(70.dp)
             .height(54.dp)
-            .background(
-                if (selected) {
-                    if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .095f)
-                    else superhumanBlue.copy(alpha = .085f)
-                } else Color.Transparent,
-                selectedShape
-            )
             .superhumanClickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
