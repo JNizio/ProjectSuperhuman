@@ -745,7 +745,7 @@ private fun N2Header(onBack: () -> Unit, date: LocalDate) {
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text("Nutrition", color = N2Ink, fontSize = 25.sp, fontWeight = FontWeight.Black)
+            Text("Nutrition", color = N2Ink, fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
             Text("Diary · nutrients · insights · goals", color = N2Muted, fontSize = 10.sp)
         }
         Text(
@@ -764,9 +764,8 @@ private fun N2DateNav(
 ) {
     val today = LocalDate.now(ZoneId.systemDefault())
     Box(
-        Modifier.fillMaxWidth().height(58.dp)
-            .background(N2Surface, RoundedCornerShape(16.dp))
-            .border(1.dp, N2Border, RoundedCornerShape(16.dp))
+        Modifier.fillMaxWidth().height(54.dp)
+            .midnightModuleCard(accent = N2Green, radius = 18.dp)
     ) {
         Box(
             Modifier.align(Alignment.CenterStart).size(SuperhumanLayout.iconTouchTarget)
@@ -807,8 +806,8 @@ private fun N2DateNav(
 @Composable
 private fun N2Tabs(view: N2View, onChange: (N2View) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(18.dp))
-            .border(1.dp, N2Border, RoundedCornerShape(18.dp)).padding(SuperhumanLayout.segmentedPadding),
+        Modifier.fillMaxWidth().midnightModuleCard(accent = N2Green, radius = 18.dp)
+            .padding(SuperhumanLayout.segmentedPadding),
         horizontalArrangement = Arrangement.spacedBy(SuperhumanLayout.segmentedGap)
     ) {
         N2Tab("Diary", view == N2View.DIARY, Modifier.weight(1f)) { onChange(N2View.DIARY) }
@@ -930,10 +929,10 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
         }
 
         Box(
-            Modifier.size(194.dp),
+            Modifier.size(210.dp),
             contentAlignment = Alignment.TopStart
         ) {
-            val center = 97f
+            val center = 105f
             val orbit = 58f
             val petalBox = 82f
 
