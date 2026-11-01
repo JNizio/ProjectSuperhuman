@@ -103,17 +103,7 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
     Box(
         Modifier.fillMaxWidth()
             .height(190.dp)
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        palette.surface,
-                        palette.surfaceElevated.copy(alpha = if (dark) .90f else .48f),
-                        palette.accentSoft.copy(alpha = if (dark) .66f else .32f)
-                    )
-                ),
-                RoundedCornerShape(27.dp)
-            )
-            .border(1.dp, palette.border, RoundedCornerShape(27.dp))
+            .midnightCardSurface(accent = palette.red, radius = 27.dp)
             .clickable(onClick = onClick)
             .semantics { contentDescription = accessibility }
             .padding(18.dp)
