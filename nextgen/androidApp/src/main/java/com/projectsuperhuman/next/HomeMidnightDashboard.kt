@@ -81,7 +81,7 @@ internal fun MidnightNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> 
     val fat = snapshot.fatToday.coerceAtLeast(0)
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightGreen)
-            .padding(horizontal = 15.dp, vertical = 12.dp),
+            .padding(horizontal = 19.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         MidnightHeader("Nutrition", "Fuel your day", midnightGreen, R.drawable.tabler_leaf) {
@@ -173,7 +173,7 @@ private fun MidnightNutritionRing(calories: Int, goal: Int?, protein: Int, carbs
 internal fun MidnightTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightBlue)
-            .padding(horizontal = 15.dp, vertical = 12.dp),
+            .padding(horizontal = 19.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         MidnightHeader("Training", "Move with purpose", midnightBlue, R.drawable.tabler_barbell) {
@@ -234,7 +234,7 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
     }
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightPurple)
-            .padding(horizontal = 15.dp, vertical = 12.dp),
+            .padding(horizontal = 19.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         MidnightHeader("Sleep", "Rest and recover", midnightPurple, R.drawable.tabler_moon) {
