@@ -153,7 +153,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
         Row(
             Modifier.fillMaxWidth()
                 .height(58.dp)
-                .background(SettingsCard, RoundedCornerShape(18.dp))
+                .midnightModuleCard(accent = SettingsBlue, radius = 18.dp)
                 .superhumanClickable(onClick = openSmartDevices)
                 .padding(horizontal = 15.dp),
             verticalAlignment = Alignment.CenterVertically
@@ -162,7 +162,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
             Text("›", color = SettingsBlue, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         }
 
-        Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().midnightModuleCard(accent = SettingsBlue, radius = 22.dp).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Data Vault", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
@@ -205,7 +205,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
             Text(status, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
         }
 
-        Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().midnightModuleCard(accent = SettingsBlue, radius = 22.dp).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Developer mode", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
@@ -258,7 +258,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
             }
         }
 
-        Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(22.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().midnightModuleCard(accent = SettingsBlue, radius = 22.dp).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Developer test data", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
@@ -358,7 +358,7 @@ private fun SyntheticSpanButton(label: String, selected: Boolean, modifier: Modi
 
 @Composable
 private fun SettingsSection(title: String, subtitle: String) {
-    Column(Modifier.fillMaxWidth().background(SettingsCard, RoundedCornerShape(18.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().midnightModuleCard(accent = SettingsBlue, radius = 18.dp).padding(16.dp)) {
         Text(title, color = SettingsInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
         Text(subtitle, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
