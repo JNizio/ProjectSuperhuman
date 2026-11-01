@@ -82,7 +82,7 @@ internal fun MidnightNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> 
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightGreen)
             .padding(horizontal = 19.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp)
+        verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
         MidnightHeader("Nutrition", "Fuel your day", midnightGreen, R.drawable.tabler_leaf) {
             MidnightAction(R.drawable.tabler_plus)
@@ -174,7 +174,7 @@ internal fun MidnightTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> U
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightBlue)
             .padding(horizontal = 19.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp)
+        verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
         MidnightHeader("Training", "Move with purpose", midnightBlue, R.drawable.tabler_barbell) {
             MidnightAction(R.drawable.tabler_chevron_right)
@@ -235,7 +235,7 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightPurple)
             .padding(horizontal = 19.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp)
+        verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
         MidnightHeader("Sleep", "Rest and recover", midnightPurple, R.drawable.tabler_moon) {
             if (score != null) {
