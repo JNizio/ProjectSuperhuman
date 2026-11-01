@@ -137,7 +137,7 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
                 Modifier.width(42.dp).height(42.dp).background(FoodEditSurface, RoundedCornerShape(14.dp))
                     .border(1.dp, FoodEditBorder, RoundedCornerShape(14.dp)).clickable(onClick = onBack),
                 contentAlignment = Alignment.Center
-            ) { Text("←", color = FoodEditNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+            ) { Icon(painter = painterResource(id = R.drawable.tabler_arrow_left), contentDescription = "Back to nutrition", tint = FoodEditNavy, modifier = Modifier.size(24.dp)) }
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("Food data editor", color = FoodEditInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
@@ -346,7 +346,7 @@ private fun FoodNutritionEditorScreen(onBack: () -> Unit) {
         }
 
         if (status.isNotBlank()) Text(status, color = FoodEditMuted, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 2.dp))
-        Spacer(Modifier.height(26.dp))
+        Spacer(Modifier.height(112.dp))
     }
 }
 
