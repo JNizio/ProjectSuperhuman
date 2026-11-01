@@ -120,7 +120,7 @@ internal fun NativeSleepParityScreen(onBack: () -> Unit, openLegacy: () -> Unit)
             EmptySleepCard(connected)
         }
         SleepDataSourceCard(connected = connected, syncing = syncing, status = status)
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(112.dp))
     }
 }
 
