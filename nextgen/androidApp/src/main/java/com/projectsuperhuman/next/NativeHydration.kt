@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -164,7 +167,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
         HydrationPacingCard(snapshot)
         HydrationHistoryCard(snapshot)
 
-        Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(24.dp)).border(1.dp, HydBorder, RoundedCornerShape(24.dp)).padding(16.dp)) {
+        Column(Modifier.fillMaxWidth().midnightModuleCard(accent = HydBlue, radius = 24.dp).padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text("Daily water goal", color = HydInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -186,7 +189,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
 private fun HydrationHeader(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
-            Text("←", color = HydNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Icon(painter = painterResource(R.drawable.tabler_arrow_left), contentDescription = "Back", tint = HydInk, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column {
@@ -209,7 +212,7 @@ private fun HydrationPacingCard(snapshot: HydrationSnapshot) {
         delta >= -300 -> "You’re roughly on pace for today’s water goal."
         else -> "You’re ${formatMlHydration(-delta)} behind an even pace. A small glass would close the gap."
     }
-    Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(22.dp)).border(1.dp, HydBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().midnightModuleCard(accent = HydBlue, radius = 22.dp).padding(16.dp)) {
         Text("Water pace", color = HydInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(5.dp)); Text(message, color = HydMuted, fontSize = 10.sp, lineHeight = 15.sp); Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -231,7 +234,7 @@ private fun HydMiniStat(value: String, label: String) {
 @Composable
 private fun HydrationHistoryCard(snapshot: HydrationSnapshot) {
     val max = (snapshot.history.maxOfOrNull { it.ml } ?: snapshot.goalMl).coerceAtLeast(snapshot.goalMl).coerceAtLeast(1)
-    Column(Modifier.fillMaxWidth().background(superhumanSurface, RoundedCornerShape(22.dp)).border(1.dp, HydBorder, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().midnightModuleCard(accent = HydBlue, radius = 22.dp).padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("7-day water consistency", color = HydInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
