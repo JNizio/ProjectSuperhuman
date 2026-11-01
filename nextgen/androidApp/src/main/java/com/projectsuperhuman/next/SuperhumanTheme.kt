@@ -131,7 +131,7 @@ internal object SuperhumanLayout {
     // Product-wide optical rhythm; see docs/PRODUCT_DESIGN_PHILOSOPHY.md
     val homeCardRadius: Dp = 26.dp
     val homeCardPadding: Dp = 16.dp
-    val homeSectionGap: Dp = 12.dp
+    val homeSectionGap: Dp = 8.dp
     val homePrimaryMetricSp: Int = 30
     val homeSupportingTextSp: Int = 13
     val cardRadius: Dp = 22.dp
