@@ -68,8 +68,11 @@ internal fun HydrationHeroControls(
 
     Column(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(30.dp))
-            .background(Brush.linearGradient(listOf(Color(0xFF0864A7), Color(0xFF11A6C3))))
+            .then(
+                if (SuperhumanAppearance.darkMode) Modifier.midnightModuleCard(accent = superhumanBlue, radius = 30.dp)
+                else Modifier.clip(RoundedCornerShape(30.dp))
+                    .background(Brush.linearGradient(listOf(Color(0xFF0864A7), Color(0xFF11A6C3))))
+            )
             .padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
