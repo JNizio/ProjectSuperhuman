@@ -18,6 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,14 +68,14 @@ internal fun NativeNutritionWithFoodEditorPage(onBack: () -> Unit) {
             NativeNutritionExperienceV2Page(onBack)
             Box(
                 Modifier.align(Alignment.BottomEnd)
-                    .padding(end = 18.dp, bottom = 18.dp)
+                    .padding(end = 18.dp, bottom = 108.dp)
                     .width(46.dp).height(46.dp)
                     .background(if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else FoodEditNavy, RoundedCornerShape(16.dp))
                     .border(1.dp, Color.White.copy(alpha = .12f), RoundedCornerShape(16.dp))
                     .clickable { editingFoodData = true },
                 contentAlignment = Alignment.Center
             ) {
-                Text("✎", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
+                Icon(painter = painterResource(id = R.drawable.tabler_pencil), contentDescription = "Open food data editor", tint = Color.White, modifier = Modifier.size(23.dp))
             }
         }
     }
