@@ -350,7 +350,7 @@ internal fun NativeLiveHome(
                     }
                 }
             }
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(112.dp))
         }
     }
 }
