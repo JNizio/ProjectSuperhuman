@@ -334,7 +334,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
         SettingsSection("Permissions", "Camera, barcode/OCR, Bluetooth and health permissions are requested only when the related feature needs them.")
         SettingsSection("Scientific engine", "Health scores and statuses use stored native metrics and explicit reference ranges; missing clinical ranges are not invented.")
         SettingsSection("11.0 compatibility", "Core workflows are native-first. Selected advanced legacy tools remain available from their module as a safety fallback during the 11.0 validation cycle.")
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(112.dp))
     }
 }
 
