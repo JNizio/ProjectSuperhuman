@@ -822,10 +822,11 @@ private fun N2Tabs(view: N2View, onChange: (N2View) -> Unit) {
 private fun N2Tab(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
         modifier.height(SuperhumanLayout.controlHeight)
-            .background(if (selected) N2Blue else Color.Transparent, RoundedCornerShape(14.dp))
+            .background(midnightTabColor(selected, N2Blue), RoundedCornerShape(14.dp))
+            .border(1.dp, midnightTabOutline(selected), RoundedCornerShape(14.dp))
             .superhumanClickable(onClick = onClick),
         contentAlignment = Alignment.Center
-    ) { Text(label, color = if (selected) Color.White else N2Muted, fontSize = 10.sp, fontWeight = FontWeight.Black) }
+    ) { Text(label, color = midnightTabTextColor(selected, N2Blue), fontSize = 12.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium) }
 }
 
 @Composable
@@ -837,12 +838,11 @@ private fun N2Hero(
 ) {
     Column(
         Modifier.fillMaxWidth()
-            .background(N2Surface, RoundedCornerShape(24.dp))
-            .border(1.dp, N2Border, RoundedCornerShape(24.dp))
-            .padding(16.dp),
+            .midnightModuleCard(accent = N2Green, radius = 24.dp)
+            .padding(19.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Today's intake", color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
+        Text("Today's intake", color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
 
         Row(
             Modifier.fillMaxWidth(),
@@ -855,8 +855,8 @@ private fun N2Hero(
                 Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(9.dp)
             ) {
-                N2MacroValue("Protein", day.protein, goals.protein, N2Blue, day.proteinComplete)
-                N2MacroValue("Carbs", day.carbs, goals.carbs, N2Cyan, day.carbsComplete)
+                N2MacroValue("Protein", day.protein, goals.protein, N2Green, day.proteinComplete)
+                N2MacroValue("Carbs", day.carbs, goals.carbs, N2Blue, day.carbsComplete)
                 N2MacroValue("Fat", day.fat, goals.fat, N2Amber, day.fatComplete)
                 N2MacroValue("Fibre", day.fibre, goals.fibre, N2Green, day.fibreComplete)
             }
@@ -881,8 +881,7 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
     Column(
         Modifier
             .fillMaxWidth()
-            .background(N2SoftGreen, RoundedCornerShape(22.dp))
-            .border(1.dp, N2Green.copy(alpha = .34f), RoundedCornerShape(22.dp))
+            .midnightModuleCard(accent = N2Green, radius = 22.dp)
             .padding(horizontal = 15.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -931,10 +930,10 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
         }
 
         Box(
-            Modifier.size(210.dp),
+            Modifier.size(194.dp),
             contentAlignment = Alignment.TopStart
         ) {
-            val center = 105f
+            val center = 97f
             val orbit = 58f
             val petalBox = 82f
 
@@ -1109,10 +1108,10 @@ private fun N2NutritionRing(day: N2Day, goals: N2Goals) {
         0f
     }
     val macroMetrics = listOf(
-        N2RingMetric(day.protein, goals.protein, N2Blue, day.proteinComplete),
-        N2RingMetric(day.carbs, goals.carbs, N2Cyan, day.carbsComplete),
+        N2RingMetric(day.protein, goals.protein, N2Green, day.proteinComplete),
+        N2RingMetric(day.carbs, goals.carbs, N2Blue, day.carbsComplete),
         N2RingMetric(day.fat, goals.fat, N2Amber, day.fatComplete),
-        N2RingMetric(day.fibre, goals.fibre, N2Green, day.fibreComplete)
+        N2RingMetric(day.fibre, goals.fibre, N2Purple, day.fibreComplete)
     )
 
     Box(Modifier.size(148.dp), contentAlignment = Alignment.Center) {
@@ -1278,11 +1277,11 @@ private fun N2LogCard(
     onBarcodeLookup: () -> Unit
 ) {
     Column(
-        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp)).border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().midnightModuleCard(accent = N2Green, radius = 24.dp).padding(19.dp),
         verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.contentGap)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-            Text("Add food", color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
+            Text("Add food", color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text("Search foods, scan packaging or import a barcode photo.", color = N2Muted, fontSize = 10.sp)
         }
         OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Food, brand or meal") })
@@ -1342,8 +1341,8 @@ private fun N2IconActionButton(
 ) {
     Column(
         modifier.height(88.dp)
-            .background(accent.copy(alpha = if (enabled) .13f else .05f), RoundedCornerShape(16.dp))
-            .border(1.dp, accent.copy(alpha = if (enabled) .30f else .12f), RoundedCornerShape(16.dp))
+            .background(if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else accent.copy(alpha = if (enabled) .13f else .05f), RoundedCornerShape(16.dp))
+            .border(1.dp, if (SuperhumanAppearance.darkMode) N2Border else accent.copy(alpha = if (enabled) .30f else .12f), RoundedCornerShape(16.dp))
             .superhumanClickable(enabled = enabled, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -2056,8 +2055,8 @@ private fun N2MealCard(
     val mealProteinComplete = entries.all { it.proteinKnown }
 
     Column(
-        Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(20.dp))
-            .border(1.dp, N2Border, RoundedCornerShape(20.dp)).padding(SuperhumanLayout.cardPadding),
+        Modifier.fillMaxWidth().midnightModuleCard(accent = N2Green, radius = 22.dp)
+            .padding(SuperhumanLayout.cardPadding),
         verticalArrangement = Arrangement.spacedBy(7.dp)
     ) {
         Row(
@@ -2524,8 +2523,7 @@ private fun N2GoalsPage(goals: N2Goals, recommendation: N2GoalRecommendation?, o
 
     Column(verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.sectionGap)) {
         Column(
-            Modifier.fillMaxWidth().background(N2Surface, RoundedCornerShape(24.dp))
-                .border(1.dp, N2Border, RoundedCornerShape(24.dp)).padding(16.dp),
+            Modifier.fillMaxWidth().midnightModuleCard(accent = N2Green, radius = 24.dp).padding(19.dp),
             verticalArrangement = Arrangement.spacedBy(13.dp)
         ) {
             Text("Daily goals", color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.Black)
