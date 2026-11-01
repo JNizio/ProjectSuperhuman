@@ -25,6 +25,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -173,7 +176,7 @@ internal fun NativeVitalsPage(onBack: () -> Unit) {
 private fun VitalsHeader(onBack: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
-            Text("←", color = VitalsNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Icon(painter = painterResource(R.drawable.tabler_arrow_left), contentDescription = "Back", tint = VitalsInk, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column {
@@ -237,7 +240,7 @@ private fun LatestVitalCard(
     onRecord: () -> Unit
 ) {
     val shape = RoundedCornerShape(22.dp)
-    Column(Modifier.fillMaxWidth().background(VitalsSurface, shape).border(1.dp, VitalsBorder, shape).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().midnightModuleCard(accent = accent, radius = 22.dp).padding(18.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(label, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
