@@ -112,7 +112,7 @@ private fun SuperhumanShell(
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
-    val bottomBarHeight = 76.dp
+    val bottomBarHeight = 0.dp
     val trudyState = remember { TrudyConversationState() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
@@ -278,14 +278,7 @@ private fun NativeHomeTitle() {
             Spacer(Modifier.height(6.dp))
             Text("Small steps. Big results.", color = ShellMuted, fontSize = 13.sp)
         }
-        Box(
-            Modifier.size(50.dp)
-                .background(superhumanSurface, CircleShape)
-                .border(1.dp, superhumanBorder.copy(alpha = .65f), CircleShape),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("☼", color = superhumanTextMuted, fontSize = 27.sp)
-        }
+
     }
 }
 
