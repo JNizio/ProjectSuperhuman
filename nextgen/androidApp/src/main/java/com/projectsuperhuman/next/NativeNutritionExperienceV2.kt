@@ -724,7 +724,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
         }
 
         if (status.isNotBlank()) Text(status, color = N2Muted, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 3.dp))
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(112.dp))
     }
 }
 
