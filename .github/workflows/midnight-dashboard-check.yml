@@ -1,0 +1,43 @@
+name: Midnight Dashboard Android Compile
+
+on:
+  push:
+    branches: ['feature/midnight-dashboard-20261101']
+    paths:
+      - 'nextgen/**'
+      - '.github/workflows/midnight-dashboard-check.yml'
+  pull_request:
+    branches: ['11.4']
+    paths:
+      - 'nextgen/**'
+      - '.github/workflows/midnight-dashboard-check.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compile-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Build debug APK
+        run: gradle --no-daemon -p nextgen :androidApp:assembleDebug
+      - name: Verify APK exists
+        run: test -s nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: project-superhuman-midnight-preview
+          path: nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+          retention-days: 5
+          if-no-files-found: error
