@@ -86,7 +86,7 @@ internal fun MidnightNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> 
             .padding(horizontal = 18.dp, vertical = 19.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        MidnightHeader("Nutrition", "Fuel your day", midnightGreen, null, "❧") {
+        MidnightHeader("Nutrition", "Fuel your day", midnightGreen, R.drawable.tabler_leaf, "") {
             MidnightAction(R.drawable.tabler_plus)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -247,7 +247,7 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
             .padding(horizontal = 18.dp, vertical = 19.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        MidnightHeader("Sleep", "Rest and recover", midnightPurple, null, "☾") {
+        MidnightHeader("Sleep", "Rest and recover", midnightPurple, R.drawable.tabler_moon, "") {
             if (score != null) {
                 Box(Modifier.background(midnightPurple.copy(alpha = .12f), RoundedCornerShape(100.dp))
                     .padding(horizontal = 12.dp, vertical = 7.dp)) {
@@ -276,7 +276,7 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).background(midnightPurple.copy(alpha = .13f), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center) {
-                Text("☾", color = midnightPurple, fontSize = 23.sp)
+                Icon(painterResource(R.drawable.tabler_moon), null, tint = midnightPurple, modifier = Modifier.size(23.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
