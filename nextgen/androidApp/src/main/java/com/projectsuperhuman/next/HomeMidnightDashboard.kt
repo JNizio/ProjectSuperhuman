@@ -107,7 +107,7 @@ internal fun MidnightNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> 
                     color = superhumanTextMuted, fontSize = 10.sp)
             }
             Spacer(Modifier.width(15.dp))
-            MidnightNutritionRing(calories, goal, protein, carbs, fat)
+            MidnightNutritionRing(goal, protein, carbs, fat)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             MidnightMacro("Protein", protein, snapshot.proteinGoal, midnightGreen, Modifier.weight(1f))
@@ -138,7 +138,7 @@ private fun MidnightMacro(name: String, amount: Int, goal: Int?, accent: Color, 
 }
 
 @Composable
-private fun MidnightNutritionRing(calories: Int, goal: Int?, protein: Int, carbs: Int, fat: Int) {
+private fun MidnightNutritionRing(goal: Int?, protein: Int, carbs: Int, fat: Int) {
     val energy = listOf(protein * 4f, carbs * 4f, fat * 9f)
     val total = energy.sum()
     val denominator = (goal?.toFloat() ?: total).coerceAtLeast(1f)
@@ -161,10 +161,6 @@ private fun MidnightNutritionRing(calories: Int, goal: Int?, protein: Int, carbs
                 }
                 angle += sweep
             }
-        }
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text("$calories", color = superhumanTextPrimary, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-            Text("kcal", color = superhumanTextMuted, fontSize = 11.sp)
         }
     }
 }
