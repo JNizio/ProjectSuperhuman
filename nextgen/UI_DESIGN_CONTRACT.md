@@ -42,3 +42,14 @@ Before merging UI changes, verify:
 7. Dark and light themes preserve the same geometry.
 
 These rules are part of the Project Superhuman visual system, not module-specific preferences.
+
+## Midnight detail-module consistency
+
+- Detail modules must visually belong to the same family as the Home dashboard. Use `Modifier.midnightModuleCard(accent, radius)` for key dark-theme module surfaces instead of saturated full-card backgrounds or inconsistent bespoke borders.
+- Reserve domain colours for icons, meaningful chart segments, measured signals, progress and low-energy accent washes. Keep the primary cards neutral charcoal in dark mode.
+- Selected segmented tabs should use `midnightTabColor`, `midnightTabTextColor`, and `midnightTabOutline`. Avoid large saturated blue selected fills in dark mode.
+- Prefer existing Tabler drawable resources for action and navigation icons; do not use text arrows or hand-drawn Canvas icons for standard actions.
+- Preserve legibility at standard Android font scaling: body text at least 11–12sp where possible, controls at least 44dp touch targets.
+- Floating bottom navigation overlays content. Every scrollable module and any separately positioned floating action button must leave enough bottom clearance to remain fully accessible.
+- Preserve light-theme readability, data provenance, calculation semantics, workflows, content and module navigation when making visual changes.
+- Reference implementation: `HomeMidnightDashboard.kt`; shared detail styling: `MidnightModuleStyle.kt`.
