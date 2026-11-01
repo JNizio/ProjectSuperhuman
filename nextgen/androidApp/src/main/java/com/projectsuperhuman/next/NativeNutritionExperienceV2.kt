@@ -1116,7 +1116,7 @@ private fun N2NutritionRing(day: N2Day, goals: N2Goals) {
 
     Box(Modifier.size(148.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
-            val calorieStroke = 10.dp.toPx()
+            val calorieStroke = 8.dp.toPx()
             val macroStroke = 5.dp.toPx()
             val calorieInset = 18.dp.toPx()
             val macroInset = 4.dp.toPx()
@@ -1136,7 +1136,7 @@ private fun N2NutritionRing(day: N2Day, goals: N2Goals) {
 
             if (calorieFraction > 0f) {
                 drawArc(
-                    color = Color.White,
+                    color = N2Ink.copy(alpha = if (SuperhumanAppearance.darkMode) .68f else 1f),
                     startAngle = -90f,
                     sweepAngle = 360f * calorieFraction,
                     useCenter = false,
