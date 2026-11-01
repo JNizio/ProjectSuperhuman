@@ -47,15 +47,13 @@ private fun MindfulnessHalfTile(
     val minutes = snapshot.mindfulnessMinutesToday
     Column(
         modifier.height(132.dp)
-            .clip(RoundedCornerShape(23.dp))
-            .background(Color(0xFFF4FAFB))
-            .border(1.dp, Color(0xFFDCECEF), RoundedCornerShape(23.dp))
+            .midnightCardSurface(accent = superhumanGreen, radius = 23.dp)
             .clickable(onClick = onClick)
             .padding(15.dp)
     ) {
         Text(
             "MINDFULNESS",
-            color = Color(0xFF748294),
+            color = superhumanTextMuted,
             fontSize = 8.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 1.sp
@@ -63,13 +61,13 @@ private fun MindfulnessHalfTile(
         Spacer(Modifier.height(9.dp))
         Text(
             if (minutes > 0) "$minutes min" else "Ready",
-            color = Color(0xFF176B72),
+            color = superhumanTextPrimary,
             fontSize = 20.sp,
             fontWeight = FontWeight.Black
         )
         Text(
             if (minutes > 0) "mindful time today" else "Meditate · reflect · reset",
-            color = Color(0xFF748294),
+            color = superhumanTextMuted,
             fontSize = 8.sp
         )
         Spacer(Modifier.height(14.dp))
@@ -79,7 +77,7 @@ private fun MindfulnessHalfTile(
                     Modifier.weight(1f)
                         .height((10 + index * 5).dp)
                         .background(
-                            if (minutes > 0 && index < 3) Color(0xFF5CB7AE) else Color(0xFFD9ECEB),
+                            if (minutes > 0 && index < 3) superhumanGreen else superhumanSurfaceSoft,
                             RoundedCornerShape(7.dp)
                         )
                 )
@@ -95,37 +93,31 @@ private fun BreathworkHalfTile(
 ) {
     Column(
         modifier.height(132.dp)
-            .clip(RoundedCornerShape(23.dp))
-            .background(
-                Brush.linearGradient(
-                    listOf(Color(0xFF0B4168), Color(0xFF0F6F82), Color(0xFF1AA2A1))
-                )
-            )
-            .border(1.dp, Color(0xFF2A8DA0), RoundedCornerShape(23.dp))
+            .midnightCardSurface(accent = superhumanBlue, radius = 23.dp)
             .clickable(onClick = onClick)
             .padding(15.dp)
     ) {
         Text(
             "BREATHWORK",
-            color = Color.White.copy(alpha = .70f),
+            color = superhumanTextMuted,
             fontSize = 8.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 1.sp
         )
         Spacer(Modifier.height(9.dp))
-        Text("3 rounds", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
-        Text("30 breaths · timed holds", color = Color.White.copy(alpha = .72f), fontSize = 8.sp)
+        Text("3 rounds", color = superhumanTextPrimary, fontSize = 20.sp, fontWeight = FontWeight.Black)
+        Text("30 breaths · timed holds", color = superhumanTextMuted, fontSize = 8.sp)
         Spacer(Modifier.height(13.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             repeat(3) {
                 androidx.compose.foundation.layout.Box(
                     Modifier.weight(1f)
                         .height(8.dp)
-                        .background(Color.White.copy(alpha = .22f), CircleShape)
+                        .background(superhumanSurfaceSoft, CircleShape)
                 )
             }
         }
         Spacer(Modifier.height(8.dp))
-        Text("Start guided routine  →", color = Color(0xFF8EF0DE), fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Text("Start guided routine  →", color = superhumanBlue, fontSize = 8.sp, fontWeight = FontWeight.Black)
     }
 }
