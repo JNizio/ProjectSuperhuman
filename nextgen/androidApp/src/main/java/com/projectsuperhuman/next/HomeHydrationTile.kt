@@ -62,9 +62,7 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
     Box(
         Modifier.fillMaxWidth()
             .height(158.dp)
-            .clip(shape)
-            .background(palette.surface)
-            .border(1.dp, palette.border, shape)
+            .midnightCardSurface(accent = accent, radius = 27.dp)
             .superhumanHomeTileClickable(onClick = onClick)
     ) {
         if (waterImage != null) {
