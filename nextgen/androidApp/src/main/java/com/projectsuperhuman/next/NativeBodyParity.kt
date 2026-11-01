@@ -126,7 +126,7 @@ internal fun NativeBodyParityScreen(onBack: () -> Unit, openLegacy: () -> Unit) 
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(112.dp))
     }
 }
 
