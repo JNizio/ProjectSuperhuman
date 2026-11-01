@@ -79,7 +79,7 @@ internal fun NativeSettingsWithUsage(openLegacy: () -> Unit, openSmartDevices: (
             ) {
                 Text("Storage", color = SettingsUsageNavy, fontSize = 25.sp, fontWeight = FontWeight.Black)
                 SettingsDataUsageCard()
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(112.dp))
             }
         } else {
             Box(Modifier.fillMaxWidth().weight(1f)) {
