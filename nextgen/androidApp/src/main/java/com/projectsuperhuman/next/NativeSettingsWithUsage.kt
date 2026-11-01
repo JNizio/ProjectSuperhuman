@@ -94,16 +94,16 @@ private fun SettingsModeButton(label: String, selected: Boolean, width: androidx
     val shape = RoundedCornerShape(14.dp)
     Box(
         Modifier.width(width).height(38.dp)
-            .background(if (selected) SettingsUsageBlue else superhumanSurface, shape)
-            .border(1.dp, if (selected) SettingsUsageBlue else superhumanBorder, shape)
+            .background(if (selected) midnightTabColor(true, SettingsUsageBlue) else superhumanSurface, shape)
+            .border(1.dp, if (selected) superhumanBorder else superhumanBorder.copy(alpha = .45f), shape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
             label,
-            color = if (selected) Color.White else SettingsUsageMuted,
-            fontSize = 8.sp,
-            fontWeight = FontWeight.Black,
+            color = midnightTabTextColor(selected, SettingsUsageBlue),
+            fontSize = 10.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
             letterSpacing = .7.sp
         )
     }
