@@ -155,7 +155,7 @@ internal fun HomeSummaryBar(openMetric: (HomeMiniMetric) -> Unit) {
     Row(
         Modifier.fillMaxWidth()
             .background(
-                if (SuperhumanAppearance.darkMode) Color(0xFF0E1D28)
+                if (SuperhumanAppearance.darkMode) superhumanSurface
                 else superhumanSurfaceSoft,
                 shape
             )
@@ -214,8 +214,7 @@ private fun MiniMetricCard(
 ) {
     Box(
         modifier.height(106.dp)
-            .background(Brush.linearGradient(listOf(superhumanSurfaceElevated, accent.copy(alpha = if (SuperhumanAppearance.darkMode) .11f else .065f))), RoundedCornerShape(22.dp))
-            .border(1.dp, accent.copy(alpha = if (SuperhumanAppearance.darkMode) .28f else .18f), RoundedCornerShape(22.dp))
+            .midnightCardSurface(accent = accent, radius = 22.dp)
             .clickable(onClick = onClick)
             .padding(13.dp)
     ) {
@@ -653,8 +652,7 @@ private fun MiniMetricHero(metric: HomeMiniMetric, detail: MiniMetricDetailData,
     val displayValue = detail.current?.let { value -> if (metric == HomeMiniMetric.STEPS) compactCount(value.roundToInt()) else value.roundToInt().toString() } ?: "—"
     Column(
         Modifier.fillMaxWidth()
-            .background(Brush.linearGradient(listOf(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .17f else .15f), superhumanSurfaceElevated)), RoundedCornerShape(26.dp))
-            .border(1.dp, accent.copy(alpha = .20f), RoundedCornerShape(26.dp)).padding(20.dp)
+            .midnightModuleCard(accent = accent, radius = 26.dp).padding(20.dp)
     ) {
         Text(detail.sourceLabel?.uppercase() ?: "NO WEARABLE DATA YET", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
         Spacer(Modifier.height(8.dp))
@@ -730,8 +728,7 @@ private fun MiniHistoryChart(values: List<Double?>, accent: Color) {
 @Composable
 private fun UnsupportedStressCard() {
     Column(
-        Modifier.fillMaxWidth().background(Brush.linearGradient(listOf(MiniCalories.copy(alpha = .14f), superhumanSurfaceElevated)), RoundedCornerShape(26.dp))
-            .border(1.dp, MiniCalories.copy(alpha = .16f), RoundedCornerShape(26.dp)).padding(20.dp)
+        Modifier.fillMaxWidth().midnightModuleCard(accent = MiniCalories, radius = 26.dp).padding(20.dp)
     ) {
         Text("SOURCE LIMITATION", color = MiniCalories, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
         Spacer(Modifier.height(8.dp)); Text("Samsung Stress isn’t exported", color = MiniNavy, fontSize = 21.sp, fontWeight = FontWeight.Black); Spacer(Modifier.height(7.dp))
