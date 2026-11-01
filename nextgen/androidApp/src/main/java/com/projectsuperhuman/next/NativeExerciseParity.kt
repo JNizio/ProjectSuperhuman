@@ -1647,7 +1647,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 WideActionTile("DONE", "Return to training dashboard", ExerciseNavy) { session.clear(); workoutExercises.clear(); selected = null; activeSessionId = ""; workoutName = ""; workoutNotes = ""; sessionRpeText = ""; mode = "home" }
             }
         }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(112.dp))
     }
 }
 
