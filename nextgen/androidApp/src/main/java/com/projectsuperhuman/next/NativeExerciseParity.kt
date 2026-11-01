@@ -1985,7 +1985,7 @@ private fun StrengthActiveExercisePanel(
     }
 }
 
-@Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back" }, contentAlignment = Alignment.Center) { Text("←", color = ExerciseBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold) }; Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "start_picker" -> "Start workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "session_detail" -> "Workout detail"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Strength" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); if (mode == "workout") Text("Saved automatically", color = ExerciseMuted, fontSize = 12.sp) } } }
+@Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back" }, contentAlignment = Alignment.Center) { Icon(painter = painterResource(R.drawable.tabler_arrow_left), contentDescription = "Back", tint = ExerciseInk, modifier = Modifier.size(24.dp)) }; Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "start_picker" -> "Start workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "session_detail" -> "Workout detail"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Strength" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); if (mode == "workout") Text("Saved automatically", color = ExerciseMuted, fontSize = 12.sp) } } }
 @Composable
 private fun StrengthSessionPanel(
     activeWorkout: Boolean,
@@ -1999,12 +1999,7 @@ private fun StrengthSessionPanel(
     Column(
         Modifier
             .fillMaxWidth()
-            .background(ExerciseSurface, shape)
-            .border(
-                1.dp,
-                if (activeWorkout) ExerciseBlue.copy(alpha = .42f) else ExerciseCardBorder,
-                shape
-            )
+            .midnightModuleCard(accent = if (activeWorkout) ExerciseGreen else ExerciseBlue, radius = 22.dp)
             .padding(17.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2077,8 +2072,7 @@ private fun StrengthQuickActions(
     Row(
         Modifier
             .fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(20.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
+            .midnightModuleCard(accent = ExerciseBlue, radius = 20.dp)
             .padding(horizontal = 8.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -2392,8 +2386,7 @@ private fun StrengthProgressCard(
 
     Column(
         Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(22.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(22.dp))
+            .midnightModuleCard(accent = ExerciseBlue, radius = 22.dp)
             .padding(16.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2609,8 +2602,7 @@ private fun StrengthMuscleFocusCard(muscle: String, estimatedSets: Double, onOpe
 private fun StrengthRecordsCard(prs: List<StrengthExercisePr>, onOpenProgress: () -> Unit) {
     Column(
         Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(20.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
+            .midnightModuleCard(accent = ExerciseBlue, radius = 20.dp)
             .padding(15.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2707,8 +2699,7 @@ private fun RoutineVisualCard(
     }
     Column(
         Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(20.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
+            .midnightModuleCard(accent = ExerciseBlue, radius = 20.dp)
             .padding(14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -2773,8 +2764,7 @@ private fun RoutineVisualCard(
 private fun RoutineEmptyCard(onCreate: () -> Unit) {
     Column(
         Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(20.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
+            .midnightModuleCard(accent = ExerciseBlue, radius = 20.dp)
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -3055,8 +3045,7 @@ private fun StrengthHistoryCalendar(
 
     Column(
         Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(22.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(22.dp))
+            .midnightModuleCard(accent = ExerciseBlue, radius = 22.dp)
             .padding(15.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -3124,8 +3113,7 @@ private fun StrengthHistoryDayCard(session: StrengthWorkoutSession, onOpen: () -
     val exercises = session.sets.mapNotNull { it.metadata["exerciseName"] }.distinct().take(4)
     Column(
         Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(20.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(20.dp))
+            .midnightModuleCard(accent = ExerciseBlue, radius = 20.dp)
             .superhumanClickable(onClick = onOpen)
             .padding(15.dp)
     ) {
