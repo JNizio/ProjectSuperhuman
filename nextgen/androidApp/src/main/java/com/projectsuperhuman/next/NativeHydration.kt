@@ -178,7 +178,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) { Text("SAVE GOAL", color = HydBlue, fontSize = 10.sp, fontWeight = FontWeight.Black) }
         }
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(112.dp))
     }
 }
 
