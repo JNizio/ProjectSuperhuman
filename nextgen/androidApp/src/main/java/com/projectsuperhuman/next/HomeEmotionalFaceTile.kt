@@ -124,17 +124,7 @@ internal fun HomeEmotionalFaceTile(current: EmotionalPresentationSnapshot?, onCl
 
     Column(
         Modifier.fillMaxWidth()
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        palette.surface,
-                        palette.surfaceElevated.copy(alpha = if (dark) .90f else .50f),
-                        palette.accentSoft.copy(alpha = if (dark) .60f else .30f)
-                    )
-                ),
-                shape
-            )
-            .border(1.dp, palette.border, shape)
+            .midnightCardSurface(accent = palette.blue, radius = 25.dp)
             .superhumanHomeTileClickable(onClick = onClick)
             .testTag("home_emotional_tile")
             .semantics(mergeDescendants = true) { contentDescription = description }
