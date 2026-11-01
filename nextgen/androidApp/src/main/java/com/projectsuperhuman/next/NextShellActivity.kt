@@ -112,7 +112,7 @@ private fun SuperhumanShell(
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
-    val bottomBarHeight = 72.dp
+    val bottomBarHeight = 76.dp
     val trudyState = remember { TrudyConversationState() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
@@ -252,35 +252,40 @@ private fun NativeTopBar(
 @Composable
 private fun NativeHomeTitle() {
     val date = java.time.LocalDate.now().format(
-        java.time.format.DateTimeFormatter.ofPattern("EEE, d MMMM", java.util.Locale.ENGLISH)
-    )
-    Column(
+        java.time.format.DateTimeFormatter.ofPattern("EEEE, d MMMM", java.util.Locale.ENGLISH)
+    ).uppercase(java.util.Locale.ENGLISH)
+    val greeting = when (java.time.LocalTime.now().hour) {
+        in 5..11 -> "Good morning,"
+        in 12..16 -> "Good afternoon,"
+        else -> "Good evening,"
+    }
+    Row(
         Modifier.fillMaxWidth().padding(
             horizontal = SuperhumanLayout.pageHorizontal,
-            vertical = 10.dp
+            vertical = 23.dp
         ),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                "SUPERHUMAN",
-                color = ShellMuted,
-                fontSize = 11.sp,
-                lineHeight = 15.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.5.sp
-            )
-            Text(date, color = ShellMuted, fontSize = 12.sp, lineHeight = 16.sp)
+        Column(Modifier.weight(1f)) {
+            Text(date, color = ShellMuted, fontSize = 11.sp, lineHeight = 15.sp,
+                fontWeight = FontWeight.Medium, letterSpacing = 1.5.sp)
+            Spacer(Modifier.height(9.dp))
+            Text(greeting, color = ShellNavy, fontSize = 30.sp, lineHeight = 35.sp,
+                fontWeight = FontWeight.Light)
+            Text("Jakub.", color = superhumanTextPrimary, fontSize = 30.sp, lineHeight = 35.sp,
+                fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(6.dp))
+            Text("Small steps. Big results.", color = ShellMuted, fontSize = 13.sp)
         }
-        Text(
-            "Today",
-            color = ShellNavy,
-            fontWeight = FontWeight.Bold,
-            fontSize = 28.sp,
-            lineHeight = 33.sp,
-            letterSpacing = -.4.sp
-        )
+        Box(
+            Modifier.size(50.dp)
+                .background(superhumanSurface, CircleShape)
+                .border(1.dp, superhumanBorder.copy(alpha = .65f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("☼", color = superhumanTextMuted, fontSize = 27.sp)
+        }
     }
 }
 
@@ -293,43 +298,41 @@ private fun ShellBottomNavigation(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    // Floating navigation: the canvas remains black around the card.
+    // Keep the container and selection intentionally calmer than primary dashboard metrics.
+    val dark = SuperhumanAppearance.darkMode
+    val shape = RoundedCornerShape(28.dp)
     Row(
         modifier
             .fillMaxWidth()
-            .height(72.dp)
-            .background(if (SuperhumanAppearance.darkMode) superhumanSurface else ShellBg)
-            .padding(horizontal = 24.dp, vertical = 5.dp),
+            .padding(horizontal = 18.dp, vertical = 10.dp)
+            .height(68.dp)
+            .background(if (dark) Color(0xFF17191D) else superhumanSurfaceElevated, shape)
+            .border(
+                1.dp,
+                if (dark) Color.White.copy(alpha = .075f) else superhumanBorder,
+                shape
+            )
+            .padding(horizontal = 7.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        val selectedTint = if (dark) Color(0xFFF2F3F5) else superhumanBlue
+        ShellBottomItem("Home", selectedPage == ShellPage.HOME, selectedTint, onHome) {
+            color -> ShellTablerIcon(R.drawable.tabler_home, color)
+        }
+        ShellBottomItem("Body", selectedPage == ShellPage.BODY, selectedTint, onBody) {
+            color -> ShellTablerIcon(R.drawable.tabler_user, color)
+        }
+        ShellBottomItem("Trudy", selectedPage == ShellPage.TRUDY, selectedTint, onTrudy) {
+            color -> ShellTablerIcon(R.drawable.tabler_message_circle, color)
+        }
         ShellBottomItem(
-            label = "Home",
-            selected = selectedPage == ShellPage.HOME,
-            accent = if (SuperhumanAppearance.darkMode) superhumanTextPrimary else superhumanBlue,
-            onClick = onHome,
-            icon = { color -> ShellTablerIcon(R.drawable.tabler_home, color) }
-        )
-        ShellBottomItem(
-            label = "Body",
-            selected = selectedPage == ShellPage.BODY,
-            accent = if (SuperhumanAppearance.darkMode) superhumanTextPrimary else superhumanBlue,
-            onClick = onBody,
-            icon = { color -> ShellTablerIcon(R.drawable.tabler_user, color) }
-        )
-        ShellBottomItem(
-            label = "Trudy",
-            selected = selectedPage == ShellPage.TRUDY,
-            accent = ShellTrudy,
-            onClick = onTrudy,
-            icon = { color -> ShellTablerIcon(R.drawable.tabler_message_circle, color) }
-        )
-        ShellBottomItem(
-            label = "Settings",
-            selected = selectedPage == ShellPage.SETTINGS || selectedPage == ShellPage.SMART_DEVICES,
-            accent = ShellNavy,
-            onClick = onSettings,
-            icon = { color -> ShellTablerIcon(R.drawable.tabler_settings, color) }
-        )
+            "Settings", selectedPage == ShellPage.SETTINGS || selectedPage == ShellPage.SMART_DEVICES,
+            selectedTint, onSettings
+        ) {
+            color -> ShellTablerIcon(R.drawable.tabler_settings, color)
+        }
     }
 }
 
@@ -342,34 +345,29 @@ private fun ShellBottomItem(
     icon: @Composable (Color) -> Unit
 ) {
     val color = if (selected) accent else ShellMuted
+    val selectedShape = RoundedCornerShape(20.dp)
     Column(
         Modifier
-            .superhumanClickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 3.dp),
+            .width(70.dp)
+            .height(54.dp)
+            .background(
+                if (selected) {
+                    if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .095f)
+                    else superhumanBlue.copy(alpha = .085f)
+                } else Color.Transparent,
+                selectedShape
+            )
+            .superhumanClickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp)
+        verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            Modifier.height(26.dp),
-            contentAlignment = Alignment.Center
-        ) {
+        Box(Modifier.height(27.dp), contentAlignment = Alignment.Center) {
             icon(color)
         }
+        Spacer(Modifier.height(2.dp))
         Text(
-            label,
-            color = color,
-            fontSize = 8.sp,
-            lineHeight = 8.sp,
-            fontWeight = if (selected) FontWeight.Black else FontWeight.Bold
-        )
-        Box(
-            Modifier
-                .width(18.dp)
-                .height(2.dp)
-                .background(
-                    if (selected) accent else Color.Transparent,
-                    RoundedCornerShape(999.dp)
-                )
+            label, color = color, fontSize = 10.sp, lineHeight = 13.sp,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
         )
     }
 }

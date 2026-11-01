@@ -341,10 +341,10 @@ internal fun NativeLiveHome(
                             HomeTile.EXPERIMENTS -> HomeExperimentsTile(MockExperimentData.active, openExperiments)
                             HomeTile.HYDRATION -> PremiumHomeHydrationTile(snapshot, openHydration)
                             HomeTile.CLINICAL -> LegacyClinicalCard(snapshot, openClinical)
-                            HomeTile.EXERCISE -> LegacyTrainingCard(snapshot, openExercise)
+                            HomeTile.EXERCISE -> MidnightTrainingCard(snapshot, openExercise)
                             HomeTile.MINDFULNESS -> HomeMindfulnessBreathworkRow(snapshot, openMindfulness)
-                            HomeTile.SLEEP -> HomeSleepInsightTile(snapshot, openSleep)
-                            HomeTile.NUTRITION -> LegacyNutritionCard(snapshot, openNutrition)
+                            HomeTile.SLEEP -> MidnightSleepCard(snapshot, openSleep)
+                            HomeTile.NUTRITION -> MidnightNutritionCard(snapshot, openNutrition)
                             HomeTile.VITALS -> HomeVitalsTile(onClick = openVitals)
                         }
                     }
