@@ -45,17 +45,7 @@ internal fun HomeEnvironmentalTile(
             .height(174.dp)
             .testTag("environment_home_tile")
             .semantics(mergeDescendants = true) { contentDescription = environmentalTileDescription(state) }
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        if (dark) palette.accentSoft else Color(0xFFE7F5FC),
-                        palette.surface,
-                        if (dark) palette.surfaceElevated else Color(0xFFEDF8F5)
-                    )
-                ),
-                shape
-            )
-            .border(1.dp, palette.border, shape)
+            .midnightCardSurface(accent = palette.green, radius = 28.dp)
             .superhumanHomeTileClickable(onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 15.dp)
     ) {
