@@ -41,7 +41,7 @@ private val midnightOrange get() = if (SuperhumanAppearance.darkMode) Color(0xFF
 
 @Composable
 private fun MidnightHeader(
-    title: String, subtitle: String, accent: Color, icon: Int?, symbol: String,
+    title: String, subtitle: String, accent: Color, icon: Int,
     trailing: @Composable () -> Unit
 ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -49,9 +49,7 @@ private fun MidnightHeader(
             Modifier.size(48.dp).background(accent.copy(alpha = .17f), RoundedCornerShape(15.dp)),
             contentAlignment = Alignment.Center
         ) {
-            if (icon != null) {
-                Icon(painterResource(icon), null, tint = accent, modifier = Modifier.size(25.dp))
-            } else Text(symbol, color = accent, fontSize = 28.sp)
+            Icon(painterResource(icon), null, tint = accent, modifier = Modifier.size(25.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
@@ -86,7 +84,7 @@ internal fun MidnightNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> 
             .padding(horizontal = 18.dp, vertical = 19.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        MidnightHeader("Nutrition", "Fuel your day", midnightGreen, R.drawable.tabler_leaf, "") {
+        MidnightHeader("Nutrition", "Fuel your day", midnightGreen, R.drawable.tabler_leaf) {
             MidnightAction(R.drawable.tabler_plus)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -173,7 +171,7 @@ internal fun MidnightTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> U
             .padding(horizontal = 18.dp, vertical = 19.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        MidnightHeader("Training", "Move with purpose", midnightBlue, R.drawable.tabler_barbell, "") {
+        MidnightHeader("Training", "Move with purpose", midnightBlue, R.drawable.tabler_barbell) {
             MidnightAction(R.drawable.tabler_chevron_right)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
@@ -247,7 +245,7 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
             .padding(horizontal = 18.dp, vertical = 19.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        MidnightHeader("Sleep", "Rest and recover", midnightPurple, R.drawable.tabler_moon, "") {
+        MidnightHeader("Sleep", "Rest and recover", midnightPurple, R.drawable.tabler_moon) {
             if (score != null) {
                 Box(Modifier.background(midnightPurple.copy(alpha = .12f), RoundedCornerShape(100.dp))
                     .padding(horizontal = 12.dp, vertical = 7.dp)) {
