@@ -259,26 +259,23 @@ private fun NativeHomeTitle() {
         in 12..16 -> "Good afternoon,"
         else -> "Good evening,"
     }
-    Row(
+    Column(
         Modifier.fillMaxWidth().padding(
             horizontal = SuperhumanLayout.pageHorizontal,
-            vertical = 23.dp
+            vertical = 11.dp
         ),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(date, color = ShellMuted, fontSize = 11.sp, lineHeight = 15.sp,
-                fontWeight = FontWeight.Medium, letterSpacing = 1.5.sp)
-            Spacer(Modifier.height(9.dp))
-            Text(greeting, color = ShellNavy, fontSize = 30.sp, lineHeight = 35.sp,
+        Text(date, color = ShellMuted, fontSize = 10.sp, lineHeight = 14.sp,
+            fontWeight = FontWeight.Medium, letterSpacing = 1.3.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(greeting, color = ShellNavy, fontSize = 25.sp, lineHeight = 31.sp,
                 fontWeight = FontWeight.Light)
-            Text("Jakub.", color = superhumanTextPrimary, fontSize = 30.sp, lineHeight = 35.sp,
+            Spacer(Modifier.width(8.dp))
+            Text("Jakub.", color = superhumanTextPrimary, fontSize = 25.sp, lineHeight = 31.sp,
                 fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(6.dp))
-            Text("Small steps. Big results.", color = ShellMuted, fontSize = 13.sp)
         }
-
+        Text("Small steps. Big results.", color = ShellMuted, fontSize = 12.sp, lineHeight = 16.sp)
     }
 }
 
