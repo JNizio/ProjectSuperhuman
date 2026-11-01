@@ -70,12 +70,12 @@ internal fun NativeNutritionWithFoodEditorPage(onBack: () -> Unit) {
                 Modifier.align(Alignment.BottomEnd)
                     .padding(end = 18.dp, bottom = 108.dp)
                     .width(46.dp).height(46.dp)
-                    .background(if (SuperhumanAppearance.darkMode) Color(0xFF174F72) else FoodEditNavy, RoundedCornerShape(16.dp))
-                    .border(1.dp, Color.White.copy(alpha = .12f), RoundedCornerShape(16.dp))
+                    .background(if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else FoodEditNavy, RoundedCornerShape(16.dp))
+                    .border(1.dp, if (SuperhumanAppearance.darkMode) superhumanBorder else Color.White.copy(alpha = .12f), RoundedCornerShape(16.dp))
                     .clickable { editingFoodData = true },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(painter = painterResource(id = R.drawable.tabler_pencil), contentDescription = "Open food data editor", tint = Color.White, modifier = Modifier.size(23.dp))
+                Icon(painter = painterResource(id = R.drawable.tabler_pencil), contentDescription = "Open food data editor", tint = if (SuperhumanAppearance.darkMode) superhumanTextPrimary else Color.White, modifier = Modifier.size(23.dp))
             }
         }
     }
