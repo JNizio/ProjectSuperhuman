@@ -15,6 +15,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -137,15 +140,7 @@ private fun SleepHeader(onBack: () -> Unit) {
                 .superhumanClickable(onClick = onBack),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                "‹",
-                modifier = Modifier.width(28.dp),
-                color = SleepPurple,
-                fontSize = 30.sp,
-                lineHeight = 30.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
+            Icon(painter = painterResource(R.drawable.tabler_arrow_left), contentDescription = "Back", tint = SleepInk, modifier = Modifier.size(24.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column {
@@ -165,9 +160,12 @@ private fun SleepHero(s: NativeSleepSnapshot?, mode: SleepViewMode) {
     val rem = if (mode == SleepViewMode.RECORDED) formatMinutes(s?.remMinutes) else analysis?.let { "${it.remPct}%" } ?: "—"
 
     Column(
-        Modifier.fillMaxWidth().background(
-            Brush.linearGradient(if (SuperhumanAppearance.darkMode) listOf(Color(0xFF24202E), Color(0xFF1A1B21)) else listOf(Color(0xFF4939A9), Color(0xFF6F5BE1))),
-            RoundedCornerShape(28.dp)
+        Modifier.fillMaxWidth().then(
+            if (SuperhumanAppearance.darkMode) Modifier.midnightModuleCard(accent = SleepPurple, radius = 28.dp)
+            else Modifier.background(
+                Brush.linearGradient(listOf(Color(0xFF4939A9), Color(0xFF6F5BE1))),
+                RoundedCornerShape(28.dp)
+            )
         ).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
@@ -229,11 +227,12 @@ private fun SleepViewToggle(mode: SleepViewMode, onModeChanged: (SleepViewMode) 
 @Composable
 private fun SleepModeButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.background(if (selected) (if (SuperhumanAppearance.darkMode) Color(0xFF433958) else SleepPurple) else Color.Transparent, RoundedCornerShape(12.dp))
-            .superhumanClickable(onClick = onClick).padding(vertical = 9.dp),
+        modifier.background(midnightTabColor(selected, SleepPurple), RoundedCornerShape(12.dp))
+            .border(1.dp, midnightTabOutline(selected), RoundedCornerShape(12.dp))
+            .superhumanClickable(onClick = onClick).padding(vertical = 11.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = if (selected) Color.White else SleepMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = midnightTabTextColor(selected, SleepPurple), fontSize = 11.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
     }
 }
 
@@ -244,8 +243,7 @@ private fun SleepNightOverview(s: NativeSleepSnapshot, mode: SleepViewMode) {
     val analysis = SleepIntelligenceEngine.analyse(s)
     val efficiency = if (mode == SleepViewMode.RECORDED) s.efficiencyPct else analysis.efficiencyPct
     Column(
-        Modifier.fillMaxWidth().background(SleepCard, RoundedCornerShape(22.dp))
-            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().midnightModuleCard(accent = SleepPurple, radius = 22.dp).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -270,8 +268,7 @@ private fun SleepNightOverview(s: NativeSleepSnapshot, mode: SleepViewMode) {
 private fun SleepStageCard(s: NativeSleepSnapshot, mode: SleepViewMode) {
     val analysis = SleepIntelligenceEngine.analyse(s)
     Column(
-        Modifier.fillMaxWidth().background(SleepCard, RoundedCornerShape(22.dp))
-            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp)
+        Modifier.fillMaxWidth().midnightModuleCard(accent = SleepPurple, radius = 22.dp).padding(16.dp)
     ) {
         Text("Stage balance", color = SleepInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
         Text(
@@ -308,8 +305,7 @@ private fun SleepSmartInsightCard(s: NativeSleepSnapshot, mode: SleepViewMode) {
     val analysis = SleepIntelligenceEngine.analyse(s)
     val confidence = analysis.confidenceFor("interpretation")
     Column(
-        Modifier.fillMaxWidth().background(SleepCard, RoundedCornerShape(22.dp))
-            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().midnightModuleCard(accent = SleepPurple, radius = 22.dp).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(11.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -344,8 +340,7 @@ private fun SleepSmartInsightCard(s: NativeSleepSnapshot, mode: SleepViewMode) {
 private fun SleepConfidenceCard(s: NativeSleepSnapshot) {
     val analysis = SleepIntelligenceEngine.analyse(s)
     Column(
-        Modifier.fillMaxWidth().background(SleepCard, RoundedCornerShape(22.dp))
-            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().midnightModuleCard(accent = SleepPurple, radius = 22.dp).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text("Data confidence", color = SleepInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -364,8 +359,7 @@ private fun SleepConfidenceCard(s: NativeSleepSnapshot) {
 @Composable
 private fun SleepTrendCard(s: NativeSleepSnapshot) {
     Column(
-        Modifier.fillMaxWidth().background(SleepCard, RoundedCornerShape(22.dp))
-            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().midnightModuleCard(accent = SleepPurple, radius = 22.dp).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text("Personal pattern", color = SleepInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -389,8 +383,7 @@ private fun SleepDataSourceCard(
     status: String
 ) {
     Column(
-        Modifier.fillMaxWidth().background(SleepCard, RoundedCornerShape(22.dp))
-            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(16.dp),
+        Modifier.fillMaxWidth().midnightModuleCard(accent = SleepPurple, radius = 22.dp).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -439,8 +432,7 @@ private fun SleepDataSourceCard(
 @Composable
 private fun EmptySleepCard(connected: Boolean) {
     Column(
-        Modifier.fillMaxWidth().background(SleepCard, RoundedCornerShape(22.dp))
-            .border(1.dp, SleepBorder, RoundedCornerShape(22.dp)).padding(18.dp)
+        Modifier.fillMaxWidth().midnightModuleCard(accent = SleepPurple, radius = 22.dp).padding(18.dp)
     ) {
         Text("No sleep data yet", color = SleepInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
         Text(
