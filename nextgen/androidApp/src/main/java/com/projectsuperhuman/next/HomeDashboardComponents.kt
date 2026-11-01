@@ -452,17 +452,9 @@ internal fun LegacyClinicalCard(snapshot: NativeHomeSnapshot, onClick: () -> Uni
         hasMarkers -> "No markers currently flagged outside recorded ranges"
         else -> "Import lab results or add your clinical context"
     }
-    val cardGradient = if (SuperhumanAppearance.darkMode) {
-        listOf(superhumanSurfaceElevated, superhumanSurface, superhumanSurfaceSoft)
-    } else {
-        listOf(Color(0xFFFCFDFE), Color(0xFFFAF9FF), Color(0xFFF7F5FF))
-    }
-
     Column(
         Modifier.fillMaxWidth()
-            .clip(RoundedCornerShape(25.dp))
-            .background(Brush.horizontalGradient(cardGradient))
-            .border(1.dp, HomePurple.copy(alpha = if (SuperhumanAppearance.darkMode) .26f else .16f), RoundedCornerShape(25.dp))
+            .midnightCardSurface(accent = accent, radius = 25.dp)
             .superhumanHomeTileClickable(onClick = onClick)
             .padding(horizontal = 18.dp, vertical = 16.dp)
     ) {
@@ -508,7 +500,7 @@ private fun ClinicalHomeStat(value: String, label: String, accent: Color, modifi
     Column(
         modifier.height(47.dp)
             .background(superhumanSurface.copy(alpha = .90f), RoundedCornerShape(14.dp))
-            .border(1.dp, accent.copy(alpha = .16f), RoundedCornerShape(14.dp))
+            .border(1.dp, if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .018f) else accent.copy(alpha = .12f), RoundedCornerShape(14.dp))
             .padding(horizontal = 10.dp, vertical = 7.dp)
     ) {
         Text(label, color = HomeMuted, fontSize = 6.sp, fontWeight = FontWeight.Black, letterSpacing = .55.sp)
