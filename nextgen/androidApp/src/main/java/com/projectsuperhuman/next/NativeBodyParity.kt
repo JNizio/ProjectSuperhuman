@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Icon
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -189,7 +192,7 @@ private fun BodyHeader(onBack: () -> Unit, onProfile: () -> Unit) {
             Modifier.superhumanTopButton(onClick = onBack),
             contentAlignment = Alignment.Center
         ) {
-            Text("←", color = BodyBlue, fontSize = 25.sp, lineHeight = 25.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Icon(painter = painterResource(R.drawable.tabler_arrow_left), contentDescription = "Back", tint = BodyInk, modifier = Modifier.size(23.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -202,11 +205,7 @@ private fun BodyHeader(onBack: () -> Unit, onProfile: () -> Unit) {
                 .superhumanClickable(onClick = onProfile),
             contentAlignment = Alignment.Center
         ) {
-            Canvas(Modifier.width(24.dp).height(24.dp)) {
-                val c = BodyBlue
-                drawCircle(c, radius = size.minDimension * 0.18f, center = androidx.compose.ui.geometry.Offset(size.width * .5f, size.height * .31f))
-                drawArc(c, startAngle = 200f, sweepAngle = 140f, useCenter = false, topLeft = androidx.compose.ui.geometry.Offset(size.width * .22f, size.height * .48f), size = androidx.compose.ui.geometry.Size(size.width * .56f, size.height * .42f), style = androidx.compose.ui.graphics.drawscope.Stroke(width = size.minDimension * .11f))
-            }
+            Icon(painter = painterResource(R.drawable.tabler_user), contentDescription = "Body profile", tint = BodyMuted, modifier = Modifier.size(23.dp))
         }
     }
 }
@@ -227,9 +226,12 @@ private fun BodyHero(
     }
 
     Column(
-        Modifier.fillMaxWidth().background(
-            Brush.linearGradient(listOf(Color(0xFF0A6E8E), Color(0xFF138A8B), Color(0xFF1B9D82))),
-            RoundedCornerShape(28.dp)
+        Modifier.fillMaxWidth().then(
+            if (SuperhumanAppearance.darkMode) Modifier.midnightModuleCard(accent = BodyGreen, radius = 28.dp)
+            else Modifier.background(
+                Brush.linearGradient(listOf(Color(0xFF0A6E8E), Color(0xFF138A8B), Color(0xFF1B9D82))),
+                RoundedCornerShape(28.dp)
+            )
         ).padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -314,10 +316,12 @@ private fun BodyViewToggle(view: BodyView, onChange: (BodyView) -> Unit) {
 @Composable
 private fun ToggleButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
-        modifier.background(if (selected) BodyBlue else Color.Transparent, RoundedCornerShape(14.dp)).superhumanClickable(onClick = onClick).padding(vertical = 11.dp),
+        modifier.background(midnightTabColor(selected, BodyBlue), RoundedCornerShape(14.dp))
+            .border(1.dp, midnightTabOutline(selected), RoundedCornerShape(14.dp))
+            .superhumanClickable(onClick = onClick).padding(vertical = 11.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = if (selected) Color.White else BodyMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        Text(label, color = midnightTabTextColor(selected, BodyBlue), fontSize = 11.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium)
     }
 }
 
@@ -330,7 +334,7 @@ private fun ProgressTrendCard(history: List<HealthValue>, goalKg: Double?) {
     val span = (max - min).coerceAtLeast(0.5)
     val change = values.last() - values.first()
 
-    Column(Modifier.fillMaxWidth().background(BodySurface, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().midnightModuleCard(accent = BodyGreen, radius = 22.dp).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Weight trend", color = BodyInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
@@ -387,7 +391,7 @@ private fun RecentChangesCard(
     waistHistory: List<HealthValue>,
     snapshot: BodySnapshot
 ) {
-    Column(Modifier.fillMaxWidth().background(BodySurface, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().midnightModuleCard(accent = BodyGreen, radius = 22.dp).padding(16.dp)) {
         Text("Recent changes", color = BodyInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
         Text("Latest change compared with the previous recorded value", color = BodyMuted, fontSize = 8.sp)
         Spacer(Modifier.height(12.dp))
@@ -427,7 +431,7 @@ private fun ChangeRow(label: String, latest: Double?, previous: Double?, unit: S
 
 @Composable
 private fun MeasurementsCard(snapshot: BodySnapshot) {
-    Column(Modifier.fillMaxWidth().background(BodySurface, RoundedCornerShape(22.dp)).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().midnightModuleCard(accent = BodyGreen, radius = 22.dp).padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text("Measurements", color = BodyInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
