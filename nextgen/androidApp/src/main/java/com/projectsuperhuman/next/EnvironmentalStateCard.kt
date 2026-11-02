@@ -27,8 +27,7 @@ internal fun EnvironmentalStateCard(
     val shape = RoundedCornerShape(27.dp)
     Column(
         Modifier.fillMaxWidth().testTag(testTag)
-            .background(Color.White, shape)
-            .border(1.dp, Color(0xFFE1E9EF), shape)
+            .midnightCardSurface(accent = accent)
             .padding(20.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -40,9 +39,9 @@ internal fun EnvironmentalStateCard(
                 }
             }
             Spacer(Modifier.width(11.dp))
-            Text(title, color = Color(0xFF0B1F35), fontSize = 17.sp, fontWeight = FontWeight.Black)
+            Text(title, color = superhumanTextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(Modifier.height(9.dp))
-        Text(message, color = Color(0xFF748294), fontSize = 10.sp, lineHeight = 15.sp)
+        Text(message, color = superhumanTextMuted, fontSize = 12.sp, lineHeight = 18.sp)
     }
 }
