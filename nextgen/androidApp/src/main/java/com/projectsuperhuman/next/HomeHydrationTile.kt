@@ -62,10 +62,10 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
     Box(
         Modifier.fillMaxWidth()
             .height(158.dp)
-            .midnightCardSurface(accent = accent, radius = 27.dp)
+            .midnightCardSurface(accent = accent)
             .superhumanHomeTileClickable(onClick = onClick)
     ) {
-        if (waterImage != null) {
+        if (!dark && waterImage != null) {
             Image(
                 bitmap = waterImage,
                 contentDescription = null,
@@ -75,9 +75,8 @@ internal fun PremiumHomeHydrationTile(snapshot: NativeHomeSnapshot, onClick: () 
             )
         }
 
-        // In dark mode the gradient intentionally retains a surface-coloured veil at the far edge.
-        // Bright photographic pixels therefore melt into the card instead of ending at a hard seam.
-        Box(
+        // Photography stays in light mode only. Dark mode has a solid matte surface.
+        if (!dark) Box(
             Modifier.fillMaxSize().background(
                 Brush.horizontalGradient(
                     colorStops = arrayOf(

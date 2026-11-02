@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,6 +32,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -103,7 +106,7 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
     Box(
         Modifier.fillMaxWidth()
             .height(190.dp)
-            .midnightCardSurface(accent = palette.red, radius = 27.dp)
+            .midnightCardSurface(accent = palette.red)
             .clickable(onClick = onClick)
             .semantics { contentDescription = accessibility }
             .padding(18.dp)
@@ -111,22 +114,25 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
         Column(Modifier.fillMaxSize()) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.width(28.dp).height(28.dp).background(VitalsRed.copy(alpha = if (dark) .18f else .10f), RoundedCornerShape(10.dp)),
-                        contentAlignment = Alignment.Center
-                    ) { Text("♥", color = if (dark) palette.red else VitalsRed, fontSize = 13.sp) }
+                    Icon(
+                        painter = painterResource(R.drawable.tabler_activity_heartbeat),
+                        contentDescription = null,
+                        tint = if (dark) palette.red else VitalsRed,
+                        modifier = Modifier.size(24.dp)
+                    )
                     Spacer(Modifier.width(9.dp))
                     Column {
                         Text("VITALS", color = palette.brandText, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
                         Text("Latest health readings", color = palette.textMuted, fontSize = 8.sp)
                     }
                 }
-                Box(
-                    Modifier.width(34.dp).height(34.dp)
-                        .background(accentBlue.copy(alpha = .10f), RoundedCornerShape(12.dp)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("→", color = accentBlue, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(R.drawable.tabler_chevron_right),
+                        contentDescription = null,
+                        tint = accentBlue,
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 

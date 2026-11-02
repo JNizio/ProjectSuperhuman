@@ -30,8 +30,8 @@ internal fun Modifier.midnightInsetPanel(
         )
         .border(
             1.dp,
-            if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .022f)
-            else superhumanBorder.copy(alpha = .5f),
+            if (SuperhumanAppearance.darkMode) Color.Transparent
+            else superhumanBorder.copy(alpha = .4f),
             shape
         )
 }
@@ -45,8 +45,8 @@ internal fun Modifier.midnightControlStrip(
         .background(superhumanSurface, shape)
         .border(
             1.dp,
-            if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = .028f)
-            else superhumanBorder,
+            if (SuperhumanAppearance.darkMode) Color.Transparent
+            else superhumanBorder.copy(alpha = .5f),
             shape
         )
 }

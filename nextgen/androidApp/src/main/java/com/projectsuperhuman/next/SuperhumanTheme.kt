@@ -129,7 +129,7 @@ internal object SuperhumanLayout {
     val controlHeight: Dp = 44.dp
     val iconTouchTarget: Dp = 44.dp
     // Product-wide optical rhythm; see docs/PRODUCT_DESIGN_PHILOSOPHY.md
-    val homeCardRadius: Dp = 26.dp
+    val homeCardRadius: Dp = 20.dp
     val homeCardPadding: Dp = 16.dp
     val homeSectionGap: Dp = 8.dp
     val homePrimaryMetricSp: Int = 30

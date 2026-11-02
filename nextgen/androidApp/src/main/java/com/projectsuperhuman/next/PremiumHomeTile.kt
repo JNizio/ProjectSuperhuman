@@ -5,38 +5,28 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
- * The real Home tile material, shared verbatim by the dashboard and detail modules.
- * A restrained neutral gradient and optical border; no coloured card fills.
+ * A genuinely flat Home material. Solid neutral fills, no gradient, shadow or
+ * tinted edge; accent colours are reserved for icons, charts and progress.
+ * Keep the accent argument for the existing tile call sites.
  */
+@Suppress("UNUSED_PARAMETER")
 internal fun Modifier.midnightCardSurface(
     accent: Color,
     radius: Dp = SuperhumanLayout.homeCardRadius
 ): Modifier {
     val dark = SuperhumanAppearance.darkMode
     val shape = RoundedCornerShape(radius)
-    val neutral = if (dark) {
-        listOf(superhumanSurfaceElevated, superhumanSurface)
-    } else {
-        listOf(Color(0xFFFDFEFF), Color(0xFFF5F8FA))
-    }
-    // Atmospheric depth comes from neutral tones, never a green/accent background wash.
-    val edge = if (dark) {
-        listOf(Color.White.copy(alpha = .028f), Color.White.copy(alpha = .009f))
-    } else {
-        listOf(Color(0xFFB1C4D1).copy(alpha = .35f), Color(0xFFB1C4D1).copy(alpha = .15f))
-    }
-    return this
-        .shadow(if (dark) .5.dp else 2.dp, shape, clip = false)
-        .clip(shape)
-        .background(Brush.linearGradient(neutral))
-        .border(1.dp, Brush.verticalGradient(edge), shape)
+    val base = this.clip(shape).background(superhumanSurface)
+    return if (dark) base else base.border(
+        1.dp,
+        superhumanBorder.copy(alpha = .55f),
+        shape
+    )
 }
 
 internal fun Modifier.premiumHomeTile(

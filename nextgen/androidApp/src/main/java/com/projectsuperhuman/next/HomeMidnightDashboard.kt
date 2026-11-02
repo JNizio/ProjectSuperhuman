@@ -46,12 +46,12 @@ private fun MidnightHeader(
 ) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Box(
-            Modifier.size(38.dp).background(accent.copy(alpha = .17f), RoundedCornerShape(12.dp)),
+            Modifier.size(32.dp),
             contentAlignment = Alignment.Center
         ) {
-            Icon(painterResource(icon), null, tint = accent, modifier = Modifier.size(21.dp))
+            Icon(painterResource(icon), null, tint = accent, modifier = Modifier.size(22.dp))
         }
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(8.dp))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
             Text(title, color = superhumanTextPrimary, fontSize = 17.sp, lineHeight = 21.sp, fontWeight = FontWeight.SemiBold)
             Text(subtitle, color = superhumanTextMuted, fontSize = 11.sp, lineHeight = 15.sp)
@@ -63,8 +63,7 @@ private fun MidnightHeader(
 @Composable
 private fun MidnightAction(icon: Int) {
     Box(
-        Modifier.size(34.dp).background(superhumanSurfaceSoft, CircleShape)
-            .border(1.dp, superhumanBorder.copy(alpha = .44f), CircleShape),
+        Modifier.size(34.dp),
         contentAlignment = Alignment.Center
     ) {
         Icon(painterResource(icon), null, tint = superhumanTextMuted, modifier = Modifier.size(19.dp))
@@ -81,8 +80,8 @@ internal fun MidnightNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> 
     val fat = snapshot.fatToday.coerceAtLeast(0)
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightGreen)
-            .padding(horizontal = 19.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(11.dp)
+            .padding(horizontal = 19.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         MidnightHeader("Nutrition", "Fuel your day", midnightGreen, R.drawable.tabler_leaf) {
             MidnightAction(R.drawable.tabler_plus)
@@ -106,8 +105,10 @@ internal fun MidnightNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> 
                 Text(if (goal != null) "${(progress * 100).roundToInt()}% of goal" else "No goal set",
                     color = superhumanTextMuted, fontSize = 10.sp)
             }
-            Spacer(Modifier.width(15.dp))
-            MidnightNutritionRing(goal, protein, carbs, fat)
+            if (calories > 0 || protein + carbs + fat > 0) {
+                Spacer(Modifier.width(15.dp))
+                MidnightNutritionRing(goal, protein, carbs, fat)
+            }
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             MidnightMacro("Protein", protein, snapshot.proteinGoal, midnightGreen, Modifier.weight(1f))
@@ -169,8 +170,8 @@ private fun MidnightNutritionRing(goal: Int?, protein: Int, carbs: Int, fat: Int
 internal fun MidnightTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightBlue)
-            .padding(horizontal = 19.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(11.dp)
+            .padding(horizontal = 19.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         MidnightHeader("Training", "Move with purpose", midnightBlue, R.drawable.tabler_barbell) {
             MidnightAction(R.drawable.tabler_chevron_right)
@@ -195,9 +196,7 @@ internal fun MidnightTrainingCard(snapshot: NativeHomeSnapshot, onClick: () -> U
 @Composable
 private fun MidnightTrainingSegment(icon: Int, value: String, label: String, modifier: Modifier = Modifier) {
     Row(
-        modifier.background(superhumanSurfaceSoft.copy(alpha = .65f), RoundedCornerShape(12.dp))
-            .border(1.dp, superhumanBorder.copy(alpha = .45f), RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 7.dp),
+        modifier.padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(painterResource(icon), null, tint = midnightBlue, modifier = Modifier.size(17.dp))
@@ -230,13 +229,12 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
     }
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightPurple)
-            .padding(horizontal = 19.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(11.dp)
+            .padding(horizontal = 19.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         MidnightHeader("Sleep", "Rest and recover", midnightPurple, R.drawable.tabler_moon) {
             if (score != null) {
-                Box(Modifier.background(midnightPurple.copy(alpha = .12f), RoundedCornerShape(100.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp)) {
+                Box(Modifier.padding(horizontal = 2.dp, vertical = 6.dp)) {
                     Text("Score $score", color = midnightPurple, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             } else MidnightAction(R.drawable.tabler_chevron_right)

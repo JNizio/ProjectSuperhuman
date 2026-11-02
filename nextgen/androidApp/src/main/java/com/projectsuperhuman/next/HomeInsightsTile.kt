@@ -52,7 +52,7 @@ internal fun HomeInsightsTile(state: InsightsPresentationState, onClick: () -> U
 
     Column(
         Modifier.fillMaxWidth()
-            .midnightCardSurface(accent = palette.blue, radius = 25.dp)
+            .midnightCardSurface(accent = palette.blue)
             .superhumanHomeTileClickable(onClick = onClick)
             .semantics(mergeDescendants = true) { contentDescription = description }
             .testTag("home_insights_tile")

@@ -112,7 +112,7 @@ private fun SuperhumanShell(
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
-    val bottomBarHeight = 0.dp
+    val bottomBarHeight = 64.dp
     val trudyState = remember { TrudyConversationState() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
@@ -288,22 +288,15 @@ private fun ShellBottomNavigation(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Floating navigation: the canvas remains black around the card.
-    // Keep the container and selection intentionally calmer than primary dashboard metrics.
+    // Edge-to-edge flat navigation: no raised pill, frame or shadow.
+    // The shell reserves the same height above so every page stays tappable.
     val dark = SuperhumanAppearance.darkMode
-    val shape = RoundedCornerShape(28.dp)
     Row(
         modifier
             .fillMaxWidth()
-            .padding(horizontal = 18.dp, vertical = 10.dp)
-            .height(68.dp)
-            .background(if (dark) Color(0xFF17191D) else superhumanSurfaceElevated, shape)
-            .border(
-                1.dp,
-                if (dark) Color.White.copy(alpha = .075f) else superhumanBorder,
-                shape
-            )
-            .padding(horizontal = 7.dp, vertical = 5.dp),
+            .height(64.dp)
+            .background(if (dark) superhumanBackground else superhumanSurface)
+            .padding(horizontal = 14.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
