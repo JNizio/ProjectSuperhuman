@@ -733,18 +733,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
 @Composable
 private fun N2Header(onBack: () -> Unit, date: LocalDate) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(SuperhumanLayout.iconTouchTarget).background(N2Surface, RoundedCornerShape(14.dp))
-                .border(1.dp, N2Border, RoundedCornerShape(14.dp)).superhumanClickable(onClick = onBack),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.tabler_arrow_left),
-                contentDescription = "Back",
-                tint = N2Navy,
-                modifier = Modifier.size(24.dp)
-            )
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Nutrition", color = N2Ink, fontSize = 25.sp, fontWeight = FontWeight.SemiBold)

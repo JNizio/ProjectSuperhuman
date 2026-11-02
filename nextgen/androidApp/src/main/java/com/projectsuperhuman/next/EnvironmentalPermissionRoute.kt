@@ -114,13 +114,7 @@ private fun EnvironmentalPermissionPage(
         verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.superhumanTopButton(onClick = onBack)
-                    .semantics { contentDescription = "Back to home" },
-                contentAlignment = Alignment.Center
-            ) {
-                Text("‹", color = EnvPermissionNavy, fontSize = 28.sp, fontWeight = FontWeight.Medium)
-            }
+            SuperhumanModuleBackButton(onBack)
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("Environment", color = EnvPermissionNavy, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)

@@ -184,12 +184,7 @@ internal fun NativeEnvironmentalTimelineRoute(
 @Composable
 private fun EnvironmentalTimelineHeader(onBack: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back to home" },
-            contentAlignment = Alignment.Center
-        ) {
-            Text("←", color = EnvTimelineNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.width(12.dp))
         Column {
             Text("Environment", color = EnvTimelineInk, fontSize = 24.sp, fontWeight = FontWeight.Black)

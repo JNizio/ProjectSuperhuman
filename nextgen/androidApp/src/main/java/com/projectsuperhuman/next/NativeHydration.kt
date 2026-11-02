@@ -169,11 +169,9 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
         Box(Modifier.fillMaxWidth().midnightModuleCard(accent = HydBlue)
             .superhumanClickable { showDetails = !showDetails }.padding(15.dp),
             contentAlignment = Alignment.Center) {
-            Text(if (showDetails) "Hide advanced tracking" else "Calendar, water pace & daily goal", color = HydMuted, fontSize = 12.sp)
+            Text(if (showDetails) "Hide goal settings" else "Daily water goal", color = HydMuted, fontSize = 12.sp)
         }
         if (showDetails) {
-            HydrationCalendarCard(snapshot.calendarTotals, snapshot.goalMl)
-            HydrationPacingCard(snapshot)
         }
 
         if (showDetails) Column(Modifier.fillMaxWidth().midnightModuleCard(accent = HydBlue, radius = 24.dp).padding(16.dp)) {
@@ -197,46 +195,12 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
 @Composable
 private fun HydrationHeader(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
-            Icon(painter = painterResource(R.drawable.tabler_arrow_left), contentDescription = "Back", tint = HydInk, modifier = Modifier.size(24.dp))
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.width(12.dp))
         Column {
             Text("Hydration", color = HydInk, fontSize = 25.sp, fontWeight = FontWeight.Black)
             Text("Water intake, pace & consistency", color = HydMuted, fontSize = 10.sp)
         }
-    }
-}
-
-@Composable
-private fun HydrationPacingCard(snapshot: HydrationSnapshot) {
-    val hour = java.time.LocalTime.now().hour
-    val elapsed = ((hour - 7).coerceIn(0, 16) / 16.0).coerceIn(0.0, 1.0)
-    val expectedMl = (snapshot.goalMl * elapsed).roundToInt()
-    val delta = snapshot.todayMl.coerceAtMost(snapshot.goalMl) - expectedMl
-    val message = when {
-        hour < 7 -> "Your day has barely started — no pace pressure yet."
-        snapshot.remainingMl == 0 -> "Goal complete. New water is locked for today so intake cannot run past your target."
-        delta >= 300 -> "You’re comfortably ahead of an even water pace."
-        delta >= -300 -> "You’re roughly on pace for today’s water goal."
-        else -> "You’re ${formatMlHydration(-delta)} behind an even pace. A small glass would close the gap."
-    }
-    Column(Modifier.fillMaxWidth().midnightModuleCard(accent = HydBlue, radius = 22.dp).padding(16.dp)) {
-        Text("Water pace", color = HydInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Spacer(Modifier.height(5.dp)); Text(message, color = HydMuted, fontSize = 10.sp, lineHeight = 15.sp); Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            HydMiniStat(formatMlHydration(snapshot.remainingMl), "remaining")
-            HydMiniStat(formatMlHydration(expectedMl.coerceAtMost(snapshot.goalMl)), "pace by now")
-            HydMiniStat(snapshot.streak.toString(), "goal streak")
-        }
-    }
-}
-
-@Composable
-private fun HydMiniStat(value: String, label: String) {
-    Column {
-        Text(value, color = HydNavy, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text(label, color = HydMuted, fontSize = 8.sp)
     }
 }
 
