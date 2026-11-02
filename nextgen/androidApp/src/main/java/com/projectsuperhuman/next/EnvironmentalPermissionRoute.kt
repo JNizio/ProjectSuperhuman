@@ -42,12 +42,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 
-private val EnvPermissionNavy = Color(0xFF123D70)
-private val EnvPermissionBlue = Color(0xFF0D6CB4)
-private val EnvPermissionTeal = Color(0xFF168A78)
-private val EnvPermissionMuted = Color(0xFF748294)
-private val EnvPermissionBorder = Color(0xFFE1E9EF)
-private val EnvPermissionBg = Color(0xFFF8FBFD)
+private val EnvPermissionNavy: Color get() = superhumanTextPrimary
+private val EnvPermissionBlue: Color get() = superhumanBlue
+private val EnvPermissionTeal: Color get() = superhumanGreen
+private val EnvPermissionMuted: Color get() = superhumanTextMuted
+private val EnvPermissionBorder: Color get() = superhumanBorder
+private val EnvPermissionBg: Color get() = superhumanBackground
 
 @Composable
 internal fun NativeEnvironmentalRoute(onBack: () -> Unit) {
@@ -119,49 +119,36 @@ private fun EnvironmentalPermissionPage(
                     .semantics { contentDescription = "Back to home" },
                 contentAlignment = Alignment.Center
             ) {
-                Text("←", color = EnvPermissionNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                Text("‹", color = EnvPermissionNavy, fontSize = 28.sp, fontWeight = FontWeight.Medium)
             }
             Spacer(Modifier.width(12.dp))
             Column {
-                Text("Environment", color = Color(0xFF0B1F35), fontSize = 24.sp, fontWeight = FontWeight.Black)
-                Text("Local context for sleep, activity & wellbeing", color = EnvPermissionMuted, fontSize = 10.sp)
+                Text("Environment", color = EnvPermissionNavy, fontSize = 26.sp, fontWeight = FontWeight.SemiBold)
+                Text("Recovery, movement & daily context", color = EnvPermissionMuted, fontSize = 12.sp)
             }
         }
 
         Column(
-            Modifier
-                .fillMaxWidth()
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFFE8F4FF), Color(0xFFF3FBFA), Color.White)
-                    ),
-                    RoundedCornerShape(28.dp)
-                )
-                .border(1.dp, EnvPermissionBorder, RoundedCornerShape(28.dp))
-                .padding(20.dp)
+            Modifier.fillMaxWidth().midnightCardSurface(accent = EnvPermissionBlue)
+                .padding(19.dp),
+            verticalArrangement = Arrangement.spacedBy(9.dp)
         ) {
-            Text("LOCAL WEATHER", color = EnvPermissionBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
-            Spacer(Modifier.height(8.dp))
-            Text("Use your location for environmental context", color = EnvPermissionNavy, fontSize = 23.sp, fontWeight = FontWeight.Black, lineHeight = 27.sp)
-            Spacer(Modifier.height(7.dp))
-            Text(
-                "Project Superhuman uses location only to request nearby weather and air-quality context. Coordinates are coarsened before the weather request and precise coordinates are not stored in your Data Vault.",
-                color = EnvPermissionMuted,
-                fontSize = 10.sp,
-                lineHeight = 15.sp
-            )
+            Text("LOCAL CONDITIONS", color = EnvPermissionBlue, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = .8.sp)
+            Text("See your environment", color = EnvPermissionNavy, fontSize = 23.sp, fontWeight = FontWeight.SemiBold)
+            Text("Enable nearby weather, air quality and daylight data.", color = EnvPermissionMuted, fontSize = 13.sp, lineHeight = 19.sp)
+            Text("Location is coarsened before requests; precise coordinates aren't stored in your Data Vault.", color = EnvPermissionMuted, fontSize = 11.sp, lineHeight = 16.sp)
         }
 
-        PermissionBenefit("Weather", "Temperature, feels-like, precipitation, wind and atmospheric pressure.", EnvPermissionBlue)
-        PermissionBenefit("Exposure", "UV and air-quality readings add useful context to outdoor activity and wellbeing.", Color(0xFF8B79C8))
-        PermissionBenefit("Daylight", "Sunrise, sunset and daylight duration help contextualise sleep timing and routine.", EnvPermissionTeal)
+        PermissionBenefit("Weather", "Temperature, wind and precipitation", EnvPermissionBlue)
+        PermissionBenefit("Exposure", "UV and air quality", Color(0xFFAA87F7))
+        PermissionBenefit("Daylight", "Daylight and your sleep routine", EnvPermissionTeal)
 
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(56.dp)
                 .background(
-                    Brush.horizontalGradient(listOf(EnvPermissionBlue, Color(0xFF20A7C4))),
+                    EnvPermissionBlue,
                     RoundedCornerShape(18.dp)
                 )
                 .clickable(onClick = onRequestPermission)
@@ -198,22 +185,21 @@ private fun PermissionBenefit(title: String, body: String, accent: Color) {
     Row(
         Modifier
             .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(20.dp))
-            .border(1.dp, EnvPermissionBorder, RoundedCornerShape(20.dp))
+            .midnightCardSurface(accent = accent)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
             Modifier
-                .width(10.dp)
-                .height(38.dp)
+                .width(4.dp)
+                .height(31.dp)
                 .background(accent, RoundedCornerShape(10.dp))
         )
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(title, color = EnvPermissionNavy, fontSize = 13.sp, fontWeight = FontWeight.Black)
+            Text(title, color = EnvPermissionNavy, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(2.dp))
-            Text(body, color = EnvPermissionMuted, fontSize = 9.sp, lineHeight = 13.sp)
+            Text(body, color = EnvPermissionMuted, fontSize = 11.sp, lineHeight = 15.sp)
         }
     }
 }
@@ -222,8 +208,7 @@ private fun PermissionBenefit(title: String, body: String, accent: Color) {
 private fun PermissionSecondaryButton(label: String, onClick: () -> Unit) {
     Box(
         Modifier
-            .background(Color.White, RoundedCornerShape(14.dp))
-            .border(1.dp, EnvPermissionBorder, RoundedCornerShape(14.dp))
+            .background(superhumanSurfaceSoft, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 13.dp, vertical = 11.dp),
         contentAlignment = Alignment.Center

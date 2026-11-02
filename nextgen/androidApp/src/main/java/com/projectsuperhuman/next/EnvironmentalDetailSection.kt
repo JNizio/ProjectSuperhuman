@@ -15,8 +15,7 @@ import androidx.compose.ui.unit.sp
 internal fun EnvironmentalDetailSection(section: EnvironmentalDetailSectionUi) {
     val palette = superhumanPalette
     Column(
-        Modifier.fillMaxWidth().background(palette.surface, RoundedCornerShape(24.dp))
-            .border(1.dp, palette.border, RoundedCornerShape(24.dp)).padding(16.dp)
+        Modifier.fillMaxWidth().midnightCardSurface(accent = palette.blue).padding(16.dp)
     ) {
         Text(section.title, color = palette.brandText, fontSize = 10.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(3.dp))

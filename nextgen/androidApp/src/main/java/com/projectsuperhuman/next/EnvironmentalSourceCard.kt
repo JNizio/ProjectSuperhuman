@@ -23,8 +23,7 @@ internal fun EnvironmentalSourceCard(conditions: EnvironmentalConditionsUi) {
     if (rows.isEmpty()) return
     val palette = superhumanPalette
     Column(
-        Modifier.fillMaxWidth().background(palette.surface, RoundedCornerShape(22.dp))
-            .border(1.dp, palette.border, RoundedCornerShape(22.dp)).padding(16.dp)
+        Modifier.fillMaxWidth().midnightCardSurface(accent = palette.blue).padding(16.dp)
     ) {
         Text("READING DETAILS", color = palette.brandText, fontSize = 9.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(9.dp))

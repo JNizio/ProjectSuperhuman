@@ -51,19 +51,8 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
     ).take(4)
 
     Column(
-        Modifier.fillMaxWidth()
-            .testTag("environment_current_conditions")
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        if (dark) palette.accentSoft else Color(0xFFE5F4FF),
-                        palette.surface,
-                        if (dark) palette.surfaceElevated else Color(0xFFEAF8F4)
-                    )
-                ),
-                shape
-            )
-            .border(1.dp, palette.border, shape)
+        Modifier.fillMaxWidth().testTag("environment_current_conditions")
+            .midnightCardSurface(accent = blue)
             .padding(19.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -84,13 +73,13 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.width(210.dp)) {
                 headline?.let {
-                    Text(it.displayValue(), color = palette.brandText, fontSize = 44.sp, lineHeight = 46.sp, fontWeight = FontWeight.Black)
+                    Text(it.displayValue(), color = palette.brandText, fontSize = 40.sp, lineHeight = 44.sp, fontWeight = FontWeight.SemiBold)
                 }
                 Text(
                     conditions.weatherLabel?.takeIf { it.isNotBlank() } ?: "Current conditions",
                     color = palette.textPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium,
                     maxLines = 2
                 )
                 conditions.locationLabel?.takeIf { it.isNotBlank() }?.let { location ->
@@ -100,10 +89,9 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
             }
 
             Box(
-                Modifier.size(78.dp).background(palette.surfaceElevated.copy(alpha = .90f), RoundedCornerShape(24.dp))
-                    .border(1.dp, palette.border, RoundedCornerShape(24.dp)),
+                Modifier.size(64.dp),
                 contentAlignment = Alignment.Center
-            ) { Text(weatherGlyph(conditions.weatherLabel), fontSize = 38.sp) }
+            ) { Text(weatherGlyph(conditions.weatherLabel), fontSize = 31.sp) }
         }
 
         if (quickMetrics.isNotEmpty()) {
@@ -132,12 +120,12 @@ private fun EnvironmentalWeatherTile(conditions: EnvironmentalConditionsUi) {
 private fun WeatherQuickMetric(metric: EnvironmentalMetricUi) {
     val palette = superhumanPalette
     Column(
-        Modifier.width(145.dp).background(palette.surfaceElevated.copy(alpha = .90f), RoundedCornerShape(16.dp))
+        Modifier.width(145.dp).background(palette.surfaceSoft.copy(alpha = .48f), RoundedCornerShape(14.dp))
             .padding(horizontal = 11.dp, vertical = 10.dp)
     ) {
         Text(metric.label.uppercase(), color = palette.textMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
-        Text(metric.displayValue(), color = palette.brandText, fontSize = 15.sp, fontWeight = FontWeight.Black)
+        Text(metric.displayValue(), color = palette.brandText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         metric.supportingText?.takeIf { it.isNotBlank() }?.let {
             Text(it, color = palette.textMuted, fontSize = 7.5.sp, maxLines = 1)
         }

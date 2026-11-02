@@ -209,7 +209,7 @@ private fun EnvironmentalDateNavigator(
 ) {
     val shape = RoundedCornerShape(18.dp)
     Row(
-        Modifier.fillMaxWidth().background(EnvTimelineSurface, shape).border(1.dp, EnvTimelineBorder, shape)
+        Modifier.fillMaxWidth().midnightCardSurface(accent = EnvTimelineBlue, radius = 20.dp)
             .padding(horizontal = 10.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

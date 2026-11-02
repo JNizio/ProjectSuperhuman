@@ -19,7 +19,7 @@ internal fun EnvironmentalWhyCard() {
     val palette = superhumanPalette
     Column(
         Modifier.fillMaxWidth()
-            .background(palette.accentSoft, RoundedCornerShape(22.dp))
+            .midnightCardSurface(accent = palette.green)
             .padding(16.dp)
     ) {
         Text("CONTEXT", color = palette.blue, fontSize = 9.sp, fontWeight = FontWeight.Black)
