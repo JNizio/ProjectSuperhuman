@@ -754,44 +754,13 @@ private fun N2DateNav(
     onNext: () -> Unit
 ) {
     val today = LocalDate.now(ZoneId.systemDefault())
-    Box(
-        Modifier.fillMaxWidth().height(50.dp)
-            .midnightControlStrip(radius = 18.dp)
-    ) {
-        Box(
-            Modifier.align(Alignment.CenterStart).size(SuperhumanLayout.iconTouchTarget)
-                .clickable(onClick = onPrevious),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.tabler_chevron_left),
-                contentDescription = "Previous day",
-                tint = N2Ink,
-                modifier = Modifier.size(24.dp)
-            )
-        }
-
-        Text(
-            if (date == today) "Today" else date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.ENGLISH)),
-            color = N2Ink,
-            fontSize = 11.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.align(Alignment.Center).clickable(onClick = onToday).padding(horizontal = 12.dp, vertical = 8.dp)
-        )
-
-        Box(
-            Modifier.align(Alignment.CenterEnd).size(SuperhumanLayout.iconTouchTarget)
-                .clickable(enabled = date.isBefore(today), onClick = onNext),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                painter = painterResource(id = R.drawable.tabler_chevron_right),
-                contentDescription = "Next day",
-                tint = if (date.isBefore(today)) N2Ink else N2Muted.copy(alpha = .35f),
-                modifier = Modifier.size(24.dp)
-            )
-        }
-    }
+    SuperhumanDateNavigation(
+        label = if (date == today) "Today" else date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.ENGLISH)),
+        canGoNext = date.isBefore(today),
+        onPrevious = onPrevious,
+        onNext = onNext,
+        onCenter = onToday
+    )
 }
 
 @Composable

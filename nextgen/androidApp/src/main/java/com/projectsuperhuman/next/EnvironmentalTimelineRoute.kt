@@ -202,29 +202,13 @@ private fun EnvironmentalDateNavigator(
     onNext: () -> Unit,
     onToday: () -> Unit
 ) {
-    val shape = RoundedCornerShape(18.dp)
-    Row(
-        Modifier.fillMaxWidth().midnightCardSurface(accent = EnvTimelineBlue, radius = 20.dp)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        ArrowButton("‹", "Previous day", true, onPrevious)
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(dateTitle(date, today), color = EnvTimelineNavy, fontSize = 13.sp, fontWeight = FontWeight.Black)
-            Text(date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())), color = EnvTimelineMuted, fontSize = 8.sp)
-            if (date != today) {
-                Text(
-                    "TODAY",
-                    color = EnvTimelineBlue,
-                    fontSize = 7.sp,
-                    fontWeight = FontWeight.Black,
-                    modifier = Modifier.clickable(onClick = onToday).padding(top = 3.dp)
-                )
-            }
-        }
-        ArrowButton("›", "Next day", canGoForward, onNext)
-    }
+    SuperhumanDateNavigation(
+        label = dateTitle(date, today),
+        canGoNext = canGoForward,
+        onPrevious = onPrevious,
+        onNext = onNext,
+        onCenter = onToday
+    )
 }
 
 @Composable
