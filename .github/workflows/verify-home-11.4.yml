@@ -1,6 +1,11 @@
 name: Verify Project Superhuman 11.4 home
 
 on:
+  push:
+    branches: ['11.4']
+    paths:
+      - 'nextgen/**'
+      - '.github/workflows/verify-home-11.4.yml'
   workflow_dispatch:
 
 permissions:
