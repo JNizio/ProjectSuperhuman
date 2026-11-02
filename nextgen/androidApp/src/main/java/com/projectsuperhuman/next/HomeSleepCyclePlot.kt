@@ -59,8 +59,8 @@ internal fun HomeSleepCyclePlot(
         }
         androidx.compose.foundation.layout.Row(Modifier.fillMaxWidth(),
             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween) {
-            Text(formatter.format(Instant.ofEpochMilli(startMs)), color = superhumanTextMuted, fontSize = 9.sp)
-            Text(formatter.format(Instant.ofEpochMilli(endMs)), color = superhumanTextMuted, fontSize = 9.sp)
+            Text(timeLabels.first, color = superhumanTextMuted, fontSize = 9.sp)
+            Text(timeLabels.second, color = superhumanTextMuted, fontSize = 9.sp)
         }
     }
 }

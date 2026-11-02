@@ -22,7 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-internal data class SleepStageSegment(val type: String, val startMs: Long, val endMs: Long)
+data class SleepStageSegment(val type: String, val startMs: Long, val endMs: Long)
 
 internal fun parseSleepStageSegments(raw: String?): List<SleepStageSegment> = raw.orEmpty()
     .split(';')
