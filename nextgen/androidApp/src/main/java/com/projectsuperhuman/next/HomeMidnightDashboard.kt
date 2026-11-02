@@ -211,8 +211,6 @@ private fun MidnightTrainingSegment(icon: Int, value: String, label: String, mod
 internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val minutes = snapshot.sleepMinutes
     val score = snapshot.sleepScore
-    val delta = minutes?.minus(480)
-    val reference = minutes?.let { (it / 480f).coerceIn(0f, 1f) } ?: 0f
     val status = when {
         minutes == null -> "No sleep data"
         score == null -> "Sleep recorded"
@@ -221,39 +219,70 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
         score >= 55 -> "Mixed recovery"
         else -> "Low recovery"
     }
-    val detail = when {
-        minutes == null -> "Sync wearable for sleep insights"
-        delta != null && delta < 0 -> "${formatMinutesHome(abs(delta))} below 8h reference"
-        delta != null && delta > 0 -> "${formatMinutesHome(delta)} above 8h reference"
-        else -> "At your 8-hour reference"
-    }
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightPurple)
-            .padding(horizontal = 19.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(9.dp)
+            .padding(horizontal = 19.dp, vertical = 19.dp),
+        verticalArrangement = Arrangement.spacedBy(17.dp)
     ) {
         MidnightHeader("Sleep", "Rest and recover", midnightPurple, R.drawable.tabler_moon) {
-            if (score != null) {
-                Box(Modifier.padding(horizontal = 2.dp, vertical = 6.dp)) {
-                    Text("Score $score", color = midnightPurple, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                }
-            } else MidnightAction(R.drawable.tabler_chevron_right)
+            if (score != null) Text("Score $score", color = midnightPurple, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            else MidnightAction(R.drawable.tabler_chevron_right)
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(minutes?.let(::formatMinutesHome) ?: "No reading", color = superhumanTextPrimary,
-                    fontSize = if (minutes != null) 28.sp else 19.sp,
-                    lineHeight = 32.sp, fontWeight = FontWeight.SemiBold)
-                Text("Last night", color = superhumanTextMuted, fontSize = 11.sp)
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(status, color = midnightPurple, fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold, maxLines = 1)
-                Box(Modifier.fillMaxWidth().height(5.dp).background(superhumanSurfaceSoft, CircleShape)) {
-                    if (reference > 0f)
-                        Box(Modifier.fillMaxWidth(reference).height(5.dp).background(midnightPurple, CircleShape))
+        if (snapshot.sleepStages.isNotEmpty() &&
+            snapshot.sleepStageStartMs != null && snapshot.sleepStageEndMs != null) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(.37f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(minutes?.let(::formatMinutesHome) ?: "—", color = superhumanTextPrimary,
+                        fontSize = 27.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text("Last night", color = superhumanTextMuted, fontSize = 10.sp)
+                    Spacer(Modifier.height(7.dp))
+                    Text(status, color = midnightPurple, fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium, maxLines = 2)
                 }
-                Text(detail, color = superhumanTextMuted, fontSize = 10.sp, maxLines = 1)
+                HomeSleepCyclePlot(
+                    segments = snapshot.sleepStages,
+                    startMs = snapshot.sleepStageStartMs,
+                    endMs = snapshot.sleepStageEndMs,
+                    modifier = Modifier.weight(.63f)
+                )
+            }
+            val totalStages = listOfNotNull(
+                snapshot.sleepAwakeMinutes, snapshot.sleepRemMinutes,
+                snapshot.sleepLightMinutes, snapshot.sleepDeepMinutes
+            ).sum()
+            if (totalStages > 0) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    listOf(
+                        Triple("Awake", snapshot.sleepAwakeMinutes, Color(0xFFE8A9A0)),
+                        Triple("REM", snapshot.sleepRemMinutes, Color(0xFFC6A9EB)),
+                        Triple("Light", snapshot.sleepLightMinutes, Color(0xFF9574D1)),
+                        Triple("Deep", snapshot.sleepDeepMinutes, Color(0xFF7151AE))
+                    ).forEach { (name, value, color) ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(6.dp).background(color, CircleShape))
+                            Spacer(Modifier.width(4.dp))
+                            Text("$name ${value?.let { "${(it * 100f / totalStages).roundToInt()}%" } ?: "—"}",
+                                color = superhumanTextMuted, fontSize = 9.sp)
+                        }
+                    }
+                }
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                    Text(minutes?.let(::formatMinutesHome) ?: "No reading", color = superhumanTextPrimary,
+                        fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Last night", color = superhumanTextMuted, fontSize = 11.sp)
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Text(status, color = midnightPurple, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Sleep stage graph appears when stages are available",
+                        color = superhumanTextMuted, fontSize = 10.sp, lineHeight = 14.sp)
+                }
             }
         }
     }

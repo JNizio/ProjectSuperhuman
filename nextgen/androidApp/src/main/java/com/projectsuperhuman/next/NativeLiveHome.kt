@@ -60,6 +60,13 @@ data class NativeHomeSnapshot(
     val sleepMinutes: Int? = null,
     val sleepStartLabel: String? = null,
     val sleepEndLabel: String? = null,
+    val sleepStages: List<SleepStageSegment> = emptyList(),
+    val sleepStageStartMs: Long? = null,
+    val sleepStageEndMs: Long? = null,
+    val sleepAwakeMinutes: Int? = null,
+    val sleepRemMinutes: Int? = null,
+    val sleepLightMinutes: Int? = null,
+    val sleepDeepMinutes: Int? = null,
     val waterLitres: Double = 0.0,
     val waterGoalMl: Int = 3600,
     val caloriesToday: Int = 0,
@@ -559,6 +566,13 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
     fun sleepText(name: String) = sleep.firstOrNull { it.metric == name }?.metadata?.get("display")
     fun bodyMetric(name: String) = body.firstOrNull { it.metric == name }?.value
 
+    val stageRaw = sleep.firstOrNull { it.metric == "sleep_stage_timeline" }?.metadata?.get("segments")
+    val parsedStages = parseSleepStageSegments(stageRaw)
+    val stageStart = sleepMetric("sleep_start_epoch_ms")?.toLong()
+        ?: parsedStages.firstOrNull()?.startMs
+    val stageEnd = sleepMetric("sleep_end_epoch_ms")?.toLong()
+        ?: parsedStages.lastOrNull()?.endMs
+
     val clinicalAlerts = clinical.count { it.metadata["status"] == "LOW" || it.metadata["status"] == "HIGH" }
     val mindfulnessToday = mindfulness
         .filter { it.timestampEpochMs >= start }
@@ -573,6 +587,13 @@ private suspend fun loadNativeHomeSnapshot(): NativeHomeSnapshot {
         sleepMinutes = sleepMetric("sleep_total_minutes")?.roundToInt(),
         sleepStartLabel = sleepText("sleep_total_minutes"),
         sleepEndLabel = null,
+        sleepStages = parsedStages,
+        sleepStageStartMs = stageStart,
+        sleepStageEndMs = stageEnd,
+        sleepAwakeMinutes = sleepMetric("sleep_awake_minutes")?.roundToInt(),
+        sleepRemMinutes = sleepMetric("sleep_rem_minutes")?.roundToInt(),
+        sleepLightMinutes = sleepMetric("sleep_light_minutes")?.roundToInt(),
+        sleepDeepMinutes = sleepMetric("sleep_deep_minutes")?.roundToInt(),
         waterLitres = water,
         waterGoalMl = waterGoalMl,
         caloriesToday = kcal,
