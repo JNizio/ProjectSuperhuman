@@ -74,7 +74,7 @@ android {
     defaultConfig {
         applicationId = "com.projectsuperhuman.next"
         minSdk = 26; targetSdk = 35
-        versionCode = 11301; versionName = "11.3.1"
+        versionCode = 11401; versionName = "11.4.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") }
         buildConfigField("String", "TRUDY_RUNTIME_MODE", trudyRuntimeMode.get().asBuildConfigString())
