@@ -49,7 +49,7 @@ internal fun AnimatedHydrationOrb(
     )
 
     Box(
-        modifier.size(126.dp).clip(CircleShape).background(Color.White.copy(alpha = .12f)),
+        modifier.size(126.dp).clip(CircleShape).background(superhumanSurfaceSoft),
         contentAlignment = Alignment.Center
     ) {
         Canvas(Modifier.fillMaxSize()) {
@@ -69,41 +69,24 @@ internal fun AnimatedHydrationOrb(
                     lineTo(0f, size.height)
                     close()
                 }
-                drawPath(
-                    wavePath,
-                    Brush.verticalGradient(
-                        listOf(Color.White.copy(alpha = .78f), Color(0xFFBCEBFA).copy(alpha = .58f)),
-                        startY = waterTop,
-                        endY = size.height
-                    )
-                )
-                drawOval(
-                    color = Color.White.copy(alpha = .15f),
-                    topLeft = Offset(size.width * .17f, size.height * .13f),
-                    size = Size(size.width * .28f, size.height * .13f)
-                )
+                drawPath(wavePath, color = superhumanBlue.copy(alpha = .75f))
             }
         }
 
-        val textShadow = Shadow(
-            color = Color(0xFF064B78).copy(alpha = .34f),
-            offset = Offset(0f, 1.5f),
-            blurRadius = 3.5f
-        )
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 percentLabel,
-                color = Color.White,
+                color = superhumanTextPrimary,
                 fontSize = 25.sp,
                 fontWeight = FontWeight.Black,
-                style = TextStyle(shadow = textShadow)
+                style = TextStyle.Default
             )
             Text(
                 "of goal",
-                color = Color.White.copy(alpha = .82f),
+                color = superhumanTextPrimary.copy(alpha = .75f),
                 fontSize = 8.sp,
                 fontWeight = FontWeight.Medium,
-                style = TextStyle(shadow = textShadow)
+                style = TextStyle.Default
             )
         }
     }

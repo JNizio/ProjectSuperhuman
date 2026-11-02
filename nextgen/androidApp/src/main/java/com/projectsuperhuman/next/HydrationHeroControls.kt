@@ -48,6 +48,7 @@ internal fun HydrationHeroControls(
     amountMl: Int,
     status: String,
     onAmountChange: (Int) -> Unit,
+    onQuickLog: (Int) -> Unit,
     onQuickSubtract: (Int) -> Unit,
     onClearToday: () -> Unit,
     onLog: () -> Unit
@@ -68,19 +69,15 @@ internal fun HydrationHeroControls(
 
     Column(
         Modifier.fillMaxWidth()
-            .then(
-                if (SuperhumanAppearance.darkMode) Modifier.midnightModuleCard(accent = superhumanBlue, radius = 30.dp)
-                else Modifier.clip(RoundedCornerShape(30.dp))
-                    .background(Brush.linearGradient(listOf(Color(0xFF0864A7), Color(0xFF11A6C3))))
-            )
+.midnightModuleCard(accent = superhumanBlue)
             .padding(horizontal = 20.dp, vertical = 18.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("WATER TODAY", color = Color.White.copy(alpha = .72f), fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+            Text("WATER TODAY", color = superhumanTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
             Text(
                 if (remaining > 0) "${formatMlHydration(remaining)} remaining" else "Goal reached",
-                color = Color.White.copy(alpha = .82f), fontSize = 10.sp, fontWeight = FontWeight.Bold
+                color = superhumanTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold
             )
         }
 
@@ -88,20 +85,20 @@ internal fun HydrationHeroControls(
             AnimatedHydrationOrb(fraction = currentFraction, percentLabel = "$currentPct%")
             Spacer(Modifier.width(18.dp))
             Column(Modifier.weight(1f)) {
-                Text(formatMlHydration(todayMl), color = Color.White, fontSize = 29.sp, fontWeight = FontWeight.Black)
-                Text("of ${formatMlHydration(goalMl)}", color = Color.White.copy(alpha = .72f), fontSize = 11.sp)
+                Text(formatMlHydration(todayMl), color = superhumanTextPrimary, fontSize = 29.sp, fontWeight = FontWeight.Black)
+                Text("of ${formatMlHydration(goalMl)}", color = superhumanTextMuted, fontSize = 11.sp)
                 Spacer(Modifier.height(7.dp))
-                Text("Water only", color = Color.White.copy(alpha = .64f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text("Water only", color = superhumanTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
         }
 
         if (todayMl > 0 || remaining > 0) {
             Column(
-                Modifier.fillMaxWidth().background(Color.White.copy(alpha = .10f), RoundedCornerShape(22.dp)).padding(12.dp),
+                Modifier.fillMaxWidth().padding(vertical = 2.dp),
                 verticalArrangement = Arrangement.spacedBy(11.dp)
             ) {
                 Row(
-                    Modifier.fillMaxWidth().background(Color.White.copy(alpha = .08f), RoundedCornerShape(15.dp)).padding(3.dp),
+                    Modifier.fillMaxWidth().padding(3.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     listOf(false to "ADD", true to "CORRECT").forEach { (mode, label) ->
@@ -125,31 +122,31 @@ internal fun HydrationHeroControls(
                     Column {
                         Text(
                             if (correcting) "CORRECTION AMOUNT" else "WATER AMOUNT",
-                            color = Color.White.copy(alpha = .56f), fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp
+                            color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp
                         )
-                        Text(formatMlHydration(selected), color = Color.White.copy(alpha = .96f), fontSize = 22.sp, fontWeight = FontWeight.Black)
+                        Text(formatMlHydration(selected), color = superhumanTextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Black)
                     }
-                    Text("max ${formatMlHydration(maxAmount)}", color = Color.White.copy(alpha = .60f), fontSize = 8.sp)
+                    Text("max ${formatMlHydration(maxAmount)}", color = superhumanTextMuted, fontSize = 8.sp)
                 }
 
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf(250, 500, 750).forEach { preset ->
-                        val enabled = maxAmount >= preset
+                        val enabled = !correcting && remaining > 0
                         val active = selected == preset
                         Box(
                             Modifier.weight(1f)
                                 .background(
                                     when {
-                                        active -> Color.White.copy(alpha = .22f)
-                                        enabled -> Color.White.copy(alpha = .09f)
-                                        else -> Color.White.copy(alpha = .04f)
+                                        active -> superhumanSurfaceSoft
+                                        enabled -> superhumanSurfaceSoft
+                                        else -> superhumanSurfaceSoft.copy(alpha = .35f)
                                     }, RoundedCornerShape(13.dp)
                                 )
-                                .superhumanClickable(enabled = enabled) { onAmountChange(preset) }
+                                .superhumanClickable(enabled = enabled) { onQuickLog(preset.coerceAtMost(remaining)) }
                                 .padding(vertical = 9.dp),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("$preset", color = Color.White.copy(alpha = if (enabled) .90f else .30f), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                            Text("$preset ml", color = if (enabled) superhumanTextPrimary else superhumanTextMuted, fontSize = 11.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -165,9 +162,9 @@ internal fun HydrationHeroControls(
                     valueRange = 0f..sliderMax.toFloat(),
                     steps = 0,
                     colors = SliderDefaults.colors(
-                        thumbColor = Color.White.copy(alpha = .95f),
-                        activeTrackColor = Color.White.copy(alpha = .92f),
-                        inactiveTrackColor = Color.White.copy(alpha = .20f),
+                        thumbColor = superhumanTextPrimary,
+                        activeTrackColor = superhumanBlue,
+                        inactiveTrackColor = superhumanSurfaceSoft,
                         activeTickColor = Color.Transparent,
                         inactiveTickColor = Color.Transparent
                     )
@@ -176,7 +173,7 @@ internal fun HydrationHeroControls(
                 val actionEnabled = selected > 0 && maxAmount > 0
                 Box(
                     Modifier.fillMaxWidth()
-                        .background(Color.White.copy(alpha = if (actionEnabled) .96f else .35f), RoundedCornerShape(16.dp))
+                        .background(if (actionEnabled) superhumanBlue else superhumanSurfaceSoft, RoundedCornerShape(16.dp))
                         .superhumanClickable(enabled = actionEnabled) {
                             if (correcting) onQuickSubtract(selected) else onLog()
                         }
@@ -187,9 +184,9 @@ internal fun HydrationHeroControls(
                         when {
                             !actionEnabled -> if (correcting) "SELECT CORRECTION" else "SELECT WATER"
                             correcting -> "REMOVE ${formatMlHydration(selected).uppercase()}"
-                            else -> "ADD ${formatMlHydration(selected).uppercase()}"
+                            else -> "Add water"
                         },
-                        color = Color(0xFF0B77B5), fontSize = 10.sp, fontWeight = FontWeight.Black
+                        color = if (actionEnabled) Color(0xFF09141C) else superhumanTextMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold
                     )
                 }
 

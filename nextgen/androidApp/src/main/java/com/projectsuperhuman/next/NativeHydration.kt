@@ -159,15 +159,24 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
             amountMl = amountSlider,
             status = status,
             onAmountChange = { amountSlider = it.coerceIn(0, maxOf(snapshot.remainingMl, snapshot.todayMl)) },
+            onQuickLog = ::logDrink,
             onQuickSubtract = ::subtractDrink,
             onClearToday = ::clearToday,
             onLog = { logDrink(amountSlider) }
         )
-        HydrationCalendarCard(snapshot.calendarTotals, snapshot.goalMl)
-        HydrationPacingCard(snapshot)
         HydrationHistoryCard(snapshot)
+        var showDetails by remember { mutableStateOf(false) }
+        Box(Modifier.fillMaxWidth().midnightModuleCard(accent = HydBlue)
+            .superhumanClickable { showDetails = !showDetails }.padding(15.dp),
+            contentAlignment = Alignment.Center) {
+            Text(if (showDetails) "Hide advanced tracking" else "Calendar, water pace & daily goal", color = HydMuted, fontSize = 12.sp)
+        }
+        if (showDetails) {
+            HydrationCalendarCard(snapshot.calendarTotals, snapshot.goalMl)
+            HydrationPacingCard(snapshot)
+        }
 
-        Column(Modifier.fillMaxWidth().midnightModuleCard(accent = HydBlue, radius = 24.dp).padding(16.dp)) {
+        if (showDetails) Column(Modifier.fillMaxWidth().midnightModuleCard(accent = HydBlue, radius = 24.dp).padding(16.dp)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text("Daily water goal", color = HydInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
@@ -181,7 +190,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
                 contentAlignment = Alignment.Center
             ) { Text("SAVE GOAL", color = HydBlue, fontSize = 10.sp, fontWeight = FontWeight.Black) }
         }
-        Spacer(Modifier.height(112.dp))
+        Spacer(Modifier.height(18.dp))
     }
 }
 
