@@ -122,7 +122,6 @@ private val defaultHomeTileOrder = listOf(
     HomeTile.HYDRATION,
     HomeTile.INSIGHTS,
     HomeTile.EXPERIMENTS,
-    HomeTile.ENVIRONMENT,
     HomeTile.EMOTIONAL,
     HomeTile.CLINICAL,
     HomeTile.MINDFULNESS
@@ -337,9 +336,13 @@ internal fun NativeLiveHome(
                         when (tile) {
                             HomeTile.INSIGHTS -> HomeInsightsTile(InsightsUiRuntime.provider.load(), openInsights)
                             HomeTile.EMOTIONAL -> HomeEmotionalTile(emotionalCurrent, openEmotional)
-                            HomeTile.ENVIRONMENT -> HomeEnvironmentalTile(onClick = openEnvironment)
+                            // ENVIRONMENT is a legacy storage key; the merged mini row takes its position.
+                            HomeTile.ENVIRONMENT, HomeTile.HYDRATION -> HomeCompactModulesRow(
+                                snapshot = snapshot,
+                                openHydration = openHydration,
+                                openEnvironment = openEnvironment
+                            )
                             HomeTile.EXPERIMENTS -> HomeExperimentsTile(MockExperimentData.active, openExperiments)
-                            HomeTile.HYDRATION -> PremiumHomeHydrationTile(snapshot, openHydration)
                             HomeTile.CLINICAL -> LegacyClinicalCard(snapshot, openClinical)
                             HomeTile.EXERCISE -> MidnightTrainingCard(snapshot, openExercise)
                             HomeTile.MINDFULNESS -> HomeMindfulnessBreathworkRow(snapshot, openMindfulness)
@@ -430,6 +433,27 @@ private fun ReorderableHomeTile(
     }
 }
 
+/**
+ * Hydration and Environment share one compact row. Older preferences stored
+ * independent tile keys; keep the first of their two positions when migrating
+ * so user-customized Home layouts remain predictable.
+ */
+private fun mergeCompactModuleOrder(order: List<HomeTile>): List<HomeTile> {
+    val merged = mutableListOf<HomeTile>()
+    var compactAdded = false
+    order.forEach { tile ->
+        when (tile) {
+            HomeTile.HYDRATION, HomeTile.ENVIRONMENT -> if (!compactAdded) {
+                merged.add(HomeTile.HYDRATION)
+                compactAdded = true
+            }
+            else -> if (tile !in merged) merged.add(tile)
+        }
+    }
+    if (!compactAdded) merged.add(HomeTile.HYDRATION)
+    return merged
+}
+
 private fun loadHomeTileOrder(context: Context): List<HomeTile> {
     val prefs = context.getSharedPreferences(HOME_PREFS, Context.MODE_PRIVATE)
     fun decode(value: String?): List<HomeTile> =
@@ -440,8 +464,10 @@ private fun loadHomeTileOrder(context: Context): List<HomeTile> {
     // v2 is user-controlled: once dragged, no automatic module can jump in front of it.
     prefs.getString(HOME_TILE_ORDER_KEY, null)?.let { saved ->
         val parsed = decode(saved)
-        return (parsed + defaultHomeTileOrder.filterNot(parsed::contains))
-            .distinct().ifEmpty { defaultHomeTileOrder }
+        val normalized = mergeCompactModuleOrder(parsed + defaultHomeTileOrder.filterNot(parsed::contains))
+        val serialized = normalized.joinToString(",") { it.storageKey }
+        if (saved != serialized) prefs.edit().putString(HOME_TILE_ORDER_KEY, serialized).apply()
+        return normalized
     }
 
     // One-time default upgrade: make the requested three core cards the opening view.
@@ -449,7 +475,7 @@ private fun loadHomeTileOrder(context: Context): List<HomeTile> {
     val core = listOf(HomeTile.NUTRITION, HomeTile.EXERCISE, HomeTile.SLEEP)
     val legacy = decode(prefs.getString(LEGACY_HOME_TILE_ORDER_KEY, null))
     val remaining = (legacy + defaultHomeTileOrder).filterNot { it in core }.distinct()
-    val initial = core + remaining
+    val initial = mergeCompactModuleOrder(core + remaining)
     prefs.edit().putString(HOME_TILE_ORDER_KEY, initial.joinToString(",") { it.storageKey }).apply()
     return initial
 }
