@@ -59,10 +59,10 @@ internal fun AnimatedHydrationOrb(
                 val amplitude = size.height * .026f
                 val wavePath = Path().apply {
                     moveTo(0f, waterTop)
-                    val steps = 24
+                    val steps = 20
                     for (i in 0..steps) {
                         val x = size.width * i / steps
-                        val angle = phase + (i.toFloat() / steps) * (2f * PI).toFloat()
+                        val angle = phase + i * ((2f * PI).toFloat() / steps)
                         lineTo(x, waterTop + sin(angle) * amplitude)
                     }
                     lineTo(size.width, size.height)
