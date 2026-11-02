@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -112,7 +113,7 @@ private fun SuperhumanShell(
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
-    val bottomBarHeight = 64.dp
+    val bottomBarHeight = 88.dp
     val trudyState = remember { TrudyConversationState() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
@@ -288,15 +289,20 @@ private fun ShellBottomNavigation(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Edge-to-edge flat navigation: no raised pill, frame or shadow.
-    // The shell reserves the same height above so every page stays tappable.
+    // Floating but restrained: one matte surface, hairline edge and soft shadow.
     val dark = SuperhumanAppearance.darkMode
+    val shape = RoundedCornerShape(25.dp)
     Row(
         modifier
             .fillMaxWidth()
-            .height(64.dp)
-            .background(if (dark) superhumanBackground else superhumanSurface)
-            .padding(horizontal = 14.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 9.dp)
+            .shadow(elevation = 12.dp, shape = shape, clip = false,
+                ambientColor = Color.Black.copy(alpha = .45f),
+                spotColor = Color.Black.copy(alpha = .55f))
+            .background(if (dark) superhumanSurface else superhumanSurfaceElevated, shape)
+            .border(1.dp, superhumanBorder.copy(alpha = if (dark) .45f else .65f), shape)
+            .height(65.dp)
+            .padding(horizontal = 7.dp, vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
