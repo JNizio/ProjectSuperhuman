@@ -356,8 +356,10 @@ private fun RepDbImage(path: String?, modifier: Modifier) {
     } else {
         listOf(Color(0xFFF7FBFF), Color(0xFFE9F4FC))
     }
+    // Reuse the Compose wrapper too; the underlying bitmap pixels remain unchanged.
+    val imageBitmap = remember(bitmap) { bitmap?.asImageBitmap() }
     Box(modifier.background(Brush.linearGradient(imageGradient), RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
-        if (bitmap != null) Image(bitmap!!.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) else Text("EX", color = ExerciseBlue, fontWeight = FontWeight.Black)
+        if (imageBitmap != null) Image(imageBitmap, null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit) else Text("EX", color = ExerciseBlue, fontWeight = FontWeight.Black)
     }
 }
 
