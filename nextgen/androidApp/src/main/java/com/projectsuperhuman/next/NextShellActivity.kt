@@ -301,7 +301,7 @@ private fun ShellBottomNavigation(
             .shadow(elevation = 16.dp, shape = shape, clip = false,
                 ambientColor = Color.Black.copy(alpha = .50f),
                 spotColor = Color.Black.copy(alpha = .60f))
-            .background(if (dark) superhumanSurface else superhumanSurfaceElevated, shape)
+            .background(if (dark) Color(0xFF222429) else superhumanSurfaceElevated, shape)
             .border(1.dp, superhumanBorder.copy(alpha = if (dark) .45f else .65f), shape)
             .height(65.dp)
             .padding(horizontal = 7.dp, vertical = 5.dp),
