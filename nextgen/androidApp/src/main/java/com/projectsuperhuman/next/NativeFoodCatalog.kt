@@ -955,14 +955,20 @@ internal object NativeFoodCatalog {
             emptyList()
         }
 
+        // Supplement bundled generic foods with compatible USDA source profiles that
+        // have already been imported on-device. Preserve the generic food's identity,
+        // macros and serving basis; attach only traced micronutrient evidence.
+        val bundledWithMicros = bundledLocal.map { bundled ->
+            BundledFoodMicronutrientMatcher.enrich(bundled, expandedLocal)
+        }
         val nutrientRichCore = expandedLocal.filter { food ->
             food.id.startsWith("core:") && food.micronutrients.isNotEmpty()
         }
         val bundledVisible = if (nutrientRichCore.isEmpty()) {
-            bundledLocal
+            bundledWithMicros
         } else {
             val coreTokens = nutrientRichCore.flatMap { normalizeFoodTokens(it.name) }.toSet()
-            bundledLocal.filterNot { legacy ->
+            bundledWithMicros.filterNot { legacy ->
                 legacy.micronutrients.isEmpty() &&
                     normalizeFoodTokens(legacy.name).any { it in coreTokens } &&
                     foodSearchRank(legacy, q.lowercase()) <= 1
