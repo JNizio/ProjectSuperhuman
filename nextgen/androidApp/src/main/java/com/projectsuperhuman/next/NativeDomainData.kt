@@ -67,6 +67,11 @@ internal class NativeDomainData private constructor(
     ): ModuleParitySnapshot = NativeModuleParity.snapshot(domain, historyLimit, historyOffset)
 
     companion object {
-        fun forDomain(domain: HealthDomain): NativeDomainData = NativeDomainData(domain)
+        // Stateless domain facades are used throughout Home, Nutrition, Body, and
+        // Vitals. Reuse one per enum rather than allocate on every refresh/query.
+        private val instances: Map<HealthDomain, NativeDomainData> =
+            HealthDomain.entries.associateWith(::NativeDomainData)
+
+        fun forDomain(domain: HealthDomain): NativeDomainData = instances.getValue(domain)
     }
 }
