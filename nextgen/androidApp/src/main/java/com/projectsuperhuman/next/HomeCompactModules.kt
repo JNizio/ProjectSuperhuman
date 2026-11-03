@@ -187,11 +187,14 @@ internal fun HomeCompactEnvironmentTile(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        Spacer(Modifier.weight(1f))
+        // Keep location in the normal layout flow. A weighted spacer previously
+        // pushed its last text line into the bottom of the clipped card.
+        Spacer(Modifier.height(9.dp))
         Text(
             detail.ifBlank { "Local conditions" },
             color = palette.textMuted,
-            fontSize = 9.sp,
+            fontSize = 10.sp,
+            lineHeight = 14.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
