@@ -1,6 +1,8 @@
 package com.projectsuperhuman.next
 
 import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import android.util.LruCache
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -329,10 +331,26 @@ private fun starterWorkoutPresets(catalog: List<NativeExercise>): List<WorkoutPr
     )
 }
 
+// Keep a bounded pool of unmodified decoded reference artwork. Asset bytes never
+// change within an installation; reusing Bitmaps avoids repeated decode/GC spikes
+// as exercise images leave and re-enter composition during scrolling.
+private val repDbBitmapCache = object : LruCache<String, Bitmap>(12 * 1024) {
+    override fun sizeOf(key: String, value: Bitmap): Int =
+        (value.byteCount / 1024).coerceAtLeast(1)
+}
+
 @Composable
 private fun RepDbImage(path: String?, modifier: Modifier) {
     val context = LocalContext.current
-    val bitmap by produceState<android.graphics.Bitmap?>(null, path) { value = withContext(Dispatchers.IO) { path?.let { runCatching { context.assets.open("repdb/$it").use(BitmapFactory::decodeStream) }.getOrNull() } } }
+    val bitmap by produceState<Bitmap?>(null, path) {
+        value = withContext(Dispatchers.IO) {
+            path?.let { assetPath ->
+                repDbBitmapCache.get(assetPath) ?: runCatching {
+                    context.assets.open("repdb/$assetPath").use(BitmapFactory::decodeStream)
+                }.getOrNull()?.also { repDbBitmapCache.put(assetPath, it) }
+            }
+        }
+    }
     val imageGradient = if (SuperhumanAppearance.darkMode) {
         listOf(superhumanSurfaceElevated, superhumanSurfaceSoft)
     } else {
@@ -348,6 +366,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var catalog by remember { mutableStateOf<List<NativeExercise>>(emptyList()) }
+    val exerciseIndex = remember(catalog) { catalog.associateBy { it.id } }
     var recent by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var sessionRows by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var mode by remember { mutableStateOf("home") }
@@ -566,7 +585,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             if (workoutExercises.isEmpty()) {
                 val ids = matchingRows.mapNotNull { it.metadata["exerciseId"] }.distinct()
                 workoutExercises.clear()
-                workoutExercises.addAll(ids.mapNotNull { id -> catalog.find { it.id == id } })
+                workoutExercises.addAll(ids.mapNotNull { id -> exerciseIndex[id] })
             }
 
             if (session.isEmpty() && matchingRows.isNotEmpty()) {
@@ -574,7 +593,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 session.addAll(
                     matchingRows.mapNotNull { row ->
                         val exerciseId = row.metadata["exerciseId"] ?: return@mapNotNull null
-                        val exercise = catalog.find { it.id == exerciseId } ?: return@mapNotNull null
+                        val exercise = exerciseIndex[exerciseId] ?: return@mapNotNull null
                         NativeWorkoutSet(
                             exercise = exercise,
                             reps = row.metadata["reps"]?.toIntOrNull() ?: return@mapNotNull null,
@@ -814,7 +833,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             catalog = catalog,
                             isNext = routine.name == nextRoutineName,
                             onStart = {
-                                startWorkout(routine.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } })
+                                startWorkout(routine.exerciseIds.mapNotNull { id -> exerciseIndex[id] })
                                 workoutName = routine.name
                             }
                         )
@@ -929,7 +948,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 HeroStrip("EXERCISE LIBRARY", "${catalog.size} exercises", "", ExerciseBlue)
                 if (recentIds.isNotEmpty() && query.isBlank() && !favoritesOnly) {
                     PolishedSection("RECENTLY USED", "") {
-                        recentIds.mapNotNull { id -> catalog.find { it.id == id } }.forEach { e ->
+                        recentIds.mapNotNull { id -> exerciseIndex[id] }.forEach { e ->
                             ExerciseResultRow(
                                 e, startedAt > 0L, e.id in favorites,
                                 { selected = e; mode = "detail" },
@@ -1128,7 +1147,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                                 feedbackMessage = if (nextRoutineName.isBlank()) "Next workout cleared" else "Next workout set"
                             },
                             onStart = {
-                                startWorkout(routine.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } })
+                                startWorkout(routine.exerciseIds.mapNotNull { id -> exerciseIndex[id] })
                                 workoutName = routine.name
                             },
                             onEdit = {
@@ -1445,7 +1464,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         routines = routines,
                         catalog = catalog,
                         onAddRoutine = { routine ->
-                            routine.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } }.forEach { exercise ->
+                            routine.exerciseIds.mapNotNull { id -> exerciseIndex[id] }.forEach { exercise ->
                                 if (workoutExercises.none { it.id == exercise.id }) workoutExercises.add(exercise)
                             }
                             if (selected == null) selected = workoutExercises.firstOrNull()
