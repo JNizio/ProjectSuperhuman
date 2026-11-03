@@ -113,7 +113,6 @@ private fun SuperhumanShell(
     var page by remember { mutableStateOf(ShellPage.HOME) }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
-    val bottomBarHeight = 88.dp
     val trudyState = remember { TrudyConversationState() }
 
     HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
@@ -124,10 +123,7 @@ private fun SuperhumanShell(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .padding(
-                        top = if (hasPersistentTopBar) 92.dp else 0.dp,
-                        bottom = bottomBarHeight
-                    )
+                    .padding(top = if (hasPersistentTopBar) 92.dp else 0.dp)
             ) {
                 when (page) {
                     ShellPage.HOME -> NativeLiveHome(
@@ -289,16 +285,18 @@ private fun ShellBottomNavigation(
     onSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Floating but restrained: one matte surface, hairline edge and soft shadow.
+    // True overlay: screen content extends behind this floating pill.
+    // Each scrollable page reserves its own trailing scroll clearance rather than
+    // a full-width opaque shell strip behind the navigation.
     val dark = SuperhumanAppearance.darkMode
     val shape = RoundedCornerShape(25.dp)
     Row(
         modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 9.dp)
-            .shadow(elevation = 12.dp, shape = shape, clip = false,
-                ambientColor = Color.Black.copy(alpha = .45f),
-                spotColor = Color.Black.copy(alpha = .55f))
+            .shadow(elevation = 16.dp, shape = shape, clip = false,
+                ambientColor = Color.Black.copy(alpha = .50f),
+                spotColor = Color.Black.copy(alpha = .60f))
             .background(if (dark) superhumanSurface else superhumanSurfaceElevated, shape)
             .border(1.dp, superhumanBorder.copy(alpha = if (dark) .45f else .65f), shape)
             .height(65.dp)

@@ -360,7 +360,9 @@ internal fun NativeLiveHome(
                     }
                 }
             }
-            Spacer(Modifier.height(18.dp))
+            // The floating navigation overlays the screen, so leave scrollable
+            // clearance inside the Home list rather than a solid shell backdrop.
+            Spacer(Modifier.height(112.dp))
         }
     }
 }
