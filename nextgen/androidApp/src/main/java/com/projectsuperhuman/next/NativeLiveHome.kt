@@ -385,21 +385,28 @@ internal fun NativeLiveHome(
                     }
                 }
             }
-            // The add control is part of the dashboard content, never a navigation tab.
-            // When no tiles are selected this appears immediately beneath the greeting.
-            Row(
+            // Subtle full-width divider and a standalone add glyph, aligned to the tiles.
+            // Keep this in the scrollable Home content, after the final selected module.
+            Column(
                 Modifier.fillMaxWidth()
-                    .background(superhumanSurface, RoundedCornerShape(24.dp))
                     .superhumanClickable(onClick = onOpenModulePicker)
-                    .padding(horizontal = 20.dp, vertical = 19.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center
+                    .padding(top = 4.dp, bottom = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("+", color = superhumanAccent, fontSize = 26.sp,
-                    lineHeight = 28.sp, fontWeight = FontWeight.Medium)
-                Spacer(Modifier.width(10.dp))
-                Text("Add module", color = superhumanTextPrimary, fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold)
+                Box(
+                    Modifier.fillMaxWidth()
+                        .height(1.dp)
+                        .background(superhumanBorder.copy(alpha = 0.45f))
+                )
+                Spacer(Modifier.height(15.dp))
+                Text(
+                    "+",
+                    color = superhumanTextMuted,
+                    fontSize = 32.sp,
+                    lineHeight = 36.sp,
+                    fontWeight = FontWeight.Light
+                )
+                Spacer(Modifier.height(8.dp))
             }
             // The floating navigation overlays the screen, so leave scrollable
             // clearance inside the Home list rather than a solid shell backdrop.
