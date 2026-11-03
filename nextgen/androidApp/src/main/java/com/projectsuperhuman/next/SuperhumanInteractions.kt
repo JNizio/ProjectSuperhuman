@@ -2,7 +2,6 @@ package com.projectsuperhuman.next
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.IndicationNodeFactory
 import androidx.compose.foundation.border
@@ -18,8 +17,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.node.DelegatableNode
 import androidx.compose.ui.composed
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 
@@ -65,35 +62,18 @@ internal fun Modifier.superhumanClickable(
 }
 
 /**
- * Home dashboard cards deliberately do not scale when pressed. A restrained neutral tint gives
- * immediate feedback while keeping imagery, borders and card geometry perfectly stationary.
+ * Home-tile click target: no Android ripple and no custom rectangular overlay.
+ * Keep semantics, accessibility and onClick intact, without animating the tile.
  */
 internal fun Modifier.superhumanHomeTileClickable(
     enabled: Boolean = true,
     onClick: () -> Unit
-): Modifier = composed {
-    val interactionSource = remember { MutableInteractionSource() }
-    val pressed by interactionSource.collectIsPressedAsState()
-    val overlayAlpha by animateFloatAsState(
-        targetValue = if (pressed && enabled) if (SuperhumanAppearance.darkMode) 0.12f else 0.075f else 0f,
-        animationSpec = tween(durationMillis = if (pressed) 90 else 170),
-        label = "superhuman-home-highlight"
-    )
-
-    this
-        .clickable(
-            enabled = enabled,
-            interactionSource = interactionSource,
-            indication = null,
-            onClick = onClick
-        )
-        .drawWithContent {
-            drawContent()
-            if (overlayAlpha > 0f) {
-                drawRect(if (SuperhumanAppearance.darkMode) Color.White.copy(alpha = overlayAlpha) else Color(0xFF64748B).copy(alpha = overlayAlpha))
-            }
-        }
-}
+): Modifier = this.clickable(
+    enabled = enabled,
+    interactionSource = null,
+    indication = null,
+    onClick = onClick
+)
 
 /**
  * Global top-of-screen control style used for back, profile, settings and equivalent header actions.
