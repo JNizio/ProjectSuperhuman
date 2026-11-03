@@ -367,6 +367,17 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     val scope = rememberCoroutineScope()
     var catalog by remember { mutableStateOf<List<NativeExercise>>(emptyList()) }
     val exerciseIndex = remember(catalog) { catalog.associateBy { it.id } }
+    // Lowercase search terms only when the immutable exercise catalog changes,
+    // not on every keystroke, timer update or scrolling recomposition.
+    val exerciseSearchTerms = remember(catalog) {
+        catalog.associate { exercise ->
+            exercise.id to (
+                listOf(exercise.name, exercise.group, exercise.equipment,
+                    exercise.difficulty, exercise.mechanic) +
+                    exercise.primaryMuscles + exercise.secondaryMuscles
+            ).map { it.lowercase() }
+        }
+    }
     var recent by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var sessionRows by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     var mode by remember { mutableStateOf("home") }
@@ -935,8 +946,8 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 val filtered = remember(catalog, query, muscleFilter, equipmentFilter, difficultyFilter, mechanicFilter, favoritesOnly, favorites) {
                     val q = query.trim().lowercase()
                     catalog.filter { e ->
-                        val searchable = listOf(e.name, e.group, e.equipment, e.difficulty, e.mechanic) + e.primaryMuscles + e.secondaryMuscles
-                        (q.isBlank() || searchable.any { it.lowercase().contains(q) }) &&
+                        val searchable = exerciseSearchTerms[e.id].orEmpty()
+                        (q.isBlank() || searchable.any { it.contains(q) }) &&
                             (muscleFilter == null || (e.primaryMuscles + e.secondaryMuscles).map(::pretty).contains(muscleFilter)) &&
                             (equipmentFilter == null || e.equipment == equipmentFilter) &&
                             (difficultyFilter == null || e.difficulty == difficultyFilter) &&
