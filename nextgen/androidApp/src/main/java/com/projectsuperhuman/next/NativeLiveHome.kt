@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.projectsuperhuman.next.core.HealthDomain
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.ZoneId
@@ -182,20 +184,27 @@ internal fun NativeLiveHome(
 
     var snapshot by remember { mutableStateOf(NativeHomeSnapshot()) }
     val emotionalCurrent by produceState<EmotionalPresentationSnapshot?>(null) {
-        val rows = NativeDomainData.forDomain(HealthDomain.EMOTIONAL).latestState()
+        val rows = withContext(Dispatchers.IO) {
+            NativeDomainData.forDomain(HealthDomain.EMOTIONAL).latestState()
+        }
         value = EmotionalPresentationContract.fromCanonicalValues(rows, rows.latestEmotionalLabel())
     }
     val tileOrder = remember {
         mutableStateListOf<HomeTile>().apply { addAll(loadHomeTileOrder(context)) }
     }
-    val tileBounds = remember { mutableStateMapOf<HomeTile, HomeTileBounds>() }
+    // Geometry changes on every scroll frame. This must NOT be Compose snapshot state:
+    // observing scroll-time bounds otherwise recomposes every Home tile each frame.
+    val tileBounds = remember { mutableMapOf<HomeTile, HomeTileBounds>() }
 
     var draggingTile by remember { mutableStateOf<HomeTile?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
     var dragTargetIndex by remember { mutableIntStateOf(-1) }
     var settling by remember { mutableStateOf(false) }
 
-    LaunchedEffect(Unit) { snapshot = loadNativeHomeSnapshot() }
+    LaunchedEffect(Unit) {
+        // Keep domain/database aggregation off the UI thread during initial Home render.
+        snapshot = withContext(Dispatchers.IO) { loadNativeHomeSnapshot() }
+    }
 
     fun targetIndexFor(tile: HomeTile, visualOffsetY: Float): Int {
         val fromIndex = tileOrder.indexOf(tile)
