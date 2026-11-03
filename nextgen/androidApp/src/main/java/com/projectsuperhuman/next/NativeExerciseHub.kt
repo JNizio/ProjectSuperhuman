@@ -201,17 +201,7 @@ private fun NativeExerciseLandingPage(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.superhumanTopButton(onClick = onBack),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "←",
-                    color = superhumanBrandText,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            SuperhumanModuleBackButton(onBack)
             Column(Modifier.padding(start = 12.dp)) {
                 Text(
                     "Exercise",

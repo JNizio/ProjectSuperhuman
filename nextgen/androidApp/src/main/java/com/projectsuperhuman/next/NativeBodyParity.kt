@@ -188,12 +188,7 @@ private fun bodySourceFreshness(timestampEpochMs: Long): String {
 @Composable
 private fun BodyHeader(onBack: () -> Unit, onProfile: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.superhumanTopButton(onClick = onBack),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(painter = painterResource(R.drawable.tabler_arrow_left), contentDescription = "Back", tint = BodyInk, modifier = Modifier.size(23.dp))
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text("Body & Progress", color = BodyInk, fontSize = 24.sp, fontWeight = FontWeight.Black)

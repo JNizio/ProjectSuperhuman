@@ -129,9 +129,7 @@ internal fun EmotionalModuleScreen(
 @Composable
 private fun EmotionalHeader(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back to home" }, contentAlignment = Alignment.Center) {
-            Text("←", color = EmotionalNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        }
+        SuperhumanModuleBackButton(onBack)
         Column(Modifier.padding(start = 12.dp)) {
             Text("Emotional", color = EmotionalNavy, fontSize = 17.sp, fontWeight = FontWeight.Black)
             Text("A quick read on right now", color = EmotionalMuted, fontSize = 9.sp)

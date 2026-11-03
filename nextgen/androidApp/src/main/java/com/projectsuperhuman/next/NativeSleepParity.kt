@@ -133,15 +133,7 @@ private fun SleepHeader(onBack: () -> Unit) {
         Modifier.fillMaxWidth().padding(bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            Modifier.width(44.dp).height(44.dp)
-                .background(SleepCard, RoundedCornerShape(15.dp))
-                .border(1.dp, SleepBorder, RoundedCornerShape(15.dp))
-                .superhumanClickable(onClick = onBack),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(painter = painterResource(R.drawable.tabler_arrow_left), contentDescription = "Back", tint = SleepInk, modifier = Modifier.size(24.dp))
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.width(12.dp))
         Column {
             Text("Sleep", color = SleepInk, fontSize = 25.sp, fontWeight = FontWeight.Black)

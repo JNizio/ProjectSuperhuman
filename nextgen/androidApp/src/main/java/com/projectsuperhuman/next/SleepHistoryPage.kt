@@ -326,22 +326,7 @@ private fun historyHeroTime(epochMs: Long): String =
 @Composable
 private fun HistoryHeader(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.width(44.dp).height(44.dp)
-                .background(HistorySurface, RoundedCornerShape(15.dp))
-                .border(1.dp, HistoryBorder, RoundedCornerShape(15.dp))
-                .superhumanClickable(onClick = onBack),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                "←",
-                color = HistoryPurple,
-                fontSize = 25.sp,
-                lineHeight = 25.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.width(12.dp))
         Column {
             Text("Sleep", color = HistoryInk, fontSize = 25.sp, fontWeight = FontWeight.Black)

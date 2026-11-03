@@ -284,13 +284,7 @@ private fun TrudyHeader(
         Modifier.fillMaxWidth().height(78.dp).padding(horizontal = 17.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            Modifier.superhumanTopButton(onClick = onBack)
-                .semantics { contentDescription = "Back from Trudy" },
-            contentAlignment = Alignment.Center
-        ) {
-            Text("‹", color = TrudyNavy, fontSize = 29.sp, fontWeight = FontWeight.Medium)
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.size(12.dp))
         Column(Modifier.weight(1f), horizontalAlignment = Alignment.Start) {
             Text("TRUDY", color = TrudyNavy, fontWeight = FontWeight.Black, fontSize = 16.sp, letterSpacing = 1.4.sp)
