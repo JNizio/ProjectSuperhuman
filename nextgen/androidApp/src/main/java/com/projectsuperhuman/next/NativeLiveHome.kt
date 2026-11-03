@@ -203,21 +203,11 @@ internal fun NativeLiveHome(
     var dragTargetIndex by remember { mutableIntStateOf(-1) }
     var settling by remember { mutableStateOf(false) }
 
-    // The dashboard may intentionally be empty or contain only independently
-    // loaded modules. Don't query seven health domains for tiles that aren't shown.
-    val needsHomeSnapshot = tileOrder.any { tile ->
-        when (tile) {
-            HomeTile.ENVIRONMENT, HomeTile.HYDRATION, HomeTile.NUTRITION,
-            HomeTile.EXERCISE, HomeTile.SLEEP, HomeTile.CLINICAL,
-            HomeTile.MINDFULNESS -> true
-            else -> false
-        }
-    }
-    LaunchedEffect(needsHomeSnapshot) {
-        if (needsHomeSnapshot) {
-            // When selected via the picker, start while the picker is still open.
-            snapshot = withContext(Dispatchers.IO) { loadNativeHomeSnapshot() }
-        }
+    // Keep data available immediately when the user adds a Home tile from the picker.
+    // Prefetch off the UI thread so the widget shows the same readings as before,
+    // without a new transient zero-value state on first addition.
+    LaunchedEffect(Unit) {
+        snapshot = withContext(Dispatchers.IO) { loadNativeHomeSnapshot() }
     }
 
     fun targetIndexFor(tile: HomeTile, visualOffsetY: Float): Int {
