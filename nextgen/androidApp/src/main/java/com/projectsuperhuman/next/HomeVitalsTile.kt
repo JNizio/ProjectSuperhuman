@@ -48,6 +48,8 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 private val VitalsBlue = Color(0xFF0D6CB4)
 private val VitalsRed = Color(0xFFD46072)
@@ -83,7 +85,7 @@ internal fun HomeVitalsTile(onClick: () -> Unit) {
 
     LaunchedEffect(Unit) {
         while (true) {
-            snapshot = loadHomeVitalsSnapshot()
+            snapshot = withContext(Dispatchers.IO) { loadHomeVitalsSnapshot() }
             delay(HOME_VITALS_REFRESH_MS)
         }
     }
