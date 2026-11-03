@@ -481,6 +481,21 @@ private fun SelectedFoodCard(
             Text("Label serving: ${food.servingSize}", color = NutritionMuted, fontSize = 8.sp)
         }
 
+        if (food.micronutrients.values.any {
+                it.derivedFrom.startsWith("Representative USDA food profile:")
+            }) {
+            Text(
+                "Micronutrient estimates from a matched USDA food reference. " +
+                    "Amounts can vary by variety and preparation; source IDs are retained in the diary.",
+                color = NutritionMuted, fontSize = 8.sp, lineHeight = 12.sp
+            )
+        } else if (food.source == "Local reference" && food.micronutrients.isEmpty()) {
+            Text(
+                "No matching verified micronutrient profile is currently available. " +
+                    "Missing values remain unknown, not zero.",
+                color = NutritionMuted, fontSize = 8.sp, lineHeight = 12.sp
+            )
+        }
         if (food.micronutrients.isNotEmpty()) {
             Text("MICRONUTRIENTS AVAILABLE", color = NutritionMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
