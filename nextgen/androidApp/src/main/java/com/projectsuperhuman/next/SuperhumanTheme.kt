@@ -5,6 +5,8 @@ import android.content.res.Configuration
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.LocalIndication
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
@@ -220,6 +222,7 @@ internal val superhumanRed: Color get() = superhumanPalette.red
 internal val superhumanWarningSurface: Color get() = superhumanPalette.warningSurface
 internal val superhumanErrorSurface: Color get() = superhumanPalette.errorSurface
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ProjectSuperhumanTheme(content: @Composable () -> Unit) {
     val darkTheme = SuperhumanAppearance.resolve(isSystemInDarkTheme())
@@ -261,7 +264,13 @@ internal fun ProjectSuperhumanTheme(content: @Composable () -> Unit) {
         )
     }
 
-    CompositionLocalProvider(LocalIndication provides SuperhumanNoIndication) {
+    // Disable both foundation indications AND Material 3 internal ripples for every
+    // screen, dialog, tab, and native Compose control in this application's theme.
+    // LocalIndication alone does not control Material 3's built-in ripple nodes.
+    CompositionLocalProvider(
+        LocalIndication provides SuperhumanNoIndication,
+        LocalRippleConfiguration provides null
+    ) {
         MaterialTheme(colorScheme = scheme, content = content)
     }
 }
