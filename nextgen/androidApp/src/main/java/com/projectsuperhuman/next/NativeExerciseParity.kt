@@ -139,8 +139,16 @@ internal fun isCardioOnlyRepDbExercise(id: String, name: String, equipment: Stri
     return cardioOnlyTerms.any { term -> key.contains(term) }
 }
 
+// The bundled exercise JSON does not change during an install. Parsing it on every
+// Training navigation needlessly creates thousands of model objects and allocates strings.
+private val repDbCacheLock = Any()
+@Volatile private var cachedRepDb: List<NativeExercise>? = null
+
 private suspend fun loadRepDb(context: android.content.Context): List<NativeExercise> = withContext(Dispatchers.IO) {
-    runCatching {
+    cachedRepDb?.let { return@withContext it }
+    synchronized(repDbCacheLock) {
+        cachedRepDb?.let { return@synchronized it }
+        runCatching {
         val root = JSONObject(context.assets.open("repdb/exercises.json").bufferedReader().use { it.readText() })
         val a = root.getJSONArray("exercises")
         (0 until a.length()).mapNotNull { i ->
@@ -156,7 +164,11 @@ private suspend fun loadRepDb(context: android.content.Context): List<NativeExer
                 jsonStrings(o.optJSONArray("instructions_en")), jsonStrings(o.optJSONArray("tips_en")), flat?.optString("start")?.takeIf(String::isNotBlank), flat?.optString("peak")?.takeIf(String::isNotBlank), flat?.optString("main")?.takeIf(String::isNotBlank)
             )
         }
-    }.getOrElse { emptyList() }
+        }.getOrElse { emptyList() }.also { parsed ->
+            // A failed asset read should be retryable on the next navigation.
+            if (parsed.isNotEmpty()) cachedRepDb = parsed
+        }
+    }
 }
 
 internal fun loadWorkoutRoutines(context: android.content.Context): List<WorkoutRoutine> {
@@ -463,6 +475,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 
     LaunchedEffect(Unit) {
         catalog = loadRepDb(context)
+        val initialCatalogueById = catalog.associateBy { it.id }
         refresh()
         loadActiveWorkoutDraft(context)?.let { draft ->
             startedAt = draft.startedAt
@@ -473,11 +486,11 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 sessionRpeText = meta.sessionRpe
             }
             workoutExercises.clear()
-            workoutExercises.addAll(draft.exerciseIds.mapNotNull { id -> catalog.find { it.id == id } })
+            workoutExercises.addAll(draft.exerciseIds.mapNotNull(initialCatalogueById::get))
             session.clear()
             session.addAll(
                 draft.sets.mapNotNull { stored ->
-                    val exercise = catalog.find { it.id == stored.exerciseId } ?: return@mapNotNull null
+                    val exercise = initialCatalogueById[stored.exerciseId] ?: return@mapNotNull null
                     NativeWorkoutSet(
                         exercise = exercise,
                         reps = stored.reps,
@@ -493,13 +506,13 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             val persistedDraftRows = recent.filter { it.metadata["sessionId"] == activeSessionId }.sortedBy { it.timestampEpochMs }
             if (workoutExercises.isEmpty() && persistedDraftRows.isNotEmpty()) {
                 val ids = persistedDraftRows.mapNotNull { it.metadata["exerciseId"] }.distinct()
-                workoutExercises.addAll(ids.mapNotNull { id -> catalog.find { it.id == id } })
+                workoutExercises.addAll(ids.mapNotNull(initialCatalogueById::get))
             }
             if (session.isEmpty() && persistedDraftRows.isNotEmpty()) {
                 session.addAll(
                     persistedDraftRows.mapNotNull { row ->
                         val exerciseId = row.metadata["exerciseId"] ?: return@mapNotNull null
-                        val exercise = catalog.find { it.id == exerciseId } ?: return@mapNotNull null
+                        val exercise = initialCatalogueById[exerciseId] ?: return@mapNotNull null
                         NativeWorkoutSet(
                             exercise = exercise,
                             reps = row.metadata["reps"]?.toIntOrNull() ?: return@mapNotNull null,
@@ -513,7 +526,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     }
                 )
             }
-            selected = draft.selectedExerciseId?.let { id -> catalog.find { it.id == id } } ?: workoutExercises.firstOrNull()
+            selected = draft.selectedExerciseId?.let(initialCatalogueById::get) ?: workoutExercises.firstOrNull()
             restEndsAt = draft.restEndsAt
             restSeconds = (((restEndsAt - System.currentTimeMillis()).coerceAtLeast(0L) + 999L) / 1000L).toInt()
             mode = "home"
