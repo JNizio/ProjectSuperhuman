@@ -6,6 +6,21 @@ import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.material3.Text
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
@@ -135,7 +150,7 @@ private val defaultHomeTileOrder = listOf(
 )
 
 private const val HOME_PREFS = "project_superhuman_home"
-private const val HOME_TILE_ORDER_KEY = "tile_order_v2"
+private const val HOME_TILE_ORDER_KEY = "tile_order_v3"
 private const val LEGACY_HOME_TILE_ORDER_KEY = "tile_order_v1"
 
 @Composable
@@ -152,6 +167,8 @@ internal fun NativeLiveHome(
     openInsights: () -> Unit,
     openExperiments: () -> Unit,
     openMiniMetric: (HomeMiniMetric) -> Unit,
+    showModulePicker: Boolean = false,
+    onCloseModulePicker: () -> Unit = {},
     topContent: @Composable () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -284,6 +301,18 @@ internal fun NativeLiveHome(
                 dragTargetIndex = targetIndexFor(tile, dragOffsetY)
             }
         }
+    }
+
+    if (showModulePicker) {
+        HomeModulePicker(
+            selectedTiles = tileOrder.toList(),
+            onToggle = { tile ->
+                if (tile in tileOrder) tileOrder.remove(tile) else tileOrder.add(tile)
+                saveHomeTileOrder(context, tileOrder)
+            },
+            onDone = onCloseModulePicker
+        )
+        return
     }
 
     Column(
@@ -447,46 +476,75 @@ private fun ReorderableHomeTile(
  * independent tile keys; keep the first of their two positions when migrating
  * so user-customized Home layouts remain predictable.
  */
-private fun mergeCompactModuleOrder(order: List<HomeTile>): List<HomeTile> {
-    val merged = mutableListOf<HomeTile>()
-    var compactAdded = false
-    order.forEach { tile ->
-        when (tile) {
-            HomeTile.HYDRATION, HomeTile.ENVIRONMENT -> if (!compactAdded) {
-                merged.add(HomeTile.HYDRATION)
-                compactAdded = true
-            }
-            else -> if (tile !in merged) merged.add(tile)
-        }
-    }
-    if (!compactAdded) merged.add(HomeTile.HYDRATION)
-    return merged
-}
-
 private fun loadHomeTileOrder(context: Context): List<HomeTile> {
     val prefs = context.getSharedPreferences(HOME_PREFS, Context.MODE_PRIVATE)
-    fun decode(value: String?): List<HomeTile> =
-        value.orEmpty().split(',')
-            .mapNotNull { key -> HomeTile.entries.firstOrNull { it.storageKey == key.trim() } }
-            .distinct()
+    // v3 deliberately begins with no modules, including on upgrades.
+    // A stored empty string is an intentional empty dashboard.
+    return prefs.getString(HOME_TILE_ORDER_KEY, "").orEmpty()
+        .split(',')
+        .mapNotNull { key -> HomeTile.entries.firstOrNull { it.storageKey == key.trim() } }
+        .distinct()
+}
 
-    // v2 is user-controlled: once dragged, no automatic module can jump in front of it.
-    prefs.getString(HOME_TILE_ORDER_KEY, null)?.let { saved ->
-        val parsed = decode(saved)
-        val normalized = mergeCompactModuleOrder(parsed + defaultHomeTileOrder.filterNot(parsed::contains))
-        val serialized = normalized.joinToString(",") { it.storageKey }
-        if (saved != serialized) prefs.edit().putString(HOME_TILE_ORDER_KEY, serialized).apply()
-        return normalized
+@Composable
+private fun HomeModulePicker(
+    selectedTiles: List<HomeTile>,
+    onToggle: (HomeTile) -> Unit,
+    onDone: () -> Unit
+) {
+    val available = listOf(
+        HomeTile.HYDRATION, HomeTile.NUTRITION, HomeTile.EXERCISE,
+        HomeTile.SLEEP, HomeTile.VITALS, HomeTile.INSIGHTS,
+        HomeTile.EXPERIMENTS, HomeTile.EMOTIONAL, HomeTile.CLINICAL,
+        HomeTile.MINDFULNESS
+    )
+    val labels = mapOf(
+        HomeTile.HYDRATION to "Hydration & Environment",
+        HomeTile.NUTRITION to "Nutrition",
+        HomeTile.EXERCISE to "Training",
+        HomeTile.SLEEP to "Sleep",
+        HomeTile.VITALS to "Vitals",
+        HomeTile.INSIGHTS to "Insights",
+        HomeTile.EXPERIMENTS to "Experiments",
+        HomeTile.EMOTIONAL to "Emotional wellbeing",
+        HomeTile.CLINICAL to "Biomarkers",
+        HomeTile.MINDFULNESS to "Mindfulness"
+    )
+    Column(
+        Modifier.fillMaxSize().background(superhumanBackground)
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = SuperhumanLayout.pageHorizontal, vertical = 26.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("Add modules", fontSize = 27.sp, fontWeight = FontWeight.Bold,
+                color = superhumanTextPrimary)
+            Text("Done", color = superhumanAccent, fontSize = 15.sp,
+                modifier = Modifier.superhumanClickable(onClick = onDone).padding(12.dp))
+        }
+        Text("Choose what appears on your Home dashboard. Hold and drag a tile to reorder it.",
+            color = superhumanTextMuted, fontSize = 13.sp, lineHeight = 19.sp)
+        Spacer(Modifier.height(5.dp))
+        available.forEach { tile ->
+            val added = tile in selectedTiles
+            Row(
+                Modifier.fillMaxWidth()
+                    .background(superhumanSurface, RoundedCornerShape(20.dp))
+                    .superhumanClickable(onClick = { onToggle(tile) })
+                    .padding(horizontal = 19.dp, vertical = 19.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(labels[tile].orEmpty(), color = superhumanTextPrimary,
+                    fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (added) "Remove −" else "Add +",
+                    color = if (added) superhumanTextMuted else superhumanAccent,
+                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+        Spacer(Modifier.height(115.dp))
     }
-
-    // One-time default upgrade: make the requested three core cards the opening view.
-    // Preserve the prior order of all remaining cards rather than discarding it.
-    val core = listOf(HomeTile.NUTRITION, HomeTile.EXERCISE, HomeTile.SLEEP)
-    val legacy = decode(prefs.getString(LEGACY_HOME_TILE_ORDER_KEY, null))
-    val remaining = (legacy + defaultHomeTileOrder).filterNot { it in core }.distinct()
-    val initial = mergeCompactModuleOrder(core + remaining)
-    prefs.edit().putString(HOME_TILE_ORDER_KEY, initial.joinToString(",") { it.storageKey }).apply()
-    return initial
 }
 
 private fun saveHomeTileOrder(context: Context, order: List<HomeTile>) {
