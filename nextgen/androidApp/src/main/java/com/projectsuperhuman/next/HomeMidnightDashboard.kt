@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -261,9 +263,9 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
                     color = superhumanTextMuted, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 1)
             }
             Spacer(Modifier.width(8.dp))
-            Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(94.dp), contentAlignment = Alignment.Center) {
                 val scoreProgress = (score ?: 0) / 100f
-                Canvas(Modifier.size(99.dp)) {
+                Canvas(Modifier.size(90.dp)) {
                     val strokeWidth = 7.dp.toPx()
                     val inset = strokeWidth / 2f + 1.dp.toPx()
                     val arcBounds = Size(size.width - inset * 2f, size.height - inset * 2f)
@@ -277,12 +279,19 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
                             style = Stroke(strokeWidth, cap = StrokeCap.Round))
                     }
                 }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(0.dp)
+                ) {
                     Text(score?.toString() ?: "—", color = superhumanTextPrimary,
-                        fontSize = 38.sp, lineHeight = 43.sp,
-                        fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
-                    Text(scoreLabel, color = if (score == null) superhumanTextMuted else midnightPurple,
-                        fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        fontSize = 34.sp, lineHeight = 36.sp,
+                        fontWeight = FontWeight.Bold, letterSpacing = (-1).sp,
+                        style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)))
+                    Text(scoreLabel,
+                        color = if (score == null) superhumanTextMuted else midnightPurple,
+                        fontSize = 9.sp, lineHeight = 11.sp,
+                        fontWeight = FontWeight.SemiBold, maxLines = 1,
+                        style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)))
                 }
             }
         }
