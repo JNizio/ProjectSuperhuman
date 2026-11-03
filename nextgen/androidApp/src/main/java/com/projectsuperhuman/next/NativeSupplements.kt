@@ -150,7 +150,7 @@ internal object SupplementRoutineStore {
             if (!it.add(key)) it.remove(key)
         }
         val array = JSONArray()
-        updated.sorted().forEach(array::put)
+        updated.sorted().forEach { array.put(it) }
         context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putString(DAILY_PREFIX + current.date, array.toString()).apply()
         return current.copy(taken = updated)
