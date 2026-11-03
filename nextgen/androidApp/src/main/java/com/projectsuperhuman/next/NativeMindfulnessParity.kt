@@ -126,9 +126,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
-                Text("←", color = MindBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            }
+            SuperhumanModuleBackButton(onBack)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Mindfulness", color = MindInk, fontSize = 24.sp, fontWeight = FontWeight.Black)

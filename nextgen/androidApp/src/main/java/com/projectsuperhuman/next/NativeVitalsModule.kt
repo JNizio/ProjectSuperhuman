@@ -175,9 +175,7 @@ internal fun NativeVitalsPage(onBack: () -> Unit) {
 @Composable
 private fun VitalsHeader(onBack: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
-            Icon(painter = painterResource(R.drawable.tabler_arrow_left), contentDescription = "Back", tint = VitalsInk, modifier = Modifier.size(24.dp))
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.width(12.dp))
         Column {
             Text("Vitals", color = VitalsInk, fontSize = 25.sp, fontWeight = FontWeight.Black)

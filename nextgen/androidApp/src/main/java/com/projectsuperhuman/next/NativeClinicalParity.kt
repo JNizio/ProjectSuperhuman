@@ -298,9 +298,7 @@ private fun ClinicalChip(text: String, accent: Color, modifier: Modifier = Modif
 @Composable
 private fun ClinicalHeader(onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
-            Text("←", color = ClinicalNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.width(12.dp))
         Column {
             Text("Clinical", color = ClinicalInk, fontSize = 24.sp, fontWeight = FontWeight.Black)

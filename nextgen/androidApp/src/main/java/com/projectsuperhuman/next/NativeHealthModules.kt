@@ -71,10 +71,7 @@ internal fun NativeBloodPressurePage(onBack: () -> Unit, openLegacy: () -> Unit)
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.superhumanTopButton(onClick = onBack),
-                contentAlignment = Alignment.Center
-            ) { Text("←", color = ModuleNavy, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
+            SuperhumanModuleBackButton(onBack)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Blood Pressure", color = ModuleInk, fontSize = 24.sp, fontWeight = FontWeight.Black)

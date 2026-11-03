@@ -860,9 +860,7 @@ internal fun NativeCardioScreen(onBack: () -> Unit) {
 @Composable
 private fun CardioHeader(screen: CardioScreen, onBack: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
-            Text("←", color = CardioAccent, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.width(12.dp))
         Text(
             when (screen) {

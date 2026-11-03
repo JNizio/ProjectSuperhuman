@@ -97,7 +97,7 @@ internal fun ExperimentDashboardScreen(
 @Composable
 internal fun ExperimentsHeader(title: String, subtitle: String, onBack: () -> Unit) {
     Row(Modifier.fillMaxWidth().height(66.dp).padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back" }, contentAlignment = Alignment.Center) { Text("←", color = ExperimentNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold) }
+        SuperhumanModuleBackButton(onBack)
         Column(Modifier.padding(start = 12.dp)) {
             Text(title, color = ExperimentNavy, fontSize = 17.sp, fontWeight = FontWeight.Black)
             Text(subtitle, color = ExperimentMuted, fontSize = 9.sp)
