@@ -176,9 +176,13 @@ private fun SupplementPill(
         Box(
             Modifier
                 .size(width = 20.dp, height = 9.dp)
-                .background(if (checked) SupplementTakenPill else SupplementMutedPill, CircleShape)
+                .background(if (checked) {
+                    if (SuperhumanAppearance.darkMode) SupplementTakenPill else Color(0xFF202329)
+                } else SupplementMutedPill, CircleShape)
                 .border(0.6.dp,
-                    if (checked) Color.White else Color(0xFF74777D).copy(alpha = 0.5f),
+                    if (checked) {
+                        if (SuperhumanAppearance.darkMode) Color.White else Color(0xFF202329)
+                    } else Color(0xFF74777D).copy(alpha = 0.5f),
                     CircleShape)
         )
     }
