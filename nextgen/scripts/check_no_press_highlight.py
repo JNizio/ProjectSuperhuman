@@ -41,8 +41,9 @@ for path in sorted(native.rglob("*.kt")):
         r"Local(?:RippleConfiguration|Indication)\s+provides", cleaned
     ):
         failures.append(f"{path.relative_to(root)}: don't override the no-ripple policy")
-    if re.search(r"indication\s*=\s*(?!null\b)", cleaned):
-        failures.append(f"{path.relative_to(root)}: clickable must not supply a highlight")
+    for match in re.finditer(r"\\bindication\\s*=\\s*([^,\\n)]+)", cleaned):
+        if match.group(1).strip() != "null":
+            failures.append(f"{path.relative_to(root)}: clickable must not supply a highlight")
     if "collectIsPressedAsState" in code and path != interactions:
         # Press state can be useful, but custom press highlights must be reviewed.
         print(f"REVIEW {path.relative_to(root)}: pressed-state visuals require design review")
