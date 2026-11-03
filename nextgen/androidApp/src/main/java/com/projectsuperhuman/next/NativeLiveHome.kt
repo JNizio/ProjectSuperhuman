@@ -163,6 +163,7 @@ internal fun NativeLiveHome(
     openExperiments: () -> Unit,
     openMiniMetric: (HomeMiniMetric) -> Unit,
     showModulePicker: Boolean = false,
+    onOpenModulePicker: () -> Unit = {},
     onCloseModulePicker: () -> Unit = {},
     topContent: @Composable () -> Unit = {}
 ) {
@@ -383,6 +384,22 @@ internal fun NativeLiveHome(
                         }
                     }
                 }
+            }
+            // The add control is part of the dashboard content, never a navigation tab.
+            // When no tiles are selected this appears immediately beneath the greeting.
+            Row(
+                Modifier.fillMaxWidth()
+                    .background(superhumanSurface, RoundedCornerShape(24.dp))
+                    .superhumanClickable(onClick = onOpenModulePicker)
+                    .padding(horizontal = 20.dp, vertical = 19.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text("+", color = superhumanAccent, fontSize = 26.sp,
+                    lineHeight = 28.sp, fontWeight = FontWeight.Medium)
+                Spacer(Modifier.width(10.dp))
+                Text("Add module", color = superhumanTextPrimary, fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold)
             }
             // The floating navigation overlays the screen, so leave scrollable
             // clearance inside the Home list rather than a solid shell backdrop.
