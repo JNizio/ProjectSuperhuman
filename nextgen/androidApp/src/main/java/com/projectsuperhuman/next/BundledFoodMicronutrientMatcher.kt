@@ -17,7 +17,8 @@ internal object BundledFoodMicronutrientMatcher {
     // profile for e.g. pierogi, bigos, pizza or a generic protein bar.
     private val eligibleIds: Set<String> =
         ((1..98).filterNot { it in setOf(27, 28, 34, 55, 60, 86, 87) } +
-            listOf(114, 123, 124, 131, 132, 133, 146))
+            listOf(114, 115, 116, 119, 120, 123, 124, 128, 129, 130,
+                131, 132, 133, 141, 143, 144, 145, 146, 151))
             .mapTo(mutableSetOf()) { "f$it" }
 
     private val ignoredWords = setOf(
@@ -59,6 +60,17 @@ internal object BundledFoodMicronutrientMatcher {
             .replace("strawberries", "strawberry")
             .replace("blueberries", "blueberry")
             .replace("raspberries", "raspberry")
+            .replace("avocados", "avocado")
+            .replace("almonds", "almond")
+            .replace("walnuts", "walnut")
+            .replace("cashews", "cashew")
+            .replace("mushrooms", "mushroom")
+            .replace("onions", "onion")
+            .replace("carrots", "carrot")
+            .replace("lentils", "lentil")
+            .replace("chickpeas", "chickpea")
+            .replace("beans", "bean")
+            .replace("cream" + "s", "cream")
             .replace("bananas", "banana")
             .replace("apples", "apple")
             .replace("pears", "pear")
