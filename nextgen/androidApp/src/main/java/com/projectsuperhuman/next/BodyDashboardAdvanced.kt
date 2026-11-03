@@ -37,6 +37,8 @@ import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import java.util.Date
 import java.text.SimpleDateFormat
@@ -202,15 +204,17 @@ internal fun BodyOverTimeSection() {
 
         // A trend point represents the latest reading on that local day. This prevents
         // multiple scale readings on one day from visually crowding out the date axis.
-        history = raw
-            .groupBy {
+        history = withContext(Dispatchers.Default) {
+            // Keep grouping and sorting large body-history series away from UI frames.
+            raw.groupBy {
                 Instant.ofEpochMilli(it.timestampEpochMs)
                     .atZone(ZoneId.systemDefault())
                     .toLocalDate()
             }
-            .values
-            .mapNotNull { day -> day.maxByOrNull { it.timestampEpochMs } }
-            .sortedBy { it.timestampEpochMs }
+                .values
+                .mapNotNull { day -> day.maxByOrNull { it.timestampEpochMs } }
+                .sortedBy { it.timestampEpochMs }
+        }
     }
 
     Column(Modifier.fillMaxWidth().background(DashSurface, RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
