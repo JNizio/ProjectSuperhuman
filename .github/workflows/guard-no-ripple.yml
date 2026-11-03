@@ -1,0 +1,29 @@
+name: Guard against Android press highlights
+
+on:
+  push:
+    branches: [ '11.4' ]
+    paths:
+      - 'nextgen/androidApp/src/main/java/**'
+      - 'nextgen/scripts/check_no_press_highlight.py'
+      - 'app/src/main/res/values/styles.xml'
+      - '.github/workflows/guard-no-ripple.yml'
+  pull_request:
+    branches: [ '11.4' ]
+    paths:
+      - 'nextgen/androidApp/src/main/java/**'
+      - 'nextgen/scripts/check_no_press_highlight.py'
+      - 'app/src/main/res/values/styles.xml'
+      - '.github/workflows/guard-no-ripple.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  prevent-ripple-regressions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enforce no Android pressed highlights
+        run: python3 nextgen/scripts/check_no_press_highlight.py
