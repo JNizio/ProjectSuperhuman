@@ -932,16 +932,21 @@ internal object NativeFoodCatalog {
         if (imported < 1_000) return base
         enrichedBundledCache?.takeIf { it.first == imported }?.let { return it.second }
 
+        // Generic entries often share USDA lookup terms. Resolve a term once
+        // during this catalogue rebuild, avoiding duplicate SQLite queries while
+        // preserving every food's independent preparation/identity validation.
+        val profilesBySearchTerm = HashMap<String, List<NativeFood>>()
         val enriched = base.map { food ->
             if (!BundledFoodMicronutrientMatcher.isEligible(food)) return@map food
-            val references = try {
-                LargeLocalFoodDatabase.search(
-                    context,
-                    BundledFoodMicronutrientMatcher.referenceSearchTerm(food),
-                    limit = 64
-                )
-            } catch (_: SQLiteException) {
-                emptyList()
+            val term = BundledFoodMicronutrientMatcher.referenceSearchTerm(food)
+            val references = profilesBySearchTerm[term] ?: run {
+                val found = try {
+                    LargeLocalFoodDatabase.search(context, term, limit = 64)
+                } catch (_: SQLiteException) {
+                    emptyList()
+                }
+                profilesBySearchTerm[term] = found
+                found
             }
             BundledFoodMicronutrientMatcher.enrich(food, references)
         }
