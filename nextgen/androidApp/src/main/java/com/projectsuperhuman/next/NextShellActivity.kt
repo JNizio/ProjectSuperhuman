@@ -111,6 +111,7 @@ private fun SuperhumanShell(
     trudyVoiceController: TrudyVoiceController
 ) {
     var page by remember { mutableStateOf(ShellPage.HOME) }
+    var modulePickerOpen by remember { mutableStateOf(false) }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
     val trudyState = remember { TrudyConversationState() }
@@ -146,8 +147,10 @@ private fun SuperhumanShell(
                                 HomeMiniMetric.CALORIES -> ShellPage.CALORIES
                             }
                         },
+                        showModulePicker = modulePickerOpen,
+                        onCloseModulePicker = { modulePickerOpen = false },
                         topContent = {
-                            NativeHomeTitle()
+                            if (!modulePickerOpen) NativeHomeTitle()
                         }
                     )
                     ShellPage.INSIGHTS -> NativeInsightsPage(onBack = { page = ShellPage.HOME })
@@ -188,8 +191,9 @@ private fun SuperhumanShell(
 
             ShellBottomNavigation(
                 selectedPage = page,
-                onHome = { page = ShellPage.HOME },
-                onBody = { page = ShellPage.BODY },
+                onHome = { modulePickerOpen = false; page = ShellPage.HOME },
+                onBody = { modulePickerOpen = false; page = ShellPage.BODY },
+                onAdd = { page = ShellPage.HOME; modulePickerOpen = !modulePickerOpen },
                 onTrudy = { page = ShellPage.TRUDY },
                 onSettings = { page = ShellPage.SETTINGS },
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -281,6 +285,7 @@ private fun ShellBottomNavigation(
     selectedPage: ShellPage,
     onHome: () -> Unit,
     onBody: () -> Unit,
+    onAdd: () -> Unit,
     onTrudy: () -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -311,6 +316,14 @@ private fun ShellBottomNavigation(
         ShellBottomItem("Body", selectedPage == ShellPage.BODY, selectedTint, onBody) {
             color -> ShellTablerIcon(if (selectedPage == ShellPage.BODY) R.drawable.tabler_user_filled else R.drawable.tabler_user, color)
         }
+        ShellBottomItem("Add", false, selectedTint, onAdd) { color ->
+            Box(Modifier.size(32.dp)
+                .background(if (dark) Color(0xFFF2F3F5) else superhumanBlue, CircleShape),
+                contentAlignment = Alignment.Center) {
+                Text("+", color = if (dark) Color(0xFF101114) else Color.White,
+                    fontSize = 25.sp, lineHeight = 28.sp, fontWeight = FontWeight.Medium)
+            }
+        }
         ShellBottomItem("Trudy", selectedPage == ShellPage.TRUDY, selectedTint, onTrudy) {
             color -> ShellTablerIcon(if (selectedPage == ShellPage.TRUDY) R.drawable.tabler_message_circle_filled else R.drawable.tabler_message_circle, color)
         }
@@ -334,7 +347,7 @@ private fun ShellBottomItem(
     val color = if (selected) accent else ShellMuted
     Column(
         Modifier
-            .width(70.dp)
+            .weight(1f)
             .height(54.dp)
             .superhumanClickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
