@@ -223,12 +223,7 @@ private fun ClinicalHubHeader(onBack: () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            Modifier.superhumanTopButton(onClick = onBack),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("←", color = ClinicalHubNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-        }
+        SuperhumanModuleBackButton(onBack)
         Spacer(Modifier.width(12.dp))
         Column {
             Text(
@@ -670,12 +665,7 @@ private fun ClinicalConditionAddFlow(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-                Modifier.superhumanTopButton(onClick = onBack),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("←", color = ClinicalHubNavy, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            }
+            SuperhumanModuleBackButton(onBack)
             Spacer(Modifier.width(12.dp))
             Column {
                 Text(

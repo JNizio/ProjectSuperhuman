@@ -285,9 +285,7 @@ private fun BreathworkSetupScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.superhumanTopButton(onClick = onBack), contentAlignment = Alignment.Center) {
-                Text("←", color = BreathBlue, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            }
+            SuperhumanModuleBackButton(onBack)
             Spacer(Modifier.width(12.dp))
             Column {
                 Text("Guided breathwork", color = BreathInk, fontSize = 24.sp, fontWeight = FontWeight.Black)

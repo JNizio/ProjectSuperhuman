@@ -1985,7 +1985,7 @@ private fun StrengthActiveExercisePanel(
     }
 }
 
-@Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { Box(Modifier.superhumanTopButton(onClick = onBack).semantics { contentDescription = "Back" }, contentAlignment = Alignment.Center) { Icon(painter = painterResource(R.drawable.tabler_arrow_left), contentDescription = "Back", tint = ExerciseInk, modifier = Modifier.size(24.dp)) }; Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "start_picker" -> "Start workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "session_detail" -> "Workout detail"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Strength" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); if (mode == "workout") Text("Saved automatically", color = ExerciseMuted, fontSize = 12.sp) } } }
+@Composable private fun TrainingHeader(mode: String, onBack: () -> Unit) { Row(verticalAlignment = Alignment.CenterVertically) { SuperhumanModuleBackButton(onBack); Spacer(Modifier.width(12.dp)); Column { Text(when (mode) { "workout" -> "Live workout"; "start_picker" -> "Start workout"; "library" -> "Exercises"; "routines" -> "Routines"; "history" -> "History"; "session_detail" -> "Workout detail"; "progress" -> "Progress"; "summary" -> "Workout complete"; else -> "Strength" }, color = ExerciseInk, fontSize = 25.sp, fontWeight = FontWeight.Black); if (mode == "workout") Text("Saved automatically", color = ExerciseMuted, fontSize = 12.sp) } } }
 @Composable
 private fun StrengthSessionPanel(
     activeWorkout: Boolean,
