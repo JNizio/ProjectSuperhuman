@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
@@ -232,12 +235,15 @@ internal fun HomeSupplementsTile(onOpen: () -> Unit) {
             Text("Add supplements to build your daily checklist",
                 color = muted, fontSize = 11.sp, maxLines = 2)
         } else {
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(1.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                pillItems.forEach { (item, index) ->
+                items(
+                    items = pillItems,
+                    key = { (item, index) -> SupplementDailyState.key(item.id, index) }
+                ) { (item, index) ->
                     val checked = SupplementDailyState.key(item.id, index) in day.taken
                     SupplementPill(
                         checked = checked,
