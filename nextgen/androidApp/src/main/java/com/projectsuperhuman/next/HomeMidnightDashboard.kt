@@ -209,79 +209,100 @@ private fun MidnightTrainingSegment(icon: Int, value: String, label: String, mod
 @Composable
 internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit) {
     val minutes = snapshot.sleepMinutes
-    val score = snapshot.sleepScore
-    val status = when {
-        minutes == null -> "No sleep data"
-        score == null -> "Sleep recorded"
-        score >= 85 -> "Strong recovery"
-        score >= 70 -> "Solid recovery"
-        score >= 55 -> "Mixed recovery"
-        else -> "Low recovery"
+    val score = snapshot.sleepScore?.coerceIn(0, 100)
+    val sleepTime = minutes?.let { "%d:%02d".format(Locale.US, it / 60, it % 60) } ?: "—"
+    val scoreLabel = when {
+        score == null -> "NO SCORE"
+        score >= 85 -> "EXCELLENT"
+        score >= 70 -> "GOOD"
+        score >= 55 -> "FAIR"
+        else -> "LOW"
     }
+    val stageParts = listOf(
+        snapshot.sleepAwakeMinutes?.coerceAtLeast(0) ?: 0,
+        snapshot.sleepRemMinutes?.coerceAtLeast(0) ?: 0,
+        snapshot.sleepLightMinutes?.coerceAtLeast(0) ?: 0,
+        snapshot.sleepDeepMinutes?.coerceAtLeast(0) ?: 0
+    )
+    val stageTotal = stageParts.sum()
+    val stageColors = listOf(Color(0xFFD8A0AD), Color(0xFFC5A6EC),
+        Color(0xFF9270CE), Color(0xFF5A418E))
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightPurple)
-            .padding(horizontal = 19.dp, vertical = 19.dp),
-        verticalArrangement = Arrangement.spacedBy(17.dp)
+            .padding(horizontal = 21.dp, vertical = 18.dp),
+        verticalArrangement = Arrangement.spacedBy(13.dp)
     ) {
-        MidnightHeader("Sleep", "Rest and recover", midnightPurple, R.drawable.tabler_moon) {
-            if (score != null) Text("Score $score", color = midnightPurple, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-            else MidnightAction(R.drawable.tabler_chevron_right)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Icon(painterResource(R.drawable.tabler_moon), null,
+                tint = midnightPurple, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(11.dp))
+            Text("Sleep", color = superhumanTextPrimary, fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+            Icon(painterResource(R.drawable.tabler_chevron_right), null,
+                tint = superhumanTextMuted, modifier = Modifier.size(18.dp))
         }
-        if (snapshot.sleepStages.isNotEmpty() &&
-            snapshot.sleepStageStartMs != null && snapshot.sleepStageEndMs != null) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(.37f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text(minutes?.let(::formatMinutesHome) ?: "—", color = superhumanTextPrimary,
-                        fontSize = 27.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                    Text("Last night", color = superhumanTextMuted, fontSize = 10.sp)
-                    Spacer(Modifier.height(7.dp))
-                    Text(status, color = midnightPurple, fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium, maxLines = 2)
-                }
-                HomeSleepCyclePlot(
-                    segments = snapshot.sleepStages,
-                    startMs = snapshot.sleepStageStartMs,
-                    endMs = snapshot.sleepStageEndMs,
-                    modifier = Modifier.weight(.63f)
-                )
+        Row(Modifier.fillMaxWidth().height(115.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Text("TOTAL SLEEP", color = superhumanTextMuted,
+                    fontSize = 10.sp, letterSpacing = 1.3.sp,
+                    fontWeight = FontWeight.SemiBold)
+                Text(sleepTime, color = superhumanTextPrimary,
+                    fontSize = 51.sp, lineHeight = 56.sp,
+                    fontWeight = FontWeight.Bold, letterSpacing = (-2).sp, maxLines = 1)
+                Text(
+                    if (minutes == null) "No sleep recorded"
+                    else "%dh %dm recorded".format(Locale.US, minutes / 60, minutes % 60),
+                    color = superhumanTextMuted, fontSize = 11.sp, maxLines = 1)
             }
-            val totalStages = listOfNotNull(
-                snapshot.sleepAwakeMinutes, snapshot.sleepRemMinutes,
-                snapshot.sleepLightMinutes, snapshot.sleepDeepMinutes
-            ).sum()
-            if (totalStages > 0) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    listOf(
-                        Triple("Awake", snapshot.sleepAwakeMinutes, Color(0xFFE8A9A0)),
-                        Triple("REM", snapshot.sleepRemMinutes, Color(0xFFC6A9EB)),
-                        Triple("Light", snapshot.sleepLightMinutes, Color(0xFF9574D1)),
-                        Triple("Deep", snapshot.sleepDeepMinutes, Color(0xFF7151AE))
-                    ).forEach { (name, value, color) ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(6.dp).background(color, CircleShape))
-                            Spacer(Modifier.width(4.dp))
-                            Text("$name ${value?.let { "${(it * 100f / totalStages).roundToInt()}%" } ?: "—"}",
-                                color = superhumanTextMuted, fontSize = 9.sp)
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
+                val scoreProgress = (score ?: 0) / 100f
+                Canvas(Modifier.size(99.dp)) {
+                    val strokeWidth = 7.dp.toPx()
+                    val inset = strokeWidth / 2f + 1.dp.toPx()
+                    val arcBounds = Size(size.width - inset * 2f, size.height - inset * 2f)
+                    val arcOffset = Offset(inset, inset)
+                    drawArc(superhumanSurfaceSoft, -90f, 360f, false,
+                        topLeft = arcOffset, size = arcBounds,
+                        style = Stroke(strokeWidth, cap = StrokeCap.Round))
+                    if (score != null && scoreProgress > 0f) {
+                        drawArc(midnightPurple, -90f, 360f * scoreProgress, false,
+                            topLeft = arcOffset, size = arcBounds,
+                            style = Stroke(strokeWidth, cap = StrokeCap.Round))
+                    }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(score?.toString() ?: "—", color = superhumanTextPrimary,
+                        fontSize = 38.sp, lineHeight = 43.sp,
+                        fontWeight = FontWeight.Bold, letterSpacing = (-1).sp)
+                    Text(scoreLabel, color = if (score == null) superhumanTextMuted else midnightPurple,
+                        fontSize = 9.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                }
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(superhumanSurfaceSoft))
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("SLEEP COMPOSITION", color = superhumanTextMuted,
+                    fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.7.sp)
+                Text(if (stageTotal > 0) "4 stages" else "Stages unavailable",
+                    color = superhumanTextMuted, fontSize = 10.sp)
+            }
+            if (stageTotal > 0) {
+                Row(Modifier.fillMaxWidth().height(9.dp),
+                    horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                    stageParts.forEachIndexed { index, stageMinutes ->
+                        if (stageMinutes > 0) {
+                            Box(Modifier.weight(stageMinutes.toFloat()).height(9.dp)
+                                .background(stageColors[index], RoundedCornerShape(4.dp)))
                         }
                     }
                 }
-            }
-        } else {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                    Text(minutes?.let(::formatMinutesHome) ?: "No reading", color = superhumanTextPrimary,
-                        fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Last night", color = superhumanTextMuted, fontSize = 11.sp)
-                }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Text(status, color = midnightPurple, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Sleep stage graph appears when stages are available",
-                        color = superhumanTextMuted, fontSize = 10.sp, lineHeight = 14.sp)
-                }
+            } else {
+                Box(Modifier.fillMaxWidth().height(9.dp)
+                    .background(superhumanSurfaceSoft, RoundedCornerShape(4.dp)))
             }
         }
     }
