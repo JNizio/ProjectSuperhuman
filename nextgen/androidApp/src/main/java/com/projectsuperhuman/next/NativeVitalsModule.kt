@@ -69,6 +69,8 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
 private val VitalsNavy: Color get() = superhumanBrandText
@@ -548,7 +550,9 @@ private fun ActionButton(label: String, enabled: Boolean = true, onClick: () -> 
     ) { Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black) }
 }
 
-private suspend fun loadVitalsHistory(): VitalsHistoryState {
+private suspend fun loadVitalsHistory(): VitalsHistoryState = withContext(Dispatchers.IO) {
+    // BP pairing and ordering run on the same background dispatcher as the indexed
+    // history reads, so longer histories never stall the Compose main thread.
     val systolic = NativeDataHub.pageForMetric(HealthDomain.BLOOD_PRESSURE, VitalsMetrics.BLOOD_PRESSURE_SYSTOLIC, 200)
     val diastolic = NativeDataHub.pageForMetric(HealthDomain.BLOOD_PRESSURE, VitalsMetrics.BLOOD_PRESSURE_DIASTOLIC, 200)
     val temperatures = NativeDataHub.pageForMetric(HealthDomain.BODY, VitalsMetrics.BODY_TEMPERATURE_CELSIUS, 200)
