@@ -349,30 +349,15 @@ private fun BloodPressureEntryDialog(onDismiss: () -> Unit, onSave: (List<Health
     var arm by remember { mutableStateOf(BloodPressureArm.LEFT) }
     var position by remember { mutableStateOf(BloodPressurePosition.SITTING) }
     var notes by remember { mutableStateOf("") }
-    var readings by remember { mutableStateOf(emptyList<BloodPressureReadingInput>()) }
     var validation by remember { mutableStateOf<VitalsValidation?>(null) }
     var pending by remember { mutableStateOf<BloodPressureReadingInput?>(null) }
-    var waitSeconds by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(waitSeconds) {
-        if (waitSeconds > 0) {
-            delay(1_000L)
-            waitSeconds--
-        }
-    }
-
-    fun add(input: BloodPressureReadingInput) {
-        readings = readings + input
-        systolic = ""
-        diastolic = ""
-        measuredAt = System.currentTimeMillis()
-        validation = null
-        pending = null
-        waitSeconds = 60
+    fun save(input: BloodPressureReadingInput) {
+        onSave(VitalsValueFactory.bloodPressureSession(UUID.randomUUID().toString(), listOf(input), notes))
     }
 
     VitalsDialog("Record blood pressure", onDismiss) {
-        Text("Reading ${readings.size + 1}", color = VitalsBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
+        Text("Blood pressure reading", color = VitalsBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NumberField("Systolic", systolic, { systolic = it }, "mmHg", Modifier.weight(1f))
             NumberField("Diastolic", diastolic, { diastolic = it }, "mmHg", Modifier.weight(1f))
@@ -381,11 +366,11 @@ private fun BloodPressureEntryDialog(onDismiss: () -> Unit, onSave: (List<Health
         ChoiceRow("Arm", BloodPressureArm.entries, arm, { arm = it }) { it.name.lowercase().replaceFirstChar { char -> char.uppercase() } }
         ChoiceRow("Position", BloodPressurePosition.entries, position, { position = it }) { it.name.lowercase().replaceFirstChar { char -> char.uppercase() } }
         OutlinedTextField(notes, { notes = it.take(200) }, label = { Text("Notes (optional)") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
-        ValidationPanel(validation, confirmLabel = "Add anyway") { pending?.let(::add) }
+        ValidationPanel(validation, confirmLabel = "Save anyway") { pending?.let(::save) }
 
-        val canAttempt = systolic.toIntOrNull() != null && diastolic.toIntOrNull() != null && (readings.isEmpty() || waitSeconds == 0)
+        val canAttempt = systolic.toIntOrNull() != null && diastolic.toIntOrNull() != null
         ActionButton(
-            if (readings.isEmpty()) "ADD READING" else if (waitSeconds > 0) "NEXT READING IN ${waitSeconds}s" else "ADD ANOTHER READING",
+            "SAVE READING",
             enabled = canAttempt
         ) {
             val input = BloodPressureReadingInput(systolic.toInt(), diastolic.toInt(), measuredAt, arm, position)
@@ -394,27 +379,10 @@ private fun BloodPressureEntryDialog(onDismiss: () -> Unit, onSave: (List<Health
             when {
                 !checked.canSave -> Unit
                 checked.needsConfirmation -> pending = input
-                else -> add(input)
+                else -> save(input)
             }
         }
 
-        if (readings.isNotEmpty()) {
-            Column(Modifier.fillMaxWidth().background(VitalsElevated, RoundedCornerShape(14.dp)).padding(11.dp)) {
-                readings.forEachIndexed { index, reading ->
-                    Text("Reading ${index + 1}  ${reading.systolic}/${reading.diastolic} mmHg  ·  ${formatTime(reading.measuredAtEpochMs)}", color = VitalsInk, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-                if (readings.size > 1) {
-                    Text(
-                        "Session average  ${readings.map { it.systolic }.average().toInt()}/${readings.map { it.diastolic }.average().toInt()} mmHg (display only)",
-                        color = VitalsBlue, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(top = 6.dp)
-                    )
-                }
-            }
-            ActionButton("SAVE SESSION") {
-                val id = UUID.randomUUID().toString()
-                onSave(VitalsValueFactory.bloodPressureSession(id, readings, notes))
-            }
-        }
     }
 }
 
@@ -574,7 +542,7 @@ private fun ActionButton(label: String, enabled: Boolean = true, onClick: () -> 
     Button(
         onClick = onClick,
         enabled = enabled,
-        colors = ButtonDefaults.buttonColors(containerColor = if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else Color(0xFF082D66), disabledContainerColor = VitalsElevated),
+        colors = ButtonDefaults.buttonColors(containerColor = if (SuperhumanAppearance.darkMode) Color(0xFF78B7EA) else Color(0xFF082D66), contentColor = if (SuperhumanAppearance.darkMode) Color(0xFF101820) else Color.White, disabledContainerColor = VitalsElevated, disabledContentColor = VitalsMuted.copy(alpha = .60f)),
         shape = RoundedCornerShape(15.dp),
         modifier = Modifier.fillMaxWidth().height(48.dp)
     ) { Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black) }
