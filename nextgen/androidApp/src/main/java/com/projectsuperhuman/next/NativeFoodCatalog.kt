@@ -854,6 +854,9 @@ internal object NativeFoodCatalog {
     private const val MAX_RESULT_COUNT = 8
 
     @Volatile private var cached: List<NativeFood>? = null
+    // Cache source-matched generic profiles by imported row count. Rebuild after a
+    // USDA archive finishes importing, but not on every search or screen render.
+    @Volatile private var enrichedBundledCache: Pair<Int, List<NativeFood>>? = null
 
     private val remoteSearchCache = object : LinkedHashMap<String, List<NativeFood>>(12, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, List<NativeFood>>?): Boolean = size > 12
@@ -916,11 +919,42 @@ internal object NativeFoodCatalog {
         }
     }
 
+    private suspend fun enrichBundledCatalogue(
+        context: Context,
+        base: List<NativeFood>
+    ): List<NativeFood> {
+        val imported = try {
+            LargeLocalFoodDatabase.count(context)
+        } catch (_: SQLiteException) {
+            return base
+        }
+        // Do not run hundreds of queries against a seed-only or actively starting DB.
+        if (imported < 1_000) return base
+        enrichedBundledCache?.takeIf { it.first == imported }?.let { return it.second }
+
+        val enriched = base.map { food ->
+            if (!BundledFoodMicronutrientMatcher.isEligible(food)) return@map food
+            val references = try {
+                LargeLocalFoodDatabase.search(
+                    context,
+                    BundledFoodMicronutrientMatcher.referenceSearchTerm(food),
+                    limit = 64
+                )
+            } catch (_: SQLiteException) {
+                emptyList()
+            }
+            BundledFoodMicronutrientMatcher.enrich(food, references)
+        }
+        enrichedBundledCache = imported to enriched
+        return enriched
+    }
+
     suspend fun all(context: Context): List<NativeFood> = withContext(Dispatchers.IO) {
         FoodNutritionOverrideStore.attach(context)
         startLargeLocalSafely(context)
         val base = cached ?: loadLocal(context).also { cached = it }
-        FoodNutritionOverrideStore.applyAll(context, base.map(FoodEvidenceEngine::enrich))
+        val withVerifiedMicros = enrichBundledCatalogue(context, base)
+        FoodNutritionOverrideStore.applyAll(context, withVerifiedMicros.map(FoodEvidenceEngine::enrich))
     }
 
     /** Number of local reference foods available without depending on an Open Food Facts search. */
@@ -1103,7 +1137,7 @@ internal object NativeFoodCatalog {
      */
     private fun searchLocal(context: Context, query: String, limit: Int): List<NativeFood> {
         val q = query.trim().lowercase()
-        val base = cached ?: loadLocal(context).also { cached = it }
+        val base = enrichedBundledCache?.second ?: (cached ?: loadLocal(context).also { cached = it })
         return base.asSequence()
             .map { food -> foodSearchRank(food, q) to food }
             .filter { it.first < 99 }
