@@ -101,7 +101,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, INSIGHTS, EXPERIMENTS, SETTINGS, SMART_DEVICES, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
+    HOME, INSIGHTS, EXPERIMENTS, SETTINGS, SMART_DEVICES, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, SUPPLEMENTS, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
 }
 
 @Composable
@@ -139,6 +139,7 @@ private fun SuperhumanShell(
                         openEmotional = { page = ShellPage.EMOTIONAL },
                         openInsights = { page = ShellPage.INSIGHTS },
                         openExperiments = { page = ShellPage.EXPERIMENTS },
+                        openSupplements = { page = ShellPage.SUPPLEMENTS },
                         openMiniMetric = { metric ->
                             page = when (metric) {
                                 HomeMiniMetric.HEART_RATE -> ShellPage.HEART_RATE
@@ -172,6 +173,7 @@ private fun SuperhumanShell(
                     ShellPage.VITALS -> NativeVitalsPage { page = ShellPage.HOME }
                     ShellPage.HYDRATION -> NativeHydrationScreen { page = ShellPage.HOME }
                     ShellPage.NUTRITION -> NativeNutritionWithFoodEditorPage { page = ShellPage.HOME }
+                    ShellPage.SUPPLEMENTS -> NativeSupplementsPage { page = ShellPage.HOME }
                     ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.BREATHWORK -> GuidedDeepBreathRoutine { page = ShellPage.HOME }
