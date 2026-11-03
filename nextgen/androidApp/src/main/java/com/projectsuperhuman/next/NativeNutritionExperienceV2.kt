@@ -377,10 +377,18 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
             return rows.filter { it.timestampEpochMs in start..end }
         }
 
-        val refreshedDay = n2BuildDay(rowsFor(date))
+        // Food diaries can contain thousands of micronutrient rows. Parse and
+        // aggregate on Default rather than monopolising Compose's main thread.
+        val (refreshedDay, refreshedNutrients) = withContext(Dispatchers.Default) {
+            val refreshed = n2BuildDay(rowsFor(date))
+            val nutrients = if (nutrientRange == N2Range.DAY) refreshed else {
+                val nutrientFrom = nutrientStart.atStartOfDay(zone).toInstant().toEpochMilli()
+                n2BuildDay(rows.filter { it.timestampEpochMs >= nutrientFrom })
+            }
+            refreshed to nutrients
+        }
         day = refreshedDay
-        val nutrientFrom = nutrientStart.atStartOfDay(zone).toInstant().toEpochMilli()
-        nutrientDay = n2BuildDay(rows.filter { it.timestampEpochMs >= nutrientFrom })
+        nutrientDay = refreshedNutrients
 
         val loggedCustomMeals = refreshedDay.entries.map { it.meal }
             .filter { candidate -> n2Meals.none { it.equals(candidate, ignoreCase = true) } }
@@ -490,6 +498,10 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     LaunchedEffect(selectedDate, nutrientRange) { refreshAllNutrition() }
     LaunchedEffect(Unit) { recommendation = n2LoadGoalRecommendation() }
 
+    // The flower's classification is based solely on the day's entries. Avoid
+    // recalculating groupBy/eachCount for every unrelated keyboard or tab update.
+    val dailyPlantDiversity = remember(day) { n2PlantDiversity(day) }
+
     if (foodSearchOpen) {
         N2FoodSearchScreen(
             query = query,
@@ -543,7 +555,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                     onSelectDate = { selectedDate = it }
                 )
                 // Plant diversity is a peer dashboard tile, not an elevated card inside the intake tile.
-                N2PlantDiversityCard(n2PlantDiversity(day))
+                N2PlantDiversityCard(dailyPlantDiversity)
                 N2LogCard(
                     query = query,
                     onQueryChange = { query = it },
