@@ -128,15 +128,7 @@ internal fun MidnightNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> 
             MidnightMacro("Fat", snapshot.fatToday.coerceAtLeast(0),
                 snapshot.fatGoal, midnightOrange, Modifier.weight(1f))
         }
-        Row(Modifier.fillMaxWidth().background(superhumanSurfaceSoft.copy(alpha = .48f),
-            RoundedCornerShape(13.dp)).padding(horizontal = 13.dp, vertical = 11.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically) {
-            Text("${snapshot.nutritionEntriesToday} ${if (snapshot.nutritionEntriesToday == 1) "entry" else "entries"} today",
-                color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Medium)
-            Text(if (goal != null) "%,d kcal remaining".format(Locale.US, (goal - calories).coerceAtLeast(0))
-                else "Set a goal in Nutrition", color = superhumanTextMuted, fontSize = 10.sp)
-        }
+
     }
 }
 
