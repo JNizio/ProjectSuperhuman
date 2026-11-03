@@ -230,7 +230,7 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightPurple)
             .padding(horizontal = 21.dp, vertical = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(13.dp)
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.tabler_moon), null,
@@ -241,20 +241,22 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
             Icon(painterResource(R.drawable.tabler_chevron_right), null,
                 tint = superhumanTextMuted, modifier = Modifier.size(18.dp))
         }
-        Row(Modifier.fillMaxWidth().height(115.dp),
+        // Never constrain the metrics row to a fixed height: font scaling can
+        // otherwise clip the supporting caption against the divider.
+        Row(Modifier.fillMaxWidth().padding(vertical = 5.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text("TOTAL SLEEP", color = superhumanTextMuted,
                     fontSize = 10.sp, letterSpacing = 1.3.sp,
                     fontWeight = FontWeight.SemiBold)
                 Text(sleepTime, color = superhumanTextPrimary,
-                    fontSize = 51.sp, lineHeight = 56.sp,
+                    fontSize = 48.sp, lineHeight = 54.sp,
                     fontWeight = FontWeight.Bold, letterSpacing = (-2).sp, maxLines = 1)
                 Text(
                     if (minutes == null) "No sleep recorded"
-                    else "%dh %dm recorded".format(Locale.US, minutes / 60, minutes % 60),
-                    color = superhumanTextMuted, fontSize = 11.sp, maxLines = 1)
+                    else "Recorded duration",
+                    color = superhumanTextMuted, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 1)
             }
             Spacer(Modifier.width(8.dp))
             Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
@@ -287,7 +289,7 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("SLEEP COMPOSITION", color = superhumanTextMuted,
                     fontSize = 10.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.7.sp)
-                Text(if (stageTotal > 0) "4 stages" else "Stages unavailable",
+                Text(if (stageTotal > 0) "${stageParts.count { it > 0 }} stages" else "Stages unavailable",
                     color = superhumanTextMuted, fontSize = 10.sp)
             }
             if (stageTotal > 0) {
