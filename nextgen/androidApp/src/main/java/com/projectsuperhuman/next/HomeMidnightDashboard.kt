@@ -78,53 +78,62 @@ internal fun MidnightNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> 
     val progress = goal?.let { (calories.toFloat() / it).coerceIn(0f, 1f) } ?: 0f
     Column(
         Modifier.fillMaxWidth().premiumHomeTile(onClick, accent = midnightGreen)
-            .padding(horizontal = 19.dp, vertical = 19.dp),
-        verticalArrangement = Arrangement.spacedBy(17.dp)
+            .padding(horizontal = 20.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         MidnightHeader("Nutrition", "Fuel your day", midnightGreen, R.drawable.tabler_leaf) {
             MidnightAction(R.drawable.tabler_chevron_right)
         }
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(if (snapshot.nutritionCaloriesComplete) "%,d".format(Locale.US, calories)
                          else "~" + "%,d".format(Locale.US, calories),
-                        color = superhumanTextPrimary, fontSize = 29.sp,
+                        color = superhumanTextPrimary, fontSize = 36.sp, lineHeight = 42.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1)
                     Spacer(Modifier.width(6.dp))
-                    Text("kcal", color = superhumanTextMuted, fontSize = 12.sp,
-                        modifier = Modifier.padding(bottom = 5.dp))
+                    Text("kcal", color = superhumanTextMuted, fontSize = 14.sp,
+                        modifier = Modifier.padding(bottom = 6.dp))
                 }
                 Text(if (goal != null) "of %,d kcal".format(Locale.US, goal) else "Logged today",
-                    color = superhumanTextMuted, fontSize = 11.sp, maxLines = 1)
-                if (goal != null) Text("%,d kcal left".format(Locale.US, (goal - calories).coerceAtLeast(0)),
-                    color = superhumanTextMuted, fontSize = 10.sp)
+                    color = superhumanTextMuted, fontSize = 12.sp, maxLines = 1)
             }
-            if (goal != null) {
-                Box(Modifier.size(99.dp), contentAlignment = Alignment.Center) {
-                    Canvas(Modifier.size(99.dp)) {
-                        val width = 8.dp.toPx()
-                        val bounds = Size(size.width - width * 2f, size.height - width * 2f)
-                        val offset = Offset(width, width)
-                        drawArc(superhumanSurfaceSoft, 145f, 250f, false, topLeft = offset, size = bounds,
-                            style = Stroke(width, cap = StrokeCap.Round))
-                        if (progress > 0f) drawArc(midnightGreen, 145f, 250f * progress, false,
-                            topLeft = offset, size = bounds, style = Stroke(width, cap = StrokeCap.Round))
+            // Keep the arc present even before a goal is configured, but never
+            // display an invented completion percentage when the goal is missing.
+            Box(Modifier.size(128.dp), contentAlignment = Alignment.Center) {
+                Canvas(Modifier.size(128.dp)) {
+                    val strokeWidth = 10.dp.toPx()
+                    val inset = strokeWidth / 2f + 2.dp.toPx()
+                    val arcBounds = Size(size.width - inset * 2f, size.height - inset * 2f)
+                    val arcOffset = Offset(inset, inset)
+                    drawArc(superhumanSurfaceSoft, 145f, 250f, false,
+                        topLeft = arcOffset, size = arcBounds,
+                        style = Stroke(strokeWidth, cap = StrokeCap.Round))
+                    if (goal != null && progress > 0f) {
+                        drawArc(midnightGreen, 145f, 250f * progress, false,
+                            topLeft = arcOffset, size = arcBounds,
+                            style = Stroke(strokeWidth, cap = StrokeCap.Round))
                     }
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("${percent ?: 0}%", color = superhumanTextPrimary, fontSize = 22.sp,
-                            fontWeight = FontWeight.SemiBold)
-                        Text("Goal", color = superhumanTextMuted, fontSize = 10.sp)
-                    }
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(percent?.let { "$it%" } ?: "—",
+                        color = superhumanTextPrimary, fontSize = 29.sp,
+                        fontWeight = FontWeight.Bold, lineHeight = 34.sp)
+                    Text(if (goal == null) "No goal" else "Goal",
+                        color = superhumanTextMuted, fontSize = 11.sp)
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(13.dp),
+            verticalAlignment = Alignment.CenterVertically) {
             MidnightMacro("Protein", snapshot.proteinToday.coerceAtLeast(0),
                 snapshot.proteinGoal, midnightGreen, Modifier.weight(1f))
+            Box(Modifier.width(1.dp).height(65.dp).background(superhumanSurfaceSoft))
             MidnightMacro("Carbs", snapshot.carbsToday.coerceAtLeast(0),
                 snapshot.carbsGoal, midnightBlue, Modifier.weight(1f))
+            Box(Modifier.width(1.dp).height(65.dp).background(superhumanSurfaceSoft))
             MidnightMacro("Fat", snapshot.fatToday.coerceAtLeast(0),
                 snapshot.fatGoal, midnightOrange, Modifier.weight(1f))
         }
@@ -134,24 +143,25 @@ internal fun MidnightNutritionCard(snapshot: NativeHomeSnapshot, onClick: () -> 
 
 @Composable
 private fun MidnightMacro(name: String, amount: Int, goal: Int?, accent: Color, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(7.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(6.dp).background(accent, CircleShape))
             Spacer(Modifier.width(5.dp))
-            Text(name, color = superhumanTextMuted, fontSize = 10.sp, maxLines = 1)
+            Text(name, color = superhumanTextMuted, fontSize = 11.sp, maxLines = 1)
         }
-        Row(verticalAlignment = Alignment.Bottom) {
-            Text("$amount g", color = superhumanTextPrimary, fontSize = 14.sp,
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("$amount g", color = superhumanTextPrimary, fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold, maxLines = 1)
             if (goal != null && goal > 0) {
-                Spacer(Modifier.width(3.dp))
-                Text("${((amount * 100f) / goal).roundToInt()}%", color = superhumanTextMuted, fontSize = 9.sp, maxLines = 1)
+                Text("${((amount * 100f) / goal).roundToInt()}%",
+                    color = superhumanTextMuted, fontSize = 10.sp, maxLines = 1)
             }
         }
-        Box(Modifier.fillMaxWidth().height(5.dp).background(superhumanSurfaceSoft, CircleShape)) {
+        Box(Modifier.fillMaxWidth().height(6.dp).background(superhumanSurfaceSoft, CircleShape)) {
             if (goal != null && goal > 0 && amount > 0) {
                 Box(Modifier.fillMaxWidth((amount.toFloat() / goal).coerceIn(0f, 1f))
-                    .height(5.dp).background(accent, CircleShape))
+                    .height(6.dp).background(accent, CircleShape))
             }
         }
     }
