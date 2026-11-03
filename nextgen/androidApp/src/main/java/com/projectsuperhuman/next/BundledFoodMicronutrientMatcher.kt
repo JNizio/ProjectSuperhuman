@@ -70,7 +70,7 @@ internal object BundledFoodMicronutrientMatcher {
             .replace("lentils", "lentil")
             .replace("chickpeas", "chickpea")
             .replace("beans", "bean")
-            .replace("cream" + "s", "cream")
+            .replace("creams", "cream")
             .replace("bananas", "banana")
             .replace("apples", "apple")
             .replace("pears", "pear")
@@ -151,9 +151,18 @@ internal object BundledFoodMicronutrientMatcher {
         val best = compatible.first()
         // Competing references with similar scores but different composition are ambiguous.
         val runnerUp = compatible.getOrNull(1)
-        if (runnerUp != null && runnerUp.second == best.second &&
-            abs(runnerUp.first.kcal - best.first.kcal) > max(15.0, best.first.kcal * .10)
-        ) return local
+        if (runnerUp != null && runnerUp.second == best.second) {
+            val veryDifferentEnergy =
+                abs(runnerUp.first.kcal - best.first.kcal) > max(15.0, best.first.kcal * .10)
+            val sharedNutrients = best.first.micronutrients.keys intersect runnerUp.first.micronutrients.keys
+            val materiallyDifferentMicros = sharedNutrients.count { id ->
+                val a = best.first.micronutrients.getValue(id).valuePer100
+                val b = runnerUp.first.micronutrients.getValue(id).valuePer100
+                val larger = max(a, b)
+                larger >= 0.01 && abs(a - b) / larger > .40
+            } >= 3
+            if (veryDifferentEnergy || materiallyDifferentMicros) return local
+        }
 
         val source = best.first
         // Bundled milk/juice may be per 100 ml, whereas USDA values are per 100 g.
