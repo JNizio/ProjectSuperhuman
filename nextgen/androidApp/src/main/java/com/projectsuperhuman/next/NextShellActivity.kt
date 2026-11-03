@@ -347,7 +347,7 @@ private fun ShellBottomItem(
     val color = if (selected) accent else ShellMuted
     Column(
         Modifier
-            .weight(1f)
+            .width(58.dp)
             .height(54.dp)
             .superhumanClickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
