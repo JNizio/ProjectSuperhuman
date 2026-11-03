@@ -406,7 +406,6 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var workoutPaused by remember { mutableStateOf(false) }
     var workoutPausedAt by remember { mutableLongStateOf(0L) }
     var workoutPausedTotalMs by remember { mutableLongStateOf(0L) }
-    var workoutNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
     var showWorkoutExercisePicker by remember { mutableStateOf(false) }
     var workoutExerciseQuery by remember { mutableStateOf("") }
     var showWorkoutRoutinePicker by remember { mutableStateOf(false) }
@@ -553,12 +552,6 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             delay(1000)
             restSeconds -= 1
             if (restSeconds <= 0) restEndsAt = 0L
-        }
-    }
-    LaunchedEffect(workoutPaused, startedAt) {
-        while (startedAt > 0L) {
-            if (!workoutPaused) workoutNow = System.currentTimeMillis()
-            delay(1000)
         }
     }
 
@@ -1281,13 +1274,10 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 }
             }
             "workout" -> {
-                val effectiveNow = if (workoutPaused && workoutPausedAt > 0L) workoutPausedAt else workoutNow
-                val elapsedMs = (effectiveNow - startedAt - workoutPausedTotalMs).coerceAtLeast(0L)
-                val elapsedSeconds = elapsedMs / 1000L
-                val elapsedText = String.format(java.util.Locale.US, "%02d:%02d:%02d", elapsedSeconds / 3600L, (elapsedSeconds % 3600L) / 60L, elapsedSeconds % 60L)
-
                 StrengthLiveControlBar(
-                    elapsed = elapsedText,
+                    startedAt = startedAt,
+                    pausedAt = workoutPausedAt,
+                    pausedTotalMs = workoutPausedTotalMs,
                     paused = workoutPaused,
                     setCount = session.size,
                     exerciseCount = workoutExercises.distinctBy { it.id }.size,
@@ -1666,7 +1656,9 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 
 @Composable
 private fun StrengthLiveControlBar(
-    elapsed: String,
+    startedAt: Long,
+    pausedAt: Long,
+    pausedTotalMs: Long,
     paused: Boolean,
     setCount: Int,
     exerciseCount: Int,
@@ -1674,6 +1666,21 @@ private fun StrengthLiveControlBar(
     onDelete: () -> Unit,
     onFinish: () -> Unit
 ) {
+    // Isolate the 1 Hz clock. Previously every tick invalidated the entire
+    // exercise screen (library, history, routine editor and workout forms).
+    var clockNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(startedAt, paused) {
+        while (startedAt > 0L && !paused) {
+            clockNow = System.currentTimeMillis()
+            delay(1_000L)
+        }
+    }
+    val effectiveNow = if (paused && pausedAt > 0L) pausedAt else clockNow
+    val elapsedSeconds = (effectiveNow - startedAt - pausedTotalMs).coerceAtLeast(0L) / 1000L
+    val elapsed = String.format(
+        java.util.Locale.US, "%02d:%02d:%02d",
+        elapsedSeconds / 3600L, (elapsedSeconds % 3600L) / 60L, elapsedSeconds % 60L
+    )
     Column(
         Modifier.fillMaxWidth()
             .background(ExerciseSurface, RoundedCornerShape(22.dp))
