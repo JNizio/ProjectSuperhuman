@@ -33,6 +33,12 @@ internal object BundledFoodMicronutrientMatcher {
         "raw", "boiled", "baked", "roasted", "grilled", "fried",
         "steamed", "cooked", "smoked", "canned", "dried", "frozen"
     )
+    private val identityChangingWords = setOf(
+        "juice", "butter", "oil", "flour", "powder", "puree", "concentrate",
+        "milk", "yogurt", "cheese", "bread", "cereal", "rice", "pasta", "soy",
+        "peanut", "almond", "cashew", "shiitake", "portabella", "portobello",
+        "oyster", "chanterelle", "porcini", "honey"
+    )
     private val additiveWords = setOf(
         "sweetened", "syrup", "fortified", "enriched", "breaded", "battered",
         "sauce", "flavored", "flavoured", "chocolate", "dessert", "pudding",
@@ -75,9 +81,8 @@ internal object BundledFoodMicronutrientMatcher {
                 if (word !in reference && !(word == "baked" && "roasted" in reference)) return false
             }
         } else {
-            // For unspecified fresh commodities avoid borrowing nutrient values from
-            // processed, dried or fried versions.
-            if (reference.any { it in setOf("fried", "dried", "smoked", "canned") }) return false
+            // Unqualified foods must not silently inherit cooked/processed variants.
+            if (reference.any { it in preparationWords && it != "raw" }) return false
         }
         if ("raw" in local && "raw" !in reference) return false
         return true
@@ -101,7 +106,8 @@ internal object BundledFoodMicronutrientMatcher {
         val coreWords = localWords - ignoredWords
         if (coreWords.isEmpty() || !coreWords.all(sourceWords::contains)) return null
         if (!preparationCompatible(localWords, sourceWords)) return null
-        if ((sourceWords intersect additiveWords - localWords).isNotEmpty()) return null
+        if ((sourceWords intersect (additiveWords - localWords)).isNotEmpty()) return null
+        if ((sourceWords intersect (identityChangingWords - localWords)).isNotEmpty()) return null
         if (!macroCompatible(local, reference)) return null
         val sourcePriority = when {
             reference.source.contains("Foundation") -> 30
@@ -111,6 +117,17 @@ internal object BundledFoodMicronutrientMatcher {
         val extraWords = (sourceWords - coreWords - ignoredWords).size
         return sourcePriority + reference.micronutrients.size.coerceAtMost(25) - extraWords * 2
     }
+
+    /** A short search term for source lookup (e.g. "rice", not "white"). */
+    fun referenceSearchTerm(local: NativeFood): String {
+        val adjectives = setOf("white", "brown", "greek", "red", "green", "lean",
+            "low", "plain", "raw", "cooked", "baked", "whole", "wholewheat", "smoked")
+        return tokens(local.name).firstOrNull { it !in ignoredWords && it !in adjectives }
+            ?: local.name
+    }
+
+    fun isEligible(local: NativeFood): Boolean =
+        local.id in eligibleIds && local.micronutrients.isEmpty()
 
     /** Enrich only with an unambiguous, same-preparation USDA source candidate. */
     fun enrich(local: NativeFood, sources: List<NativeFood>): NativeFood {
