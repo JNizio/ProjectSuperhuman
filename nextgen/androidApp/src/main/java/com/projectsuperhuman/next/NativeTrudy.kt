@@ -259,6 +259,9 @@ internal fun NativeTrudy(
             onValueChange = state::updateInput,
             onSend = { send() }
         )
+        // The shell's floating navigation is an overlay. Keep the composer
+        // clear of the capsule without painting a full-width bottom panel.
+        Spacer(Modifier.height(88.dp))
     }
 
     if (showGuide) {
@@ -727,7 +730,7 @@ private fun TrudyComposer(
     onValueChange: (String) -> Unit,
     onSend: () -> Unit
 ) {
-    Surface(color = superhumanSurface, shadowElevation = 4.dp) {
+    Box {
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 17.dp, vertical = 12.dp),
             verticalAlignment = Alignment.Bottom
