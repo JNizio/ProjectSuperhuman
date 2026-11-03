@@ -377,7 +377,13 @@ internal fun NativeLiveHome(
                         onDragCancel = { finishDrag(commit = false) }
                     ) {
                         when (tile) {
-                            HomeTile.INSIGHTS -> HomeInsightsTile(InsightsUiRuntime.provider.load(), openInsights)
+                            HomeTile.INSIGHTS -> {
+                                // This provider may parse/aggregate data. Do not redo it on each
+                                // scroll gesture, tile-drag frame, or unrelated state update.
+                                val provider = InsightsUiRuntime.provider
+                                val insights = remember(provider) { provider.load() }
+                                HomeInsightsTile(insights, openInsights)
+                            }
                             HomeTile.EMOTIONAL -> HomeEmotionalTile(emotionalCurrent, openEmotional)
                             // ENVIRONMENT is a legacy storage key; the merged mini row takes its position.
                             HomeTile.ENVIRONMENT, HomeTile.HYDRATION -> HomeCompactModulesRow(
