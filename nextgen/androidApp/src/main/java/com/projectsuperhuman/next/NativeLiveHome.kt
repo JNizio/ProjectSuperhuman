@@ -124,7 +124,8 @@ private enum class HomeTile(val storageKey: String) {
     SLEEP("sleep"),
     NUTRITION("nutrition"),
     // Keep the previous storage key so existing dashboard ordering survives the tile upgrade.
-    VITALS("blood_pressure")
+    VITALS("blood_pressure"),
+    SUPPLEMENTS("supplements")
 }
 
 private data class HomeTileBounds(
@@ -163,6 +164,7 @@ internal fun NativeLiveHome(
     openEmotional: () -> Unit,
     openInsights: () -> Unit,
     openExperiments: () -> Unit,
+    openSupplements: () -> Unit,
     openMiniMetric: (HomeMiniMetric) -> Unit,
     showModulePicker: Boolean = false,
     onOpenModulePicker: () -> Unit = {},
@@ -390,6 +392,7 @@ internal fun NativeLiveHome(
                             HomeTile.SLEEP -> MidnightSleepCard(snapshot, openSleep)
                             HomeTile.NUTRITION -> MidnightNutritionCard(snapshot, openNutrition)
                             HomeTile.VITALS -> HomeVitalsTile(onClick = openVitals)
+                            HomeTile.SUPPLEMENTS -> HomeSupplementsTile(onOpen = openSupplements)
                         }
                     }
                 }
@@ -524,7 +527,7 @@ private fun HomeModulePicker(
         HomeTile.HYDRATION, HomeTile.NUTRITION, HomeTile.EXERCISE,
         HomeTile.SLEEP, HomeTile.VITALS, HomeTile.INSIGHTS,
         HomeTile.EXPERIMENTS, HomeTile.EMOTIONAL, HomeTile.CLINICAL,
-        HomeTile.MINDFULNESS
+        HomeTile.MINDFULNESS, HomeTile.SUPPLEMENTS
     )
     val labels = mapOf(
         HomeTile.HYDRATION to "Hydration & Environment",
@@ -536,7 +539,8 @@ private fun HomeModulePicker(
         HomeTile.EXPERIMENTS to "Experiments",
         HomeTile.EMOTIONAL to "Emotional wellbeing",
         HomeTile.CLINICAL to "Biomarkers",
-        HomeTile.MINDFULNESS to "Mindfulness"
+        HomeTile.MINDFULNESS to "Mindfulness",
+        HomeTile.SUPPLEMENTS to "Supplements"
     )
     Column(
         Modifier.fillMaxSize().background(superhumanBackground)
