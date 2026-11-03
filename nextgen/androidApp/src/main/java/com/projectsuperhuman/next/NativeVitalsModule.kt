@@ -567,7 +567,7 @@ private suspend fun loadVitalsHistory(): VitalsHistoryState = withContext(Dispat
             sys.metadata["arm"], sys.metadata["bodyPosition"], sys.metadata["vitalsSessionId"], sys.metadata["bpReadingIndex"]
         )
     }.sortedByDescending { it.timestampEpochMs }
-    return VitalsHistoryState(heartRates, bp, temperatures, loading = false)
+    VitalsHistoryState(heartRates, bp, temperatures, loading = false)
 }
 
 private fun bpPairingKey(value: HealthValue): String {
