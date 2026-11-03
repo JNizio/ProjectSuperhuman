@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -263,9 +264,9 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
                     color = superhumanTextMuted, fontSize = 11.sp, lineHeight = 15.sp, maxLines = 1)
             }
             Spacer(Modifier.width(8.dp))
-            Box(Modifier.size(94.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(104.dp), contentAlignment = Alignment.Center) {
                 val scoreProgress = (score ?: 0) / 100f
-                Canvas(Modifier.size(90.dp)) {
+                Canvas(Modifier.size(99.dp)) {
                     val strokeWidth = 7.dp.toPx()
                     val inset = strokeWidth / 2f + 1.dp.toPx()
                     val arcBounds = Size(size.width - inset * 2f, size.height - inset * 2f)
@@ -279,15 +280,16 @@ internal fun MidnightSleepCard(snapshot: NativeHomeSnapshot, onClick: () -> Unit
                             style = Stroke(strokeWidth, cap = StrokeCap.Round))
                     }
                 }
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(0.dp)
-                ) {
-                    Text(score?.toString() ?: "—", color = superhumanTextPrimary,
-                        fontSize = 34.sp, lineHeight = 36.sp,
+                // Position the numeral and rating as one centred unit within the ring.
+                // Explicit offsets avoid font-metric whitespace between the two lines.
+                Box(Modifier.size(88.dp), contentAlignment = Alignment.Center) {
+                    Text(score?.toString() ?: "—",
+                        modifier = Modifier.align(Alignment.Center).offset(y = (-9).dp),
+                        color = superhumanTextPrimary, fontSize = 37.sp, lineHeight = 39.sp,
                         fontWeight = FontWeight.Bold, letterSpacing = (-1).sp,
                         style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)))
                     Text(scoreLabel,
+                        modifier = Modifier.align(Alignment.Center).offset(y = 19.dp),
                         color = if (score == null) superhumanTextMuted else midnightPurple,
                         fontSize = 9.sp, lineHeight = 11.sp,
                         fontWeight = FontWeight.SemiBold, maxLines = 1,
