@@ -5,5 +5,7 @@
         <item name="android:statusBarColor">#F8FAFC</item>
         <item name="android:navigationBarColor">#F8FAFC</item>
         <item name="android:windowActionModeOverlay">true</item>
+        <!-- Disable Android View pressed-state highlights in the shared activity theme. -->
+        <item name="android:colorControlHighlight">#00000000</item>
     </style>
 </resources>
