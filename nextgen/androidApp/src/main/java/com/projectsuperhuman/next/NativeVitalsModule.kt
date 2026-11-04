@@ -566,40 +566,102 @@ private fun BloodPressureEntryDialog(onDismiss: () -> Unit, onSave: (List<Health
     var arm by remember { mutableStateOf(BloodPressureArm.LEFT) }
     var position by remember { mutableStateOf(BloodPressurePosition.SITTING) }
     var notes by remember { mutableStateOf("") }
+    var firstReading by remember { mutableStateOf<BloodPressureReadingInput?>(null) }
     var validation by remember { mutableStateOf<VitalsValidation?>(null) }
     var pending by remember { mutableStateOf<BloodPressureReadingInput?>(null) }
+    var confirmingSecond by remember { mutableStateOf(false) }
 
     fun save(input: BloodPressureReadingInput) {
-        onSave(VitalsValueFactory.bloodPressureSession(UUID.randomUUID().toString(), listOf(input), notes))
+        onSave(VitalsValueFactory.bloodPressureSession(
+            UUID.randomUUID().toString(), listOfNotNull(firstReading, input), notes
+        ))
+    }
+
+    fun addSecond(input: BloodPressureReadingInput) {
+        firstReading = input
+        systolic = ""
+        diastolic = ""
+        measuredAt = System.currentTimeMillis()
+        validation = null
+        pending = null
+        // Arm, position, and notes are retained, but remain editable.
+    }
+
+    fun check(input: BloodPressureReadingInput, forSecond: Boolean) {
+        val checked = VitalsValidationRules.bloodPressure(input)
+        validation = checked
+        confirmingSecond = forSecond
+        pending = input.takeIf { checked.needsConfirmation && checked.canSave }
+        when {
+            !checked.canSave -> Unit
+            checked.needsConfirmation -> Unit
+            forSecond -> addSecond(input)
+            else -> save(input)
+        }
     }
 
     VitalsDialog("Record blood pressure", onDismiss) {
-        Text("Blood pressure reading", color = VitalsBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
+        Text(if (firstReading == null) "Reading 1" else "Reading 2",
+            color = VitalsBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
+        firstReading?.let { previous ->
+            Row(Modifier.fillMaxWidth().background(VitalsSoft, RoundedCornerShape(12.dp))
+                    .padding(12.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("First · ${previous.systolic}/${previous.diastolic} mmHg",
+                    color = VitalsInk, fontSize = 12.sp)
+                Text("1 of 2", color = VitalsMuted, fontSize = 10.sp)
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             NumberField("Systolic", systolic, { systolic = it }, "mmHg", Modifier.weight(1f))
             NumberField("Diastolic", diastolic, { diastolic = it }, "mmHg", Modifier.weight(1f))
         }
         TimestampEditor(measuredAt) { measuredAt = it }
-        ChoiceRow("Arm", BloodPressureArm.entries, arm, { arm = it }) { it.name.lowercase().replaceFirstChar { char -> char.uppercase() } }
-        ChoiceRow("Position", BloodPressurePosition.entries, position, { position = it }) { it.name.lowercase().replaceFirstChar { char -> char.uppercase() } }
-        OutlinedTextField(notes, { notes = it.take(200) }, label = { Text("Notes (optional)") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
-        ValidationPanel(validation, confirmLabel = "Save anyway") { pending?.let(::save) }
-
-        val canAttempt = systolic.toIntOrNull() != null && diastolic.toIntOrNull() != null
-        ActionButton(
-            "SAVE READING",
-            enabled = canAttempt
-        ) {
-            val input = BloodPressureReadingInput(systolic.toInt(), diastolic.toInt(), measuredAt, arm, position)
-            val checked = VitalsValidationRules.bloodPressure(input)
-            validation = checked
-            when {
-                !checked.canSave -> Unit
-                checked.needsConfirmation -> pending = input
-                else -> save(input)
-            }
+        ChoiceRow("Arm", BloodPressureArm.entries, arm, { arm = it }) {
+            it.name.lowercase().replaceFirstChar { char -> char.uppercase() }
+        }
+        ChoiceRow("Position", BloodPressurePosition.entries, position, { position = it }) {
+            it.name.lowercase().replaceFirstChar { char -> char.uppercase() }
+        }
+        OutlinedTextField(notes, { notes = it.take(200) },
+            label = { Text("Notes (optional)") }, modifier = Modifier.fillMaxWidth(), maxLines = 2)
+        ValidationPanel(validation, confirmLabel = "Save anyway") {
+            pending?.let { if (confirmingSecond) addSecond(it) else save(it) }
         }
 
+        val ready = systolic.toIntOrNull() != null && diastolic.toIntOrNull() != null
+        ActionButton(
+            if (firstReading == null) "SAVE READING" else "SAVE BOTH READINGS",
+            enabled = ready
+        ) {
+            check(
+                BloodPressureReadingInput(systolic.toInt(), diastolic.toInt(), measuredAt, arm, position),
+                forSecond = false
+            )
+        }
+        if (firstReading == null) {
+            Text("Add a second reading", color = VitalsBlue, fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.fillMaxWidth()
+                    .superhumanClickable {
+                        if (ready) {
+                            check(BloodPressureReadingInput(
+                                systolic.toInt(), diastolic.toInt(), measuredAt, arm, position
+                            ), forSecond = true)
+                        }
+                    }
+                    .padding(horizontal = 10.dp, vertical = 12.dp))
+            Text("Optional: rest at least one minute before taking a second reading.",
+                color = VitalsMuted, fontSize = 10.sp)
+        } else {
+            Text("Save only the first reading", color = VitalsBlue, fontSize = 12.sp,
+                modifier = Modifier.superhumanClickable {
+                    firstReading?.let { previous ->
+                        onSave(VitalsValueFactory.bloodPressureSession(
+                            UUID.randomUUID().toString(), listOf(previous), notes
+                        ))
+                    }
+                }.padding(horizontal = 10.dp, vertical = 10.dp))
+        }
     }
 }
 
