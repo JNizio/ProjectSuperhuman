@@ -130,6 +130,10 @@ internal object SuperhumanLayout {
     val compactGap: Dp = 8.dp
     val controlHeight: Dp = 44.dp
     val iconTouchTarget: Dp = 44.dp
+    /** Matches the overlaid four-tab bar and its bottom shadow. */
+    val floatingNavClearance: Dp = 94.dp
+    /** Shared smallest legible supporting type without resizing key metrics. */
+    val supportingTypeSp: Int = 11
     // Product-wide optical rhythm; see docs/PRODUCT_DESIGN_PHILOSOPHY.md
     val homeCardRadius: Dp = 20.dp
     val homeCardPadding: Dp = 16.dp
