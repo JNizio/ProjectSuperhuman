@@ -29,7 +29,8 @@ import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
- * Two genuinely small modules in one dashboard reorder slot. They use the
+ * Two compact modules in one dashboard reorder slot. Extra vertical space
+ * ensures Environment's bottom readings stay visible on larger font scales. They use the
  * exact same neutral card surface as the 11.4 Home cards: no gradients,
  * decorative photography or additional elevation.
  */
@@ -89,7 +90,7 @@ internal fun HomeCompactHydrationTile(
 
     Column(
         modifier
-            .height(148.dp)
+            .height(178.dp)
             .midnightCardSurface(accent = palette.blue)
             .superhumanHomeTileClickable(onClick = onClick)
             .semantics(mergeDescendants = true) {
@@ -169,7 +170,7 @@ internal fun HomeCompactEnvironmentTile(
 
     Column(
         modifier
-            .height(148.dp)
+            .height(178.dp)
             .midnightCardSurface(accent = palette.green)
             .superhumanHomeTileClickable(onClick = onClick)
             .semantics(mergeDescendants = true) {
