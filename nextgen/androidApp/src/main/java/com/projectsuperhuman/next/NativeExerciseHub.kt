@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -52,6 +53,7 @@ import java.util.Locale
 import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
 
 internal enum class ExerciseDestination {
     HUB,
@@ -127,9 +129,24 @@ private fun NativeExerciseLandingPage(
     val cardioState by cardioViewModel.state.collectAsState()
     val cardioSessions = cardioState.sessions
 
+    val context = LocalContext.current
+    var activeStrengthDraft by remember { mutableStateOf<ActiveWorkoutDraft?>(null) }
+    var draftClock by remember { mutableStateOf(System.currentTimeMillis()) }
     var strengthSessions by remember { mutableStateOf<List<HealthValue>>(emptyList()) }
     val exerciseData = remember { NativeDomainData.forDomain(HealthDomain.EXERCISE) }
 
+    LaunchedEffect(Unit) {
+        activeStrengthDraft = withContext(Dispatchers.IO) {
+            loadActiveWorkoutDraft(context)
+        }
+    }
+    // This updates only the small resume card; no workout state is modified.
+    LaunchedEffect(activeStrengthDraft?.startedAt) {
+        while (activeStrengthDraft != null) {
+            draftClock = System.currentTimeMillis()
+            delay(60_000L)
+        }
+    }
     LaunchedEffect(Unit) {
         val now = System.currentTimeMillis()
         val lookback = 5L * 365L * 86_400_000L
@@ -214,6 +231,26 @@ private fun NativeExerciseLandingPage(
                     color = muted,
                     fontSize = 10.sp
                 )
+            }
+        }
+
+        activeStrengthDraft?.let { draft ->
+            Row(
+                Modifier.fillMaxWidth()
+                    .background(superhumanSurface, RoundedCornerShape(18.dp))
+                    .superhumanClickable(onClick = onOpenStrength)
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("STRENGTH WORKOUT IN PROGRESS", color = strengthAccent,
+                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    val minutesSinceStart = ((draftClock - draft.startedAt) / 60_000L).coerceAtLeast(0L)
+                    Text("Started ${minutesSinceStart} min ago · ${draft.sets.size} sets logged",
+                        color = muted, fontSize = 11.sp)
+                }
+                Text("RESUME →", color = strengthAccent, fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold)
             }
         }
 
