@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -75,7 +76,8 @@ internal fun StrengthInlineExerciseLogger(
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
+            RepDbImage(exercise.imageMain ?: exercise.imageStart, Modifier.size(50.dp))
+            Column(Modifier.weight(1f).padding(start = 10.dp)) {
                 Text(number.toString() + ". " + exercise.name, color = ink,
                     fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 Text(exercise.group + " · " + exercise.equipment, color = muted, fontSize = 11.sp)

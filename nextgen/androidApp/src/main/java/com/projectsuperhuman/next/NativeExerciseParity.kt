@@ -341,7 +341,7 @@ private val repDbBitmapCache = object : LruCache<String, Bitmap>(12 * 1024) {
 }
 
 @Composable
-private fun RepDbImage(path: String?, modifier: Modifier) {
+internal fun RepDbImage(path: String?, modifier: Modifier) {
     val context = LocalContext.current
     val bitmap by produceState<Bitmap?>(null, path) {
         value = withContext(Dispatchers.IO) {
@@ -351,11 +351,6 @@ private fun RepDbImage(path: String?, modifier: Modifier) {
                 }.getOrNull()?.also { repDbBitmapCache.put(assetPath, it) }
             }
         }
-    }
-    val imageGradient = if (SuperhumanAppearance.darkMode) {
-        listOf(superhumanSurfaceElevated, superhumanSurfaceSoft)
-    } else {
-        listOf(Color(0xFFF7FBFF), Color(0xFFE9F4FC))
     }
     // Reuse the Compose wrapper too; the underlying bitmap pixels remain unchanged.
     val imageBitmap = remember(bitmap) { bitmap?.asImageBitmap() }
