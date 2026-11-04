@@ -39,7 +39,6 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -147,6 +146,8 @@ private val defaultHomeTileOrder = listOf(
 private const val HOME_PREFS = "project_superhuman_home"
 private const val HOME_TILE_ORDER_KEY = "tile_order_v3"
 private const val LEGACY_HOME_TILE_ORDER_KEY = "tile_order_v1"
+private const val HOME_LEARN_EXPANDED_KEY = "learn_expanded_v1"
+private const val HOME_ACT_EXPANDED_KEY = "act_expanded_v1"
 
 @Composable
 internal fun NativeLiveHome(
@@ -193,8 +194,9 @@ internal fun NativeLiveHome(
     }
     // Existing saved selections remain intact; Experiments appears under Learn.
     val trackTiles = tileOrder.filter { it != HomeTile.EXPERIMENTS }
-    var learnExpanded by rememberSaveable { mutableStateOf(true) }
-    var actExpanded by rememberSaveable { mutableStateOf(true) }
+    val sectionPrefs = remember(context) { context.getSharedPreferences(HOME_PREFS, Context.MODE_PRIVATE) }
+    var learnExpanded by remember { mutableStateOf(sectionPrefs.getBoolean(HOME_LEARN_EXPANDED_KEY, true)) }
+    var actExpanded by remember { mutableStateOf(sectionPrefs.getBoolean(HOME_ACT_EXPANDED_KEY, true)) }
     // Geometry changes on every scroll frame. This must NOT be Compose snapshot state:
     // observing scroll-time bounds otherwise recomposes every Home tile each frame.
     val tileBounds = remember { mutableMapOf<HomeTile, HomeTileBounds>() }
@@ -430,7 +432,10 @@ internal fun NativeLiveHome(
                 )
                 Spacer(Modifier.height(8.dp))
             }
-            HomeSectionHeader("Learn", expanded = learnExpanded, onToggle = { learnExpanded = !learnExpanded })
+            HomeSectionHeader("Learn", expanded = learnExpanded, onToggle = {
+                learnExpanded = !learnExpanded
+                sectionPrefs.edit().putBoolean(HOME_LEARN_EXPANDED_KEY, learnExpanded).apply()
+            })
             if (learnExpanded) {
                 Row(
                     Modifier.fillMaxWidth(),
@@ -452,7 +457,10 @@ internal fun NativeLiveHome(
                     }
                 }
             }
-            HomeSectionHeader("Act", expanded = actExpanded, onToggle = { actExpanded = !actExpanded })
+            HomeSectionHeader("Act", expanded = actExpanded, onToggle = {
+                actExpanded = !actExpanded
+                sectionPrefs.edit().putBoolean(HOME_ACT_EXPANDED_KEY, actExpanded).apply()
+            })
             if (actExpanded) {
                 HomeMindfulnessBreathworkRow(snapshot, openMindfulness)
             }
