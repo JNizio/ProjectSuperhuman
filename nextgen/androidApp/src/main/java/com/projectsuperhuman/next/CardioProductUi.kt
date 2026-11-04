@@ -188,7 +188,7 @@ private fun CardioGlanceCard(
         Modifier
             .fillMaxWidth()
             .background(superhumanSurface, RoundedCornerShape(20.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(20.dp))
+            .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(20.dp))
             .semantics {
                 role = Role.Button
                 contentDescription = "$eyebrow. $value. $detail. $meta"
@@ -213,7 +213,7 @@ private fun CardioWeekGlance(week: CardioWeekIntentSnapshot, onClick: () -> Unit
         Modifier
             .fillMaxWidth()
             .background(superhumanSurface, RoundedCornerShape(20.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(20.dp))
+            .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(20.dp))
             .semantics {
                 role = Role.Button
                 contentDescription = "This week. ${week.minutes} minutes, ${week.sessions} sessions, ${week.zone2Minutes} Zone 2 minutes."
@@ -300,7 +300,7 @@ private fun CardioProductNavButton(
         modifier
             .heightIn(min = 72.dp)
             .background(superhumanSurface, RoundedCornerShape(17.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(17.dp))
+            .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(17.dp))
             .semantics {
                 role = Role.Button
                 contentDescription = "$title. $subtitle"
@@ -462,7 +462,7 @@ internal fun CardioSessionDataAndCalculationPanel(session: CardioSession) {
         Modifier
             .fillMaxWidth()
             .background(superhumanSurface, RoundedCornerShape(19.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(19.dp))
+            .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(19.dp))
             .semantics {
                 role = Role.Button
                 contentDescription = "Data and calculation. ${if (expanded) "Expanded" else "Collapsed"}."
@@ -525,7 +525,7 @@ private fun CardioProductSection(
     Column(
         Modifier.fillMaxWidth()
             .background(superhumanSurface, RoundedCornerShape(20.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(20.dp))
+            .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(20.dp))
             .padding(15.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
