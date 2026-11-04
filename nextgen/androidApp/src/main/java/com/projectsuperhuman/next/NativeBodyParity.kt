@@ -50,7 +50,7 @@ private val BodyPurple get() = if (SuperhumanAppearance.darkMode) Color(0xFFA99B
 private val BodyInk get() = superhumanTextPrimary
 private val BodyMuted get() = superhumanTextMuted
 private val BodyBg get() = superhumanBackground
-private val BodyBorder get() = superhumanBorder
+private val BodyBorder get() = softModuleOutline(superhumanBorder)
 private val BodySurface get() = superhumanSurface
 private val BodyData = NativeDomainData.forDomain(HealthDomain.BODY)
 
