@@ -56,7 +56,7 @@ private val NutritionPurple = Color(0xFF6547C9)
 private val NutritionOrange = Color(0xFFD97706)
 private val NutritionBg = Color(0xFFF6F9FC)
 private val NutritionSoft = Color(0xFFECF8F1)
-private val NutritionBorder = Color(0xFFE4EBF2)
+private val NutritionBorder get() = softModuleOutline(Color(0xFFE4EBF2))
 
 private enum class NutritionView { DIARY, MICRONUTRIENTS }
 
