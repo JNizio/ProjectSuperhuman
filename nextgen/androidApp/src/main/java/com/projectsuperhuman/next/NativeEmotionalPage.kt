@@ -28,6 +28,7 @@ internal fun NativeEmotionalPage(onBack: () -> Unit) {
     var refreshKey by remember { mutableIntStateOf(0) }
     var current by remember { mutableStateOf<EmotionalPresentationSnapshot?>(null) }
     var recentSavedTimestamp by remember { mutableStateOf<Long?>(null) }
+    var editingExisting by remember { mutableStateOf(false) }
 
     LaunchedEffect(refreshKey) {
         val rows = domain.latestState()
@@ -40,12 +41,25 @@ internal fun NativeEmotionalPage(onBack: () -> Unit) {
         onRecord = { values ->
             scope.launch {
                 val recordedAt = System.currentTimeMillis()
+                // Capture the old canonical rows before saving the replacement.
+                val rowsToReplace = if (editingExisting) {
+                    domain.latestState().filter { row ->
+                        row.timestampEpochMs == current?.recordedAtEpochMs &&
+                            row.source.contains("emotional", ignoreCase = true)
+                    }
+                } else emptyList()
                 val entry = EmotionalPresentationContract.toCanonicalEntry(values, recordedAt)
                 vault.save(entry)
-                recentSavedTimestamp = recordedAt
+                if (rowsToReplace.isNotEmpty()) {
+                    NativeDataHub.deleteValues(rowsToReplace)
+                }
+                recentSavedTimestamp = if (editingExisting) null else recordedAt
+                editingExisting = false
                 refreshKey++
             }
         },
+        editingExisting = editingExisting,
+        onEditExisting = if (current != null) ({ editingExisting = true }) else null,
         onUndoRecent = if (recentSavedTimestamp != null) {
             {
                 scope.launch {
