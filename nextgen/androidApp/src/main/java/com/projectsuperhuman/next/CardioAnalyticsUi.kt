@@ -164,7 +164,7 @@ internal fun CardioAnalyticsProgressPanel(
         modifier
             .fillMaxWidth()
             .background(superhumanSurface, RoundedCornerShape(22.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(22.dp))
+            .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(22.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -371,7 +371,7 @@ internal fun CardioGoalsPanel(
         modifier
             .fillMaxWidth()
             .background(superhumanSurface, RoundedCornerShape(22.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(22.dp))
+            .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(22.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -517,7 +517,7 @@ internal fun CardioAnalyticsHistoryPanel(
                 Modifier
                     .fillMaxWidth()
                     .background(superhumanSurface, RoundedCornerShape(20.dp))
-                    .border(1.dp, superhumanBorder, RoundedCornerShape(20.dp))
+                    .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(20.dp))
                     .padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -543,7 +543,7 @@ internal fun CardioAnalyticsRecordsPanel(
         modifier
             .fillMaxWidth()
             .background(superhumanSurface, RoundedCornerShape(22.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(22.dp))
+            .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(22.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -638,7 +638,7 @@ internal fun CardioPostWorkoutAnalyticsPanel(
         modifier
             .fillMaxWidth()
             .background(superhumanSurface, RoundedCornerShape(22.dp))
-            .border(1.dp, superhumanBorder, RoundedCornerShape(22.dp))
+            .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(22.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
