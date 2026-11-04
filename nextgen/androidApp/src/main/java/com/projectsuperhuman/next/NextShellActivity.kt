@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -104,7 +105,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, INSIGHTS, EXPERIMENTS, SETTINGS, SMART_DEVICES, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, SUPPLEMENTS, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
+    HOME, TRENDS, INTERVENTIONS, EXPERIMENTS, SETTINGS, SMART_DEVICES, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, SUPPLEMENTS, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
 }
 
 @Composable
@@ -115,6 +116,17 @@ private fun SuperhumanShell(
 ) {
     var page by remember { mutableStateOf(ShellPage.HOME) }
     var modulePickerOpen by remember { mutableStateOf(false) }
+    var exploreOpen by remember { mutableStateOf(false) }
+    var returnToTrends by remember { mutableStateOf(false) }
+    fun backFromTrendDetail() {
+        page = if (returnToTrends) ShellPage.TRENDS else ShellPage.HOME
+        returnToTrends = false
+    }
+    fun openFromTrends(target: ShellPage) {
+        returnToTrends = true
+        exploreOpen = false
+        page = target
+    }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
     // Keep the floating navigation outside of scrollable module content. When the
@@ -144,10 +156,8 @@ private fun SuperhumanShell(
                         openHydration = { page = ShellPage.HYDRATION },
                         openNutrition = { page = ShellPage.NUTRITION },
                         openExercise = { page = ShellPage.EXERCISE },
-                        openMindfulness = { page = ShellPage.MINDFULNESS },
                         openEnvironment = { page = ShellPage.ENVIRONMENT },
                         openEmotional = { page = ShellPage.EMOTIONAL },
-                        openInsights = { page = ShellPage.INSIGHTS },
                         openExperiments = { page = ShellPage.EXPERIMENTS },
                         openSupplements = { page = ShellPage.SUPPLEMENTS },
                         openMiniMetric = { metric ->
@@ -165,7 +175,19 @@ private fun SuperhumanShell(
                             if (!modulePickerOpen) NativeHomeTitle()
                         }
                     )
-                    ShellPage.INSIGHTS -> NativeInsightsPage(onBack = { page = ShellPage.HOME })
+                    ShellPage.TRENDS -> ExploreTrendsPage(
+                        onBack = { page = ShellPage.HOME },
+                        onSleep = { openFromTrends(ShellPage.SLEEP) },
+                        onExercise = { openFromTrends(ShellPage.EXERCISE) },
+                        onVitals = { openFromTrends(ShellPage.VITALS) },
+                        onBody = { openFromTrends(ShellPage.BODY) },
+                        onEmotional = { openFromTrends(ShellPage.EMOTIONAL) }
+                    )
+                    ShellPage.INTERVENTIONS -> ExploreInterventionsPage(
+                        onBack = { page = ShellPage.HOME },
+                        onMindfulness = { page = ShellPage.MINDFULNESS },
+                        onBreathwork = { page = ShellPage.BREATHWORK }
+                    )
                     ShellPage.EXPERIMENTS -> NativeExperimentsPage { page = ShellPage.HOME }
                     ShellPage.SETTINGS -> NativeSettingsWithUsage(noCompatibility) { page = ShellPage.SMART_DEVICES }
                     ShellPage.SMART_DEVICES -> SmartDevicesHub(onBack = { page = ShellPage.SETTINGS })
@@ -176,17 +198,17 @@ private fun SuperhumanShell(
                         onBack = { page = ShellPage.HOME }
                     )
                     ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
-                    ShellPage.BODY -> NativeBodyPage({ page = ShellPage.HOME }, openCompatibility)
-                    ShellPage.SLEEP -> UnifiedSleepPage({ page = ShellPage.HOME }, openCompatibility)
-                    ShellPage.EMOTIONAL -> NativeEmotionalPage { page = ShellPage.HOME }
+                    ShellPage.BODY -> NativeBodyPage({ backFromTrendDetail() }, openCompatibility)
+                    ShellPage.SLEEP -> UnifiedSleepPage({ backFromTrendDetail() }, openCompatibility)
+                    ShellPage.EMOTIONAL -> NativeEmotionalPage { backFromTrendDetail() }
                     ShellPage.ENVIRONMENT -> NativeEnvironmentalPage { page = ShellPage.HOME }
-                    ShellPage.VITALS -> NativeVitalsPage { page = ShellPage.HOME }
+                    ShellPage.VITALS -> NativeVitalsPage { backFromTrendDetail() }
                     ShellPage.HYDRATION -> NativeHydrationScreen { page = ShellPage.HOME }
                     ShellPage.NUTRITION -> NativeNutritionWithFoodEditorPage { page = ShellPage.HOME }
                     ShellPage.SUPPLEMENTS -> NativeSupplementsPage { page = ShellPage.HOME }
-                    ShellPage.EXERCISE -> NativeExercisePage({ page = ShellPage.HOME }, openCompatibility)
-                    ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openCompatibility)
-                    ShellPage.BREATHWORK -> GuidedDeepBreathRoutine { page = ShellPage.HOME }
+                    ShellPage.EXERCISE -> NativeExercisePage({ backFromTrendDetail() }, openCompatibility)
+                    ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.INTERVENTIONS }, openCompatibility)
+                    ShellPage.BREATHWORK -> GuidedDeepBreathRoutine { page = ShellPage.INTERVENTIONS }
                     ShellPage.HEART_RATE -> UnifiedMiniMetricPage(HomeMiniMetric.HEART_RATE) { page = ShellPage.HOME }
                     ShellPage.STEPS -> UnifiedMiniMetricPage(HomeMiniMetric.STEPS) { page = ShellPage.HOME }
                     ShellPage.BLOOD_OXYGEN -> UnifiedMiniMetricPage(HomeMiniMetric.BLOOD_OXYGEN) { page = ShellPage.HOME }
@@ -202,12 +224,27 @@ private fun SuperhumanShell(
                 )
             }
 
+            if (exploreOpen && !keyboardVisible) {
+                ShellExploreMenu(
+                    onDismiss = { exploreOpen = false },
+                    onTrends = { exploreOpen = false; returnToTrends = false; page = ShellPage.TRENDS },
+                    onInterventions = { exploreOpen = false; returnToTrends = false; page = ShellPage.INTERVENTIONS }
+                )
+            }
             if (!keyboardVisible) ShellBottomNavigation(
                 selectedPage = page,
-                onHome = { modulePickerOpen = false; page = ShellPage.HOME },
-                onBody = { modulePickerOpen = false; page = ShellPage.BODY },
-                onTrudy = { page = ShellPage.TRUDY },
-                onSettings = { page = ShellPage.SETTINGS },
+                exploreOpen = exploreOpen,
+                onHome = {
+                    exploreOpen = false; returnToTrends = false
+                    modulePickerOpen = false; page = ShellPage.HOME
+                },
+                onBody = {
+                    exploreOpen = false; returnToTrends = false
+                    modulePickerOpen = false; page = ShellPage.BODY
+                },
+                onExplore = { exploreOpen = !exploreOpen },
+                onTrudy = { exploreOpen = false; returnToTrends = false; page = ShellPage.TRUDY },
+                onSettings = { exploreOpen = false; returnToTrends = false; page = ShellPage.SETTINGS },
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
@@ -293,10 +330,69 @@ private fun NativeHomeTitle() {
 }
 
 @Composable
+private fun ShellExploreMenu(
+    onDismiss: () -> Unit,
+    onTrends: () -> Unit,
+    onInterventions: () -> Unit
+) {
+    val dark = SuperhumanAppearance.darkMode
+    val shape = RoundedCornerShape(25.dp)
+    Box(
+        Modifier.fillMaxSize().superhumanClickable(onClick = onDismiss)
+    ) {
+        Column(
+            Modifier.align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 48.dp, vertical = 88.dp)
+                .shadow(elevation = 16.dp, shape = shape, clip = false)
+                .background(if (dark) Color(0xFF222429) else superhumanSurfaceElevated, shape)
+                .border(1.dp, superhumanBorder.copy(alpha = 0.35f), shape)
+                .padding(8.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            ShellExploreOption("Trends", "View your data over time",
+                R.drawable.tabler_chart_line, onTrends)
+            ShellExploreOption("Interventions", "Mindfulness & breathwork",
+                R.drawable.tabler_activity_heartbeat, onInterventions)
+        }
+    }
+}
+
+@Composable
+private fun ShellExploreOption(
+    label: String,
+    subtitle: String,
+    icon: Int,
+    onClick: () -> Unit
+) {
+    val accent = if (SuperhumanAppearance.darkMode) Color(0xFFB6A0EE) else Color(0xFF7662B9)
+    Row(
+        Modifier.fillMaxWidth()
+            .background(superhumanSurfaceSoft.copy(alpha = 0.38f), RoundedCornerShape(18.dp))
+            .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 15.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(13.dp)
+    ) {
+        Icon(painterResource(icon), contentDescription = null, tint = accent,
+            modifier = Modifier.size(25.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, color = superhumanTextPrimary, fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = superhumanTextMuted, fontSize = 11.sp)
+        }
+        Icon(painterResource(R.drawable.tabler_chevron_right), contentDescription = null,
+            tint = superhumanTextMuted, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
 private fun ShellBottomNavigation(
     selectedPage: ShellPage,
+    exploreOpen: Boolean,
     onHome: () -> Unit,
     onBody: () -> Unit,
+    onExplore: () -> Unit,
     onTrudy: () -> Unit,
     onSettings: () -> Unit,
     modifier: Modifier = Modifier
@@ -327,6 +423,12 @@ private fun ShellBottomNavigation(
         ShellBottomItem("Body", selectedPage == ShellPage.BODY, selectedTint, onBody) {
             color -> ShellTablerIcon(if (selectedPage == ShellPage.BODY) R.drawable.tabler_user_filled else R.drawable.tabler_user, color)
         }
+        ShellBottomItem(
+            "Explore", exploreOpen || selectedPage == ShellPage.TRENDS || selectedPage == ShellPage.INTERVENTIONS,
+            selectedTint, onExplore
+        ) {
+            color -> ShellTablerIcon(R.drawable.tabler_compass, color)
+        }
         ShellBottomItem("Trudy", selectedPage == ShellPage.TRUDY, selectedTint, onTrudy) {
             color -> ShellTablerIcon(if (selectedPage == ShellPage.TRUDY) R.drawable.tabler_message_circle_filled else R.drawable.tabler_message_circle, color)
         }
@@ -340,7 +442,7 @@ private fun ShellBottomNavigation(
 }
 
 @Composable
-private fun ShellBottomItem(
+private fun RowScope.ShellBottomItem(
     label: String,
     selected: Boolean,
     accent: Color,
@@ -350,7 +452,7 @@ private fun ShellBottomItem(
     val color = if (selected) accent else ShellMuted
     Column(
         Modifier
-            .width(70.dp)
+            .weight(1f)
             .height(54.dp)
             .superhumanClickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
