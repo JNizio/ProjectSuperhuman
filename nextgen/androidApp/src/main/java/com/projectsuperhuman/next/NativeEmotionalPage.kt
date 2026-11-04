@@ -27,6 +27,7 @@ internal fun NativeEmotionalPage(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var refreshKey by remember { mutableIntStateOf(0) }
     var current by remember { mutableStateOf<EmotionalPresentationSnapshot?>(null) }
+    var recentSavedTimestamp by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(refreshKey) {
         val rows = domain.latestState()
@@ -38,11 +39,31 @@ internal fun NativeEmotionalPage(onBack: () -> Unit) {
         onBack = onBack,
         onRecord = { values ->
             scope.launch {
-                val entry = EmotionalPresentationContract.toCanonicalEntry(values, System.currentTimeMillis())
+                val recordedAt = System.currentTimeMillis()
+                val entry = EmotionalPresentationContract.toCanonicalEntry(values, recordedAt)
                 vault.save(entry)
+                recentSavedTimestamp = recordedAt
                 refreshKey++
             }
-        }
+        },
+        onUndoRecent = if (recentSavedTimestamp != null) {
+            {
+                scope.launch {
+                    val timestamp = recentSavedTimestamp
+                    if (timestamp != null) {
+                        val recent = domain.latestState().filter { row ->
+                            row.timestampEpochMs == timestamp &&
+                                row.source.contains("emotional", ignoreCase = true)
+                        }
+                        if (recent.isNotEmpty()) {
+                            NativeDataHub.deleteValues(recent)
+                            recentSavedTimestamp = null
+                            refreshKey++
+                        }
+                    }
+                }
+            }
+        } else null
     )
 }
 
