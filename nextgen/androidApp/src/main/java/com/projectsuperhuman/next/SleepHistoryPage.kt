@@ -231,8 +231,8 @@ private fun HistorySleepDashboardHero(
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("✦  SLEEP DASHBOARD", color = Color.White.copy(alpha = .64f), fontSize = 8.sp, fontWeight = FontWeight.Black)
-                Text(dateLabel, color = Color.White.copy(alpha = .82f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text("✦  SLEEP DASHBOARD", color = Color.White.copy(alpha = .64f), fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text(dateLabel, color = Color.White.copy(alpha = .82f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
             DashboardViewToggle(view, onViewChange)
         }
@@ -241,7 +241,7 @@ private fun HistorySleepDashboardHero(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f).padding(end = 14.dp)) {
                     Text(formatHistoryMinutes(totalMinutes), color = Color.White, fontSize = 34.sp, lineHeight = 38.sp, fontWeight = FontWeight.Black)
-                    Text("Actual sleep", color = Color.White.copy(alpha = .60f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("Actual sleep", color = Color.White.copy(alpha = .60f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.height(5.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(
@@ -251,7 +251,7 @@ private fun HistorySleepDashboardHero(
                             Text(
                                 "Sleep time  ${formatHistoryMinutes(sleepTimeMinutes)}",
                                 color = Color.White.copy(alpha = .92f),
-                                fontSize = 8.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -262,7 +262,7 @@ private fun HistorySleepDashboardHero(
                             Text(
                                 "Actual  ${formatHistoryMinutes(totalMinutes)}",
                                 color = Color.White.copy(alpha = .92f),
-                                fontSize = 8.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -271,9 +271,9 @@ private fun HistorySleepDashboardHero(
                     Text(analysis?.headline ?: "Your night sky is still gathering data", color = Color.White.copy(alpha = .86f), fontSize = 10.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("SLEEP SCORE", color = Color.White.copy(alpha = .67f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("SLEEP SCORE", color = Color.White.copy(alpha = .67f), fontSize = 10.sp, fontWeight = FontWeight.Black)
                     Text(sleepScore?.toString() ?: "—", color = Color.White, fontSize = 52.sp, lineHeight = 54.sp, fontWeight = FontWeight.Black)
-                    Text(scoreLabel, color = if ((sleepScore ?: 0) >= 75) HistoryGood else Color.White.copy(alpha = .64f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text(scoreLabel, color = if ((sleepScore ?: 0) >= 75) HistoryGood else Color.White.copy(alpha = .64f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -304,35 +304,35 @@ private fun HistorySleepDashboardHero(
             }
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(comparison, color = Color.White.copy(alpha = .72f), fontSize = 9.sp, lineHeight = 13.sp, modifier = Modifier.weight(1f))
+                Text(comparison, color = Color.White.copy(alpha = .72f), fontSize = 11.sp, lineHeight = 13.sp, modifier = Modifier.weight(1f))
                 Spacer(Modifier.width(10.dp))
                 Column(horizontalAlignment = Alignment.End) {
                     Text(formatHistoryMinutes(deepRem), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
-                    Text("Deep + REM", color = Color.White.copy(alpha = .56f), fontSize = 7.sp)
+                    Text("Deep + REM", color = Color.White.copy(alpha = .56f), fontSize = 10.sp)
                 }
             }
 
             Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = .09f), RoundedCornerShape(14.dp)).padding(11.dp)) {
-                Text("Tonight's focus: $focus", color = Color.White.copy(alpha = .90f), fontSize = 9.sp, lineHeight = 13.sp)
+                Text("Tonight's focus: $focus", color = Color.White.copy(alpha = .90f), fontSize = 11.sp, lineHeight = 13.sp)
             }
 
             Text(
                 if (avgScore != null) "✦ Recent sleep-score baseline $avgScore   ·   personalised from your history" else "✦ Personal baseline building",
                 color = Color.White.copy(alpha = .53f),
-                fontSize = 7.sp
+                fontSize = 10.sp
             )
             }
         } else {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
-                    Text("RAW HEALTH CONNECT DATA", color = Color.White.copy(alpha = .65f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("RAW HEALTH CONNECT DATA", color = Color.White.copy(alpha = .65f), fontSize = 10.sp, fontWeight = FontWeight.Black)
                     Spacer(Modifier.height(4.dp))
                     Text(formatHistoryMinutes(totalMinutes), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
-                    Text("actual sleep", color = Color.White.copy(alpha = .62f), fontSize = 8.sp)
-                    Text("Sleep time ${formatHistoryMinutes(sleepTimeMinutes)}", color = Color.White.copy(alpha = .82f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("actual sleep", color = Color.White.copy(alpha = .62f), fontSize = 10.sp)
+                    Text("Sleep time ${formatHistoryMinutes(sleepTimeMinutes)}", color = Color.White.copy(alpha = .82f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 Column(horizontalAlignment = Alignment.End) {
-                    Text("SOURCE SCORE", color = Color.White.copy(alpha = .62f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text("SOURCE SCORE", color = Color.White.copy(alpha = .62f), fontSize = 10.sp, fontWeight = FontWeight.Black)
                     Text(snapshot?.score?.toString() ?: "—", color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
                 }
             }
@@ -350,7 +350,7 @@ private fun HistorySleepDashboardHero(
             }
 
             Box(Modifier.fillMaxWidth().background(Color.White.copy(alpha = .08f), RoundedCornerShape(14.dp)).padding(11.dp)) {
-                Text("Raw view shows the values imported from the sleep source. Interpretation, scoring and historical context are intentionally hidden here.", color = Color.White.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
+                Text("Raw view shows the values imported from the sleep source. Interpretation, scoring and historical context are intentionally hidden here.", color = Color.White.copy(alpha = .78f), fontSize = 10.sp, lineHeight = 12.sp)
             }
         }
     }
@@ -369,7 +369,7 @@ private fun DashboardViewToggle(view: HistoryDataView, onChange: (HistoryDataVie
                     .padding(horizontal = 10.dp, vertical = 7.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text(label, color = Color.White.copy(alpha = if (view == item) .98f else .62f), fontSize = 7.sp, fontWeight = FontWeight.Black)
+                Text(label, color = Color.White.copy(alpha = if (view == item) .98f else .62f), fontSize = 10.sp, fontWeight = FontWeight.Black)
             }
         }
     }
@@ -379,7 +379,7 @@ private fun DashboardViewToggle(view: HistoryDataView, onChange: (HistoryDataVie
 private fun HistoryHeroScoreStat(label: String, value: Int?, modifier: Modifier) {
     Column(modifier.background(Color.White.copy(alpha = .075f), RoundedCornerShape(14.dp)).padding(9.dp)) {
         Text(value?.toString() ?: "—", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Black)
-        Text("$label /100", color = Color.White.copy(alpha = .55f), fontSize = 7.sp)
+        Text("$label /100", color = Color.White.copy(alpha = .55f), fontSize = 10.sp)
     }
 }
 
@@ -431,14 +431,14 @@ private fun SleepCalendarCard(
             CalendarArrow("←", onPrevious)
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(month.format(DateTimeFormatter.ofPattern("MMMM yyyy")), color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                Text("Tap a night to inspect it", color = HistoryMuted, fontSize = 8.sp)
+                Text("Tap a night to inspect it", color = HistoryMuted, fontSize = 10.sp)
             }
             CalendarArrow("→", onNext)
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             listOf("M", "T", "W", "T", "F", "S", "S").forEach {
-                Text(it, Modifier.width(28.dp), color = HistoryMuted, fontSize = 8.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+                Text(it, Modifier.width(28.dp), color = HistoryMuted, fontSize = 10.sp, textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -472,7 +472,7 @@ private fun SleepCalendarCard(
                         Text(
                             date.dayOfMonth.toString(),
                             color = if (isSelected) Color.White else HistoryInk,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             fontWeight = if (today) FontWeight.Black else FontWeight.Bold
                         )
                         if (night != null) {
@@ -513,7 +513,7 @@ private fun CalendarArrow(symbol: String, onClick: () -> Unit) {
 private fun CalendarLegendDot(color: Color, label: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.width(7.dp).height(7.dp).background(color, CircleShape))
-        Text(label, color = HistoryMuted, fontSize = 7.sp)
+        Text(label, color = HistoryMuted, fontSize = 10.sp)
     }
 }
 
@@ -565,7 +565,7 @@ private fun SleepViewTab(label: String, selected: Boolean, modifier: Modifier, o
         Text(
             label,
             color = if (selected) Color.White else HistoryMuted,
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = .4.sp
         )
@@ -581,12 +581,12 @@ private fun InterpretedSleepView(snapshot: NativeSleepSnapshot, date: LocalDate,
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f).padding(end = 10.dp)) {
-                    Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), color = Color.White.copy(alpha = .70f), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), color = Color.White.copy(alpha = .70f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     Text(analysis.headline, color = Color.White, fontSize = 19.sp, lineHeight = 23.sp, fontWeight = FontWeight.Black)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(analysis.recoveryScore.toString(), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
-                    Text("interpreted score", color = Color.White.copy(alpha = .68f), fontSize = 8.sp)
+                    Text("interpreted score", color = Color.White.copy(alpha = .68f), fontSize = 10.sp)
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -603,7 +603,7 @@ private fun InterpretedSleepView(snapshot: NativeSleepSnapshot, date: LocalDate,
                 HistoryMiniStat(analysis.stageBalanceScore.toString(), "stage balance")
             }
             Box(Modifier.fillMaxWidth().background(HistoryPurple.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .08f), RoundedCornerShape(14.dp)).padding(11.dp)) {
-                Text("Focus: ${analysis.priority}", color = HistoryPurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text("Focus: ${analysis.priority}", color = HistoryPurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
         }
 
@@ -627,12 +627,12 @@ private fun RawSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysi
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Column(Modifier.weight(1f)) {
                     Text("Raw sleep record", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                    Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), color = HistoryMuted, fontSize = 9.sp)
-                    if (start != null && end != null) Text("$start – $end", color = HistoryMuted, fontSize = 9.sp)
+                    Text(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM")), color = HistoryMuted, fontSize = 11.sp)
+                    if (start != null && end != null) Text("$start – $end", color = HistoryMuted, fontSize = 11.sp)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(snapshot.score?.toString() ?: "—", color = HistoryPurple, fontSize = 22.sp, fontWeight = FontWeight.Black)
-                    Text("source score", color = HistoryMuted, fontSize = 8.sp)
+                    Text("source score", color = HistoryMuted, fontSize = 10.sp)
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -650,7 +650,7 @@ private fun RawSleepView(snapshot: NativeSleepSnapshot, date: LocalDate, analysi
             verticalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             Text("Recorded stage balance", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("Direct values from the imported sleep record — no interpretation applied.", color = HistoryMuted, fontSize = 9.sp)
+            Text("Direct values from the imported sleep record — no interpretation applied.", color = HistoryMuted, fontSize = 11.sp)
             HistoryStageRow("Light", snapshot.lightMinutes, HistoryBlue)
             HistoryStageRow("Deep", snapshot.deepMinutes, HistoryGood)
             HistoryStageRow("REM", snapshot.remMinutes, HistoryPurple)
@@ -688,13 +688,13 @@ private fun ConfidenceCard(analysis: SleepIntelligenceResult) {
         verticalArrangement = Arrangement.spacedBy(9.dp)
     ) {
         Text("Data confidence", color = HistoryInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-        Text("Confidence is based on the information available from the source records.", color = HistoryMuted, fontSize = 9.sp)
+        Text("Confidence is based on the information available from the source records.", color = HistoryMuted, fontSize = 11.sp)
         analysis.confidence.forEach { item ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(item.metric.replaceFirstChar { it.uppercase() }, color = HistoryInk, fontSize = 9.sp, modifier = Modifier.weight(1f))
-                Text("${item.score}%", color = HistoryInk, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text(item.metric.replaceFirstChar { it.uppercase() }, color = HistoryInk, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                Text("${item.score}%", color = HistoryInk, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(8.dp))
-                Text(item.label, color = if (item.score >= 75) HistoryGood else HistoryWarn, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text(item.label, color = if (item.score >= 75) HistoryGood else HistoryWarn, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -704,7 +704,7 @@ private fun ConfidenceCard(analysis: SleepIntelligenceResult) {
 private fun HistoryHeroStat(label: String, value: String, modifier: Modifier) {
     Column(modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(16.dp)).padding(10.dp)) {
         Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
-        Text(label, color = Color.White.copy(alpha = .62f), fontSize = 8.sp)
+        Text(label, color = Color.White.copy(alpha = .62f), fontSize = 10.sp)
     }
 }
 
@@ -712,7 +712,7 @@ private fun HistoryHeroStat(label: String, value: String, modifier: Modifier) {
 private fun HistoryMiniStat(value: String, label: String) {
     Column {
         Text(value, color = HistoryInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text(label, color = HistoryMuted, fontSize = 8.sp)
+        Text(label, color = HistoryMuted, fontSize = 10.sp)
     }
 }
 
@@ -739,7 +739,7 @@ private fun HistorySourceCard(connected: Boolean, status: String) {
                 Text(
                     if (connected) "Health Connect · historical/backfill source" else "No external sleep source connected",
                     color = HistoryMuted,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     lineHeight = 14.sp
                 )
             }
@@ -752,12 +752,12 @@ private fun HistorySourceCard(connected: Boolean, status: String) {
                 Text(
                     if (connected) "CONNECTED" else "OFFLINE",
                     color = if (connected) HistoryGood else HistoryPurple,
-                    fontSize = 7.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Black
                 )
             }
         }
-        Text(status, color = HistoryMuted, fontSize = 8.sp, lineHeight = 12.sp)
+        Text(status, color = HistoryMuted, fontSize = 10.sp, lineHeight = 12.sp)
         Box(
             Modifier.fillMaxWidth()
                 .background(HistorySoft, RoundedCornerShape(15.dp))
@@ -765,7 +765,7 @@ private fun HistorySourceCard(connected: Boolean, status: String) {
                 .padding(vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("MANAGE SMART DEVICES", color = HistoryPurple, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            Text("MANAGE SMART DEVICES", color = HistoryPurple, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
     }
 }
