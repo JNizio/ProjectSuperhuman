@@ -50,7 +50,7 @@ private val SleepGood get() = superhumanGreen
 private val SleepWarn get() = if (SuperhumanAppearance.darkMode) Color(0xFFEAB778) else Color(0xFFE29B55)
 private val SleepBg get() = superhumanBackground
 private val SleepCard get() = superhumanSurface
-private val SleepBorder get() = superhumanBorder
+private val SleepBorder get() = softModuleOutline(superhumanBorder)
 
 internal data class NativeSleepSnapshot(
     val score: Int? = null,
