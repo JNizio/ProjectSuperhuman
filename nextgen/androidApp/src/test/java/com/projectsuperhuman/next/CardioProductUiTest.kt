@@ -72,6 +72,19 @@ class CardioProductUiTest {
     }
 
     @Test
+    fun connectedWithoutHeartRateMustNotClaimLiveReading() {
+        val status = cardioProductSensorStatus(
+            CardioLiveSensorMetrics(
+                connection = CardioSensorConnectionState.CONNECTED,
+                sourceLabel = "BLE chest strap",
+                currentHeartRateBpm = null
+            )
+        )
+        assertTrue(status.contains("waiting for reading"))
+        assertTrue(!status.contains("bpm"))
+    }
+
+    @Test
     fun noSensorStatusNeverShowsSyntheticHeartRate() {
         val status = cardioProductSensorStatus(CardioLiveSensorMetrics())
 

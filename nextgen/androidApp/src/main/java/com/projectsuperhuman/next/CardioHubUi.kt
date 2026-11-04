@@ -111,6 +111,11 @@ internal fun CardioVisualHub(
     var quickActivities by remember { mutableStateOf(hubPreferences.quickActivities()) }
     var goals by remember { mutableStateOf(hubPreferences.goals()) }
 
+    // A manually customized quick-start row always wins; otherwise surface real recent activities.
+    LaunchedEffect(sessions) {
+        quickActivities = hubPreferences.quickActivities(sessions.sortedByDescending { it.endedAt }.map { it.activity })
+    }
+
     LaunchedEffect(sessions) {
         val loadAnalytics = CardioAnalyticsEngine.loadAnalytics(sessions)
         val latestLoad = CardioTrainingLoadEngine.latest(sessions)

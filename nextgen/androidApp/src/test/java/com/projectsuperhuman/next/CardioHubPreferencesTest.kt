@@ -18,6 +18,22 @@ class CardioHubPreferencesTest {
     }
 
     @Test
+    fun recentQuickStartsAreDeduplicatedAndOnlyShowRealActivityTypes() {
+        val recent = listOf(
+            CardioActivityType.SWIMMING,
+            CardioActivityType.SWIMMING,
+            CardioActivityType.ROWING,
+            CardioActivityType.WALKING
+        )
+        val ordered = (recent + CardioHubPreferences.DEFAULT_QUICK_ACTIVITIES).distinct().take(4)
+        assertEquals(
+            listOf(CardioActivityType.SWIMMING, CardioActivityType.ROWING,
+                CardioActivityType.WALKING, CardioActivityType.RUNNING),
+            ordered
+        )
+    }
+
+    @Test
     fun replacingQuickStartSwapsExistingActivityInsteadOfDuplicatingIt() {
         val current = CardioHubPreferences.DEFAULT_QUICK_ACTIVITIES
         val updated = replaceCardioQuickActivity(

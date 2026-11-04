@@ -11,14 +11,15 @@ internal data class CardioHubGoals(
 internal class CardioHubPreferences(context: Context) {
     private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
-    fun quickActivities(): List<CardioActivityType> {
+    fun quickActivities(recentActivities: List<CardioActivityType> = emptyList()): List<CardioActivityType> {
         val raw = prefs.getString(KEY_QUICK_ACTIVITIES, null)
         val parsed = raw
             ?.split(',')
             ?.mapNotNull { token -> runCatching { CardioActivityType.valueOf(token) }.getOrNull() }
             ?.distinct()
             .orEmpty()
-        return if (parsed.size == QUICK_SLOT_COUNT) parsed else DEFAULT_QUICK_ACTIVITIES
+        return if (parsed.size == QUICK_SLOT_COUNT) parsed
+        else (recentActivities + DEFAULT_QUICK_ACTIVITIES).distinct().take(QUICK_SLOT_COUNT)
     }
 
     fun saveQuickActivities(activities: List<CardioActivityType>) {

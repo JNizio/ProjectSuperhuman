@@ -1609,32 +1609,39 @@ private fun CardioLivePrimaryMetrics(
             .border(1.dp, CardioBorder.copy(alpha = .72f), RoundedCornerShape(21.dp))
             .padding(14.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            CardioLiveMetricCell(
-                "HEART RATE",
-                sensor.currentHeartRateBpm?.toString() ?: "—",
-                "bpm",
-                Color(0xFFC85772),
-                Modifier.weight(1f)
+        val hasMovementReading = movement.acceptedFixCount > 0 ||
+            movement.currentSpeedMetersPerSecond != null || movement.distanceMeters > 0.0
+        if (activity == CardioActivityType.SWIMMING && !hasMovementReading) {
+            Text("SWIMMING · TIMER TRACKING", color = CardioInk,
+                fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(
+                if (sensor.currentHeartRateBpm != null) "Heart rate: " + sensor.currentHeartRateBpm + " bpm"
+                else "Time is recorded. Add measured swim distance when saving, if available.",
+                color = CardioMuted, fontSize = 11.sp
             )
-            CardioStatDivider()
-            CardioLiveMetricCell(
-                performanceLabel,
-                performanceValue,
-                performanceUnit,
-                CardioBlue,
-                Modifier.weight(1f)
-            )
-            CardioStatDivider()
-            CardioLiveMetricCell(
-                "DISTANCE",
-                if (movement.distanceMeters > 0.0) {
-                    cardioFormatNumber(movement.distanceMeters / 1000.0)
-                } else "—",
-                "km",
-                CardioAccent,
-                Modifier.weight(1f)
-            )
+        } else if (!hasMovementReading) {
+            Text("LIVE SESSION", color = CardioInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            if (sensor.currentHeartRateBpm != null) {
+                Text(sensor.currentHeartRateBpm.toString() + " bpm", color = CardioAccent,
+                    fontSize = 25.sp, fontWeight = FontWeight.Bold)
+            }
+            Text("Distance and pace require a connected, supported movement source. The workout timer remains available.",
+                color = CardioMuted, fontSize = 11.sp)
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (sensor.currentHeartRateBpm != null) {
+                    CardioLiveMetricCell("HEART RATE", sensor.currentHeartRateBpm.toString(), "bpm",
+                        Color(0xFFC85772), Modifier.weight(1f))
+                    CardioStatDivider()
+                }
+                CardioLiveMetricCell(performanceLabel, performanceValue, performanceUnit,
+                    CardioBlue, Modifier.weight(1f))
+                CardioStatDivider()
+                CardioLiveMetricCell(
+                    "DISTANCE", cardioFormatNumber(movement.distanceMeters / 1000.0),
+                    "km", CardioAccent, Modifier.weight(1f)
+                )
+            }
         }
         Spacer(Modifier.height(10.dp))
         val gps = when (movement.gpsQuality) {
@@ -1643,7 +1650,7 @@ private fun CardioLivePrimaryMetrics(
             CardioGpsQualityLabel.UNAVAILABLE -> movement.message
         }
         val hrState = when (sensor.connection) {
-            CardioSensorConnectionState.CONNECTED -> sensor.sourceLabel + " live"
+            CardioSensorConnectionState.CONNECTED -> if (sensor.currentHeartRateBpm != null) sensor.sourceLabel + " reporting" else sensor.sourceLabel + " connected, no reading"
             CardioSensorConnectionState.STALE -> sensor.sourceLabel + " stale"
             CardioSensorConnectionState.RECONNECTING -> sensor.sourceLabel + " reconnecting"
             else -> sensor.connection.name.lowercase().replace('_', ' ')
@@ -1677,7 +1684,7 @@ private fun CardioLivePrimaryMetrics(
 @Composable
 private fun CardioLiveMetricsPanel(metrics: CardioLiveSensorMetrics) {
     val connectionLabel = when (metrics.connection) {
-        CardioSensorConnectionState.CONNECTED -> "LIVE"
+        CardioSensorConnectionState.CONNECTED -> if (metrics.currentHeartRateBpm != null) "REPORTING" else "NO READING"
         CardioSensorConnectionState.STALE -> "STALE"
         CardioSensorConnectionState.RECONNECTING -> "RECONNECTING"
         CardioSensorConnectionState.CONNECTING -> "CONNECTING"
@@ -1687,7 +1694,7 @@ private fun CardioLiveMetricsPanel(metrics: CardioLiveSensorMetrics) {
         CardioSensorConnectionState.NO_SENSOR -> "NO SENSOR"
     }
     val statusColor = when (metrics.connection) {
-        CardioSensorConnectionState.CONNECTED -> CardioAccent
+        CardioSensorConnectionState.CONNECTED -> if (metrics.currentHeartRateBpm != null) CardioAccent else CardioGold
         CardioSensorConnectionState.STALE,
         CardioSensorConnectionState.RECONNECTING,
         CardioSensorConnectionState.CONNECTING,
@@ -1768,9 +1775,13 @@ private fun CardioLiveMetricsPanel(metrics: CardioLiveSensorMetrics) {
                 fontSize = 11.sp
             )
         }
-        if (metrics.connection != CardioSensorConnectionState.CONNECTED) {
+        if (metrics.currentHeartRateBpm == null) {
             Spacer(Modifier.height(4.dp))
-            Text(metrics.message, color = CardioMuted, fontSize = 11.sp)
+            Text(
+                if (metrics.connection == CardioSensorConnectionState.CONNECTED) "Sensor connected; waiting for a valid heart-rate observation."
+                else "Timer-only recording works without a wearable. " + metrics.message,
+                color = CardioMuted, fontSize = 11.sp
+            )
         }
     }
 }

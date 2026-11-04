@@ -65,12 +65,16 @@ internal fun buildCardioProductOverviewModel(
 
 internal fun cardioProductSensorStatus(metrics: CardioLiveSensorMetrics): String = when (metrics.connection) {
     CardioSensorConnectionState.CONNECTED -> {
+        if (metrics.currentHeartRateBpm == null) {
+            metrics.sourceLabel + " · Connected, waiting for reading"
+        } else {
         val age = metrics.lastSampleAgeMs?.let(::cardioProductFreshness).orEmpty()
         listOfNotNull(
             metrics.sourceLabel.takeIf { it.isNotBlank() },
             metrics.currentHeartRateBpm?.let { "$it bpm" },
             age.takeIf { it.isNotBlank() }
         ).joinToString(" · ")
+        }
     }
     CardioSensorConnectionState.RECONNECTING -> metrics.sourceLabel + " · Reconnecting"
     CardioSensorConnectionState.SCANNING -> "Searching for heart-rate sensor"
