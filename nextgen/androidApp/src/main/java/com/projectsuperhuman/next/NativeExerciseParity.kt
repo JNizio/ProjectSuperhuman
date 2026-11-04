@@ -724,11 +724,12 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     "notes" to workoutNotes.trim()
                 )
             )))
+            // Confirm session is queryable before retiring recovery data.
+            refresh()
             clearActiveWorkoutDraft(context)
             clearStrengthActiveMeta(context, workoutStartedAt)
             startedAt = 0L
             pendingSetJobs.clear()
-            refresh()
             mode = "summary"
             } catch (e: Exception) {
                 feedbackMessage = "Could not save workout; active draft retained"
