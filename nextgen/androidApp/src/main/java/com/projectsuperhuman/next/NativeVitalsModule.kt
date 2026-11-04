@@ -213,7 +213,10 @@ private fun LatestVitalsSection(state: VitalsHistoryState, onRecord: (VitalsEntr
         LatestVitalCard(
             label = "HEART RATE",
             value = state.heartRate.firstOrNull()?.let { "${it.value.toInt()} bpm" } ?: "No reading",
-            detail = state.heartRate.firstOrNull()?.timestampEpochMs?.let(::formatDateTime) ?: "Record manually or import from a wearable",
+            detail = state.heartRate.firstOrNull()?.let { latest ->
+                val time = formatDateTime(latest.timestampEpochMs)
+                if (sourceLabel(latest) == "Demo data") "$time · Demo data" else time
+            } ?: "Record manually or import from a wearable",
             accent = VitalsRed,
             values = state.heartRate.take(16).reversed().map { it.value },
             onRecord = { onRecord(VitalsEntry.HEART_RATE) }
@@ -438,7 +441,7 @@ private fun VitalsHistorySection(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Column {
-                                Text(date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())),
+                                Text(date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.getDefault())),
                                     color = VitalsInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                                 Text("${entries.size} reading${if (entries.size == 1) "" else "s"}",
                                     color = VitalsMuted, fontSize = 10.sp)
@@ -501,9 +504,9 @@ private fun VitalsHistorySection(
                         }
                     }
                 }
-                if (state.heartRate.size >= historyLimit ||
+                if (historyLimit < 2000 && (state.heartRate.size >= historyLimit ||
                     state.bloodPressure.size >= historyLimit ||
-                    state.temperature.size >= historyLimit
+                    state.temperature.size >= historyLimit)
                 ) {
                     Box(
                         Modifier.fillMaxWidth()
