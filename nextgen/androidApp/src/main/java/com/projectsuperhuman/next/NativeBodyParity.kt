@@ -146,7 +146,7 @@ private fun BodyDataSourceCard() {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("BODY DATA SOURCE", color = BodyMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text("BODY DATA SOURCE", color = BodyMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 Text(
                     if (scaleEnabled) "OKOK smart scale available" else "No smart scale enabled",
                     color = BodyInk,
@@ -158,14 +158,14 @@ private fun BodyDataSourceCard() {
                         ?: if (scaleEnabled) "Measurements are captured while the scale is listening in Smart Devices."
                         else "Add or enable a scale from Smart Devices.",
                     color = BodyMuted,
-                    fontSize = 8.sp,
+                    fontSize = 10.sp,
                     lineHeight = 12.sp
                 )
             }
             Text(
                 "MANAGE",
                 color = BodyBlue,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Black,
                 modifier = Modifier
                     .superhumanClickable { SmartDevicesNavigationBridge.open?.invoke() }
@@ -232,7 +232,7 @@ private fun BodyHero(
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text("CURRENT WEIGHT", color = Color.White.copy(alpha = .68f), fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text("CURRENT WEIGHT", color = Color.White.copy(alpha = .68f), fontSize = 10.sp, fontWeight = FontWeight.Black)
                 Spacer(Modifier.height(4.dp))
                 Text(
                     snapshot.weightKg?.let { "%.1f kg".format(it) } ?: "—",
@@ -249,7 +249,7 @@ private fun BodyHero(
                         else -> "↑ %.1f kg since last entry".format(weightChange)
                     },
                     color = Color.White.copy(alpha = .84f),
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -266,7 +266,7 @@ private fun BodyHero(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Goal progress", color = Color.White.copy(alpha = .72f), fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text("Goal progress", color = Color.White.copy(alpha = .72f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text(
                     when {
                         goalDelta == null -> "Set a goal"
@@ -275,7 +275,7 @@ private fun BodyHero(
                         else -> "%.1f kg below goal".format(abs(goalDelta))
                     },
                     color = Color.White,
-                    fontSize = 8.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Black
                 )
             }
@@ -291,7 +291,7 @@ private fun BodyHero(
 @Composable
 private fun HeroMiniStat(label: String, value: String, modifier: Modifier) {
     Column(modifier.background(Color.White.copy(alpha = .11f), RoundedCornerShape(14.dp)).padding(10.dp)) {
-        Text(label, color = Color.White.copy(alpha = .58f), fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = Color.White.copy(alpha = .58f), fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
         Text(value, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Black)
     }
@@ -333,7 +333,7 @@ private fun ProgressTrendCard(history: List<HealthValue>, goalKg: Double?) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Weight trend", color = BodyInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                Text("Recent ${points.size} entries", color = BodyMuted, fontSize = 9.sp)
+                Text("Recent ${points.size} entries", color = BodyMuted, fontSize = 11.sp)
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
@@ -342,7 +342,7 @@ private fun ProgressTrendCard(history: List<HealthValue>, goalKg: Double?) {
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Black
                 )
-                Text("net change", color = BodyMuted, fontSize = 7.sp)
+                Text("net change", color = BodyMuted, fontSize = 10.sp)
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -362,9 +362,9 @@ private fun ProgressTrendCard(history: List<HealthValue>, goalKg: Double?) {
         }
         Spacer(Modifier.height(10.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("%.1f kg".format(values.first()), color = BodyMuted, fontSize = 8.sp)
-            goalKg?.let { Text("Goal %.1f kg".format(it), color = BodyGreen, fontSize = 8.sp, fontWeight = FontWeight.Bold) }
-            Text("%.1f kg".format(values.last()), color = BodyInk, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text("%.1f kg".format(values.first()), color = BodyMuted, fontSize = 10.sp)
+            goalKg?.let { Text("Goal %.1f kg".format(it), color = BodyGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+            Text("%.1f kg".format(values.last()), color = BodyInk, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -373,9 +373,9 @@ private fun ProgressTrendCard(history: List<HealthValue>, goalKg: Double?) {
 private fun EmptyProgressCard(onLog: () -> Unit) {
     Column(Modifier.fillMaxWidth().background(BodySurface, RoundedCornerShape(22.dp)).padding(18.dp)) {
         Text("Your trend is building", color = BodyInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-        Text("Log at least two weight entries to see a useful progress trend.", color = BodyMuted, fontSize = 9.sp)
+        Text("Log at least two weight entries to see a useful progress trend.", color = BodyMuted, fontSize = 11.sp)
         Spacer(Modifier.height(12.dp))
-        Text("LOG AN ENTRY", color = BodyBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onLog))
+        Text("LOG AN ENTRY", color = BodyBlue, fontSize = 11.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable(onClick = onLog))
     }
 }
 
@@ -388,7 +388,7 @@ private fun RecentChangesCard(
 ) {
     Column(Modifier.fillMaxWidth().midnightModuleCard(accent = BodyGreen, radius = 22.dp).padding(16.dp)) {
         Text("Recent changes", color = BodyInk, fontSize = 15.sp, fontWeight = FontWeight.Black)
-        Text("Latest change compared with the previous recorded value", color = BodyMuted, fontSize = 8.sp)
+        Text("Latest change compared with the previous recorded value", color = BodyMuted, fontSize = 10.sp)
         Spacer(Modifier.height(12.dp))
         ChangeRow("Weight", snapshot.weightKg, previousValue(weightHistory), "kg", BodyGreen)
         Spacer(Modifier.height(9.dp))
@@ -407,7 +407,7 @@ private fun ChangeRow(label: String, latest: Double?, previous: Double?, unit: S
             Spacer(Modifier.width(9.dp))
             Column {
                 Text(label, color = BodyInk, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text(latest?.let { "%.1f %s".format(it, unit) } ?: "No data yet", color = BodyMuted, fontSize = 8.sp)
+                Text(latest?.let { "%.1f %s".format(it, unit) } ?: "No data yet", color = BodyMuted, fontSize = 10.sp)
             }
         }
         Text(
@@ -430,7 +430,7 @@ private fun MeasurementsCard(snapshot: BodySnapshot) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
                 Text("Measurements", color = BodyInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                Text("Current saved body measurements", color = BodyMuted, fontSize = 8.sp)
+                Text("Current saved body measurements", color = BodyMuted, fontSize = 10.sp)
             }
         }
         Spacer(Modifier.height(14.dp))
@@ -442,7 +442,7 @@ private fun MeasurementsCard(snapshot: BodySnapshot) {
         Text(
             "Smart Scale Sync updates supported composition metrics automatically after each complete scan.",
             color = BodyMuted,
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             lineHeight = 12.sp
         )
     }
