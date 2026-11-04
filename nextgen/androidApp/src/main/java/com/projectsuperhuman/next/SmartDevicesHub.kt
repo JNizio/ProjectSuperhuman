@@ -322,7 +322,7 @@ internal fun SmartDevicesHub(onBack: () -> Unit, modifier: Modifier = Modifier) 
             Column(
                 Modifier.fillMaxWidth()
                     .background(superhumanSurface, RoundedCornerShape(18.dp))
-                    .border(1.dp, superhumanBorder, RoundedCornerShape(18.dp))
+                    .border(1.dp, softModuleOutline(superhumanBorder), RoundedCornerShape(18.dp))
                     .padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(5.dp)
             ) {
