@@ -75,7 +75,9 @@ internal fun EmotionalModuleScreen(
     current: EmotionalPresentationSnapshot?,
     onBack: () -> Unit,
     onRecord: (Map<String, Int>) -> Unit,
-    onUndoRecent: (() -> Unit)? = null
+    onUndoRecent: (() -> Unit)? = null,
+    editingExisting: Boolean = false,
+    onEditExisting: (() -> Unit)? = null
 ) {
     var values by remember(current) {
         mutableStateOf(current?.normalizedValues ?: EmotionalPresentationContract.normalize(emptyMap()))
@@ -117,7 +119,19 @@ internal fun EmotionalModuleScreen(
                     }
                 }
             }
-            EmotionalRecordButton { onRecord(EmotionalPresentationContract.normalize(values)) }
+            if (current != null && onEditExisting != null && !editingExisting) {
+                Text("Edit latest check-in", color = EmotionalBlue,
+                    fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.superhumanClickable(onClick = onEditExisting)
+                        .padding(horizontal = 8.dp, vertical = 8.dp))
+            }
+            if (editingExisting) {
+                Text("Editing your latest check-in · save to replace it",
+                    color = EmotionalMuted, fontSize = 11.sp)
+            }
+            EmotionalRecordButton(
+                label = if (editingExisting) "Save changes" else "Record check-in"
+            ) { onRecord(EmotionalPresentationContract.normalize(values)) }
             if (onUndoRecent != null && current != null) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
@@ -256,13 +270,13 @@ internal fun BipolarEmotionScale(
 }
 
 @Composable
-private fun EmotionalRecordButton(onClick: () -> Unit) {
+private fun EmotionalRecordButton(label: String = "Record check-in", onClick: () -> Unit) {
     val shape = RoundedCornerShape(18.dp)
     Box(
         Modifier.fillMaxWidth().height(54.dp).background(Brush.horizontalGradient(listOf(Color(0xFF0D6CB4), Color(0xFF20A7C4))), shape)
             .superhumanClickable(onClick = onClick).testTag("emotional_submit").semantics { contentDescription = "Record emotional check-in" },
         contentAlignment = Alignment.Center
-    ) { Text("Record check-in", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = .2.sp) }
+    ) { Text(label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Black, letterSpacing = .2.sp) }
 }
 
 @Composable
