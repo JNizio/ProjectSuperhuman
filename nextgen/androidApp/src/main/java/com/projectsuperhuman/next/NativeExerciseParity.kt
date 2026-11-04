@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import com.projectsuperhuman.next.core.HealthDomain
 import com.projectsuperhuman.next.core.HealthValue
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -441,6 +442,9 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var showWorkoutExercisePicker by remember { mutableStateOf(false) }
     var workoutExerciseQuery by remember { mutableStateOf("") }
     var showWorkoutRoutinePicker by remember { mutableStateOf(false) }
+    var savingWorkout by remember { mutableStateOf(false) }
+    var setSaveFailed by remember { mutableStateOf(false) }
+    val pendingSetJobs = remember { mutableListOf<Job>() }
 
     suspend fun refresh() {
         val now = System.currentTimeMillis()
@@ -491,7 +495,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             it.timestampEpochMs == row.timestampEpochMs &&
                 it.metadata["exerciseId"] == row.metadata["exerciseId"]
         }).take(5000)
-        feedbackMessage = "Set saved"
+        // Routine logging is intentionally quiet; the checked set row confirms completion.
     }
 
     fun addSet(set: NativeWorkoutSet, startRest: Boolean = true) {
@@ -501,7 +505,14 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             restEndsAt = System.currentTimeMillis() + restTarget * 1000L
         }
         writeActiveDraft()
-        scope.launch { persistSet(set) }
+        val job = scope.launch {
+            try { persistSet(set) }
+            catch (e: Exception) {
+                setSaveFailed = true
+                feedbackMessage = "A set failed to save; your draft is preserved"
+            }
+        }
+        pendingSetJobs.add(job)
     }
 
     LaunchedEffect(Unit) {
@@ -579,11 +590,14 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         if (startedAt > 0L) saveStrengthActiveMeta(context, startedAt, workoutName, workoutNotes, sessionRpeText)
     }
 
-    LaunchedEffect(restSeconds) {
-        if (restSeconds > 0) {
-            delay(1000)
-            restSeconds -= 1
-            if (restSeconds <= 0) restEndsAt = 0L
+    LaunchedEffect(restEndsAt) {
+        if (restEndsAt > 0L) {
+            while (true) {
+                val remaining = (((restEndsAt - System.currentTimeMillis()).coerceAtLeast(0L) + 999L) / 1000L).toInt()
+                restSeconds = remaining
+                if (remaining <= 0) { restEndsAt = 0L; break }
+                delay(1_000L)
+            }
         }
     }
 
@@ -645,11 +659,16 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         showWorkoutExercisePicker = false
         workoutExerciseQuery = ""
         showWorkoutRoutinePicker = false
+        savingWorkout = false
+        setSaveFailed = false
+        pendingSetJobs.clear()
         mode = "workout"
         writeActiveDraft()
     }
 
     fun finishWorkout() {
+        if (startedAt <= 0L || savingWorkout) return
+        savingWorkout = true
         val now = System.currentTimeMillis()
         val workoutStartedAt = startedAt
         val finishedSessionId = activeSessionId.ifBlank { "strength-$workoutStartedAt" }
@@ -663,10 +682,14 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         summaryProgression = summaryPrs.take(3)
         restSeconds = 0
         restEndsAt = 0L
-        clearActiveWorkoutDraft(context)
-        clearStrengthActiveMeta(context, workoutStartedAt)
-        startedAt = 0L
         scope.launch {
+            try {
+            // Await every pending set write before completing the session.
+            pendingSetJobs.toList().forEach { it.join() }
+            if (setSaveFailed) {
+                feedbackMessage = "Some sets were not saved; retry before finishing"
+                return@launch
+            }
             NativeDataHub.saveValues(listOf(HealthValue(
                 HealthDomain.EXERCISE,
                 "workout_session",
@@ -688,8 +711,17 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     "notes" to workoutNotes.trim()
                 )
             )))
+            clearActiveWorkoutDraft(context)
+            clearStrengthActiveMeta(context, workoutStartedAt)
+            startedAt = 0L
+            pendingSetJobs.clear()
             refresh()
             mode = "summary"
+            } catch (e: Exception) {
+                feedbackMessage = "Could not save workout; active draft retained"
+            } finally {
+                savingWorkout = false
+            }
         }
     }
 
@@ -702,6 +734,37 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             }
             refresh()
         }
+    }
+
+    fun updateLoggedSet(set: NativeWorkoutSet, reps: Int, loadKg: Double) {
+        val index = session.indexOf(set)
+        if (index < 0 || reps <= 0 || loadKg < 0.0 || !loadKg.isFinite()) return
+        val updated = set.copy(reps = reps, loadKg = loadKg)
+        session[index] = updated
+        writeActiveDraft()
+        val job = scope.launch {
+            try {
+                val original = recent.firstOrNull {
+                    it.timestampEpochMs == set.timestamp && it.metadata["exerciseId"] == set.exercise.id
+                }
+                if (original != null) {
+                    NativeDataHub.deleteValue(original)
+                    NativeDataHub.saveValues(listOf(original.copy(
+                        value = updated.volume,
+                        metadata = original.metadata + mapOf("reps" to reps.toString(), "loadKg" to loadKg.toString())
+                    )))
+                } else {
+                    persistSet(updated)
+                }
+                refresh()
+            } catch (e: Exception) {
+                session.indexOf(updated).takeIf { it >= 0 }?.let { session[it] = set }
+                writeActiveDraft()
+                setSaveFailed = true
+                feedbackMessage = "Set edit could not be saved"
+            }
+        }
+        pendingSetJobs.add(job)
     }
 
     fun editLoggedSet(set: NativeWorkoutSet) {
@@ -1346,7 +1409,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         showWorkoutRoutinePicker = false
                         mode = "home"
                     },
-                    onFinish = { finishWorkout() }
+                    onFinish = { if (!savingWorkout) finishWorkout() }
                 )
 
                 if (restSeconds > 0) {
@@ -1370,7 +1433,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     )
                 }
 
-                Text("EXERCISES", color = ExerciseMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("YOUR EXERCISES", color = ExerciseMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
 
                 if (workoutExercises.isEmpty()) {
                     StrengthWorkoutEmptyState {
@@ -1380,20 +1443,39 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                 } else {
                     workoutExercises.distinctBy { it.id }.forEachIndexed { index, exercise ->
                         val completedSets = session.filter { it.exercise.id == exercise.id }
-                        StrengthWorkoutExerciseCard(
+                        val prior = recent.firstOrNull {
+                            it.timestampEpochMs < startedAt &&
+                                it.metadata["exerciseId"] == exercise.id
+                        }
+                        StrengthInlineExerciseLogger(
                             exercise = exercise,
-                            setCount = completedSets.size,
-                            selected = selected?.id == exercise.id,
-                            onSelect = {
-                                selected = exercise
-                                showWorkoutExercisePicker = false
+                            number = index + 1,
+                            completed = completedSets,
+                            previous = prior,
+                            target = routines.firstOrNull { it.name == workoutName }?.targetFor(exercise.id),
+                            startedAt = startedAt,
+                            deletePendingTimestamp = pendingSetDeleteTimestamp,
+                            onLog = { reps, kg ->
+                                if (!savingWorkout) {
+                                    addSet(NativeWorkoutSet(exercise, reps, kg, System.currentTimeMillis()))
+                                }
                             },
-                            onRemove = {
-                                workoutExercises.removeAll { it.id == exercise.id }
-                                if (selected?.id == exercise.id) selected = workoutExercises.firstOrNull()
-                                writeActiveDraft()
+                            onEdit = { set, reps, kg -> if (!savingWorkout) updateLoggedSet(set, reps, kg) },
+                            onDelete = { set ->
+                                if (pendingSetDeleteTimestamp == set.timestamp) {
+                                    pendingSetDeleteTimestamp = null
+                                    removeLoggedSet(set)
+                                } else pendingSetDeleteTimestamp = set.timestamp
                             },
-                            order = index + 1
+                            onRemoveExercise = {
+                                if (completedSets.isEmpty()) {
+                                    workoutExercises.removeAll { it.id == exercise.id }
+                                    if (selected?.id == exercise.id) selected = workoutExercises.firstOrNull()
+                                    writeActiveDraft()
+                                } else {
+                                    feedbackMessage = "Delete logged sets before removing this exercise"
+                                }
+                            }
                         )
                     }
                 }
@@ -1503,39 +1585,8 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     )
                 }
 
-                selected?.let { exercise ->
-                    val completed = session.filter { it.exercise.id == exercise.id }
-                    StrengthActiveExercisePanel(
-                        exercise = exercise,
-                        completed = completed,
-                        recent = recent,
-                        plannedTarget = routines.firstOrNull { it.name == workoutName }?.targetFor(exercise.id),
-                        startedAt = startedAt,
-                        loadText = loadText,
-                        repsText = repsText,
-                        onLoadChange = { loadText = it.filter { ch -> ch.isDigit() || ch == '.' }.take(6) },
-                        onRepsChange = { repsText = it.filter(Char::isDigit).take(3) },
-                        onCompleteSet = {
-                            val reps = repsText.toIntOrNull() ?: 0
-                            val load = loadText.toDoubleOrNull() ?: 0.0
-                            if (reps > 0) {
-                                addSet(NativeWorkoutSet(exercise, reps, load, System.currentTimeMillis(), "Work", rirText.toIntOrNull(), rpeText.toDoubleOrNull(), supersetTag))
-                            } else feedbackMessage = "Enter reps"
-                        },
-                        onDuplicate = { last ->
-                            addSet(last.copy(timestamp = System.currentTimeMillis()))
-                            loadText = exerciseNumber(last.loadKg)
-                            repsText = last.reps.toString()
-                        },
-                        onDeleteSet = { set ->
-                            if (pendingSetDeleteTimestamp == set.timestamp) {
-                                pendingSetDeleteTimestamp = null
-                                removeLoggedSet(set)
-                            } else pendingSetDeleteTimestamp = set.timestamp
-                        },
-                        deletePendingTimestamp = pendingSetDeleteTimestamp
-                    )
-                }
+                // All exercises now expose their own inputs and completed sets above.
+
             }
             "history" -> {
                 val sessionsByDate = completedSessions.groupBy { session ->
@@ -1716,8 +1767,7 @@ private fun StrengthLiveControlBar(
     Column(
         Modifier.fillMaxWidth()
             .background(ExerciseSurface, RoundedCornerShape(22.dp))
-            .border(1.dp, ExerciseBlue.copy(alpha = .36f), RoundedCornerShape(22.dp))
-            .padding(15.dp)
+            .padding(12.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

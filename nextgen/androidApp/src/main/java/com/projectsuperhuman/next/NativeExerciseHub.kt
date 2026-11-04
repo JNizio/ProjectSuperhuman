@@ -267,6 +267,27 @@ private fun NativeExerciseLandingPage(
             )
         }
 
+        // Primary actions appear before the historical statistics.
+        if (activeStrengthDraft == null && cardioState.liveDraft == null) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ExerciseQuickStartAction(
+                    label = "START STRENGTH",
+                    accent = strengthAccent,
+                    modifier = Modifier.weight(1f),
+                    onClick = onOpenStrength
+                )
+                ExerciseQuickStartAction(
+                    label = "START CARDIO",
+                    accent = cardioAccent,
+                    modifier = Modifier.weight(1f),
+                    onClick = onOpenCardio
+                )
+            }
+        }
+
         ExerciseModuleCard(
             visualKind = "strength",
             title = "STRENGTH",
@@ -405,6 +426,24 @@ private fun NativeExerciseLandingPage(
         }
 
         Spacer(Modifier.height(18.dp))
+    }
+}
+
+
+@Composable
+private fun ExerciseQuickStartAction(
+    label: String,
+    accent: Color,
+    modifier: Modifier,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier.background(accent.copy(alpha = .12f), RoundedCornerShape(16.dp))
+            .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(label, color = accent, fontWeight = FontWeight.Bold, fontSize = 11.sp)
     }
 }
 
