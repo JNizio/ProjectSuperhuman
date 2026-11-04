@@ -149,7 +149,7 @@ internal fun NativeVitalsPage(onBack: () -> Unit) {
         Text(
             "A single reading cannot diagnose a condition. Consider symptoms, measurement quality and longer-term patterns; seek clinical advice when concerned.",
             color = VitalsMuted,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             lineHeight = 14.sp,
             modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
         )
@@ -210,7 +210,7 @@ private fun StatusStrip(message: String, dismiss: () -> Unit) {
 @Composable
 private fun LatestVitalsSection(state: VitalsHistoryState, onRecord: (VitalsEntry) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        Text("LATEST", color = VitalsMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+        Text("LATEST", color = VitalsMuted, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
         LatestVitalCard(
             label = "HEART RATE",
             value = state.heartRate.firstOrNull()?.let { "${it.value.toInt()} bpm" } ?: "No reading",
@@ -257,14 +257,14 @@ private fun LatestVitalCard(
     Column(Modifier.fillMaxWidth().midnightModuleCard(accent = accent, radius = 22.dp).padding(18.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(label, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
+                Text(label, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = .9.sp)
                 Spacer(Modifier.height(4.dp))
                 Text(value, color = VitalsInk, fontSize = 21.sp, fontWeight = FontWeight.Black)
-                Text(detail, color = VitalsMuted, fontSize = 9.sp, maxLines = 2)
+                Text(detail, color = VitalsMuted, fontSize = 11.sp, maxLines = 2)
             }
             Box(
                 Modifier.clip(RoundedCornerShape(13.dp)).background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .18f else .1f)).clickable(onClick = onRecord).padding(horizontal = 12.dp, vertical = 9.dp)
-            ) { Text("RECORD", color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black) }
+            ) { Text("RECORD", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black) }
         }
         if (values.size > 1) {
             Spacer(Modifier.height(10.dp))
@@ -296,7 +296,7 @@ private fun BloodPressureGuidanceCard() {
             Brush.linearGradient(listOf(VitalsSoft, VitalsSurface)), RoundedCornerShape(22.dp)
         ).border(1.dp, VitalsBorder, RoundedCornerShape(22.dp)).padding(16.dp)
     ) {
-        Text("A BETTER BP READING", color = VitalsBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+        Text("A BETTER BP READING", color = VitalsBlue, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
         Spacer(Modifier.height(7.dp))
         GuidanceLine("Rest quietly for at least 5 minutes first.")
         GuidanceLine("When seated, support your back and feet; support the cuffed arm at heart level.")
@@ -391,10 +391,10 @@ private fun VitalsHistorySection(
     Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically) {
-            Text("HISTORY", color = VitalsMuted, fontSize = 9.sp,
+            Text("HISTORY", color = VitalsMuted, fontSize = 11.sp,
                 fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
             if (!state.loading && timeline.isNotEmpty()) {
-                Text("${timeline.size} loaded readings", color = VitalsMuted, fontSize = 9.sp)
+                Text("${timeline.size} loaded readings", color = VitalsMuted, fontSize = 11.sp)
             }
         }
         when {
@@ -677,7 +677,7 @@ private fun TemperatureEntryDialog(onDismiss: () -> Unit, onSave: (HealthValue) 
     VitalsDialog("Record body temperature", onDismiss) {
         NumberField("Temperature", value, { value = it }, "°C", Modifier.fillMaxWidth(), decimal = true)
         TimestampEditor(measuredAt) { measuredAt = it }
-        Text("Measurement site", color = VitalsMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text("Measurement site", color = VitalsMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         TemperatureSite.entries.chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.forEach { option -> ChoiceChip(option.name.lowercase().replaceFirstChar { char -> char.uppercase() }, site == option, { site = option }, Modifier.weight(1f)) }
@@ -760,7 +760,7 @@ private fun TimestampEditor(epochMs: Long, onChange: (Long) -> Unit) {
     val context = LocalContext.current
     val calendar = remember(epochMs) { Calendar.getInstance().apply { timeInMillis = epochMs } }
     Column(Modifier.fillMaxWidth().background(VitalsElevated, RoundedCornerShape(14.dp)).padding(11.dp)) {
-        Text("Measurement time", color = VitalsMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text("Measurement time", color = VitalsMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Text(formatDateTime(epochMs), color = VitalsInk, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(top = 7.dp)) {
             SmallAction("CHANGE DATE") {
@@ -781,13 +781,13 @@ private fun TimestampEditor(epochMs: Long, onChange: (Long) -> Unit) {
 
 @Composable
 private fun SmallAction(label: String, action: () -> Unit) {
-    Text(label, color = VitalsBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = action).padding(7.dp))
+    Text(label, color = VitalsBlue, fontSize = 11.sp, fontWeight = FontWeight.Black, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = action).padding(7.dp))
 }
 
 @Composable
 private fun <T> ChoiceRow(label: String, choices: List<T>, selected: T, onSelect: (T) -> Unit, text: (T) -> String) {
     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(label, color = VitalsMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = VitalsMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
             choices.forEach { ChoiceChip(text(it), selected == it, { onSelect(it) }, Modifier.weight(1f)) }
         }
@@ -799,7 +799,7 @@ private fun ChoiceChip(label: String, selected: Boolean, onClick: () -> Unit, mo
     Box(
         modifier.clip(RoundedCornerShape(12.dp)).background(if (selected) VitalsBlue else VitalsElevated).clickable(onClick = onClick).padding(vertical = 9.dp),
         contentAlignment = Alignment.Center
-    ) { Text(label, color = if (selected) Color.White else VitalsMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold) }
+    ) { Text(label, color = if (selected) Color.White else VitalsMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
 }
 
 @Composable
@@ -809,9 +809,9 @@ private fun ValidationPanel(validation: VitalsValidation?, confirmLabel: String,
     if (messages.isEmpty()) return
     val warningText = if (SuperhumanAppearance.darkMode) Color(0xFFFFC47A) else Color(0xFF9A5316)
     Column(Modifier.fillMaxWidth().background(superhumanWarningSurface, RoundedCornerShape(13.dp)).padding(11.dp)) {
-        messages.forEach { Text(it, color = warningText, fontSize = 9.sp, lineHeight = 13.sp) }
+        messages.forEach { Text(it, color = warningText, fontSize = 11.sp, lineHeight = 13.sp) }
         if (validation.needsConfirmation) {
-            Text(confirmLabel.uppercase(), color = warningText, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable(onClick = onConfirm).padding(top = 8.dp, bottom = 3.dp))
+            Text(confirmLabel.uppercase(), color = warningText, fontSize = 11.sp, fontWeight = FontWeight.Black, modifier = Modifier.clickable(onClick = onConfirm).padding(top = 8.dp, bottom = 3.dp))
         }
     }
 }
