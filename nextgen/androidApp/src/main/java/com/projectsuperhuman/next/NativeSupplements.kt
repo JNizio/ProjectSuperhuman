@@ -170,7 +170,7 @@ private fun SupplementPill(
 ) {
     Box(
         modifier
-            .size(width = 29.dp, height = 29.dp)
+            .size(width = 40.dp, height = 38.dp)
             .clickable(interactionSource = null, indication = null, onClick = onClick)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center
@@ -195,6 +195,7 @@ private fun SupplementPill(
 internal fun HomeSupplementsTile(onOpen: () -> Unit) {
     val context = LocalContext.current
     var day by remember { mutableStateOf(SupplementRoutineStore.read(context)) }
+    var lastTouched by remember { mutableStateOf<String?>(null) }
 
     // Only a date rollover triggers a refresh; this does not poll storage while scrolling.
     LaunchedEffect(Unit) {
@@ -206,12 +207,16 @@ internal fun HomeSupplementsTile(onOpen: () -> Unit) {
         }
     }
 
+    LaunchedEffect(lastTouched) {
+        if (lastTouched != null) {
+            delay(3_500L)
+            lastTouched = null
+        }
+    }
+
     val dark = SuperhumanAppearance.darkMode
     val ink = superhumanTextPrimary
     val muted = superhumanTextMuted
-    val pillItems = remember(day.routine) {
-        day.routine.flatMap { item -> (0 until item.pillCount).map { item to it } }
-    }
 
     Column(
         Modifier
@@ -237,31 +242,45 @@ internal fun HomeSupplementsTile(onOpen: () -> Unit) {
                 tint = muted, modifier = Modifier.size(17.dp)
             )
         }
-        if (pillItems.isEmpty()) {
+        if (day.routine.isEmpty()) {
             Text("Add supplements to build your daily checklist",
                 color = muted, fontSize = 11.sp, maxLines = 2)
         } else {
             LazyRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(1.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                items(
-                    items = pillItems,
-                    key = { (item, index) -> SupplementDailyState.key(item.id, index) }
-                ) { (item, index) ->
-                    val checked = SupplementDailyState.key(item.id, index) in day.taken
-                    SupplementPill(
-                        checked = checked,
-                        description = "${item.name} pill ${index + 1}: " +
-                            if (checked) "taken, tap to undo" else "not taken, tap to mark taken",
-                        onClick = { day = SupplementRoutineStore.toggle(context, item.id, index) }
-                    )
+                items(items = day.routine, key = { it.id }) { item ->
+                    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                        Text(
+                            item.name,
+                            color = muted,
+                            fontSize = 10.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            (0 until item.pillCount).forEach { index ->
+                                val checked = SupplementDailyState.key(item.id, index) in day.taken
+                                SupplementPill(
+                                    checked = checked,
+                                    description = "${item.name}, pill ${index + 1}, " +
+                                        if (checked) "taken, tap to undo" else "not taken, tap to log",
+                                    onClick = {
+                                        day = SupplementRoutineStore.toggle(context, item.id, index)
+                                        lastTouched = "${item.name} · pill ${index + 1}"
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
         Spacer(Modifier.weight(1f))
         Text(if (day.totalPills == 0) "Your routine, your choice"
+             else if (lastTouched != null) lastTouched.orEmpty()
              else if (day.takenPills == day.totalPills) "All scheduled pills logged"
              else "Tap a capsule to log it",
             color = muted, fontSize = 9.sp, maxLines = 1,
