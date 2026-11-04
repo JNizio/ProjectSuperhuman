@@ -48,7 +48,7 @@ import kotlin.math.roundToInt
 private val EmotionalNavy get() = superhumanBrandText
 private val EmotionalInk get() = superhumanTextPrimary
 private val EmotionalMuted get() = superhumanTextMuted
-private val EmotionalBorder get() = superhumanBorder
+private val EmotionalBorder get() = softModuleOutline(superhumanBorder)
 private val EmotionalCard get() = superhumanSurfaceElevated
 private val EmotionalTeal get() = if (SuperhumanAppearance.darkMode) Color(0xFF62D0C5) else Color(0xFF2AA5A4)
 private val EmotionalBlue get() = superhumanBlue
