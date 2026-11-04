@@ -1,0 +1,59 @@
+name: Verify Exercise overhaul 11.4
+
+on:
+  push:
+    branches: [ '11.4' ]
+    paths:
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeExerciseHub.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeExerciseParity.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/StrengthInlineExerciseLogger.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/StrengthTrainingEngine.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/ActiveWorkoutStore.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/NativeCardio.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/CardioHubPreferences.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/CardioHubUi.kt'
+      - 'nextgen/androidApp/src/main/java/com/projectsuperhuman/next/CardioProductUi.kt'
+      - 'nextgen/androidApp/src/test/java/com/projectsuperhuman/next/Cardio*'
+      - 'nextgen/androidApp/src/test/java/com/projectsuperhuman/next/Strength*'
+      - '.github/workflows/verify-11-4-exercise-overhaul.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout revision
+        uses: actions/checkout@v4
+      - name: Validate Data Vault boundaries
+        run: python3 nextgen/scripts/check_data_boundaries.py
+      - name: Validate press highlights policy
+        run: python3 nextgen/scripts/check_no_press_highlight.py
+      - name: Configure JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Configure Gradle 8.11.1
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Compile native APK
+        run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
+      - name: Run Cardio and Strength regression tests
+        run: >
+          gradle --no-daemon --build-cache -p nextgen :androidApp:testDebugUnitTest
+          --tests 'com.projectsuperhuman.next.Cardio*'
+          --tests 'com.projectsuperhuman.next.Strength*'
+      - name: Verify artifact
+        run: test -s nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+      - name: Upload Exercise 11.4 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProjectSuperhuman-11.4-Exercise-APK
+          path: nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+          if-no-files-found: error
+          retention-days: 30
