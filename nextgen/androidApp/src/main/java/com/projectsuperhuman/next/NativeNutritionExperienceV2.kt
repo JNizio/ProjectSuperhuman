@@ -546,6 +546,16 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
             )
         }
 
+        if (view != N2View.GOALS && selectedDate != LocalDate.now(ZoneId.systemDefault())) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                Text("Back to today", color = N2Blue, fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.superhumanClickable {
+                        selectedDate = LocalDate.now(ZoneId.systemDefault())
+                    }.padding(horizontal = 12.dp, vertical = 8.dp))
+            }
+        }
+
         when (view) {
             N2View.DIARY -> {
                 N2Hero(
@@ -813,7 +823,11 @@ private fun N2Hero(
             .padding(19.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Today's intake", color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Text(
+            if (selectedDate == LocalDate.now(ZoneId.systemDefault())) "Today's intake"
+            else "Intake · " + selectedDate.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)),
+            color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold
+        )
 
         Row(
             Modifier.fillMaxWidth(),
