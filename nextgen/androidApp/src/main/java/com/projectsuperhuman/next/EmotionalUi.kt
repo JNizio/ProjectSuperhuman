@@ -74,7 +74,8 @@ private val EmotionalAxes = listOf(
 internal fun EmotionalModuleScreen(
     current: EmotionalPresentationSnapshot?,
     onBack: () -> Unit,
-    onRecord: (Map<String, Int>) -> Unit
+    onRecord: (Map<String, Int>) -> Unit,
+    onUndoRecent: (() -> Unit)? = null
 ) {
     var values by remember(current) {
         mutableStateOf(current?.normalizedValues ?: EmotionalPresentationContract.normalize(emptyMap()))
@@ -96,11 +97,11 @@ internal fun EmotionalModuleScreen(
                     Column {
                         Text("QUICK CHECK-IN", color = EmotionalMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
                         Spacer(Modifier.height(4.dp))
-                        Text("Move what feels obvious", color = EmotionalInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
+                        Text("Adjust what feels relevant", color = EmotionalInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
                     }
-                    Text("6 signals", color = EmotionalBlue, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text("6 feelings", color = EmotionalBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(8.dp))
                 EmotionalAxes.forEachIndexed { index, axis ->
                     BipolarEmotionScale(
                         leftLabel = axis.leftLabel,
@@ -110,15 +111,25 @@ internal fun EmotionalModuleScreen(
                         testTag = "emotional_scale_${axis.id}"
                     )
                     if (index != EmotionalAxes.lastIndex) {
-                        Spacer(Modifier.height(11.dp))
+                        Spacer(Modifier.height(5.dp))
                         Box(Modifier.fillMaxWidth().height(1.dp).background(superhumanDivider))
-                        Spacer(Modifier.height(11.dp))
+                        Spacer(Modifier.height(5.dp))
                     }
                 }
             }
             EmotionalRecordButton { onRecord(EmotionalPresentationContract.normalize(values)) }
+            if (onUndoRecent != null && current != null) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text("Check-in saved", color = EmotionalBlue,
+                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Undo last check-in", color = EmotionalMuted, fontSize = 11.sp,
+                        modifier = Modifier.superhumanClickable(onClick = onUndoRecent)
+                            .padding(horizontal = 10.dp, vertical = 10.dp))
+                }
+            }
             Text(
-                "Centered is a valid answer. Adjust only the lines that feel useful right now.",
+                "The middle is neutral. Every check-in can be updated later.",
                 color = EmotionalMuted, fontSize = 9.sp, lineHeight = 14.sp,
                 modifier = Modifier.padding(horizontal = 4.dp, bottom = 18.dp)
             )
@@ -147,9 +158,9 @@ private fun EmotionalHero() {
             .border(1.dp, EmotionalBorder, RoundedCornerShape(26.dp)).padding(19.dp)
     ) {
         Text("RIGHT NOW", color = EmotionalBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
-        Spacer(Modifier.height(7.dp)); Text("How are you arriving?", color = EmotionalInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
+        Spacer(Modifier.height(7.dp)); Text("How are you feeling right now?", color = EmotionalInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(6.dp))
-        Text("Glide each line toward what feels closer. No scoring, no diagnosis — just a fast snapshot you can use later.", color = EmotionalMuted, fontSize = 10.sp, lineHeight = 15.sp)
+        Text("Move each slider toward the feeling that fits. Leave it in the middle if neither applies.", color = EmotionalMuted, fontSize = 12.sp, lineHeight = 17.sp)
     }
 }
 
@@ -161,7 +172,7 @@ private fun EmotionalCurrentStateCard(current: EmotionalPresentationSnapshot?) {
         Column(modifier.testTag("emotional_empty_state")) {
             Text("NO CHECK-IN YET", color = EmotionalMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
             Spacer(Modifier.height(5.dp)); Text("Start with what feels most obvious", color = EmotionalInk, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(3.dp)); Text("Anything you leave centered stays neutral.", color = EmotionalMuted, fontSize = 9.sp)
+            Spacer(Modifier.height(3.dp)); Text("The middle means neither feeling is stronger.", color = EmotionalMuted, fontSize = 9.sp)
         }
     } else {
         val normalized = current.normalizedValues
@@ -209,16 +220,16 @@ internal fun BipolarEmotionScale(
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text(leftLabel, color = EmotionalInk, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
             Text(
-                valueLabel, color = EmotionalBlue, fontSize = 8.sp, fontWeight = FontWeight.Bold,
+                valueLabel, color = EmotionalBlue, fontSize = 10.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.background(superhumanAccentSoft, RoundedCornerShape(12.dp)).padding(horizontal = 8.dp, vertical = 4.dp)
             )
             Text(rightLabel, color = EmotionalInk, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
         }
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(4.dp))
         val centreMarker = if (SuperhumanAppearance.darkMode) superhumanTextMuted.copy(alpha = .7f) else Color.White.copy(alpha = .75f)
         val thumbFill = if (SuperhumanAppearance.darkMode) superhumanSurfaceElevated else Color.White
         Canvas(
-            sliderModifier.fillMaxWidth().height(48.dp).semantics {
+            sliderModifier.fillMaxWidth().height(44.dp).semantics {
                 contentDescription = "$leftLabel to $rightLabel emotional scale"
                 stateDescription = valueLabel
                 progressBarRangeInfo = ProgressBarRangeInfo(normalized.toFloat(), EmotionalPresentationContract.MIN_VALUE.toFloat()..EmotionalPresentationContract.MAX_VALUE.toFloat(), 39)
