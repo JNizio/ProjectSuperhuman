@@ -56,7 +56,7 @@ private val EnvTimelineInk: Color get() = superhumanTextPrimary
 private val EnvTimelineMuted: Color get() = superhumanTextMuted
 private val EnvTimelineBlue: Color get() = superhumanBlue
 private val EnvTimelineTeal: Color get() = superhumanGreen
-private val EnvTimelineBorder: Color get() = superhumanBorder
+private val EnvTimelineBorder: Color get() = softModuleOutline(superhumanBorder)
 
 internal data class EnvironmentalDailyMetricRange(
     val metricId: String,
