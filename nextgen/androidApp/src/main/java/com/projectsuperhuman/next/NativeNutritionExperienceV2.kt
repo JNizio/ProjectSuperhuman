@@ -990,7 +990,7 @@ private fun N2PlantDiversityCard(snapshot: N2PlantDiversitySnapshot) {
         Text(
             "Each petal is one plant family. More variety makes the flower richer.",
             color = N2Muted.copy(alpha = .92f),
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             lineHeight = 11.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier
@@ -1245,7 +1245,7 @@ private fun N2MacroValue(
         Text(
             label,
             color = N2Muted,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
@@ -1466,7 +1466,7 @@ private fun N2FoodSearchScreen(
                 Text(
                     foods.size.toString() + if (foods.size == 1) " match" else " matches",
                     color = N2Muted,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
             }
@@ -1510,7 +1510,7 @@ private fun N2FoodSearchStrip(food: NativeFood, onSelect: () -> Unit) {
                     append(FoodEvidenceEngine.userFacingSourceLabel(food))
                 },
                 color = N2Muted,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 maxLines = 1
             )
         }
@@ -1532,7 +1532,7 @@ private fun N2FoodSearchStrip(food: NativeFood, onSelect: () -> Unit) {
                     (if (food.carbsKnown) n2One(food.carbs) + "C" else "—C") + " · " +
                     (if (food.fatKnown) n2One(food.fat) + "F" else "—F"),
                 color = N2Muted,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 maxLines = 1
             )
         }
@@ -1651,7 +1651,7 @@ private fun N2AddFoodCard(
             }
         }
         if (unitContext.isNotEmpty()) {
-            Text(unitContext.joinToString(" · "), color = N2Muted, fontSize = 9.sp)
+            Text(unitContext.joinToString(" · "), color = N2Muted, fontSize = 11.sp)
         }
         FoodEvidenceEngine.userFacingDataQualityMessage(food)?.let { message ->
             Text(
@@ -1681,7 +1681,7 @@ private fun N2AddFoodCard(
                 Text(
                     "Enter values for the food's " + FoodUnitSystem.describeBasis(food) + ". Leave a field blank if it is unknown.",
                     color = N2Muted,
-                    fontSize = 9.sp
+                    fontSize = 11.sp
                 )
                 val correctionFields = listOf(
                     Triple("Calories", kcalText, { value: String -> kcalText = value }),
@@ -1781,7 +1781,7 @@ private fun N2AddFoodCard(
                         .border(1.dp, if (active) N2Blue else N2Border, RoundedCornerShape(13.dp))
                         .clickable { onMealChange(item) }.padding(horizontal = 14.dp, vertical = 9.dp)
                 ) {
-                    Text(item, color = if (active) Color.White else N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    Text(item, color = if (active) Color.White else N2Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Box(
@@ -1790,7 +1790,7 @@ private fun N2AddFoodCard(
                     .clickable { addingMeal = true }
                     .padding(horizontal = 14.dp, vertical = 9.dp)
             ) {
-                Text("+ Add meal", color = N2Blue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("+ Add meal", color = N2Blue, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
         }
         if (addingMeal) {
@@ -1839,7 +1839,7 @@ private fun N2AddFoodCard(
 private fun N2FoodStat(value: String, label: String, modifier: Modifier) {
     Column(modifier.background(N2Surface, RoundedCornerShape(13.dp)).padding(9.dp)) {
         Text(value, color = N2Navy, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text(label, color = N2Muted, fontSize = 8.sp)
+        Text(label, color = N2Muted, fontSize = 10.sp)
     }
 }
 
@@ -1896,7 +1896,7 @@ private fun N2UndoBar(name: String, onUndo: () -> Unit) {
         Text(
             name + " removed",
             color = snackbarText,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f),
             maxLines = 1
@@ -1904,7 +1904,7 @@ private fun N2UndoBar(name: String, onUndo: () -> Unit) {
         Text(
             "UNDO",
             color = undoAccent,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Black,
             modifier = Modifier.clickable(onClick = onUndo).padding(horizontal = 8.dp, vertical = 4.dp)
         )
@@ -1931,7 +1931,7 @@ private fun N2Diary(
         ) {
             Text("Nothing logged yet", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(4.dp))
-            Text("Search, scan or add a recent food above.", color = N2Muted, fontSize = 9.sp, textAlign = TextAlign.Center)
+            Text("Search, scan or add a recent food above.", color = N2Muted, fontSize = 11.sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(10.dp))
             Text(
                 "+ Add meal",
@@ -1972,7 +1972,7 @@ private fun N2Diary(
                 Text(
                     "+ Add meal",
                     color = N2Blue,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier.clickable { addingMeal = true }.padding(horizontal = 4.dp, vertical = 6.dp)
                 )
@@ -2088,7 +2088,7 @@ private fun N2MealCard(
                 Text(
                     if (confirmingClear) "Confirm clear" else "Clear",
                     color = if (confirmingClear) N2Amber else N2Muted,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.Black,
                     modifier = Modifier.clickable {
                         if (confirmingClear) {
@@ -2149,7 +2149,7 @@ private fun N2MealCard(
                             Text(
                                 "Save",
                                 color = N2Blue,
-                                fontSize = 9.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Black,
                                 modifier = Modifier.clickable {
                                     val trimmed = groupNameDraft.trim()
@@ -2181,7 +2181,7 @@ private fun N2MealCard(
                                         )
                                     }
                                 }
-                                Text(groupEntries.size.toString() + " ingredients", color = N2Muted, fontSize = 9.sp)
+                                Text(groupEntries.size.toString() + " ingredients", color = N2Muted, fontSize = 11.sp)
                             }
                             Text(
                                 (if (groupKcalComplete) "" else "~") + groupKcal.roundToInt().toString() + " kcal",
@@ -2262,7 +2262,7 @@ private fun N2Nutrients(
                         .height(SuperhumanLayout.controlHeight),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(item.label, color = if (active) Color.White else N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                    Text(item.label, color = if (active) Color.White else N2Muted, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -2279,10 +2279,10 @@ private fun N2Nutrients(
             )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 Text("$coverage%", color = N2Navy, fontSize = 30.sp, fontWeight = FontWeight.Black)
-                Text("foods with micronutrient data", color = N2Muted, fontSize = 9.sp, modifier = Modifier.padding(bottom = 5.dp))
+                Text("foods with micronutrient data", color = N2Muted, fontSize = 11.sp, modifier = Modifier.padding(bottom = 5.dp))
             }
             N2Progress(coverage.toDouble(), 100.0, if (coverage >= 75) N2Green else N2Blue)
-            Text("Missing food data stays unknown — never zero.", color = N2Muted, fontSize = 9.sp)
+            Text("Missing food data stays unknown — never zero.", color = N2Muted, fontSize = 11.sp)
         }
 
         val gaugeNutrients = n2FocusIds.mapNotNull { byId[it] }.take(4)
@@ -2308,7 +2308,7 @@ private fun N2Nutrients(
             Text(
                 if (range == N2Range.DAY) "Key nutrients from the foods you logged." else "Daily average across the selected window.",
                 color = N2Muted,
-                fontSize = 9.sp
+                fontSize = 11.sp
             )
 
             val focus = n2FocusIds.map { id -> id to byId[id] }
@@ -2343,7 +2343,7 @@ private fun N2Nutrients(
         ) {
             Text(if (showAll) "Show less" else "Show all nutrients", color = N2Blue, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
-        Text("Percentages use EU adult food-labelling reference values, not personalised medical targets.", color = N2Muted, fontSize = 8.sp, modifier = Modifier.padding(horizontal = 3.dp))
+        Text("Percentages use EU adult food-labelling reference values, not personalised medical targets.", color = N2Muted, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 3.dp))
     }
 }
 
@@ -2380,14 +2380,14 @@ private fun N2NutrientGauge(micro: N2Micro, referenceDays: Int) {
             Text(
                 micro.label,
                 color = N2Ink,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.ExtraBold,
                 maxLines = 2,
                 textAlign = TextAlign.Center,
                 lineHeight = 11.sp
             )
         }
-        Text(n2Pretty(value) + " " + micro.unit, color = N2Muted, fontSize = 8.sp)
+        Text(n2Pretty(value) + " " + micro.unit, color = N2Muted, fontSize = 10.sp)
     }
 }
 
@@ -2402,14 +2402,14 @@ private fun N2FoodContributors(entries: List<N2Entry>) {
     ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Text("Top contributors", color = N2Ink, fontSize = 16.sp, fontWeight = FontWeight.Black)
-            Text("Calories", color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+            Text("Calories", color = N2Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
         top.forEach { entry ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(entry.name, color = N2Ink, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, modifier = Modifier.weight(1f))
-                        Text(entry.kcal.roundToInt().toString(), color = N2Muted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        Text(entry.kcal.roundToInt().toString(), color = N2Muted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     }
                     Box(Modifier.fillMaxWidth().height(5.dp).background(N2Border, CircleShape)) {
                         Box(
@@ -2428,7 +2428,7 @@ private fun N2UnknownNutrient(ref: N2Reference) {
     Row(Modifier.fillMaxWidth().background(N2RowBg, RoundedCornerShape(14.dp)).padding(SuperhumanLayout.compactCardPadding), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(ref.label, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-            Text("No reliable value in today's logged foods", color = N2Muted, fontSize = 9.sp)
+            Text("No reliable value in today's logged foods", color = N2Muted, fontSize = 11.sp)
         }
         Text("Unknown", color = N2Purple, fontSize = 10.sp, fontWeight = FontWeight.Black)
     }
@@ -2454,7 +2454,7 @@ private fun N2NutrientRow(micro: N2Micro, entryCount: Int, referenceDays: Int = 
                 Text(
                     n2Pretty(displayValue) + " " + micro.unit + " · data from " + dataCoverage + "% of foods",
                     color = N2Muted,
-                    fontSize = 9.sp
+                    fontSize = 11.sp
                 )
             }
             Text(pct?.let { "$it%" } ?: "Tracked", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
@@ -2503,7 +2503,7 @@ private fun N2Insights(day: N2Day) {
             Spacer(Modifier.height(4.dp))
             Text(
                 "Over time, nutrition can be compared with sleep, training and recovery when enough data exists.",
-                color = N2Muted, fontSize = 9.sp, lineHeight = 14.sp
+                color = N2Muted, fontSize = 11.sp, lineHeight = 14.sp
             )
         }
     }
@@ -2519,7 +2519,7 @@ private fun N2Insight(title: String, detail: String, accent: Color) {
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
             Text(title, color = N2Ink, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-            Text(detail, color = N2Muted, fontSize = 9.sp, lineHeight = 13.sp)
+            Text(detail, color = N2Muted, fontSize = 11.sp, lineHeight = 13.sp)
         }
     }
 }
@@ -2565,7 +2565,7 @@ private fun N2GoalsPage(goals: N2Goals, recommendation: N2GoalRecommendation?, o
             } else {
                 val bodyLine = n2One(recommendation.weightKg) + " kg" +
                     (recommendation.heightCm?.let { " · " + it.roundToInt().toString() + " cm" } ?: "")
-                Text(bodyLine, color = N2Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text(bodyLine, color = N2Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     N2GoalRecommendationValue("Calories", recommendation.goals.kcal, "kcal", Modifier.weight(1f))
                     N2GoalRecommendationValue("Protein", recommendation.goals.protein, "g", Modifier.weight(1f))
@@ -2574,7 +2574,7 @@ private fun N2GoalsPage(goals: N2Goals, recommendation: N2GoalRecommendation?, o
                     N2GoalRecommendationValue("Carbs", recommendation.goals.carbs, "g", Modifier.weight(1f))
                     N2GoalRecommendationValue("Fat", recommendation.goals.fat, "g", Modifier.weight(1f))
                 }
-                Text(recommendation.method, color = N2Muted, fontSize = 8.sp, lineHeight = 12.sp)
+                Text(recommendation.method, color = N2Muted, fontSize = 10.sp, lineHeight = 12.sp)
                 N2Button("Use recommended", N2Green, Modifier.fillMaxWidth(), true) {
                     recommendation.goals.kcal?.let { kcal = it.toFloat() }
                     recommendation.goals.protein?.let { protein = it.toFloat() }
@@ -2614,7 +2614,7 @@ private fun N2GoalSlider(
 @Composable
 private fun N2GoalRecommendationValue(label: String, value: Double?, unit: String, modifier: Modifier) {
     Column(modifier.background(N2Surface.copy(alpha = .72f), RoundedCornerShape(14.dp)).padding(horizontal = 11.dp, vertical = 9.dp)) {
-        Text(label.uppercase(), color = N2Muted, fontSize = 7.sp, fontWeight = FontWeight.Black, letterSpacing = .5.sp)
+        Text(label.uppercase(), color = N2Muted, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = .5.sp)
         Spacer(Modifier.height(2.dp))
         Text(value?.roundToInt()?.let { it.toString() + " " + unit } ?: "—", color = N2Ink, fontSize = 13.sp, fontWeight = FontWeight.Black)
     }
