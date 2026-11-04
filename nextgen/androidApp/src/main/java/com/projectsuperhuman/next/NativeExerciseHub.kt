@@ -119,7 +119,7 @@ private fun NativeExerciseLandingPage(
     val muted = superhumanTextMuted
     val surface = superhumanSurface
     val softSurface = superhumanSurfaceSoft
-    val border = superhumanBorder
+    val border = softModuleOutline(superhumanBorder)
     val strengthAccent = superhumanBlue
     val cardioAccent = superhumanGreen
 
