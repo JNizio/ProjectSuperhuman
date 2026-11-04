@@ -39,6 +39,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -158,6 +159,8 @@ internal fun NativeLiveHome(
     openEnvironment: () -> Unit,
     openEmotional: () -> Unit,
     openExperiments: () -> Unit,
+    openTrends: () -> Unit,
+    openMindfulness: () -> Unit,
     openSupplements: () -> Unit,
     openMiniMetric: (HomeMiniMetric) -> Unit,
     showModulePicker: Boolean = false,
@@ -188,6 +191,10 @@ internal fun NativeLiveHome(
     val tileOrder = remember {
         mutableStateListOf<HomeTile>().apply { addAll(loadHomeTileOrder(context)) }
     }
+    // Existing saved selections remain intact; Experiments appears under Learn.
+    val trackTiles = tileOrder.filter { it != HomeTile.EXPERIMENTS }
+    var learnExpanded by rememberSaveable { mutableStateOf(true) }
+    var actExpanded by rememberSaveable { mutableStateOf(true) }
     // Geometry changes on every scroll frame. This must NOT be Compose snapshot state:
     // observing scroll-time bounds otherwise recomposes every Home tile each frame.
     val tileBounds = remember { mutableMapOf<HomeTile, HomeTileBounds>() }
@@ -205,7 +212,7 @@ internal fun NativeLiveHome(
     }
 
     fun targetIndexFor(tile: HomeTile, visualOffsetY: Float): Int {
-        val fromIndex = tileOrder.indexOf(tile)
+        val fromIndex = trackTiles.indexOf(tile)
         val draggedBounds = tileBounds[tile]
         if (fromIndex < 0 || draggedBounds == null) return fromIndex.coerceAtLeast(0)
 
@@ -213,13 +220,13 @@ internal fun NativeLiveHome(
         var target = fromIndex
 
         if (visualOffsetY > 0f) {
-            for (index in (fromIndex + 1)..tileOrder.lastIndex) {
-                val candidate = tileBounds[tileOrder[index]] ?: continue
+            for (index in (fromIndex + 1)..trackTiles.lastIndex) {
+                val candidate = tileBounds[trackTiles[index]] ?: continue
                 if (draggedCentre > candidate.top + candidate.height / 2f) target = index
             }
         } else if (visualOffsetY < 0f) {
             for (index in (fromIndex - 1) downTo 0) {
-                val candidate = tileBounds[tileOrder[index]] ?: continue
+                val candidate = tileBounds[trackTiles[index]] ?: continue
                 if (draggedCentre < candidate.top + candidate.height / 2f) target = index
             }
         }
@@ -227,16 +234,16 @@ internal fun NativeLiveHome(
     }
 
     fun finalSlotOffset(tile: HomeTile, targetIndex: Int): Float {
-        val fromIndex = tileOrder.indexOf(tile)
+        val fromIndex = trackTiles.indexOf(tile)
         if (fromIndex < 0 || targetIndex == fromIndex) return 0f
 
         return if (targetIndex > fromIndex) {
             ((fromIndex + 1)..targetIndex).sumOf { index ->
-                ((tileBounds[tileOrder[index]]?.height ?: 0f) + spacingPx).toDouble()
+                ((tileBounds[trackTiles[index]]?.height ?: 0f) + spacingPx).toDouble()
             }.toFloat()
         } else {
             -(targetIndex until fromIndex).sumOf { index ->
-                ((tileBounds[tileOrder[index]]?.height ?: 0f) + spacingPx).toDouble()
+                ((tileBounds[trackTiles[index]]?.height ?: 0f) + spacingPx).toDouble()
             }.toFloat()
         }
     }
@@ -244,8 +251,8 @@ internal fun NativeLiveHome(
     fun finishDrag(commit: Boolean) {
         val tile = draggingTile ?: return
         if (settling) return
-        val fromIndex = tileOrder.indexOf(tile)
-        val targetIndex = if (commit) dragTargetIndex.coerceIn(0, tileOrder.lastIndex) else fromIndex
+        val fromIndex = trackTiles.indexOf(tile)
+        val targetIndex = if (commit) dragTargetIndex.coerceIn(0, trackTiles.lastIndex) else fromIndex
         val settleTo = if (commit) finalSlotOffset(tile, targetIndex) else 0f
         settling = true
 
@@ -262,8 +269,16 @@ internal fun NativeLiveHome(
             }
 
             if (commit && fromIndex >= 0 && targetIndex != fromIndex) {
-                tileOrder.removeAt(fromIndex)
-                tileOrder.add(targetIndex, tile)
+                val reorderedTracks = trackTiles.toMutableList()
+                reorderedTracks.removeAt(fromIndex)
+                reorderedTracks.add(targetIndex, tile)
+                val nextTrack = reorderedTracks.iterator()
+                // Reorder Track without displacing the saved Learn selection.
+                val mergedOrder = tileOrder.map { existing ->
+                    if (existing == HomeTile.EXPERIMENTS) existing else nextTrack.next()
+                }
+                tileOrder.clear()
+                tileOrder.addAll(mergedOrder)
                 saveHomeTileOrder(context, tileOrder)
             }
 
@@ -332,11 +347,12 @@ internal fun NativeLiveHome(
             Modifier.fillMaxWidth().padding(horizontal = SuperhumanLayout.pageHorizontal),
             verticalArrangement = Arrangement.spacedBy(SuperhumanLayout.homeSectionGap)
         ) {
-            tileOrder.forEach { tile ->
+            HomeSectionHeader("Track")
+            trackTiles.forEach { tile ->
                 key(tile) {
                     val draggedTile = draggingTile
-                    val fromIndex = draggedTile?.let(tileOrder::indexOf) ?: -1
-                    val thisIndex = tileOrder.indexOf(tile)
+                    val fromIndex = draggedTile?.let(trackTiles::indexOf) ?: -1
+                    val thisIndex = trackTiles.indexOf(tile)
                     val draggedHeight = draggedTile?.let { tileBounds[it]?.height } ?: 0f
                     val neighbourShift = when {
                         draggedTile == null || tile == draggedTile || dragTargetIndex < 0 -> 0f
@@ -358,7 +374,7 @@ internal fun NativeLiveHome(
                             if (!settling) {
                                 draggingTile = tile
                                 dragOffsetY = 0f
-                                dragTargetIndex = tileOrder.indexOf(tile)
+                                dragTargetIndex = trackTiles.indexOf(tile)
                                 fingerWindowY = (tileBounds[tile]?.windowTop ?: viewportTopY) + localFingerY
                             }
                         },
@@ -380,7 +396,7 @@ internal fun NativeLiveHome(
                                 openHydration = openHydration,
                                 openEnvironment = openEnvironment
                             )
-                            HomeTile.EXPERIMENTS -> HomeExperimentsTile(MockExperimentData.active, openExperiments)
+                            HomeTile.EXPERIMENTS -> Unit // Rendered as a compact Learn shortcut
                             HomeTile.CLINICAL -> LegacyClinicalCard(snapshot, openClinical)
                             HomeTile.EXERCISE -> MidnightTrainingCard(snapshot, openExercise)
                             HomeTile.SLEEP -> MidnightSleepCard(snapshot, openSleep)
@@ -414,10 +430,93 @@ internal fun NativeLiveHome(
                 )
                 Spacer(Modifier.height(8.dp))
             }
+            HomeSectionHeader("Learn", expanded = learnExpanded, onToggle = { learnExpanded = !learnExpanded })
+            if (learnExpanded) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    HomeLearnActionCard(
+                        title = "Trends",
+                        subtitle = "Your health over time",
+                        onClick = openTrends,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (HomeTile.EXPERIMENTS in tileOrder) {
+                        HomeLearnActionCard(
+                            title = "Experiments",
+                            subtitle = "Track what you try",
+                            onClick = openExperiments,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                }
+            }
+            HomeSectionHeader("Act", expanded = actExpanded, onToggle = { actExpanded = !actExpanded })
+            if (actExpanded) {
+                HomeMindfulnessBreathworkRow(snapshot, openMindfulness)
+            }
             // The floating navigation overlays the screen, so leave scrollable
             // clearance inside the Home list rather than a solid shell backdrop.
             Spacer(Modifier.height(112.dp))
         }
+    }
+}
+
+
+@Composable
+private fun HomeSectionHeader(
+    title: String,
+    expanded: Boolean = true,
+    onToggle: (() -> Unit)? = null
+) {
+    val headerModifier = if (onToggle == null) Modifier else Modifier.superhumanClickable(onClick = onToggle)
+    Row(
+        Modifier.fillMaxWidth().then(headerModifier).padding(top = 6.dp, bottom = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            title.uppercase(),
+            color = superhumanTextMuted,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.5.sp
+        )
+        if (onToggle != null) {
+            Text(
+                if (expanded) "Hide −" else "Show +",
+                color = superhumanTextMuted,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeLearnActionCard(
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier
+            .height(92.dp)
+            .background(superhumanSurface, RoundedCornerShape(20.dp))
+            .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 15.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(title, color = superhumanTextPrimary, fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold)
+            Text("›", color = superhumanTextMuted, fontSize = 22.sp)
+        }
+        Text(subtitle, color = superhumanTextMuted, fontSize = 11.sp,
+            lineHeight = 14.sp, maxLines = 2)
     }
 }
 
@@ -547,7 +646,7 @@ private fun HomeModulePicker(
             Text("Done", color = superhumanAccent, fontSize = 15.sp,
                 modifier = Modifier.superhumanClickable(onClick = onDone).padding(12.dp))
         }
-        Text("Choose what appears on your Home dashboard. Hold and drag a tile to reorder it.",
+        Text("Choose your Track tiles and optional Experiments card. Hold and drag Track tiles to reorder.",
             color = superhumanTextMuted, fontSize = 13.sp, lineHeight = 19.sp)
         Spacer(Modifier.height(5.dp))
         available.forEach { tile ->
