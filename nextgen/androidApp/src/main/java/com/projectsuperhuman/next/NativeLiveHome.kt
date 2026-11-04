@@ -113,14 +113,12 @@ data class NativeHomeSnapshot(
 )
 
 private enum class HomeTile(val storageKey: String) {
-    INSIGHTS("insights"),
     EMOTIONAL("emotional"),
     ENVIRONMENT("environment"),
     EXPERIMENTS("experiments"),
     HYDRATION("hydration"),
     CLINICAL("clinical"),
     EXERCISE("exercise"),
-    MINDFULNESS("mindfulness"),
     SLEEP("sleep"),
     NUTRITION("nutrition"),
     // Keep the previous storage key so existing dashboard ordering survives the tile upgrade.
@@ -140,11 +138,9 @@ private val defaultHomeTileOrder = listOf(
     HomeTile.SLEEP,
     HomeTile.VITALS,
     HomeTile.HYDRATION,
-    HomeTile.INSIGHTS,
     HomeTile.EXPERIMENTS,
     HomeTile.EMOTIONAL,
     HomeTile.CLINICAL,
-    HomeTile.MINDFULNESS
 )
 
 private const val HOME_PREFS = "project_superhuman_home"
@@ -159,10 +155,8 @@ internal fun NativeLiveHome(
     openHydration: () -> Unit,
     openNutrition: () -> Unit,
     openExercise: () -> Unit,
-    openMindfulness: () -> Unit,
     openEnvironment: () -> Unit,
     openEmotional: () -> Unit,
-    openInsights: () -> Unit,
     openExperiments: () -> Unit,
     openSupplements: () -> Unit,
     openMiniMetric: (HomeMiniMetric) -> Unit,
@@ -379,13 +373,6 @@ internal fun NativeLiveHome(
                         onDragCancel = { finishDrag(commit = false) }
                     ) {
                         when (tile) {
-                            HomeTile.INSIGHTS -> {
-                                // This provider may parse/aggregate data. Do not redo it on each
-                                // scroll gesture, tile-drag frame, or unrelated state update.
-                                val provider = InsightsUiRuntime.provider
-                                val insights = remember(provider) { provider.load() }
-                                HomeInsightsTile(insights, openInsights)
-                            }
                             HomeTile.EMOTIONAL -> HomeEmotionalTile(emotionalCurrent, openEmotional)
                             // ENVIRONMENT is a legacy storage key; the merged mini row takes its position.
                             HomeTile.ENVIRONMENT, HomeTile.HYDRATION -> HomeCompactModulesRow(
@@ -396,7 +383,6 @@ internal fun NativeLiveHome(
                             HomeTile.EXPERIMENTS -> HomeExperimentsTile(MockExperimentData.active, openExperiments)
                             HomeTile.CLINICAL -> LegacyClinicalCard(snapshot, openClinical)
                             HomeTile.EXERCISE -> MidnightTrainingCard(snapshot, openExercise)
-                            HomeTile.MINDFULNESS -> HomeMindfulnessBreathworkRow(snapshot, openMindfulness)
                             HomeTile.SLEEP -> MidnightSleepCard(snapshot, openSleep)
                             HomeTile.NUTRITION -> MidnightNutritionCard(snapshot, openNutrition)
                             HomeTile.VITALS -> HomeVitalsTile(onClick = openVitals)
@@ -533,9 +519,9 @@ private fun HomeModulePicker(
 ) {
     val available = listOf(
         HomeTile.HYDRATION, HomeTile.NUTRITION, HomeTile.EXERCISE,
-        HomeTile.SLEEP, HomeTile.VITALS, HomeTile.INSIGHTS,
+        HomeTile.SLEEP, HomeTile.VITALS,
         HomeTile.EXPERIMENTS, HomeTile.EMOTIONAL, HomeTile.CLINICAL,
-        HomeTile.MINDFULNESS, HomeTile.SUPPLEMENTS
+        HomeTile.SUPPLEMENTS
     )
     val labels = mapOf(
         HomeTile.HYDRATION to "Hydration & Environment",
@@ -543,11 +529,9 @@ private fun HomeModulePicker(
         HomeTile.EXERCISE to "Training",
         HomeTile.SLEEP to "Sleep",
         HomeTile.VITALS to "Vitals",
-        HomeTile.INSIGHTS to "Insights",
         HomeTile.EXPERIMENTS to "Experiments",
         HomeTile.EMOTIONAL to "Emotional wellbeing",
         HomeTile.CLINICAL to "Biomarkers",
-        HomeTile.MINDFULNESS to "Mindfulness",
         HomeTile.SUPPLEMENTS to "Supplements"
     )
     Column(
