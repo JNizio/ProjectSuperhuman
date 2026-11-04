@@ -1,6 +1,7 @@
 package com.projectsuperhuman.next
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -72,6 +74,7 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
     var connected by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf("Loading sleep history…") }
     var dashboardView by remember { mutableStateOf(HistoryDataView.INTERPRETED) }
+    var latestWakeDate by remember { mutableStateOf<LocalDate?>(null) }
 
     suspend fun refreshHistory() {
         val targetMonth = month
@@ -97,6 +100,7 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
     LaunchedEffect(Unit) {
         connected = SleepHealthConnect.hasPermission(context)
         NativeHistoricalSleepStore.loadLatestWakeDate()?.let { latestDate ->
+            latestWakeDate = latestDate
             selectedDate = latestDate
             month = YearMonth.from(latestDate)
         }
@@ -111,6 +115,11 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
     }
 
     val selected = nights.firstOrNull { it.wakeDate == selectedDate }
+    val availableDates = remember(nights) { nights.map { it.wakeDate }.distinct().sorted() }
+    val selectedIndex = availableDates.indexOf(selectedDate)
+    val earlier = availableDates.getOrNull(selectedIndex - 1)
+    val later = if (selectedIndex >= 0) availableDates.getOrNull(selectedIndex + 1) else null
+
 
     Column(
         Modifier.fillMaxSize().background(HistoryBg).verticalScroll(rememberScrollState())
@@ -118,7 +127,47 @@ internal fun NativeSleepHistoryPage(onBack: () -> Unit, openLegacy: () -> Unit) 
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         HistoryHeader(onBack)
-        HistorySleepDashboardHero(nights, selected, dashboardView) { dashboardView = it }
+        Box(
+            Modifier.fillMaxWidth()
+                .pointerInput(selectedDate, availableDates) {
+                    var horizontalTravel = 0f
+                    detectHorizontalDragGestures(
+                        onDragStart = { horizontalTravel = 0f },
+                        onHorizontalDrag = { change, dragAmount ->
+                            horizontalTravel += dragAmount
+                            change.consume()
+                        },
+                        onDragEnd = {
+                            // Swipe right for the previous recorded night; left for next.
+                            if (horizontalTravel > 70f && earlier != null) selectedDate = earlier
+                            if (horizontalTravel < -70f && later != null) selectedDate = later
+                        }
+                    )
+                }
+        ) {
+            HistorySleepDashboardHero(nights, selected, dashboardView) { dashboardView = it }
+        }
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("← Earlier", color = if (earlier != null) HistoryPurple else HistoryMuted,
+                fontSize = 12.sp, modifier = Modifier.superhumanClickable(enabled = earlier != null) {
+                    selectedDate = earlier
+                }.padding(10.dp))
+            if (latestWakeDate != null) {
+                Text("Latest night", color = HistoryPurple, fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.superhumanClickable {
+                        latestWakeDate?.let { date ->
+                            selectedDate = date
+                            month = YearMonth.from(date)
+                        }
+                    }.padding(10.dp))
+            }
+            Text("Later →", color = if (later != null) HistoryPurple else HistoryMuted,
+                fontSize = 12.sp, modifier = Modifier.superhumanClickable(enabled = later != null) {
+                    selectedDate = later
+                }.padding(10.dp))
+        }
         SleepCalendarCard(
             month = month,
             nights = nights,
@@ -139,6 +188,7 @@ private fun HistorySleepDashboardHero(
     view: HistoryDataView,
     onViewChange: (HistoryDataView) -> Unit
 ) {
+    var showDetailedScores by remember { mutableStateOf(false) }
     val active = selected ?: nights.maxByOrNull { it.endEpochMs }
     val snapshot = active?.snapshot
     val analysis = snapshot?.let { SleepIntelligenceEngine.analyse(it) }
@@ -233,6 +283,18 @@ private fun HistorySleepDashboardHero(
                 HistoryHeroStat("7-night avg", formatHistoryMinutes(avgMinutes), Modifier.weight(1f))
             }
 
+            Row(Modifier.fillMaxWidth().superhumanClickable {
+                showDetailedScores = !showDetailedScores
+            }.padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Sleep details", color = Color.White.copy(alpha = .88f),
+                    fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                Text(if (showDetailedScores) "Hide −" else "Show +",
+                    color = HistoryPurple, fontSize = 12.sp)
+            }
+            if (showDetailedScores) {
             Box(Modifier.fillMaxWidth().height(1.dp).background(Color.White.copy(alpha = .14f)))
 
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -259,6 +321,7 @@ private fun HistorySleepDashboardHero(
                 color = Color.White.copy(alpha = .53f),
                 fontSize = 7.sp
             )
+            }
         } else {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                 Column(Modifier.weight(1f)) {
