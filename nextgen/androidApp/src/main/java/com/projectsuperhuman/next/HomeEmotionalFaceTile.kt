@@ -113,14 +113,12 @@ internal fun emotionalFreshnessLabel(snapshot: EmotionalPresentationSnapshot, no
 
 @Composable
 internal fun HomeEmotionalFaceTile(current: EmotionalPresentationSnapshot?, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(25.dp)
     val palette = superhumanPalette
-    val dark = SuperhumanAppearance.darkMode
     val observed = current?.axisValues.orEmpty()
-    val faceState = EmotionalFaceMapper.from(observed)
     val interpretation = emotionalTileInterpretation(current?.axisValues)
-    val supportingText = current?.let { emotionalFreshnessLabel(it, System.currentTimeMillis()) } ?: "Tap for a quick check-in"
-    val description = if (current == null) "Emotional check-in. No emotional check-in yet. $supportingText" else "Emotional check-in. $interpretation. $supportingText"
+    val supportingText = current?.let { emotionalFreshnessLabel(it, System.currentTimeMillis()) } ?: "No check-in recorded yet"
+    val description = if (current == null) "Emotional check-in. No emotional check-in yet." else
+        "Emotional check-in. $interpretation. $supportingText"
 
     Column(
         Modifier.fillMaxWidth()
@@ -128,24 +126,57 @@ internal fun HomeEmotionalFaceTile(current: EmotionalPresentationSnapshot?, onCl
             .superhumanHomeTileClickable(onClick = onClick)
             .testTag("home_emotional_tile")
             .semantics(mergeDescendants = true) { contentDescription = description }
-            .padding(horizontal = 18.dp, vertical = 16.dp)
+            .padding(horizontal = 20.dp, vertical = 18.dp)
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text("EMOTIONAL", color = palette.textMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
-            Text("→", color = palette.textMuted, fontSize = 23.sp)
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.Icon(
+                    painter = androidx.compose.ui.res.painterResource(R.drawable.tabler_activity_heartbeat),
+                    contentDescription = null,
+                    tint = if (SuperhumanAppearance.darkMode) Color(0xFFB6A0EE) else Color(0xFF7662B9),
+                    modifier = Modifier.size(18.dp)
+                )
+                Text("EMOTIONAL", color = palette.textMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            }
+            androidx.compose.material3.Icon(
+                painter = androidx.compose.ui.res.painterResource(R.drawable.tabler_chevron_right),
+                contentDescription = null, tint = palette.textMuted, modifier = Modifier.size(20.dp)
+            )
         }
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(17.dp))
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            AnimatedEmotionalFace(faceState, current != null, Modifier.size(104.dp))
-            Column(Modifier.weight(1f).padding(start = 17.dp)) {
-                Text(interpretation, color = palette.brandText, fontSize = 19.sp, lineHeight = 22.sp, fontWeight = FontWeight.Black)
+            androidx.compose.foundation.layout.Box(
+                modifier = Modifier.size(68.dp)
+                    .background(
+                        if (SuperhumanAppearance.darkMode) Color(0xFF29252F) else Color(0xFFF2EFF9),
+                        RoundedCornerShape(19.dp)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                AnimatedEmotionalFace(EmotionalFaceMapper.from(observed), current != null, Modifier.size(54.dp))
+            }
+            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                Text(interpretation, color = palette.brandText, fontSize = 19.sp, lineHeight = 23.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(5.dp))
-                Text(supportingText, color = palette.textMuted, fontSize = 9.sp, lineHeight = 13.sp)
+                Text(supportingText, color = palette.textMuted, fontSize = 11.sp, lineHeight = 15.sp)
                 if (current != null && observed.size < EmotionalPresentationContract.axisIds.size) {
                     Spacer(Modifier.height(5.dp))
-                    Text("Based on ${observed.size} of 6 signals", color = palette.blue, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("Based on ${observed.size} of 6 signals", color = palette.blue, fontSize = 10.sp)
                 }
             }
+        }
+        Spacer(Modifier.height(15.dp))
+        androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().height(1.dp).background(palette.border.copy(alpha = 0.35f)))
+        Spacer(Modifier.height(12.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Text(if (current == null) "+ Log mood" else "Update check-in",
+                color = if (SuperhumanAppearance.darkMode) Color(0xFFB6A0EE) else Color(0xFF7662B9),
+                fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            Text("View emotional details", color = palette.textMuted, fontSize = 11.sp)
         }
     }
 }
@@ -176,7 +207,7 @@ private fun AnimatedEmotionalFace(target: EmotionalFaceState, hasData: Boolean, 
             warmth >= 0f -> lerpColor(neutral, warm, warmth * 0.55f)
             else -> lerpColor(neutral, cool, -warmth * 0.55f)
         }
-        drawCircle(Brush.radialGradient(listOf(if (dark) palette.surfaceElevated.copy(alpha = .95f) else Color.White.copy(alpha = .92f), tint), centre, radius), radius, centre)
+        drawCircle(tint, radius, centre)
         drawCircle(palette.border, radius, centre, style = Stroke(width = 1.2.dp.toPx()))
 
         val ink = if (hasData) palette.textPrimary.copy(alpha = .90f) else palette.textMuted
