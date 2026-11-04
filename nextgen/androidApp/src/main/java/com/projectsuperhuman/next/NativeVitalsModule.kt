@@ -64,6 +64,10 @@ import com.projectsuperhuman.next.vitals.VitalsValidation
 import com.projectsuperhuman.next.vitals.VitalsValidationRules
 import com.projectsuperhuman.next.vitals.VitalsValueFactory
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -109,13 +113,14 @@ private data class VitalsHistoryState(
 internal fun NativeVitalsPage(onBack: () -> Unit) {
     var history by remember { mutableStateOf(VitalsHistoryState()) }
     var refreshKey by remember { mutableIntStateOf(0) }
+    var historyLimit by remember { mutableIntStateOf(200) }
     var entry by remember { mutableStateOf<VitalsEntry?>(null) }
     var saveMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(refreshKey) {
+    LaunchedEffect(refreshKey, historyLimit) {
         history = try {
-            loadVitalsHistory()
+            loadVitalsHistory(historyLimit)
         } catch (_: Throwable) {
             VitalsHistoryState(loading = false, error = "Vitals history could not be loaded.")
         }
@@ -137,7 +142,9 @@ internal fun NativeVitalsPage(onBack: () -> Unit) {
         saveMessage?.let { StatusStrip(it) { saveMessage = null } }
         LatestVitalsSection(history, onRecord = { entry = it })
         BloodPressureGuidanceCard()
-        VitalsHistorySection(history)
+        VitalsHistorySection(history, historyLimit, onLoadOlder = {
+            historyLimit = (historyLimit + 200).coerceAtMost(2000)
+        })
         Text(
             "A single reading cannot diagnose a condition. Consider symptoms, measurement quality and longer-term patterns; seek clinical advice when concerned.",
             color = VitalsMuted,
@@ -300,21 +307,215 @@ private fun GuidanceLine(text: String) {
     }
 }
 
+private enum class VitalsHistoryFilter(val label: String) {
+    ALL("All"), HEART_RATE("Heart rate"), BLOOD_PRESSURE("BP"), TEMPERATURE("Temp")
+}
+
+private data class VitalsTimelineEntry(
+    val timestampEpochMs: Long,
+    val kind: VitalsHistoryFilter,
+    val title: String,
+    val detail: String,
+    val heartRateBpm: Int? = null
+) {
+    val date: LocalDate get() = Instant.ofEpochMilli(timestampEpochMs)
+        .atZone(ZoneId.systemDefault()).toLocalDate()
+}
+
+private fun vitalsTimeline(state: VitalsHistoryState): List<VitalsTimelineEntry> = buildList {
+    state.bloodPressure.forEach { bp ->
+        val context = listOfNotNull(bp.arm, bp.position, bp.readingIndex?.let { "Reading $it" })
+            .joinToString(" · ")
+        add(VitalsTimelineEntry(
+            timestampEpochMs = bp.timestampEpochMs,
+            kind = VitalsHistoryFilter.BLOOD_PRESSURE,
+            title = "${bp.systolic}/${bp.diastolic} mmHg",
+            detail = context
+        ))
+    }
+    state.temperature.forEach { value ->
+        val site = value.metadata["measurementSite"]
+            ?.replaceFirstChar { it.uppercase() } ?: "Site not recorded"
+        add(VitalsTimelineEntry(
+            timestampEpochMs = value.timestampEpochMs,
+            kind = VitalsHistoryFilter.TEMPERATURE,
+            title = String.format(Locale.getDefault(), "%.1f °C", value.value),
+            detail = site
+        ))
+    }
+    state.heartRate.forEach { value ->
+        val bpm = value.value.toInt()
+        add(VitalsTimelineEntry(
+            timestampEpochMs = value.timestampEpochMs,
+            kind = VitalsHistoryFilter.HEART_RATE,
+            title = "$bpm bpm",
+            detail = sourceLabel(value),
+            heartRateBpm = bpm
+        ))
+    }
+}.sortedByDescending { it.timestampEpochMs }
+
+/**
+ * Browses existing persisted measurements without rewriting or aggregating away raw
+ * data. One day is one card; dense heart-rate samples collapse into a single summary,
+ * with every original point available on expansion.
+ */
 @Composable
-private fun VitalsHistorySection(state: VitalsHistoryState) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("HISTORY", color = VitalsMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+private fun VitalsHistorySection(
+    state: VitalsHistoryState,
+    historyLimit: Int,
+    onLoadOlder: () -> Unit
+) {
+    var filter by remember { mutableStateOf(VitalsHistoryFilter.ALL) }
+    val timeline = remember(state) { vitalsTimeline(state) }
+    val visible = remember(timeline, filter) {
+        if (filter == VitalsHistoryFilter.ALL) timeline
+        else timeline.filter { it.kind == filter }
+    }
+    val days = remember(visible) { visible.groupBy { it.date } }
+    val newestDate = days.keys.firstOrNull()
+    var expandedDay by remember(state) { mutableStateOf<LocalDate?>(null) }
+    var collapsedNewestDay by remember(state) { mutableStateOf(false) }
+    var expandedHeartDay by remember { mutableStateOf<LocalDate?>(null) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("HISTORY", color = VitalsMuted, fontSize = 9.sp,
+                fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+            if (!state.loading && timeline.isNotEmpty()) {
+                Text("${timeline.size} loaded readings", color = VitalsMuted, fontSize = 9.sp)
+            }
+        }
         when {
             state.loading -> HistoryMessage("Loading vitals…")
             state.error != null -> HistoryMessage(state.error)
-            state.bloodPressure.isEmpty() && state.temperature.isEmpty() && state.heartRate.isEmpty() -> HistoryMessage("No vitals recorded yet.")
+            timeline.isEmpty() -> HistoryMessage("No vitals recorded yet.")
             else -> {
-                val rows = buildList {
-                    state.bloodPressure.take(20).forEach { add(Triple(it.timestampEpochMs, "Blood pressure", "${it.systolic}/${it.diastolic} mmHg · ${bpMetadataLabel(it, includeTime = false)}")) }
-                    state.temperature.take(20).forEach { add(Triple(it.timestampEpochMs, "Body temperature", "${String.format(Locale.getDefault(), "%.1f", it.value)} °C · ${it.metadata["measurementSite"]?.replaceFirstChar { char -> char.uppercase() } ?: "Site not recorded"}")) }
-                    state.heartRate.take(20).forEach { add(Triple(it.timestampEpochMs, "Heart rate", "${it.value.toInt()} bpm · ${sourceLabel(it)}")) }
-                }.sortedByDescending { it.first }.take(30)
-                rows.forEach { (time, label, value) -> HistoryRow(label, value, formatDateTime(time)) }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    VitalsHistoryFilter.entries.forEach { item ->
+                        val selected = item == filter
+                        Box(
+                            Modifier.weight(1f)
+                                .background(if (selected) VitalsSoft else VitalsSurface,
+                                    RoundedCornerShape(12.dp))
+                                .superhumanClickable(onClick = {
+                                    filter = item
+                                    expandedDay = null
+                                    collapsedNewestDay = false
+                                    expandedHeartDay = null
+                                })
+                                .padding(horizontal = 4.dp, vertical = 12.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(item.label, color = if (selected) VitalsInk else VitalsMuted,
+                                fontSize = 10.sp, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                        }
+                    }
+                }
+                if (days.isEmpty()) {
+                    HistoryMessage("No measurements in this category.")
+                }
+                days.forEach { (date, entries) ->
+                    val open = expandedDay == date ||
+                        (expandedDay == null && !collapsedNewestDay && date == newestDate)
+                    Column(
+                        Modifier.fillMaxWidth().background(VitalsSurface, RoundedCornerShape(20.dp))
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Row(
+                            Modifier.fillMaxWidth().superhumanClickable {
+                                if (open) {
+                                    expandedDay = null
+                                    collapsedNewestDay = date == newestDate
+                                } else {
+                                    expandedDay = date
+                                    collapsedNewestDay = false
+                                }
+                            },
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(date.format(DateTimeFormatter.ofPattern("EEE, d MMM", Locale.getDefault())),
+                                    color = VitalsInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                Text("${entries.size} reading${if (entries.size == 1) "" else "s"}",
+                                    color = VitalsMuted, fontSize = 10.sp)
+                            }
+                            Text(if (open) "−" else "+", fontSize = 19.sp, color = VitalsMuted)
+                        }
+                        if (open) {
+                            // Preserve chronological ordering of the manual readings;
+                            // frequent pulse samples are collapsed instead of flooding the screen.
+                            entries.filter { it.kind != VitalsHistoryFilter.HEART_RATE }
+                                .forEach { entry ->
+                                    VitalsTimelineRow(
+                                        label = if (entry.kind == VitalsHistoryFilter.BLOOD_PRESSURE)
+                                            "Blood pressure" else "Body temperature",
+                                        value = entry.title,
+                                        detail = entry.detail,
+                                        time = formatTime(entry.timestampEpochMs)
+                                    )
+                                }
+                            val heart = entries.filter { it.kind == VitalsHistoryFilter.HEART_RATE }
+                            if (heart.isNotEmpty()) {
+                                val rates = heart.mapNotNull { it.heartRateBpm }
+                                val isHeartOpen = expandedHeartDay == date
+                                Column(
+                                    Modifier.fillMaxWidth()
+                                        .background(VitalsSoft, RoundedCornerShape(15.dp))
+                                        .padding(12.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Row(
+                                        Modifier.fillMaxWidth().superhumanClickable {
+                                            expandedHeartDay = if (isHeartOpen) null else date
+                                        },
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(Modifier.weight(1f)) {
+                                            Text("Heart rate · ${heart.size} readings",
+                                                color = VitalsInk, fontSize = 11.sp,
+                                                fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                "Latest ${rates.first()} bpm · Range ${rates.minOrNull()}–${rates.maxOrNull()} bpm",
+                                                color = VitalsMuted, fontSize = 10.sp
+                                            )
+                                        }
+                                        Text(if (isHeartOpen) "Less" else "Details",
+                                            color = VitalsBlue, fontSize = 10.sp)
+                                    }
+                                    if (isHeartOpen) {
+                                        heart.forEach { entry ->
+                                            VitalsTimelineRow(
+                                                label = formatTime(entry.timestampEpochMs),
+                                                value = entry.title, detail = entry.detail,
+                                                time = ""
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if (state.heartRate.size >= historyLimit ||
+                    state.bloodPressure.size >= historyLimit ||
+                    state.temperature.size >= historyLimit
+                ) {
+                    Box(
+                        Modifier.fillMaxWidth()
+                            .background(VitalsSurface, RoundedCornerShape(17.dp))
+                            .superhumanClickable(onClick = onLoadOlder)
+                            .padding(vertical = 15.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Load older readings", color = VitalsBlue, fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         }
     }
@@ -322,24 +523,28 @@ private fun VitalsHistorySection(state: VitalsHistoryState) {
 
 @Composable
 private fun HistoryMessage(message: String) {
-    Box(Modifier.fillMaxWidth().background(VitalsSurface, RoundedCornerShape(18.dp)).border(1.dp, VitalsBorder, RoundedCornerShape(18.dp)).padding(18.dp)) {
+    Box(Modifier.fillMaxWidth().background(VitalsSurface, RoundedCornerShape(18.dp))
+        .padding(18.dp)) {
         Text(message, color = VitalsMuted, fontSize = 10.sp)
     }
 }
 
 @Composable
-private fun HistoryRow(label: String, value: String, time: String) {
+private fun VitalsTimelineRow(label: String, value: String, detail: String, time: String) {
     Row(
-        Modifier.fillMaxWidth().background(VitalsSurface, RoundedCornerShape(17.dp)).border(1.dp, VitalsBorder, RoundedCornerShape(17.dp)).padding(13.dp),
+        Modifier.fillMaxWidth().padding(vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(label, color = VitalsInk, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
-            Text(value, color = VitalsMuted, fontSize = 9.sp, maxLines = 2)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Text(label, color = VitalsMuted, fontSize = 10.sp)
+            Text(value, color = VitalsInk, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            if (detail.isNotBlank()) Text(detail, color = VitalsMuted, fontSize = 10.sp, maxLines = 2)
         }
-        Spacer(Modifier.width(8.dp))
-        Text(time, color = VitalsMuted, fontSize = 8.sp)
+        if (time.isNotBlank()) {
+            Spacer(Modifier.width(8.dp))
+            Text(time, color = VitalsMuted, fontSize = 10.sp)
+        }
     }
 }
 
@@ -550,13 +755,13 @@ private fun ActionButton(label: String, enabled: Boolean = true, onClick: () -> 
     ) { Text(label, fontSize = 10.sp, fontWeight = FontWeight.Black) }
 }
 
-private suspend fun loadVitalsHistory(): VitalsHistoryState = withContext(Dispatchers.IO) {
+private suspend fun loadVitalsHistory(limit: Int = 200): VitalsHistoryState = withContext(Dispatchers.IO) {
     // BP pairing and ordering run on the same background dispatcher as the indexed
     // history reads, so longer histories never stall the Compose main thread.
-    val systolic = NativeDataHub.pageForMetric(HealthDomain.BLOOD_PRESSURE, VitalsMetrics.BLOOD_PRESSURE_SYSTOLIC, 200)
-    val diastolic = NativeDataHub.pageForMetric(HealthDomain.BLOOD_PRESSURE, VitalsMetrics.BLOOD_PRESSURE_DIASTOLIC, 200)
-    val temperatures = NativeDataHub.pageForMetric(HealthDomain.BODY, VitalsMetrics.BODY_TEMPERATURE_CELSIUS, 200)
-    val heartRates = NativeDataHub.pageForMetric(HealthDomain.EXERCISE, VitalsMetrics.HEART_RATE_BPM, 200)
+    val systolic = NativeDataHub.pageForMetric(HealthDomain.BLOOD_PRESSURE, VitalsMetrics.BLOOD_PRESSURE_SYSTOLIC, limit)
+    val diastolic = NativeDataHub.pageForMetric(HealthDomain.BLOOD_PRESSURE, VitalsMetrics.BLOOD_PRESSURE_DIASTOLIC, limit)
+    val temperatures = NativeDataHub.pageForMetric(HealthDomain.BODY, VitalsMetrics.BODY_TEMPERATURE_CELSIUS, limit)
+    val heartRates = NativeDataHub.pageForMetric(HealthDomain.EXERCISE, VitalsMetrics.HEART_RATE_BPM, limit)
     val diastolicByKey = diastolic.associateBy(::bpPairingKey)
     val bp = systolic.mapNotNull { sys ->
         val dia = diastolicByKey[bpPairingKey(sys)] ?: diastolic.minByOrNull { kotlin.math.abs(it.timestampEpochMs - sys.timestampEpochMs) }?.takeIf {
@@ -590,6 +795,11 @@ private fun temperatureMetadataLabel(value: HealthValue): String = listOfNotNull
     value.metadata["measurementSite"]?.replaceFirstChar { char -> char.uppercase() }
 ).joinToString(" · ")
 
-private fun sourceLabel(value: HealthValue): String = if (value.metadata["entryMode"] == "manual") "Manual" else value.source
+private fun sourceLabel(value: HealthValue): String = when {
+    value.source.contains("synthetic", ignoreCase = true) ||
+        value.metadata["entryMode"] == "synthetic" -> "Demo data"
+    value.metadata["entryMode"] == "manual" -> "Manual"
+    else -> value.source
+}
 private fun formatDateTime(epochMs: Long): String = SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(epochMs))
 private fun formatTime(epochMs: Long): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(epochMs))
