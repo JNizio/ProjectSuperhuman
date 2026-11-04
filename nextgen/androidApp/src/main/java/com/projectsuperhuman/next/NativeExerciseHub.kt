@@ -386,7 +386,7 @@ private fun ExerciseActiveCardioCard(
         Modifier
             .fillMaxWidth()
             .background(accent.copy(alpha = if (SuperhumanAppearance.darkMode) .13f else .08f), RoundedCornerShape(18.dp))
-            .border(1.dp, accent.copy(alpha = .42f), RoundedCornerShape(18.dp))
+            .border(1.dp, accent.copy(alpha = if (SuperhumanAppearance.darkMode) .10f else .42f), RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
             .padding(15.dp),
         verticalAlignment = Alignment.CenterVertically
