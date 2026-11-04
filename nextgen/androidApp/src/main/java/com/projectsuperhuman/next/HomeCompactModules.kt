@@ -136,27 +136,36 @@ internal fun HomeCompactEnvironmentTile(
 ) {
     val palette = superhumanPalette
     val state = rememberEnvironmentalRenderState(source)
-    val (headline, supporting, detail) = when (state) {
-        EnvironmentalRenderState.Loading ->
-            Triple("—", "Loading conditions", "Updating")
-        is EnvironmentalRenderState.Ready -> when (val result = state.result) {
-            is EnvironmentalLoadResult.Data -> {
-                val conditions = result.conditions
-                Triple(
-                    conditions.headlineMetric()?.displayValue() ?: "—",
-                    conditions.weatherLabel?.takeIf { it.isNotBlank() } ?: "Local conditions",
-                    conditions.locationLabel?.takeIf { it.isNotBlank() }
-                        ?: conditions.freshnessLabel.orEmpty()
-                )
-            }
-            EnvironmentalLoadResult.NoPermission ->
-                Triple("Location off", "Access needed", "Tap to enable")
-            EnvironmentalLoadResult.NoData ->
-                Triple("No reading", "Local conditions", "Tap for details")
-            is EnvironmentalLoadResult.Error ->
-                Triple("Unavailable", "Couldn't update", "Tap to retry")
+    val conditions = (state as? EnvironmentalRenderState.Ready)
+        ?.result.let { it as? EnvironmentalLoadResult.Data }?.conditions
+
+    val headline = when {
+        conditions != null -> conditions.headlineMetric()?.displayValue() ?: "—"
+        state is EnvironmentalRenderState.Loading -> "—"
+        state is EnvironmentalRenderState.Ready -> when (state.result) {
+            EnvironmentalLoadResult.NoPermission -> "Location off"
+            EnvironmentalLoadResult.NoData -> "No reading"
+            is EnvironmentalLoadResult.Error -> "Unavailable"
+            else -> "—"
         }
+        else -> "—"
     }
+    val supporting = conditions?.weatherLabel?.takeIf { it.isNotBlank() }
+        ?: when (state) {
+            EnvironmentalRenderState.Loading -> "Loading conditions"
+            is EnvironmentalRenderState.Ready -> when (state.result) {
+                EnvironmentalLoadResult.NoPermission -> "Tap to enable"
+                EnvironmentalLoadResult.NoData -> "Local conditions"
+                is EnvironmentalLoadResult.Error -> "Tap to retry"
+                else -> "Local conditions"
+            }
+        }
+    val humidity = conditions?.metric(EnvironmentalMetricKind.HUMIDITY)
+    val wind = conditions?.metric(EnvironmentalMetricKind.WIND)
+    val airQuality = conditions?.metric(EnvironmentalMetricKind.AIR_QUALITY)
+    // Give air quality priority when it is available; otherwise retain wind.
+    val secondary = airQuality ?: wind
+    val secondaryLabel = if (airQuality != null) "Air quality" else "Wind"
 
     Column(
         modifier
@@ -164,18 +173,20 @@ internal fun HomeCompactEnvironmentTile(
             .midnightCardSurface(accent = palette.green)
             .superhumanHomeTileClickable(onClick = onClick)
             .semantics(mergeDescendants = true) {
-                contentDescription = environmentalTileDescription(state)
+                contentDescription = environmentalTileDescription(state) +
+                    ". Humidity " + (humidity?.displayValue() ?: "unavailable") +
+                    ". " + secondaryLabel + " " + (secondary?.displayValue() ?: "unavailable")
             }
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(5.dp)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         CompactModuleHeader("ENVIRONMENT", palette.green)
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(4.dp))
         Text(
             headline,
             color = palette.textPrimary,
-            fontSize = if (headline.length > 7) 15.sp else 23.sp,
-            lineHeight = 27.sp,
+            fontSize = if (headline.length > 7) 14.sp else 23.sp,
+            lineHeight = 26.sp,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
@@ -183,20 +194,30 @@ internal fun HomeCompactEnvironmentTile(
         Text(
             supporting,
             fontSize = 10.sp,
+            lineHeight = 13.sp,
             color = palette.textMuted,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
-        // Keep location in the normal layout flow. A weighted spacer previously
-        // pushed its last text line into the bottom of the clipped card.
-        Spacer(Modifier.height(9.dp))
-        Text(
-            detail.ifBlank { "Local conditions" },
-            color = palette.textMuted,
-            fontSize = 10.sp,
-            lineHeight = 14.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Spacer(Modifier.weight(1f))
+        // A quiet divider keeps the mini metrics distinct without a harsh card outline.
+        Box(Modifier.fillMaxWidth().height(1.dp).background(palette.surfaceSoft))
+        Spacer(Modifier.height(3.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            CompactEnvironmentMetric("Humidity", humidity?.displayValue(), Modifier.weight(1f))
+            CompactEnvironmentMetric(secondaryLabel, secondary?.displayValue(), Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun CompactEnvironmentMetric(label: String, value: String?, modifier: Modifier = Modifier) {
+    val palette = superhumanPalette
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, color = palette.textMuted, fontSize = 9.sp, maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
+        Text(value ?: "—", color = palette.textPrimary, fontSize = 12.sp,
+            lineHeight = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1,
+            overflow = TextOverflow.Ellipsis)
     }
 }
