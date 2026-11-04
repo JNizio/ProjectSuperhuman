@@ -1,10 +1,7 @@
 package com.projectsuperhuman.next
 
-import android.graphics.BitmapFactory
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.draw.clip
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -35,8 +32,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -50,7 +45,6 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import java.net.URL
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
@@ -511,170 +505,39 @@ private fun ExerciseModuleCard(
     muted: Color,
     onClick: () -> Unit
 ) {
-    val shape = RoundedCornerShape(22.dp)
-    val strength = visualKind == "strength"
-
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(118.dp)
-            .clip(shape)
-            .background(
-                Brush.horizontalGradient(
-                    if (SuperhumanAppearance.darkMode) {
-                        listOf(superhumanSurfaceElevated, superhumanSurface, superhumanSurfaceSoft)
-                    } else if (strength) {
-                        listOf(
-                            Color(0xFF071B31),
-                            Color(0xFF0A2B4B),
-                            Color(0xFF0E426B)
-                        )
-                    } else {
-                        listOf(
-                            Color(0xFF08262B),
-                            Color(0xFF0A3A40),
-                            Color(0xFF0E625C)
-                        )
-                    }
-                )
-            )
-            .border(1.dp, accent.copy(alpha = if (SuperhumanAppearance.darkMode) .12f else .34f), shape)
+    Row(
+        Modifier.fillMaxWidth()
+            .background(surface, RoundedCornerShape(18.dp))
             .superhumanClickable(onClick = onClick)
+            .padding(horizontal = 15.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        ExerciseRemoteBackground(
-            imageUrl = if (strength) {
-                "https://images.pexels.com/photos/16080056/pexels-photo-16080056.jpeg?auto=compress&cs=tinysrgb&w=1200&h=400&fit=crop"
-            } else {
-                "https://images.pexels.com/photos/15875672/pexels-photo-15875672.jpeg?auto=compress&cs=tinysrgb&w=1200&h=400&fit=crop"
-            },
-            modifier = Modifier.fillMaxSize()
-        )
-
-        val tintOverlay = if (SuperhumanAppearance.darkMode) {
-            Brush.horizontalGradient(listOf(Color(0xFF17191D).copy(alpha = .97f), Color(0xFF1B1D22).copy(alpha = .90f)))
-        } else if (strength) {
-            Brush.horizontalGradient(
-                listOf(
-                    Color(0xFF081C33).copy(alpha = .82f),
-                    Color(0xFF0C3C63).copy(alpha = .62f),
-                    Color(0xFF1E5C8E).copy(alpha = .38f),
-                    Color.Black.copy(alpha = .20f)
-                )
-            )
-        } else {
-            Brush.horizontalGradient(
-                listOf(
-                    Color(0xFF082124).copy(alpha = .84f),
-                    Color(0xFF0C4A4C).copy(alpha = .62f),
-                    Color(0xFF1D7B75).copy(alpha = .38f),
-                    Color.Black.copy(alpha = .20f)
-                )
-            )
-        }
-
         Box(
-            Modifier
-                .fillMaxSize()
-                .background(tintOverlay)
-        )
-        Box(
-            Modifier
-                .fillMaxSize()
-                .background(Color.Black.copy(alpha = .10f))
-        )
-
-        Row(
-            Modifier
-                .fillMaxSize()
-                .padding(horizontal = 17.dp, vertical = 15.dp),
-            verticalAlignment = Alignment.CenterVertically
+            Modifier.size(46.dp)
+                .background(accent.copy(alpha = .12f), RoundedCornerShape(14.dp)),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                Modifier
-                    .size(46.dp)
-                    .background(Color.White.copy(alpha = .10f), CircleShape)
-                    .border(1.dp, Color.White.copy(alpha = .15f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    painter = painterResource(
-                        id = if (strength) R.drawable.tabler_dumbbell else R.drawable.tabler_run
-                    ),
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Column(
-                Modifier
-                    .weight(1f)
-                    .padding(start = 14.dp)
-            ) {
-                Text(
-                    title,
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Black
-                )
-                Spacer(Modifier.height(5.dp))
-                Text(
-                    primary,
-                    color = accent,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    secondary,
-                    color = Color.White.copy(alpha = .72f),
-                    fontSize = 11.sp,
-                    lineHeight = 12.sp,
-                    maxLines = 1
-                )
-            }
-
-            Box(
-                Modifier
-                    .size(34.dp)
-                    .background(Color.White.copy(alpha = .10f), CircleShape),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    "→",
-                    color = Color.White,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
+            Icon(
+                painter = painterResource(
+                    id = if (visualKind == "strength") R.drawable.tabler_dumbbell
+                         else R.drawable.tabler_run
+                ),
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(24.dp)
+            )
         }
-    }
-}
-
-@Composable
-private fun ExerciseRemoteBackground(
-    imageUrl: String,
-    modifier: Modifier = Modifier
-) {
-    var bitmap by remember(imageUrl) { mutableStateOf<androidx.compose.ui.graphics.ImageBitmap?>(null) }
-
-    LaunchedEffect(imageUrl) {
-        bitmap = withContext(Dispatchers.IO) {
-            runCatching {
-                URL(imageUrl).openStream().use { stream ->
-                    BitmapFactory.decodeStream(stream)?.asImageBitmap()
-                }
-            }.getOrNull()
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+            Text(title, color = ink, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(3.dp))
+            Text(primary, color = accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            Text(secondary, color = muted, fontSize = 10.sp, maxLines = 2)
         }
-    }
-
-    bitmap?.let { image ->
-        Image(
-            bitmap = image,
+        Icon(
+            painter = painterResource(id = R.drawable.tabler_chevron_right),
             contentDescription = null,
-            modifier = modifier,
-            contentScale = ContentScale.Crop
+            tint = muted,
+            modifier = Modifier.size(20.dp)
         )
     }
 }

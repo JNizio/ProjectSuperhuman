@@ -1063,9 +1063,7 @@ private fun CardioLiveHero(
             }
             .clip(RoundedCornerShape(28.dp))
             .background(
-                Brush.linearGradient(
-                    listOf(Color(0xFF082F39), Color(0xFF0A6F63), Color(0xFF18A083))
-                )
+                CardioDeep
             )
             .padding(horizontal = 20.dp, vertical = 20.dp)
     ) {
@@ -1112,9 +1110,7 @@ private fun CardioHeroStrip(kicker: String, title: String, subtitle: String, acc
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .background(
-                Brush.linearGradient(
-                    listOf(CardioDeep, accent.copy(alpha = .96f))
-                )
+                CardioDeep
             )
             .padding(horizontal = 18.dp, vertical = 17.dp)
     ) {
@@ -1851,7 +1847,7 @@ private fun CardioSessionHero(session: CardioSession) {
     Box(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(25.dp))
-            .background(Brush.linearGradient(listOf(CardioDeep, Color(0xFF0B7A69))))
+            .background(CardioDeep)
             .padding(18.dp)
     ) {
         Box(
@@ -2051,7 +2047,7 @@ private fun CardioLoadPanel(snapshot: CardioLoadSnapshot) {
             Box(Modifier.fillMaxWidth().height(8.dp).background(CardioBorder.copy(alpha = .45f), RoundedCornerShape(8.dp))) {
                 Box(
                     Modifier.fillMaxWidth(ratioFraction).fillMaxHeight()
-                        .background(Brush.horizontalGradient(listOf(CardioBlue, CardioAccent)), RoundedCornerShape(8.dp))
+                        .background(CardioAccent, RoundedCornerShape(8.dp))
                 )
             }
             Spacer(Modifier.height(7.dp))
@@ -2111,9 +2107,7 @@ private fun CardioFeaturedRecords(sessions: List<CardioSession>) {
     Column(
         Modifier.fillMaxWidth()
             .background(
-                Brush.linearGradient(
-                    listOf(CardioGold.copy(alpha = if (SuperhumanAppearance.darkMode) .26f else .13f), CardioSurface)
-                ),
+                CardioSurface,
                 RoundedCornerShape(21.dp)
             )
             .border(1.dp, CardioGold.copy(alpha = .28f), RoundedCornerShape(21.dp))
