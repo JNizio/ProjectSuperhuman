@@ -98,7 +98,8 @@ private data class BloodPressureHistoryItem(
     val arm: String?,
     val position: String?,
     val sessionId: String?,
-    val readingIndex: String?
+    val readingIndex: String?,
+    val source: String? = null
 )
 
 private data class VitalsHistoryState(
@@ -214,8 +215,7 @@ private fun LatestVitalsSection(state: VitalsHistoryState, onRecord: (VitalsEntr
             label = "HEART RATE",
             value = state.heartRate.firstOrNull()?.let { "${it.value.toInt()} bpm" } ?: "No reading",
             detail = state.heartRate.firstOrNull()?.let { latest ->
-                val time = formatDateTime(latest.timestampEpochMs)
-                if (sourceLabel(latest) == "Demo data") "$time · Demo data" else time
+                "${formatDateTime(latest.timestampEpochMs)} · ${sourceLabel(latest)}"
             } ?: "Record manually or import from a wearable",
             accent = VitalsRed,
             values = state.heartRate.take(16).reversed().map { it.value },
@@ -224,7 +224,9 @@ private fun LatestVitalsSection(state: VitalsHistoryState, onRecord: (VitalsEntr
         LatestVitalCard(
             label = "BLOOD PRESSURE",
             value = state.bloodPressure.firstOrNull()?.let { "${it.systolic}/${it.diastolic} mmHg" } ?: "No reading",
-            detail = state.bloodPressure.firstOrNull()?.let { bpMetadataLabel(it) } ?: "Record a supported, timed measurement",
+            detail = state.bloodPressure.firstOrNull()?.let {
+                "${bpMetadataLabel(it)} · ${readableVitalsSource(it.source.orEmpty())}"
+            } ?: "Record a supported, timed measurement",
             accent = VitalsBlue,
             values = state.bloodPressure.take(16).reversed().map { it.systolic.toDouble() },
             onRecord = { onRecord(VitalsEntry.BLOOD_PRESSURE) }
@@ -232,7 +234,9 @@ private fun LatestVitalsSection(state: VitalsHistoryState, onRecord: (VitalsEntr
         LatestVitalCard(
             label = "BODY TEMPERATURE",
             value = state.temperature.firstOrNull()?.let { String.format(Locale.getDefault(), "%.1f °C", it.value) } ?: "No reading",
-            detail = state.temperature.firstOrNull()?.let { temperatureMetadataLabel(it) } ?: "Add the measurement site when known",
+            detail = state.temperature.firstOrNull()?.let {
+                "${temperatureMetadataLabel(it)} · ${sourceLabel(it)}"
+            } ?: "Add the measurement site when known",
             accent = VitalsCyan,
             values = state.temperature.take(16).reversed().map { it.value },
             onRecord = { onRecord(VitalsEntry.TEMPERATURE) }
@@ -327,7 +331,10 @@ private data class VitalsTimelineEntry(
 
 private fun vitalsTimeline(state: VitalsHistoryState): List<VitalsTimelineEntry> = buildList {
     state.bloodPressure.forEach { bp ->
-        val context = listOfNotNull(bp.arm, bp.position, bp.readingIndex?.let { "Reading $it" })
+        val context = listOfNotNull(
+            bp.arm, bp.position, bp.readingIndex?.let { "Reading $it" },
+            readableVitalsSource(bp.source.orEmpty())
+        )
             .joinToString(" · ")
         add(VitalsTimelineEntry(
             timestampEpochMs = bp.timestampEpochMs,
@@ -343,7 +350,7 @@ private fun vitalsTimeline(state: VitalsHistoryState): List<VitalsTimelineEntry>
             timestampEpochMs = value.timestampEpochMs,
             kind = VitalsHistoryFilter.TEMPERATURE,
             title = String.format(Locale.getDefault(), "%.1f °C", value.value),
-            detail = site
+            detail = "$site · ${sourceLabel(value)}"
         ))
     }
     state.heartRate.forEach { value ->
@@ -772,7 +779,7 @@ private suspend fun loadVitalsHistory(limit: Int = 200): VitalsHistoryState = wi
         } ?: return@mapNotNull null
         BloodPressureHistoryItem(
             sys.value.toInt(), dia.value.toInt(), sys.timestampEpochMs,
-            sys.metadata["arm"], sys.metadata["bodyPosition"], sys.metadata["vitalsSessionId"], sys.metadata["bpReadingIndex"]
+            sys.metadata["arm"], sys.metadata["bodyPosition"], sys.metadata["vitalsSessionId"], sys.metadata["bpReadingIndex"], sys.source
         )
     }.sortedByDescending { it.timestampEpochMs }
     VitalsHistoryState(heartRates, bp, temperatures, loading = false)
@@ -798,11 +805,17 @@ private fun temperatureMetadataLabel(value: HealthValue): String = listOfNotNull
     value.metadata["measurementSite"]?.replaceFirstChar { char -> char.uppercase() }
 ).joinToString(" · ")
 
-private fun sourceLabel(value: HealthValue): String = when {
-    value.source.contains("synthetic", ignoreCase = true) ||
-        value.metadata["entryMode"] == "synthetic" -> "Demo data"
-    value.metadata["entryMode"] == "manual" -> "Manual"
-    else -> value.source
+private fun readableVitalsSource(source: String, entryMode: String? = null): String = when {
+    source.contains("synthetic", ignoreCase = true) || entryMode == "synthetic" -> "Demo data"
+    entryMode == "manual" || source.contains("manual", ignoreCase = true) -> "Manual"
+    source.contains("health_connect", ignoreCase = true) ||
+        source.contains("health connect", ignoreCase = true) -> "Health Connect"
+    source.contains("ble", ignoreCase = true) ||
+        source.contains("wearable", ignoreCase = true) ||
+        source.contains("h19c", ignoreCase = true) -> "Wearable"
+    else -> "Imported"
 }
+private fun sourceLabel(value: HealthValue): String =
+    readableVitalsSource(value.source, value.metadata["entryMode"])
 private fun formatDateTime(epochMs: Long): String = SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()).format(Date(epochMs))
 private fun formatTime(epochMs: Long): String = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(epochMs))
