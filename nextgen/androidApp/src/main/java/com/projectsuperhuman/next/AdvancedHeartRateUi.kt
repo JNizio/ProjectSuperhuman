@@ -45,7 +45,7 @@ import kotlin.math.roundToInt
 private val AdvancedHeart get() = if (SuperhumanAppearance.darkMode) Color(0xFFFF91A3) else Color(0xFFD46072)
 private val AdvancedNavy get() = superhumanBrandText
 private val AdvancedMuted get() = superhumanTextMuted
-private val AdvancedBorder get() = superhumanBorder
+private val AdvancedBorder get() = softModuleOutline(superhumanBorder)
 private val AdvancedBlue get() = superhumanBlue
 private val AdvancedCyan get() = if (SuperhumanAppearance.darkMode) superhumanAccent else Color(0xFF20A7C4)
 private val AdvancedAmber get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFBD70) else Color(0xFFD99A45)
