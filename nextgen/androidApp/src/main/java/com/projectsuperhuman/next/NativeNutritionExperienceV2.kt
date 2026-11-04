@@ -24,6 +24,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
@@ -312,6 +315,7 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     var nutrientRange by remember { mutableStateOf(N2Range.DAY) }
     var nutrientDay by remember { mutableStateOf(N2Day()) }
     var lastRemoved by remember { mutableStateOf<N2Entry?>(null) }
+    var recentFoodHistory by remember { mutableStateOf<List<N2Entry>>(emptyList()) }
 
     fun selectOrCreateMeal(requested: String, openSearch: Boolean = false) {
         val trimmed = requested.trim().replace(Regex("\\s+"), " ").take(40)
@@ -497,10 +501,26 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
     LaunchedEffect(Unit) { NativeFoodCatalog.all(context) }
     LaunchedEffect(selectedDate, nutrientRange) { refreshAllNutrition() }
     LaunchedEffect(Unit) { recommendation = n2LoadGoalRecommendation() }
+    // Keep previously logged foods one tap away even on a new/empty day.
+    // Read bounded history once off-thread; newly logged foods appear via day entries.
+    LaunchedEffect(Unit) {
+        val zone = ZoneId.systemDefault()
+        val end = LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli() - 1L
+        val start = LocalDate.now(zone).minusDays(21).atStartOfDay(zone).toInstant().toEpochMilli()
+        val historical = NativeDataHub.domainBetween(HealthDomain.NUTRITION, start, end)
+        recentFoodHistory = withContext(Dispatchers.Default) {
+            n2BuildDay(historical).entries.sortedByDescending { it.timestamp }
+                .distinctBy { it.foodId }.take(6)
+        }
+    }
 
     // The flower's classification is based solely on the day's entries. Avoid
     // recalculating groupBy/eachCount for every unrelated keyboard or tab update.
     val dailyPlantDiversity = remember(day) { n2PlantDiversity(day) }
+    val quickRepeatFoods = remember(day, recentFoodHistory) {
+        (day.entries.sortedByDescending { it.timestamp } + recentFoodHistory)
+            .distinctBy { it.foodId }.take(4)
+    }
 
     if (foodSearchOpen) {
         N2FoodSearchScreen(
@@ -584,7 +604,9 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                         liveScan.launch(ScanOptions().setPrompt("Scan a food barcode").setBeepEnabled(false).setOrientationLocked(true))
                     },
                     onPhoto = { imagePicker.launch("image/*") },
-                    onBarcodeLookup = { scope.launch { lookupBarcode(barcode) } }
+                    onBarcodeLookup = { scope.launch { lookupBarcode(barcode) } },
+                    recentFoods = quickRepeatFoods,
+                    onRepeat = { entry -> scope.launch { repeatEntry(entry) } }
                 )
 
                 selected?.let { food ->
@@ -658,12 +680,6 @@ internal fun NativeNutritionExperienceV2Page(onBack: () -> Unit) {
                             }
                         }
                     )
-                }
-
-                if (day.entries.isNotEmpty()) {
-                    N2QuickRepeat(day.entries.take(4)) { entry ->
-                        scope.launch { repeatEntry(entry) }
-                    }
                 }
 
                 N2Diary(
@@ -1258,7 +1274,9 @@ private fun N2LogCard(
     onSearch: () -> Unit,
     onScan: () -> Unit,
     onPhoto: () -> Unit,
-    onBarcodeLookup: () -> Unit
+    onBarcodeLookup: () -> Unit,
+    recentFoods: List<N2Entry>,
+    onRepeat: (N2Entry) -> Unit
 ) {
     Column(
         Modifier.fillMaxWidth().midnightModuleCard(accent = N2Green, radius = 24.dp).padding(19.dp),
@@ -1268,7 +1286,13 @@ private fun N2LogCard(
             Text("Add food", color = N2Ink, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             Text("Search foods, scan packaging or import a barcode photo.", color = N2Muted, fontSize = 10.sp)
         }
-        OutlinedTextField(query, onQueryChange, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Food, brand or meal") })
+        OutlinedTextField(
+            value = query, onValueChange = onQueryChange,
+            modifier = Modifier.fillMaxWidth(), singleLine = true,
+            label = { Text("Food, brand or meal") },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { onSearch() })
+        )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(SuperhumanLayout.compactGap)) {
             N2IconActionButton(
                 iconRes = R.drawable.tabler_search,
@@ -1310,6 +1334,9 @@ private fun N2LogCard(
                 OutlinedTextField(barcode, onBarcodeChange, Modifier.weight(1f), singleLine = true, label = { Text("EAN / UPC / GTIN") })
                 N2Button(if (lookingUp) "…" else "Lookup", N2Blue, Modifier.width(84.dp), !lookingUp, onBarcodeLookup)
             }
+        }
+        if (recentFoods.isNotEmpty()) {
+            N2QuickRepeat(recentFoods, onRepeat)
         }
     }
 }
