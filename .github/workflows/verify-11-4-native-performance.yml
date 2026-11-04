@@ -40,5 +40,12 @@ jobs:
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:assembleDebug
       - name: Confirm APK output exists
         run: test -s nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+      - name: Upload installable Project Superhuman 11.4 APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProjectSuperhuman-11.4-APK
+          path: nextgen/androidApp/build/outputs/apk/debug/androidApp-debug.apk
+          if-no-files-found: error
+          retention-days: 30
       - name: Run all unit tests
         run: gradle --no-daemon --build-cache -p nextgen :androidApp:testDebugUnitTest
