@@ -213,6 +213,9 @@ internal val superhumanTextPrimary: Color get() = superhumanPalette.textPrimary
 internal val superhumanBrandText: Color get() = superhumanPalette.brandText
 internal val superhumanTextMuted: Color get() = superhumanPalette.textMuted
 internal val superhumanBorder: Color get() = superhumanPalette.border
+/** Recessive interior module outlines matching Home's nearly borderless cards. */
+internal fun softModuleOutline(color: Color): Color =
+    if (SuperhumanAppearance.darkMode) color.copy(alpha = 0.09f) else color
 internal val superhumanDivider: Color get() = superhumanPalette.divider
 internal val superhumanAccent: Color get() = superhumanPalette.accent
 internal val superhumanAccentSoft: Color get() = superhumanPalette.accentSoft
