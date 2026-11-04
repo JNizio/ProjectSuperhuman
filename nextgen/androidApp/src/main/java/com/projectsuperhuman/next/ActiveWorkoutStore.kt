@@ -20,7 +20,10 @@ internal data class ActiveWorkoutDraft(
     val selectedExerciseId: String?,
     val exerciseIds: List<String>,
     val sets: List<ActiveWorkoutSetDraft>,
-    val restEndsAt: Long
+    val restEndsAt: Long,
+    val paused: Boolean = false,
+    val pausedAt: Long = 0L,
+    val pausedTotalMs: Long = 0L
 )
 
 private const val ACTIVE_WORKOUT_PREFS = "superhuman_training"
@@ -38,6 +41,9 @@ internal fun saveActiveWorkoutDraft(context: Context, draft: ActiveWorkoutDraft?
         .put("selectedExerciseId", draft.selectedExerciseId ?: JSONObject.NULL)
         .put("exerciseIds", JSONArray(draft.exerciseIds))
         .put("restEndsAt", draft.restEndsAt)
+        .put("paused", draft.paused)
+        .put("pausedAt", draft.pausedAt)
+        .put("pausedTotalMs", draft.pausedTotalMs)
 
     val sets = JSONArray()
     draft.sets.forEach { set ->
@@ -93,7 +99,10 @@ internal fun loadActiveWorkoutDraft(context: Context): ActiveWorkoutDraft? {
             selectedExerciseId = if (root.isNull("selectedExerciseId")) null else root.optString("selectedExerciseId").takeIf { it.isNotBlank() },
             exerciseIds = exerciseIds,
             sets = sets,
-            restEndsAt = root.optLong("restEndsAt", 0L)
+            restEndsAt = root.optLong("restEndsAt", 0L),
+            paused = root.optBoolean("paused", false),
+            pausedAt = root.optLong("pausedAt", 0L),
+            pausedTotalMs = root.optLong("pausedTotalMs", 0L)
         )
     }.getOrNull()
 }

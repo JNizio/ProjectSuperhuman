@@ -475,7 +475,10 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         supersetTag = set.supersetTag
                     )
                 },
-                restEndsAt = restEndsAt
+                restEndsAt = restEndsAt,
+                paused = workoutPaused,
+                pausedAt = workoutPausedAt,
+                pausedTotalMs = workoutPausedTotalMs
             )
         )
     }
@@ -570,6 +573,9 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             }
             selected = draft.selectedExerciseId?.let(initialCatalogueById::get) ?: workoutExercises.firstOrNull()
             restEndsAt = draft.restEndsAt
+            workoutPaused = draft.paused
+            workoutPausedAt = draft.pausedAt
+            workoutPausedTotalMs = draft.pausedTotalMs
             restSeconds = (((restEndsAt - System.currentTimeMillis()).coerceAtLeast(0L) + 999L) / 1000L).toInt()
             mode = "home"
         }
@@ -582,7 +588,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         }
     }
 
-    LaunchedEffect(startedAt, workoutExercises.size, session.size, selected?.id, restEndsAt) {
+    LaunchedEffect(startedAt, workoutExercises.size, session.size, selected?.id, restEndsAt, workoutPaused, workoutPausedAt, workoutPausedTotalMs) {
         if (startedAt > 0L) writeActiveDraft()
     }
 
@@ -687,8 +693,13 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
             // Await every pending set write before completing the session.
             pendingSetJobs.toList().forEach { it.join() }
             if (setSaveFailed) {
-                feedbackMessage = "Some sets were not saved; retry before finishing"
-                return@launch
+                // Resume safely after transient offline/storage failures without creating duplicates.
+                session.forEach { set ->
+                    if (recent.none { it.timestampEpochMs == set.timestamp && it.metadata["exerciseId"] == set.exercise.id }) {
+                        persistSet(set)
+                    }
+                }
+                setSaveFailed = false
             }
             NativeDataHub.saveValues(listOf(HealthValue(
                 HealthDomain.EXERCISE,
@@ -728,12 +739,22 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     fun removeLoggedSet(set: NativeWorkoutSet) {
         session.remove(set)
         writeActiveDraft()
-        scope.launch {
-            recent.firstOrNull { it.timestampEpochMs == set.timestamp && it.metadata["exerciseId"] == set.exercise.id }?.let {
-                NativeDataHub.deleteValue(it)
+        val earlierJobs = pendingSetJobs.toList()
+        val job = scope.launch {
+            earlierJobs.forEach { it.join() }
+            try {
+                recent.firstOrNull { it.timestampEpochMs == set.timestamp && it.metadata["exerciseId"] == set.exercise.id }?.let {
+                    NativeDataHub.deleteValue(it)
+                }
+                refresh()
+            } catch (e: Exception) {
+                if (session.none { it.timestamp == set.timestamp }) session.add(set)
+                writeActiveDraft()
+                setSaveFailed = true
+                feedbackMessage = "Could not delete set; it was restored"
             }
-            refresh()
         }
+        pendingSetJobs.add(job)
     }
 
     fun updateLoggedSet(set: NativeWorkoutSet, reps: Int, loadKg: Double) {
@@ -742,7 +763,9 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         val updated = set.copy(reps = reps, loadKg = loadKg)
         session[index] = updated
         writeActiveDraft()
+        val earlierJobs = pendingSetJobs.toList()
         val job = scope.launch {
+            earlierJobs.forEach { it.join() }
             try {
                 val original = recent.firstOrNull {
                     it.timestampEpochMs == set.timestamp && it.metadata["exerciseId"] == set.exercise.id
@@ -777,11 +800,11 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         removeLoggedSet(set)
     }
 
-    val completedSessions = buildStrengthSessions(sessionRows, recent)
-    val strengthPrs = calculateStrengthPrs(recent, completedSessions)
-    val strengthProgress = calculateStrengthProgress(recent, completedSessions)
-    val muscleVolume = calculateMuscleVolume(recent, catalog)
-    val weekRecent = recent.filter { it.timestampEpochMs > System.currentTimeMillis() - 7L * 86400000L && isStrengthWorkingSet(it) }
+    val completedSessions = remember(sessionRows, recent) { buildStrengthSessions(sessionRows, recent) }
+    val strengthPrs = remember(recent, completedSessions) { calculateStrengthPrs(recent, completedSessions) }
+    val strengthProgress = remember(recent, completedSessions) { calculateStrengthProgress(recent, completedSessions) }
+    val muscleVolume = remember(recent, catalog) { calculateMuscleVolume(recent, catalog) }
+    val weekRecent = remember(recent) { recent.filter { it.timestampEpochMs > System.currentTimeMillis() - 7L * 86400000L && isStrengthWorkingSet(it) } }
 
     BackHandler {
         if (mode == "home") onBack() else mode = "home"
@@ -815,7 +838,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     workingSets = session.count { it.type != "Warmup" },
                     volumeKg = session.filter { it.type != "Warmup" }.sumOf { it.volume }.roundToInt(),
                     lastWorkout = lastSession?.name ?: "No completed workout yet",
-                    onAction = { if (startedAt > 0L) resumeWorkout() else mode = "start_picker" },
+                    onAction = { if (startedAt > 0L) resumeWorkout() else startWorkout() },
                     onDelete = {
                         if (startedAt > 0L) {
                             clearActiveWorkoutDraft(context)
@@ -1409,7 +1432,8 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                         showWorkoutRoutinePicker = false
                         mode = "home"
                     },
-                    onFinish = { if (!savingWorkout) finishWorkout() }
+                    onFinish = { if (!savingWorkout) finishWorkout() },
+                    saving = savingWorkout
                 )
 
                 if (restSeconds > 0) {
@@ -1455,19 +1479,20 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             target = routines.firstOrNull { it.name == workoutName }?.targetFor(exercise.id),
                             startedAt = startedAt,
                             deletePendingTimestamp = pendingSetDeleteTimestamp,
-                            onLog = { reps, kg ->
+                            onLog = { reps, kg, type, rir, rpe ->
                                 if (!savingWorkout) {
-                                    addSet(NativeWorkoutSet(exercise, reps, kg, System.currentTimeMillis()))
+                                    addSet(NativeWorkoutSet(exercise, reps, kg, System.currentTimeMillis(), type, rir, rpe))
                                 }
                             },
                             onEdit = { set, reps, kg -> if (!savingWorkout) updateLoggedSet(set, reps, kg) },
                             onDelete = { set ->
-                                if (pendingSetDeleteTimestamp == set.timestamp) {
+                                if (!savingWorkout && pendingSetDeleteTimestamp == set.timestamp) {
                                     pendingSetDeleteTimestamp = null
                                     removeLoggedSet(set)
-                                } else pendingSetDeleteTimestamp = set.timestamp
+                                } else if (!savingWorkout) pendingSetDeleteTimestamp = set.timestamp
                             },
                             onRemoveExercise = {
+                                if (savingWorkout) return@StrengthInlineExerciseLogger
                                 if (completedSets.isEmpty()) {
                                     workoutExercises.removeAll { it.id == exercise.id }
                                     if (selected?.id == exercise.id) selected = workoutExercises.firstOrNull()
@@ -1747,7 +1772,8 @@ private fun StrengthLiveControlBar(
     exerciseCount: Int,
     onPlayPause: () -> Unit,
     onDelete: () -> Unit,
-    onFinish: () -> Unit
+    onFinish: () -> Unit,
+    saving: Boolean
 ) {
     // Isolate the 1 Hz clock. Previously every tick invalidated the entire
     // exercise screen (library, history, routine editor and workout forms).
@@ -1785,7 +1811,7 @@ private fun StrengthLiveControlBar(
                 .superhumanClickable(onClick = onFinish).padding(vertical = 11.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("FINISH WORKOUT", color = ExerciseBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            Text(if (saving) "SAVING WORKOUT…" else "FINISH WORKOUT", color = ExerciseBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

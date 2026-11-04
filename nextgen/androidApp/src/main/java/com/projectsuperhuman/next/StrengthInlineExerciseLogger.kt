@@ -43,7 +43,7 @@ internal fun StrengthInlineExerciseLogger(
     target: RoutineExerciseTarget?,
     startedAt: Long,
     deletePendingTimestamp: Long?,
-    onLog: (Int, Double) -> Unit,
+    onLog: (Int, Double, String, Int?, Double?) -> Unit,
     onEdit: (NativeWorkoutSet, Int, Double) -> Unit,
     onDelete: (NativeWorkoutSet) -> Unit,
     onRemoveExercise: () -> Unit
@@ -60,6 +60,10 @@ internal fun StrengthInlineExerciseLogger(
         mutableStateOf(priorKg?.let(::strengthInlineNumber) ?: "0")
     }
     var inputError by rememberSaveable(startedAt, exercise.id) { mutableStateOf(false) }
+    var advanced by rememberSaveable(startedAt, exercise.id) { mutableStateOf(false) }
+    var setKind by rememberSaveable(startedAt, exercise.id) { mutableStateOf("Work") }
+    var rirText by rememberSaveable(startedAt, exercise.id) { mutableStateOf("") }
+    var rpeText by rememberSaveable(startedAt, exercise.id) { mutableStateOf("") }
     val previousLabel = if (priorReps != null && priorKg != null) {
         strengthInlineNumber(priorKg) + " kg × " + priorReps
     } else "—"
@@ -160,6 +164,31 @@ internal fun StrengthInlineExerciseLogger(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
         }
+        Text(
+            if (advanced) "HIDE SET OPTIONS" else "SET OPTIONS (WARM-UP / EFFORT)",
+            color = muted, fontSize = 10.sp,
+            modifier = Modifier.clickable { advanced = !advanced }.padding(vertical = 4.dp)
+        )
+        if (advanced) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("WORKING", color = if (setKind == "Work") accent else muted,
+                    modifier = Modifier.clickable { setKind = "Work" }.padding(7.dp), fontSize = 11.sp)
+                Text("WARM-UP", color = if (setKind == "Warmup") accent else muted,
+                    modifier = Modifier.clickable { setKind = "Warmup" }.padding(7.dp), fontSize = 11.sp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    rirText, { rirText = it.filter(Char::isDigit).take(2) },
+                    Modifier.weight(1f), label = { Text("RIR (optional)") },
+                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                OutlinedTextField(
+                    rpeText, { rpeText = strengthInlineDecimal(it) },
+                    Modifier.weight(1f), label = { Text("RPE (optional)") },
+                    singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("SET " + (completed.size + 1), Modifier.weight(1f), color = muted, fontSize = 11.sp)
             Text("COMPLETE SET", color = superhumanGreen, fontSize = 12.sp, fontWeight = FontWeight.Bold,
@@ -168,12 +197,18 @@ internal fun StrengthInlineExerciseLogger(
                         val reps = repsText.toIntOrNull()
                         val kg = kgText.toDoubleOrNull()
                         if (reps != null && reps > 0 && kg != null && kg >= 0.0 && kg.isFinite()) {
-                            onLog(reps, kg)
-                            inputError = false
+                            val rir = rirText.toIntOrNull()?.takeIf { it in 0..20 }
+                            val rpe = rpeText.toDoubleOrNull()?.takeIf { it in 0.0..10.0 }
+                            if ((rirText.isNotBlank() && rir == null) || (rpeText.isNotBlank() && rpe == null)) {
+                                inputError = true
+                            } else {
+                                onLog(reps, kg, setKind, rir, rpe)
+                                inputError = false
+                            }
                         } else inputError = true
                     }.padding(horizontal = 16.dp, vertical = 13.dp))
         }
-        if (inputError) Text("Enter valid reps and a non-negative weight.", color = superhumanRed, fontSize = 11.sp)
+        if (inputError) Text("Check reps, non-negative weight, and optional effort values.", color = superhumanRed, fontSize = 11.sp)
     }
 }
 
