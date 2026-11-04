@@ -283,7 +283,7 @@ internal fun HomeSupplementsTile(onOpen: () -> Unit) {
              else if (lastTouched != null) lastTouched.orEmpty()
              else if (day.takenPills == day.totalPills) "All scheduled pills logged"
              else "Tap a capsule to log it",
-            color = muted, fontSize = 9.sp, maxLines = 1,
+            color = muted, fontSize = 11.sp, maxLines = 1,
             overflow = TextOverflow.Ellipsis)
     }
 }
