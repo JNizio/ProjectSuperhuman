@@ -146,13 +146,13 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
                 RoundedCornerShape(24.dp)
             ).superhumanClickable { guidedRoutineOpen = true }.padding(17.dp)
         ) {
-            Text("GUIDED BREATHWORK", color = Color.White.copy(alpha = .68f), fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+            Text("GUIDED BREATHWORK", color = Color.White.copy(alpha = .68f), fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
             Spacer(Modifier.height(5.dp))
             Text("Deep-breath bubble routine", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
-            Text("30 breaths · 1:30 hold · recovery · 30 breaths · 2:00 hold", color = Color.White.copy(alpha = .76f), fontSize = 9.sp)
+            Text("30 breaths · 1:30 hold · recovery · 30 breaths · 2:00 hold", color = Color.White.copy(alpha = .76f), fontSize = 11.sp)
             Spacer(Modifier.height(12.dp))
             Box(Modifier.background(Color.White.copy(alpha = .13f), RoundedCornerShape(14.dp)).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                Text("OPEN GUIDED SESSION  →", color = Color(0xFF7CE3D2), fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("OPEN GUIDED SESSION  →", color = Color(0xFF7CE3D2), fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
         }
 
@@ -166,7 +166,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
                         Modifier.weight(1f).background(if (active) MindPurple else MindPurple.copy(alpha = if (SuperhumanAppearance.darkMode) .16f else .08f), RoundedCornerShape(14.dp)).superhumanClickable { mode = item }.padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(item.label, color = if (active) Color.White else MindPurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text(item.label, color = if (active) Color.White else MindPurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -188,13 +188,13 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
             }
             if (running) {
                 Spacer(Modifier.height(8.dp))
-                Text("Tap the timer to pause. Slow, comfortable breathing; never force breath holds or continue if dizzy.", color = MindMuted, fontSize = 9.sp, lineHeight = 14.sp)
+                Text("Tap the timer to pause. Slow, comfortable breathing; never force breath holds or continue if dizzy.", color = MindMuted, fontSize = 11.sp, lineHeight = 14.sp)
             }
         }
 
         Column(Modifier.fillMaxWidth().background(MindPurple.copy(alpha = if (SuperhumanAppearance.darkMode) .14f else .08f), RoundedCornerShape(22.dp)).padding(16.dp)) {
             Text("Stress check-in", color = MindPurple, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("Optional 0–10 ratings help show whether a session changes perceived stress.", color = MindMuted, fontSize = 9.sp, lineHeight = 14.sp)
+            Text("Optional 0–10 ratings help show whether a session changes perceived stress.", color = MindMuted, fontSize = 11.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(value = stressBefore, onValueChange = { stressBefore = it.filter { c -> c.isDigit() || c == '.' }.take(4) }, modifier = Modifier.weight(1f), singleLine = true, label = { Text("Before") })
@@ -205,17 +205,17 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
                 Text("SAVE SESSION", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(7.dp))
-            Text(status, color = MindMuted, fontSize = 9.sp)
+            Text(status, color = MindMuted, fontSize = 11.sp)
         }
 
         Column(Modifier.fillMaxWidth().background(MindSurface, RoundedCornerShape(20.dp)).padding(16.dp)) {
             Text("Practice approach", color = MindInk, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
-            Text("Use relaxed breathing and non-reactive attention. The aim is practice and nervous-system regulation, not forcing symptoms or sensations to disappear.", color = MindMuted, fontSize = 9.sp, lineHeight = 14.sp)
+            Text("Use relaxed breathing and non-reactive attention. The aim is practice and nervous-system regulation, not forcing symptoms or sensations to disappear.", color = MindMuted, fontSize = 11.sp, lineHeight = 14.sp)
         }
 
         Column(Modifier.fillMaxWidth().background(MindSurface, RoundedCornerShape(20.dp)).padding(16.dp)) {
             Text("Existing guided tools", color = MindBlue, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-            Text("The previous mindfulness tools remain available as a compatibility fallback during parity testing.", color = MindMuted, fontSize = 9.sp, lineHeight = 14.sp)
+            Text("The previous mindfulness tools remain available as a compatibility fallback during parity testing.", color = MindMuted, fontSize = 11.sp, lineHeight = 14.sp)
             Spacer(Modifier.height(9.dp))
             Box(Modifier.fillMaxWidth().background(MindBlue, RoundedCornerShape(15.dp)).superhumanClickable(onClick = openLegacy).padding(13.dp), contentAlignment = Alignment.Center) {
                 Text("OPEN EXISTING TOOLS", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
@@ -228,7 +228,7 @@ internal fun NativeMindfulnessParityScreen(onBack: () -> Unit, openLegacy: () ->
 @Composable
 private fun MindStat(label: String, value: String, accent: Color, modifier: Modifier) {
     Column(modifier.background(MindSurface, RoundedCornerShape(16.dp)).padding(11.dp)) {
-        Text(label, color = MindMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = MindMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
         Text(value, color = accent, fontSize = 14.sp, fontWeight = FontWeight.Black)
     }

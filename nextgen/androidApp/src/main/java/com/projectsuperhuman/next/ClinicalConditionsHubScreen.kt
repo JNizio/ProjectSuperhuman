@@ -262,7 +262,7 @@ private fun ClinicalOverviewCard(
         Text(
             "CLINICAL OVERVIEW",
             color = ClinicalHubBlue,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 1.2.sp
         )
@@ -328,7 +328,7 @@ private fun ClinicalOverviewCard(
                 Text(
                     "CURRENT PICTURE",
                     color = ClinicalHubMuted,
-                    fontSize = 7.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = .8.sp
                 )
@@ -363,7 +363,7 @@ private fun ClinicalMetricBlock(
         ).padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Text(value, color = accent, fontSize = 19.sp, fontWeight = FontWeight.Black)
-        Text(label, color = ClinicalHubMuted, fontSize = 8.sp, fontWeight = FontWeight.SemiBold)
+        Text(label, color = ClinicalHubMuted, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -376,7 +376,7 @@ private fun ClinicalQuickActions(
         Text(
             "QUICK ACTIONS",
             color = ClinicalHubMuted,
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 1.sp
         )
@@ -435,7 +435,7 @@ private fun ConditionsSummaryCard(
                 Text(
                     "CONDITIONS",
                     color = ClinicalHubBlue,
-                    fontSize = 8.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
@@ -456,7 +456,7 @@ private fun ConditionsSummaryCard(
             Text(
                 "Add conditions you want Project Superhuman to consider as clinical context.",
                 color = ClinicalHubMuted,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 lineHeight = 13.sp
             )
         } else {
@@ -513,7 +513,7 @@ private fun RecordedConditionRow(
             Text(
                 secondary,
                 color = if (general) ClinicalHubBlue else ClinicalHubMuted,
-                fontSize = 8.sp,
+                fontSize = 10.sp,
                 lineHeight = 11.sp
             )
         }
@@ -526,7 +526,7 @@ private fun RecordedConditionRow(
             Text(
                 "Remove",
                 color = ClinicalHubAlert,
-                fontSize = 8.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.superhumanClickable(onClick = onRemove)
                     .padding(horizontal = 6.dp, vertical = 6.dp)
@@ -568,7 +568,7 @@ private fun LabSummaryCard(
                 Text(
                     "BLOOD TESTS",
                     color = ClinicalHubLab,
-                    fontSize = 8.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
@@ -588,7 +588,7 @@ private fun LabSummaryCard(
                 Text(
                     "Import results to review ranges and trends.",
                     color = ClinicalHubMuted,
-                    fontSize = 9.sp
+                    fontSize = 11.sp
                 )
             } else {
                 Text(
@@ -605,7 +605,7 @@ private fun LabSummaryCard(
                     }
                     if (lastResults != "—") append(" · Last $lastResults")
                 }
-                Text(detail, color = ClinicalHubMuted, fontSize = 9.sp, lineHeight = 13.sp)
+                Text(detail, color = ClinicalHubMuted, fontSize = 11.sp, lineHeight = 13.sp)
             }
         }
         Spacer(Modifier.width(8.dp))
@@ -624,7 +624,7 @@ private fun ClinicalContextNote(activeCount: Int) {
         Text(
             "CLINICAL CONTEXT",
             color = ClinicalHubMuted,
-            fontSize = 7.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = .9.sp
         )
@@ -641,7 +641,7 @@ private fun ClinicalContextNote(activeCount: Int) {
         Text(
             "Project Superhuman does not turn symptoms or measurements into diagnoses automatically.",
             color = ClinicalHubMuted,
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             lineHeight = 12.sp
         )
     }
@@ -692,7 +692,7 @@ private fun ClinicalConditionAddFlow(
             Text(
                 "FIND A CONDITION",
                 color = ClinicalHubBlue,
-                fontSize = 8.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 1.sp
             )
@@ -721,7 +721,7 @@ private fun ClinicalConditionAddFlow(
             Text(
                 catalogueState,
                 color = ClinicalHubMuted,
-                fontSize = 8.sp,
+                fontSize = 10.sp,
                 lineHeight = 11.sp
             )
         }
@@ -742,7 +742,7 @@ private fun ClinicalConditionAddFlow(
                 Text(
                     "Everyday names, abbreviations and ICD-11 codes are supported. Choose a general condition when the exact subtype is unknown.",
                     color = ClinicalHubMuted,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     lineHeight = 13.sp
                 )
             }
@@ -756,7 +756,7 @@ private fun ClinicalConditionAddFlow(
                 Text(
                     "BEST MATCHES",
                     color = ClinicalHubMuted,
-                    fontSize = 8.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
@@ -779,7 +779,7 @@ private fun ClinicalConditionAddFlow(
                         Text(
                             "GENERAL CONDITION",
                             color = ClinicalHubBlue,
-                            fontSize = 7.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = .8.sp
                         )
@@ -797,7 +797,7 @@ private fun ClinicalConditionAddFlow(
                             Text(
                                 "MORE SPECIFIC TYPES",
                                 color = ClinicalHubMuted,
-                                fontSize = 7.sp,
+                                fontSize = 10.sp,
                                 fontWeight = FontWeight.Black,
                                 letterSpacing = .8.sp
                             )
@@ -864,7 +864,7 @@ private fun ConditionSearchResultRow(
                 Text(
                     "Exact subtype not specified · family-level context",
                     color = ClinicalHubMuted,
-                    fontSize = 8.sp,
+                    fontSize = 10.sp,
                     lineHeight = 11.sp
                 )
             } else {
@@ -872,7 +872,7 @@ private fun ConditionSearchResultRow(
                     Text(
                         result.officialTitle,
                         color = ClinicalHubMuted,
-                        fontSize = 8.sp,
+                        fontSize = 10.sp,
                         lineHeight = 11.sp
                     )
                 }
@@ -880,12 +880,12 @@ private fun ConditionSearchResultRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(condition.code, color = ClinicalHubMuted, fontSize = 7.sp)
-                    Text("·", color = ClinicalHubMuted, fontSize = 7.sp)
+                    Text(condition.code, color = ClinicalHubMuted, fontSize = 10.sp)
+                    Text("·", color = ClinicalHubMuted, fontSize = 10.sp)
                     Text(
                         result.matchLabel,
                         color = ClinicalHubBlue,
-                        fontSize = 7.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -912,7 +912,7 @@ private fun ClinicalStatusChip(
         Text(
             text,
             color = accent,
-            fontSize = 7.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = .35.sp
         )

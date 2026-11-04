@@ -296,7 +296,7 @@ internal fun SmartDevicesHub(onBack: () -> Unit, modifier: Modifier = Modifier) 
             Text(
                 "Fast workout sensors stay direct. Watches and health apps can share history through Health Connect.",
                 color = androidx.compose.ui.graphics.Color.White.copy(alpha = .74f),
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 lineHeight = 14.sp
             )
         }
@@ -305,7 +305,7 @@ internal fun SmartDevicesHub(onBack: () -> Unit, modifier: Modifier = Modifier) 
         Text(
             "Choose the brand you already use. Each shortcut shows the real route instead of pretending every watch has a direct connection.",
             color = superhumanTextMuted,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             lineHeight = 14.sp
         )
         LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -330,13 +330,13 @@ internal fun SmartDevicesHub(onBack: () -> Unit, modifier: Modifier = Modifier) 
                 Text(
                     "1. In " + selected.companionApp + ", enable Health Connect sharing.  2. Grant Project Superhuman the health permissions you want.  3. Return here and sync.",
                     color = superhumanTextMuted,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     lineHeight = 14.sp
                 )
                 Text(
                     "Route: " + selected.companionApp + " → Health Connect → Project Superhuman. This is not presented as a direct vendor connection.",
                     color = superhumanTextPrimary,
-                    fontSize = 8.sp,
+                    fontSize = 10.sp,
                     lineHeight = 12.sp
                 )
                 DeviceAction(
@@ -459,7 +459,7 @@ internal fun SmartDevicesHub(onBack: () -> Unit, modifier: Modifier = Modifier) 
             Text(
                 "NEARBY HEART-RATE SENSORS",
                 color = superhumanTextMuted,
-                fontSize = 8.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = .8.sp
             )
@@ -481,7 +481,7 @@ internal fun SmartDevicesHub(onBack: () -> Unit, modifier: Modifier = Modifier) 
                     ) {
                         Text(device.displayName, color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.heightIn(min = 3.dp))
-                        Text("Signal ${device.rssi} dBm · tap to connect", color = superhumanTextMuted, fontSize = 9.sp)
+                        Text("Signal ${device.rssi} dBm · tap to connect", color = superhumanTextMuted, fontSize = 11.sp)
                     }
                 }
             }
@@ -586,12 +586,12 @@ internal fun SmartDevicesHub(onBack: () -> Unit, modifier: Modifier = Modifier) 
                 .background(superhumanSurfaceSoft, RoundedCornerShape(16.dp))
                 .padding(13.dp)
         ) {
-            Text("SOURCE RULES", color = superhumanTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Text("SOURCE RULES", color = superhumanTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.heightIn(min = 4.dp))
             Text(
                 "Direct devices are the fast path for live physiology. Health Connect is treated as delayed historical/backfill data. Disconnecting or forgetting a device never deletes measurements already stored in the Data Vault.",
                 color = superhumanTextPrimary,
-                fontSize = 9.sp,
+                fontSize = 11.sp,
                 lineHeight = 14.sp
             )
         }
@@ -628,11 +628,11 @@ private fun PopularConnectionCard(
             ) {
                 Text(connection.mark, color = androidx.compose.ui.graphics.Color.White, fontSize = 13.sp, fontWeight = FontWeight.Black)
             }
-            Text("SET UP", color = superhumanBlue, fontSize = 7.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 8.dp))
+            Text("SET UP", color = superhumanBlue, fontSize = 10.sp, fontWeight = FontWeight.Black, modifier = Modifier.padding(start = 8.dp))
         }
         Text(connection.name, color = superhumanTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Black)
-        Text(connection.description, color = superhumanTextMuted, fontSize = 8.sp, lineHeight = 11.sp)
-        Text("via Health Connect", color = superhumanBlue, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        Text(connection.description, color = superhumanTextMuted, fontSize = 10.sp, lineHeight = 11.sp)
+        Text("via Health Connect", color = superhumanBlue, fontSize = 10.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -641,7 +641,7 @@ private fun SmartDeviceSectionLabel(label: String) {
     Text(
         label,
         color = superhumanTextMuted,
-        fontSize = 8.sp,
+        fontSize = 10.sp,
         fontWeight = FontWeight.Black,
         letterSpacing = 1.0.sp
     )
@@ -654,7 +654,7 @@ private fun DeviceBadge(label: String, accent: androidx.compose.ui.graphics.Colo
             .background(accent.copy(alpha = .12f), RoundedCornerShape(16.dp))
             .padding(horizontal = 10.dp, vertical = 6.dp)
     ) {
-        Text(label, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Text(label, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -682,7 +682,7 @@ private fun DeviceHubCard(
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
                 Text(title, color = superhumanTextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Black)
-                Text(capabilities, color = superhumanTextMuted, fontSize = 8.sp, lineHeight = 12.sp)
+                Text(capabilities, color = superhumanTextMuted, fontSize = 10.sp, lineHeight = 12.sp)
             }
             Box(
                 Modifier
@@ -695,13 +695,13 @@ private fun DeviceHubCard(
                 Text(
                     status,
                     color = if (healthy) superhumanGreen else superhumanTextMuted,
-                    fontSize = 7.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Black
                 )
             }
         }
 
-        Text(subtitle, color = superhumanTextMuted, fontSize = 9.sp, lineHeight = 13.sp)
+        Text(subtitle, color = superhumanTextMuted, fontSize = 11.sp, lineHeight = 13.sp)
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DeviceAction(
@@ -751,7 +751,7 @@ private fun DeviceAction(
         Text(
             label,
             color = if (enabled) accent else superhumanTextMuted,
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Black
         )
     }

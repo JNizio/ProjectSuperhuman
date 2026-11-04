@@ -273,7 +273,7 @@ private fun CardioHubStartBar(
             Text(
                 "EDIT",
                 color = superhumanBlue,
-                fontSize = 8.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Black,
                 modifier = Modifier.superhumanClickable { onEdit() }.padding(horizontal = 8.dp, vertical = 6.dp)
             )
@@ -329,7 +329,7 @@ private fun CardioHubStartActivityAction(
         Text(
             cardioHubQuickLabel(activity),
             color = superhumanTextPrimary,
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1
         )
@@ -361,7 +361,7 @@ private fun CardioHubStartMoreAction(
             )
         }
         Spacer(Modifier.height(4.dp))
-        Text("More", color = superhumanTextPrimary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        Text("More", color = superhumanTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -418,7 +418,7 @@ private fun CardioHubOverviewPanel(
                 Text(
                     "PROGRESS",
                     color = superhumanTextMuted,
-                    fontSize = 8.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = .8.sp
                 )
@@ -432,7 +432,7 @@ private fun CardioHubOverviewPanel(
             Text(
                 "GOALS",
                 color = superhumanBlue,
-                fontSize = 8.sp,
+                fontSize = 10.sp,
                 fontWeight = FontWeight.Black,
                 modifier = Modifier.superhumanClickable { onEditGoals() }.padding(horizontal = 8.dp, vertical = 8.dp)
             )
@@ -451,7 +451,7 @@ private fun CardioHubOverviewPanel(
                     Text(
                         metric.shortLabel.uppercase(),
                         color = metric.accent,
-                        fontSize = 8.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Black,
                         letterSpacing = .5.sp
                     )
@@ -476,7 +476,7 @@ private fun CardioHubOverviewPanel(
                         Text(
                             "${sign}${String.format(Locale.US, "%.0f", it)}%",
                             color = changeColor,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Black
                         )
                     }
@@ -598,7 +598,7 @@ private fun CardioHubOverviewPanel(
                         "Add recovery data to build your capacity view"
                     },
                     color = superhumanTextMuted,
-                    fontSize = 8.sp
+                    fontSize = 10.sp
                 )
             }
             CardioHubSignalDots(readiness.availableSignals, readiness.totalSignals, superhumanBlue)
@@ -625,7 +625,7 @@ private fun CardioHubOverviewPanel(
                 Text(
                     "Choose what you want to analyse on the main chart.",
                     color = superhumanTextMuted,
-                    fontSize = 9.sp
+                    fontSize = 11.sp
                 )
                 Spacer(Modifier.height(14.dp))
 
@@ -659,11 +659,11 @@ private fun CardioHubOverviewPanel(
                             Text(
                                 option.label,
                                 color = superhumanTextMuted,
-                                fontSize = 8.sp
+                                fontSize = 10.sp
                             )
                         }
                         if (selected) {
-                            Text("SELECTED", color = option.accent, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                            Text("SELECTED", color = option.accent, fontSize = 10.sp, fontWeight = FontWeight.Black)
                         } else {
                             Text("›", color = superhumanTextMuted, fontSize = 18.sp)
                         }
@@ -698,7 +698,7 @@ private fun CardioHubSelectorChip(
         Text(
             label,
             color = if (selected) accent else superhumanTextMuted,
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             fontWeight = if (selected) FontWeight.Black else FontWeight.SemiBold
         )
     }
@@ -725,7 +725,7 @@ private fun CardioHubRangeChip(
         Text(
             label,
             color = if (selected) superhumanBlue else superhumanTextMuted,
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Black
         )
     }
@@ -764,7 +764,7 @@ private fun CardioHubProgressChart(
                 Text(
                     "Your ${metric.shortLabel.lowercase(Locale.US)} trend will appear after you record sessions.",
                     color = superhumanTextMuted,
-                    fontSize = 8.sp
+                    fontSize = 10.sp
                 )
                 Spacer(Modifier.height(12.dp))
                 Box(
@@ -777,7 +777,7 @@ private fun CardioHubProgressChart(
                     Text(
                         "Log cardio",
                         color = metric.accent,
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -788,8 +788,8 @@ private fun CardioHubProgressChart(
         val max = values.maxOrNull() ?: 0.0
         val min = values.minOrNull() ?: max
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(cardioHubFormatProgressMetric(metric, max), color = superhumanTextMuted, fontSize = 8.sp)
-            Text(cardioHubFormatProgressMetric(metric, min), color = superhumanTextMuted, fontSize = 8.sp)
+            Text(cardioHubFormatProgressMetric(metric, max), color = superhumanTextMuted, fontSize = 10.sp)
+            Text(cardioHubFormatProgressMetric(metric, min), color = superhumanTextMuted, fontSize = 10.sp)
         }
         Spacer(Modifier.height(5.dp))
         Canvas(modifier) {
@@ -844,7 +844,7 @@ private fun CardioHubProgressStat(
         Text(
             label,
             color = superhumanTextMuted,
-            fontSize = 7.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
@@ -873,9 +873,9 @@ private fun CardioHubSimpleStat(
             .background(superhumanSurfaceSoft, RoundedCornerShape(14.dp))
             .padding(horizontal = 11.dp, vertical = 9.dp)
     ) {
-        Text(label, color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+        Text(label, color = superhumanTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
         Text(value, color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black)
-        Text(detail, color = superhumanTextMuted, fontSize = 7.sp)
+        Text(detail, color = superhumanTextMuted, fontSize = 10.sp)
     }
 }
 
@@ -1015,7 +1015,7 @@ private fun CardioHubSensorStrip(metrics: CardioLiveSensorMetrics) {
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.weight(1f)
         )
-        Text("MANAGE ›", color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Text("MANAGE ›", color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -1049,7 +1049,7 @@ private fun CardioHubQuickStart(onQuickStart: (CardioActivityType) -> Unit) {
             ) {
                 CardioHubGlyphIcon(glyph, accent, Modifier.size(23.dp))
                 Spacer(Modifier.height(5.dp))
-                Text(label, color = superhumanTextPrimary, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text(label, color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
         }
     }
@@ -1083,7 +1083,7 @@ private fun CardioHubRecordsTile(
                 fontWeight = FontWeight.Black,
                 modifier = Modifier.weight(1f)
             )
-            Text("VIEW ›", color = Color(0xFFD1A03D), fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Text("VIEW ›", color = Color(0xFFD1A03D), fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
         Spacer(Modifier.height(10.dp))
         Row(
@@ -1102,7 +1102,7 @@ private fun CardioHubRecordsTile(
                     longestDuration?.let { add("Longest ${cardioHubDuration(it)}") }
                 }.joinToString(" · "),
                 color = superhumanTextMuted,
-                fontSize = 8.sp
+                fontSize = 10.sp
             )
         }
     }
@@ -1115,7 +1115,7 @@ private fun CardioHubRecordStat(label: String, value: String, modifier: Modifier
             .background(superhumanSurfaceSoft, RoundedCornerShape(13.dp))
             .padding(horizontal = 9.dp, vertical = 9.dp)
     ) {
-        Text(label, color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+        Text(label, color = superhumanTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
         Text(value, color = superhumanTextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Black)
     }
 }
@@ -1152,7 +1152,7 @@ private fun CardioHubRecentSessionCard(session: CardioSession, onClick: () -> Un
             Spacer(Modifier.width(8.dp))
             Column(Modifier.weight(1f)) {
                 Text(session.activity.displayName, color = superhumanTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black)
-                Text(whenText, color = superhumanTextMuted, fontSize = 8.sp)
+                Text(whenText, color = superhumanTextMuted, fontSize = 10.sp)
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -1169,7 +1169,7 @@ private fun CardioHubRecentSessionCard(session: CardioSession, onClick: () -> Un
                 session.avgHeartRate?.let { add("$it bpm") }
             }.joinToString(" · ").ifBlank { "Completed session" },
             color = superhumanTextMuted,
-            fontSize = 8.sp
+            fontSize = 10.sp
         )
         if (session.zoneSeconds.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
@@ -1202,9 +1202,9 @@ private fun CardioHubPreviewTile(
             Text("›", color = accent, fontSize = 17.sp)
         }
         Spacer(Modifier.height(7.dp))
-        Text(title, color = superhumanTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Text(title, color = superhumanTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
         Text(value, color = superhumanTextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Black)
-        Text(detail, color = superhumanTextMuted, fontSize = 7.sp, lineHeight = 9.sp)
+        Text(detail, color = superhumanTextMuted, fontSize = 10.sp, lineHeight = 9.sp)
         if (sparkline.size >= 2) {
             Spacer(Modifier.height(5.dp))
             CardioHubSparkline(sparkline, accent, Modifier.fillMaxWidth().height(22.dp))
@@ -1261,7 +1261,7 @@ private fun CardioHubReadinessSheet(
         Text(
             "Training/recovery signal only — not medical clearance.",
             color = superhumanTextMuted,
-            fontSize = 9.sp
+            fontSize = 11.sp
         )
         Spacer(Modifier.height(14.dp))
         CardioHubSheetAction("Open trends & recovery", superhumanBlue, onOpen)
@@ -1374,7 +1374,7 @@ internal fun CardioRecordsHubScreen(sessions: List<CardioSession>) {
         Text(
             "Session summaries above are not exact-distance records. Verified records remain evidence-gated.",
             color = superhumanTextMuted,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             lineHeight = 13.sp
         )
         CardioHubExpandableRow(
@@ -1435,7 +1435,7 @@ private fun CardioHubExpandableRow(
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black)
-            Text(detail, color = superhumanTextMuted, fontSize = 8.sp)
+            Text(detail, color = superhumanTextMuted, fontSize = 10.sp)
         }
         Text(if (expanded) "−" else "+", color = accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
     }
@@ -1454,7 +1454,7 @@ private fun CardioHubSummaryBlock(
     ) {
         CardioHubGlyphIcon(glyph, accent, Modifier.size(20.dp))
         Spacer(Modifier.height(9.dp))
-        Text(label, color = superhumanTextMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+        Text(label, color = superhumanTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
         Text(value, color = superhumanTextPrimary, fontSize = 19.sp, fontWeight = FontWeight.Black)
     }
 }
@@ -1467,14 +1467,14 @@ private fun CardioHubSectionHeader(title: String, subtitle: String, modifier: Mo
     ) {
         Text(title, color = superhumanTextPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.width(8.dp))
-        Text(subtitle, color = superhumanTextMuted, fontSize = 8.sp)
+        Text(subtitle, color = superhumanTextMuted, fontSize = 10.sp)
     }
 }
 
 @Composable
 private fun CardioHubCompactStat(label: String, value: String, accent: Color = superhumanTextPrimary) {
     Column {
-        Text(label, color = superhumanTextMuted, fontSize = 7.sp, fontWeight = FontWeight.Black)
+        Text(label, color = superhumanTextMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
         Text(value, color = accent, fontSize = 13.sp, fontWeight = FontWeight.Black)
     }
 }
@@ -1633,7 +1633,7 @@ private fun CardioHubSheetTitle(glyph: CardioHubGlyph, title: String, accent: Co
 @Composable
 private fun CardioHubDetailRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 7.dp), verticalAlignment = Alignment.Top) {
-        Text(label, color = superhumanTextMuted, fontSize = 9.sp, modifier = Modifier.width(118.dp))
+        Text(label, color = superhumanTextMuted, fontSize = 11.sp, modifier = Modifier.width(118.dp))
         Text(value, color = superhumanTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
     }
 }
@@ -1648,7 +1648,7 @@ private fun CardioHubSignalDetail(label: String, value: String) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(label, color = superhumanTextPrimary, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        Text(value, color = superhumanBlue, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = superhumanBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -1669,14 +1669,14 @@ private fun CardioHubQuickStartEditor(
         Text(
             "Choose which four activities appear on the Cardio home screen.",
             color = superhumanTextMuted,
-            fontSize = 9.sp
+            fontSize = 11.sp
         )
         Spacer(Modifier.height(14.dp))
 
         Text(
             "SLOTS",
             color = superhumanTextMuted,
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = .5.sp
         )
@@ -1706,7 +1706,7 @@ private fun CardioHubQuickStartEditor(
                     Text(
                         cardioHubQuickLabel(activity),
                         color = superhumanTextPrimary,
-                        fontSize = 8.sp,
+                        fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1
                     )
@@ -1718,7 +1718,7 @@ private fun CardioHubQuickStartEditor(
         Text(
             "REPLACE SLOT ${activeSlot + 1}",
             color = superhumanTextMuted,
-            fontSize = 8.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = .5.sp
         )
@@ -1755,7 +1755,7 @@ private fun CardioHubQuickStartEditor(
                     modifier = Modifier.weight(1f)
                 )
                 if (selected) {
-                    Text("SELECTED", color = superhumanBlue, fontSize = 7.sp, fontWeight = FontWeight.Black)
+                    Text("SELECTED", color = superhumanBlue, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -1804,7 +1804,7 @@ private fun CardioHubGoalEditor(
         Text(
             "These goals power the completion rings on your Cardio dashboard.",
             color = superhumanTextMuted,
-            fontSize = 9.sp
+            fontSize = 11.sp
         )
         Spacer(Modifier.height(14.dp))
 
@@ -1842,7 +1842,7 @@ private fun CardioHubGoalEditor(
         Text(
             "Leave a field empty to remove that goal.",
             color = superhumanTextMuted,
-            fontSize = 8.sp
+            fontSize = 10.sp
         )
         Spacer(Modifier.height(12.dp))
 
@@ -1854,7 +1854,7 @@ private fun CardioHubGoalEditor(
                     .superhumanClickable { onCancel() },
                 contentAlignment = Alignment.Center
             ) {
-                Text("CANCEL", color = superhumanTextMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("CANCEL", color = superhumanTextMuted, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
             Box(
                 Modifier.weight(1f)
@@ -1871,7 +1871,7 @@ private fun CardioHubGoalEditor(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                Text("SAVE GOALS", color = superhumanBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("SAVE GOALS", color = superhumanBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
         }
         Spacer(Modifier.height(24.dp))

@@ -161,7 +161,7 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 
         Column(Modifier.fillMaxWidth().background(ClinicalSurface, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             ClinicalButton("Choose screenshots", ClinicalBlue) { launcher.launch("image/*") }
-            Text(importState, color = ClinicalMuted, fontSize = 9.sp, lineHeight = 13.sp)
+            Text(importState, color = ClinicalMuted, fontSize = 11.sp, lineHeight = 13.sp)
             if (selectedUris.isNotEmpty()) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     selectedUris.take(3).forEach { uri -> ClinicalScreenshotPreview(uri, Modifier.weight(1f)) }
@@ -171,7 +171,7 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 
         Column(Modifier.fillMaxWidth().background(ClinicalSurface, RoundedCornerShape(24.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text("Review before saving", color = ClinicalInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("Recognised fields are editable before they become part of your health history.", color = ClinicalMuted, fontSize = 9.sp, lineHeight = 13.sp)
+            Text("Recognised fields are editable before they become part of your health history.", color = ClinicalMuted, fontSize = 11.sp, lineHeight = 13.sp)
 
             if (drafts.isEmpty()) {
                 Box(Modifier.fillMaxWidth().padding(vertical = 28.dp), contentAlignment = Alignment.Center) {
@@ -229,7 +229,7 @@ internal fun NativeClinicalParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         }
 
         if (saved.isNotEmpty()) {
-            Text("LATEST RESULTS", color = ClinicalMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+            Text("LATEST RESULTS", color = ClinicalMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
             saved.take(8).forEach { value ->
                 ClinicalResultRow(value) {
                     scope.launch { NativeDataHub.deleteValue(value); refresh() }
@@ -249,7 +249,7 @@ private fun ClinicalScreenshotPreview(uri: Uri, modifier: Modifier = Modifier) {
     Box(modifier.aspectRatio(0.78f).clip(RoundedCornerShape(14.dp)).background(ClinicalSoft), contentAlignment = Alignment.Center) {
         if (bitmap != null) {
             Image(bitmap = bitmap.asImageBitmap(), contentDescription = "Clinical screenshot preview", modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
-        } else Text("Preview unavailable", color = ClinicalMuted, fontSize = 8.sp)
+        } else Text("Preview unavailable", color = ClinicalMuted, fontSize = 10.sp)
     }
 }
 
@@ -291,7 +291,7 @@ private fun ClinicalLegacyReviewRow(draft: ClinicalDraft, onChange: (ClinicalDra
 @Composable
 private fun ClinicalChip(text: String, accent: Color, modifier: Modifier = Modifier) {
     Box(modifier.background(accent.copy(alpha = 0.10f), RoundedCornerShape(99.dp)).padding(horizontal = 9.dp, vertical = 5.dp)) {
-        Text(text, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        Text(text, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -310,7 +310,7 @@ private fun ClinicalHeader(onBack: () -> Unit) {
 @Composable
 private fun ClinicalStat(label: String, value: String, accent: Color, modifier: Modifier) {
     Column(modifier.background(ClinicalSurface, RoundedCornerShape(16.dp)).padding(12.dp)) {
-        Text(label, color = ClinicalMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = ClinicalMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(4.dp))
         Text(value, color = accent, fontSize = 16.sp, fontWeight = FontWeight.Black)
     }
@@ -327,15 +327,15 @@ private fun ClinicalReviewCard(draft: ClinicalDraft, onChange: (ClinicalDraft) -
     Column(Modifier.fillMaxWidth().background(ClinicalSurface, RoundedCornerShape(20.dp)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text(status, color = accent, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text(status, color = accent, fontSize = 11.sp, fontWeight = FontWeight.Black)
                 val provenance = buildList {
                     if (draft.unit.isNotBlank()) add(if (draft.unitSource == "screenshot") "unit read" else "unit inferred")
                     if (draft.low.isNotBlank() || draft.high.isNotBlank()) add(if (draft.rangeSource == "screenshot") "range read" else "range remembered")
                     if (draft.confidence > 0) add("${(draft.confidence * 100).toInt()}% match")
                 }.joinToString(" · ")
-                if (provenance.isNotBlank()) Text(provenance, color = ClinicalMuted, fontSize = 8.sp)
+                if (provenance.isNotBlank()) Text(provenance, color = ClinicalMuted, fontSize = 10.sp)
             }
-            Text("REMOVE", color = ClinicalBad, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.superhumanClickable(onClick = onRemove).padding(6.dp))
+            Text("REMOVE", color = ClinicalBad, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.superhumanClickable(onClick = onRemove).padding(6.dp))
         }
         OutlinedTextField(draft.name, { onChange(draft.copy(name = it)) }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Test") })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -362,13 +362,13 @@ private fun ClinicalResultRow(value: HealthValue, onDelete: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(name, color = ClinicalInk, fontSize = 13.sp, fontWeight = FontWeight.Bold)
             val range = when { low != null && high != null -> "$low – $high ${value.unit}"; low != null -> "≥ $low ${value.unit}"; high != null -> "≤ $high ${value.unit}"; else -> "Reference range not saved" }
-            Text(range, color = ClinicalMuted, fontSize = 9.sp)
+            Text(range, color = ClinicalMuted, fontSize = 11.sp)
         }
         Column(horizontalAlignment = Alignment.End) {
             val qualifier = value.metadata["qualifier"].orEmpty()
             Text("${qualifier}${trimNumber(value.value)} ${value.unit}", color = ClinicalInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
-            Text(status, color = accent, fontSize = 8.sp, fontWeight = FontWeight.Black)
-            Text("Remove", color = ClinicalBad, fontSize = 8.sp, fontWeight = FontWeight.Bold, modifier = Modifier.superhumanClickable(onClick = onDelete).padding(top = 5.dp))
+            Text(status, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            Text("Remove", color = ClinicalBad, fontSize = 10.sp, fontWeight = FontWeight.Bold, modifier = Modifier.superhumanClickable(onClick = onDelete).padding(top = 5.dp))
         }
     }
 }

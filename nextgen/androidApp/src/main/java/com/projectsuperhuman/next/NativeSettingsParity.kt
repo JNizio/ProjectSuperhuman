@@ -202,7 +202,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Text(status, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
+            Text(status, color = SettingsMuted, fontSize = 11.sp, lineHeight = 14.sp)
         }
 
         Column(Modifier.fillMaxWidth().midnightModuleCard(accent = SettingsBlue, radius = 22.dp).padding(16.dp)) {
@@ -211,12 +211,12 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
                     Text("Developer mode", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
                     Text(if (developerMode) "Diagnostic capture ON" else "Diagnostic capture OFF", color = if (developerMode) SettingsGreen else SettingsMuted, fontSize = 10.sp)
                 }
-                Text(if (developerMode) "ON" else "OFF", color = if (developerMode) SettingsGreen else SettingsMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text(if (developerMode) "ON" else "OFF", color = if (developerMode) SettingsGreen else SettingsMuted, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(7.dp))
             Text(
                 "When enabled, Project Superhuman records a small persistent timeline of Trudy/Kokoro runtime stages and heap use. The final event is committed before native inference so it survives an app crash.",
-                color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp
+                color = SettingsMuted, fontSize = 11.sp, lineHeight = 14.sp
             )
             Spacer(Modifier.height(10.dp))
             VaultButton(if (developerMode) "Turn developer mode off" else "Turn developer mode on", "Expose runtime diagnostics only while troubleshooting", if (developerMode) SettingsRed else SettingsBlue) {
@@ -228,12 +228,12 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
                 Spacer(Modifier.height(10.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.weight(1f).background(SettingsSoft, RoundedCornerShape(12.dp)).superhumanClickable { developerEvents = DeveloperDiagnostics.latest(context, 18) }.padding(10.dp), contentAlignment = Alignment.Center) {
-                        Text("REFRESH LOG", color = SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        Text("REFRESH LOG", color = SettingsNavy, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     }
                     Box(Modifier.weight(1f).background(superhumanErrorSurface, RoundedCornerShape(12.dp)).superhumanClickable {
                         DeveloperDiagnostics.clear(context); developerEvents = emptyList(); developerExportStatus = "Log cleared"
                     }.padding(10.dp), contentAlignment = Alignment.Center) {
-                        Text("CLEAR LOG", color = SettingsRed, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                        Text("CLEAR LOG", color = SettingsRed, fontSize = 11.sp, fontWeight = FontWeight.Black)
                     }
                 }
                 Spacer(Modifier.height(9.dp))
@@ -243,15 +243,15 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
                 }
                 if (developerExportStatus.isNotBlank()) {
                     Spacer(Modifier.height(7.dp))
-                    Text(developerExportStatus, color = SettingsMuted, fontSize = 8.sp, lineHeight = 12.sp)
+                    Text(developerExportStatus, color = SettingsMuted, fontSize = 10.sp, lineHeight = 12.sp)
                 }
                 Spacer(Modifier.height(10.dp))
-                Text("DEVICE", color = SettingsMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
-                Text(DeveloperDiagnostics.deviceSummary(), color = SettingsInk, fontSize = 8.sp, lineHeight = 12.sp)
+                Text("DEVICE", color = SettingsMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text(DeveloperDiagnostics.deviceSummary(), color = SettingsInk, fontSize = 10.sp, lineHeight = 12.sp)
                 Spacer(Modifier.height(8.dp))
-                Text("LATEST RUNTIME EVENTS", color = SettingsMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                Text("LATEST RUNTIME EVENTS", color = SettingsMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 if (developerEvents.isEmpty()) {
-                    Text("No diagnostic events yet. Open Trudy and reproduce the issue, then return here.", color = SettingsMuted, fontSize = 8.sp, lineHeight = 12.sp)
+                    Text("No diagnostic events yet. Open Trudy and reproduce the issue, then return here.", color = SettingsMuted, fontSize = 10.sp, lineHeight = 12.sp)
                 } else developerEvents.forEach { event ->
                     Text(event, color = SettingsInk, fontSize = 7.5.sp, lineHeight = 11.sp, modifier = Modifier.padding(top = 2.dp))
                 }
@@ -264,15 +264,15 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
                     Text("Developer test data", color = SettingsNavy, fontSize = 18.sp, fontWeight = FontWeight.Black)
                     Text("$syntheticCount clearly tagged synthetic values stored", color = SettingsMuted, fontSize = 10.sp)
                 }
-                Text("SYNTHETIC", color = SettingsBlue, fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("SYNTHETIC", color = SettingsBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(7.dp))
             Text(
                 "Build correlated fake history for dashboards, trends, Data Vault aggregation and the Interpretation Engine. Nutrition uses realistic breakfast, lunch and dinner meals drawn from the local food library when available, including calories, macros, fibre, saturated fat, salt/sodium, micronutrients and Nutrition goals. Generation uses the normal ingestion pipeline; genuine user records are never overwritten or cleared.",
-                color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp
+                color = SettingsMuted, fontSize = 11.sp, lineHeight = 14.sp
             )
             Spacer(Modifier.height(12.dp))
-            Text("HISTORY SPAN", color = SettingsMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Text("HISTORY SPAN", color = SettingsMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.height(7.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf(30 to "30D", 90 to "90D", 180 to "180D", 365 to "1Y", 1825 to "5Y").forEach { (days, label) ->
@@ -283,7 +283,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
             }
             if (syntheticDays == 1825) {
                 Spacer(Modifier.height(7.dp))
-                Text("5Y creates a large longitudinal test set and may take longer on slower devices.", color = SettingsMuted, fontSize = 8.sp, lineHeight = 12.sp)
+                Text("5Y creates a large longitudinal test set and may take longer on slower devices.", color = SettingsMuted, fontSize = 10.sp, lineHeight = 12.sp)
             }
             Spacer(Modifier.height(10.dp))
             VaultButton(
@@ -328,7 +328,7 @@ internal fun NativeSettingsParity(openLegacy: () -> Unit, openSmartDevices: () -
                 }
             }
             Spacer(Modifier.height(10.dp))
-            Text(syntheticStatus, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
+            Text(syntheticStatus, color = SettingsMuted, fontSize = 11.sp, lineHeight = 14.sp)
         }
 
         SettingsSection("Permissions", "Camera, barcode/OCR, Bluetooth and health permissions are requested only when the related feature needs them.")
@@ -343,7 +343,7 @@ private fun VaultButton(title: String, subtitle: String, accent: Color, onClick:
     Row(Modifier.fillMaxWidth().background(accent, RoundedCornerShape(16.dp)).superhumanClickable(onClick = onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
-            Text(subtitle, color = Color.White.copy(alpha = .78f), fontSize = 8.sp, lineHeight = 12.sp)
+            Text(subtitle, color = Color.White.copy(alpha = .78f), fontSize = 10.sp, lineHeight = 12.sp)
         }
         Text("→", color = Color.White, fontSize = 22.sp)
     }
@@ -352,7 +352,7 @@ private fun VaultButton(title: String, subtitle: String, accent: Color, onClick:
 @Composable
 private fun SyntheticSpanButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(modifier.background(if (selected) SettingsBlue else SettingsSoft, RoundedCornerShape(12.dp)).superhumanClickable(onClick = onClick).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-        Text(label, color = if (selected) Color.White else SettingsNavy, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        Text(label, color = if (selected) Color.White else SettingsNavy, fontSize = 11.sp, fontWeight = FontWeight.Black)
     }
 }
 
@@ -361,7 +361,7 @@ private fun SettingsSection(title: String, subtitle: String) {
     Column(Modifier.fillMaxWidth().midnightModuleCard(accent = SettingsBlue, radius = 18.dp).padding(16.dp)) {
         Text(title, color = SettingsInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
-        Text(subtitle, color = SettingsMuted, fontSize = 9.sp, lineHeight = 14.sp)
+        Text(subtitle, color = SettingsMuted, fontSize = 11.sp, lineHeight = 14.sp)
     }
 }
 

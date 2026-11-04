@@ -178,7 +178,7 @@ internal fun NativeHydrationScreen(onBack: () -> Unit) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Column {
                     Text("Daily water goal", color = HydInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                    Text("Adjust between 1.5 L and 6.0 L", color = HydMuted, fontSize = 9.sp)
+                    Text("Adjust between 1.5 L and 6.0 L", color = HydMuted, fontSize = 11.sp)
                 }
                 Text(formatMlHydration(goalDraft.roundToInt()), color = HydBlue, fontSize = 15.sp, fontWeight = FontWeight.Black)
             }
@@ -211,9 +211,9 @@ private fun HydrationHistoryCard(snapshot: HydrationSnapshot) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Column {
                 Text("7-day water consistency", color = HydInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                Text("Average ${formatMlHydration(snapshot.sevenDayAverage)} / day", color = HydMuted, fontSize = 9.sp)
+                Text("Average ${formatMlHydration(snapshot.sevenDayAverage)} / day", color = HydMuted, fontSize = 11.sp)
             }
-            Text("${snapshot.streak} day streak", color = HydGreen, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text("${snapshot.streak} day streak", color = HydGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(Modifier.height(15.dp))
         Row(Modifier.fillMaxWidth().height(88.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Bottom) {
@@ -221,7 +221,7 @@ private fun HydrationHistoryCard(snapshot: HydrationSnapshot) {
                 val fraction = (day.ml.toFloat() / max).coerceIn(0.03f, 1f)
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(Modifier.fillMaxWidth().height((64 * fraction).dp).background(if (day.ml >= snapshot.goalMl) HydGreen.copy(alpha = .75f) else HydBlue.copy(alpha = .25f), RoundedCornerShape(7.dp)))
-                    Spacer(Modifier.height(5.dp)); Text(day.date.dayOfWeek.name.take(1), color = HydMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Spacer(Modifier.height(5.dp)); Text(day.date.dayOfWeek.name.take(1), color = HydMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

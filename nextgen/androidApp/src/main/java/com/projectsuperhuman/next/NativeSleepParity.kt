@@ -170,7 +170,7 @@ private fun SleepHero(s: NativeSleepSnapshot?, mode: SleepViewMode) {
                 Text(
                     if (mode == SleepViewMode.RECORDED) "RECORDED SLEEP" else "SMART SLEEP",
                     color = Color.White.copy(alpha = .64f),
-                    fontSize = 8.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Black,
                     letterSpacing = 1.sp
                 )
@@ -180,7 +180,7 @@ private fun SleepHero(s: NativeSleepSnapshot?, mode: SleepViewMode) {
             if (score != null) {
                 Column(horizontalAlignment = Alignment.End) {
                     Text(score.toString(), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.Black)
-                    Text("sleep score", color = Color.White.copy(alpha = .68f), fontSize = 8.sp)
+                    Text("sleep score", color = Color.White.copy(alpha = .68f), fontSize = 10.sp)
                 }
             }
         }
@@ -196,7 +196,7 @@ private fun SleepHero(s: NativeSleepSnapshot?, mode: SleepViewMode) {
 private fun SleepHeroStat(label: String, value: String, modifier: Modifier) {
     Column(modifier.background(Color.White.copy(alpha = .10f), RoundedCornerShape(16.dp)).padding(11.dp)) {
         Text(value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text(label, color = Color.White.copy(alpha = .62f), fontSize = 8.sp)
+        Text(label, color = Color.White.copy(alpha = .62f), fontSize = 10.sp)
     }
 }
 
@@ -241,7 +241,7 @@ private fun SleepNightOverview(s: NativeSleepSnapshot, mode: SleepViewMode) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Last night", color = SleepInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                if (start != null && end != null) Text("$start – $end", color = SleepMuted, fontSize = 9.sp)
+                if (start != null && end != null) Text("$start – $end", color = SleepMuted, fontSize = 11.sp)
             }
             Text(
                 if (mode == SleepViewMode.RECORDED) formatMinutes(s.totalMinutes) else formatMinutes(analysis.interpretedSleepMinutes),
@@ -265,7 +265,7 @@ private fun SleepStageCard(s: NativeSleepSnapshot, mode: SleepViewMode) {
         Text("Stage balance", color = SleepInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
         Text(
             if (mode == SleepViewMode.RECORDED) "What the connected source reported" else "How the engine interpreted the recorded stages",
-            color = SleepMuted, fontSize = 9.sp
+            color = SleepMuted, fontSize = 11.sp
         )
         Spacer(Modifier.height(10.dp))
         if (mode == SleepViewMode.RECORDED) {
@@ -303,12 +303,12 @@ private fun SleepSmartInsightCard(s: NativeSleepSnapshot, mode: SleepViewMode) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f).padding(end = 8.dp)) {
                 Text("Smart sleep insight", color = SleepInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-                Text("A calculated view layered over the recorded data", color = SleepMuted, fontSize = 9.sp)
+                Text("A calculated view layered over the recorded data", color = SleepMuted, fontSize = 11.sp)
             }
             Box(
                 Modifier.background(SleepPurple.copy(alpha = .09f), RoundedCornerShape(99.dp))
                     .padding(horizontal = 9.dp, vertical = 6.dp)
-            ) { Text("${confidence.label} confidence", color = SleepPurple, fontSize = 7.sp, fontWeight = FontWeight.Black) }
+            ) { Text("${confidence.label} confidence", color = SleepPurple, fontSize = 10.sp, fontWeight = FontWeight.Black) }
         }
         Text(analysis.insight, color = SleepMuted, fontSize = 10.sp, lineHeight = 15.sp)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -319,11 +319,11 @@ private fun SleepSmartInsightCard(s: NativeSleepSnapshot, mode: SleepViewMode) {
         Box(
             Modifier.fillMaxWidth().background(SleepPurple.copy(alpha = .08f), RoundedCornerShape(14.dp)).padding(11.dp)
         ) {
-            Text("Focus: ${analysis.priority}", color = SleepPurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            Text("Focus: ${analysis.priority}", color = SleepPurple, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
         Text(
             if (mode == SleepViewMode.INTERPRETED) "The interpreted view uses the same source records, with confidence-aware calculations layered on top." else "Switch to Interpreted to see the engine's confidence-aware view.",
-            color = SleepMuted.copy(alpha = .9f), fontSize = 8.sp, lineHeight = 12.sp
+            color = SleepMuted.copy(alpha = .9f), fontSize = 10.sp, lineHeight = 12.sp
         )
     }
 }
@@ -336,13 +336,13 @@ private fun SleepConfidenceCard(s: NativeSleepSnapshot) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text("Data confidence", color = SleepInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-        Text("How much detail the source gives the engine to work with", color = SleepMuted, fontSize = 9.sp)
+        Text("How much detail the source gives the engine to work with", color = SleepMuted, fontSize = 11.sp)
         analysis.confidence.forEach { item ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(item.metric.replaceFirstChar { it.uppercase() }, color = SleepInk, fontSize = 9.sp, modifier = Modifier.weight(1f))
-                Text("${item.score}%", color = SleepInk, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text(item.metric.replaceFirstChar { it.uppercase() }, color = SleepInk, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                Text("${item.score}%", color = SleepInk, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(8.dp))
-                Text(item.label, color = if (item.score >= 75) SleepGood else SleepWarn, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                Text(item.label, color = if (item.score >= 75) SleepGood else SleepWarn, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -358,7 +358,7 @@ private fun SleepTrendCard(s: NativeSleepSnapshot) {
         Text(
             if (s.sessionsImported >= 7) "Your recent history is starting to establish a personal sleep baseline."
             else "More nights will make your personal baseline more useful.",
-            color = SleepMuted, fontSize = 9.sp, lineHeight = 14.sp
+            color = SleepMuted, fontSize = 11.sp, lineHeight = 14.sp
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             SleepMiniStat(formatMinutes(s.recentAverageMinutes), "avg sleep")
@@ -385,7 +385,7 @@ private fun SleepDataSourceCard(
                     if (connected) "Health Connect · historical/backfill source"
                     else "No external sleep source connected",
                     color = SleepMuted,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     lineHeight = 14.sp
                 )
             }
@@ -402,13 +402,13 @@ private fun SleepDataSourceCard(
                         else -> "OFFLINE"
                     },
                     color = if (connected) SleepGood else SleepPurple,
-                    fontSize = 7.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.Black
                 )
             }
         }
 
-        Text(status, color = SleepMuted, fontSize = 8.sp, lineHeight = 12.sp)
+        Text(status, color = SleepMuted, fontSize = 10.sp, lineHeight = 12.sp)
 
         Box(
             Modifier.fillMaxWidth().background(if (SuperhumanAppearance.darkMode) superhumanSurfaceSoft else Color(0xFFF0F3FF), RoundedCornerShape(15.dp))
@@ -416,7 +416,7 @@ private fun SleepDataSourceCard(
                 .padding(vertical = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("MANAGE SMART DEVICES", color = SleepPurple, fontSize = 9.sp, fontWeight = FontWeight.Black)
+            Text("MANAGE SMART DEVICES", color = SleepPurple, fontSize = 11.sp, fontWeight = FontWeight.Black)
         }
     }
 }
@@ -439,7 +439,7 @@ private fun EmptySleepCard(connected: Boolean) {
 private fun SleepMiniStat(value: String, label: String) {
     Column {
         Text(value, color = SleepInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
-        Text(label, color = SleepMuted, fontSize = 8.sp)
+        Text(label, color = SleepMuted, fontSize = 10.sp)
     }
 }
 

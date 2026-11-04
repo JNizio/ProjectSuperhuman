@@ -232,7 +232,7 @@ fun NativeNutritionPage(onBack: () -> Unit) {
                         Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(22.dp)).padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(7.dp)
                     ) {
-                        Text("SEARCH RESULTS", color = NutritionMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+                        Text("SEARCH RESULTS", color = NutritionMuted, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
                         results.take(14).forEach { food ->
                             FoodResult(food, selected?.id == food.id) {
                                 selected = food
@@ -385,7 +385,7 @@ private fun NativeFoodSearchCard(
         )
 
         Box(Modifier.fillMaxWidth().height(1.dp).background(NutritionBorder))
-        Text("BARCODE", color = NutritionMuted, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
+        Text("BARCODE", color = NutritionMuted, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.1.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             SmallAction("Live scan", Modifier.weight(1f), onLiveScan)
             SmallAction("Scan image", Modifier.weight(1f), onImageScan)
@@ -419,12 +419,12 @@ private fun FoodResult(food: NativeFood, selected: Boolean, onClick: () -> Unit)
             val brand = food.brand.takeIf { it.isNotBlank() }?.let { "$it · " } ?: ""
             Text(
                 "$brand${food.source} · ${food.kcal.roundToInt()} kcal / ${food.unit}",
-                color = NutritionMuted, fontSize = 8.sp, lineHeight = 11.sp
+                color = NutritionMuted, fontSize = 10.sp, lineHeight = 11.sp
             )
             Text(
                 "P ${oneDecimal(food.protein)} · C ${oneDecimal(food.carbs)} · F ${oneDecimal(food.fat)}" +
                     if (food.micronutrients.isNotEmpty()) " · ${food.micronutrients.size} micros" else "",
-                color = NutritionMuted, fontSize = 9.sp
+                color = NutritionMuted, fontSize = 11.sp
             )
         }
         Text("+", color = NutritionGreen, fontSize = 20.sp, fontWeight = FontWeight.Black)
@@ -450,7 +450,7 @@ private fun SelectedFoodCard(
         Column {
             Text(food.name, color = NutritionInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
             val detail = listOf(food.brand, food.quantity, food.source).filter { it.isNotBlank() }.joinToString(" · ")
-            if (detail.isNotBlank()) Text(detail, color = NutritionMuted, fontSize = 9.sp)
+            if (detail.isNotBlank()) Text(detail, color = NutritionMuted, fontSize = 11.sp)
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -460,7 +460,7 @@ private fun SelectedFoodCard(
             SelectedMacro("fat", oneDecimal(food.fat * factor), Modifier.weight(1f))
         }
 
-        Text("MEAL", color = NutritionMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+        Text("MEAL", color = NutritionMuted, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
         Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(7.dp)
@@ -478,7 +478,7 @@ private fun SelectedFoodCard(
             label = { Text("Portion in g / ml") }
         )
         if (food.servingSize.isNotBlank()) {
-            Text("Label serving: ${food.servingSize}", color = NutritionMuted, fontSize = 8.sp)
+            Text("Label serving: ${food.servingSize}", color = NutritionMuted, fontSize = 10.sp)
         }
 
         if (food.micronutrients.values.any {
@@ -487,23 +487,23 @@ private fun SelectedFoodCard(
             Text(
                 "Micronutrient estimates from a matched USDA food reference. " +
                     "Amounts can vary by variety and preparation; source IDs are retained in the diary.",
-                color = NutritionMuted, fontSize = 8.sp, lineHeight = 12.sp
+                color = NutritionMuted, fontSize = 10.sp, lineHeight = 12.sp
             )
         } else if (food.source == "Local reference" && food.micronutrients.isEmpty()) {
             Text(
                 "No matching verified micronutrient profile is currently available. " +
                     "Missing values remain unknown, not zero.",
-                color = NutritionMuted, fontSize = 8.sp, lineHeight = 12.sp
+                color = NutritionMuted, fontSize = 10.sp, lineHeight = 12.sp
             )
         }
         if (food.micronutrients.isNotEmpty()) {
-            Text("MICRONUTRIENTS AVAILABLE", color = NutritionMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
+            Text("MICRONUTRIENTS AVAILABLE", color = NutritionMuted, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                 food.micronutrients.values.take(8).forEach { nutrient ->
                     Box(Modifier.background(NutritionSoft, RoundedCornerShape(11.dp)).padding(horizontal = 9.dp, vertical = 7.dp)) {
                         Text(
                             "${nutrient.label} ${formatNutrient(nutrient.valuePer100 * factor, nutrient.unit)}",
-                            color = NutritionGreen, fontSize = 8.sp, fontWeight = FontWeight.Bold
+                            color = NutritionGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold
                         )
                     }
                 }
@@ -511,7 +511,7 @@ private fun SelectedFoodCard(
         } else if (food.source == "Open Food Facts") {
             Text(
                 "Open Food Facts has no micronutrient values for this product. Project Superhuman will keep them unknown rather than guess.",
-                color = NutritionMuted, fontSize = 8.sp, lineHeight = 12.sp
+                color = NutritionMuted, fontSize = 10.sp, lineHeight = 12.sp
             )
         }
 
@@ -527,7 +527,7 @@ private fun MealChip(label: String, selected: Boolean, onClick: () -> Unit) {
             .superhumanClickable(onClick = onClick).padding(horizontal = 13.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
     ) {
-        Text(label, color = if (selected) Color.White else NutritionMuted, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
+        Text(label, color = if (selected) Color.White else NutritionMuted, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
 
@@ -535,7 +535,7 @@ private fun MealChip(label: String, selected: Boolean, onClick: () -> Unit) {
 private fun SelectedMacro(label: String, value: String, modifier: Modifier) {
     Column(modifier.background(NutritionBg, RoundedCornerShape(12.dp)).padding(9.dp)) {
         Text(value, color = NutritionInk, fontSize = 12.sp, fontWeight = FontWeight.Black)
-        Text(label, color = NutritionMuted, fontSize = 7.sp)
+        Text(label, color = NutritionMuted, fontSize = 10.sp)
     }
 }
 
@@ -565,7 +565,7 @@ private fun TodayDiary(entries: List<FoodDiaryEntry>, onRemove: (FoodDiaryEntry)
                 ) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text(meal.uppercase(), color = NutritionInk, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = .8.sp)
-                        Text("${mealEntries.sumOf { it.kcal }.roundToInt()} kcal", color = NutritionBlue, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        Text("${mealEntries.sumOf { it.kcal }.roundToInt()} kcal", color = NutritionBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                     mealEntries.forEach { entry -> DiaryEntryRow(entry) { onRemove(entry) } }
                 }
@@ -583,10 +583,10 @@ private fun DiaryEntryRow(entry: FoodDiaryEntry, onRemove: () -> Unit) {
             Text(entry.name, color = NutritionInk, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
             Text(
                 "${formatEditableNumber(entry.grams)} g · ${entry.kcal.roundToInt()} kcal · P ${oneDecimal(entry.protein)} · C ${oneDecimal(entry.carbs)} · F ${oneDecimal(entry.fat)}",
-                color = NutritionMuted, fontSize = 8.sp, lineHeight = 11.sp
+                color = NutritionMuted, fontSize = 10.sp, lineHeight = 11.sp
             )
             if (entry.micronutrientCount > 0) {
-                Text("${entry.micronutrientCount} micronutrients captured", color = NutritionGreen, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                Text("${entry.micronutrientCount} micronutrients captured", color = NutritionGreen, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }
         Box(
@@ -594,7 +594,7 @@ private fun DiaryEntryRow(entry: FoodDiaryEntry, onRemove: () -> Unit) {
                 .padding(horizontal = 10.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center
         ) {
-            Text("Remove", color = NutritionOrange, fontSize = 8.sp, fontWeight = FontWeight.Black)
+            Text("Remove", color = NutritionOrange, fontSize = 10.sp, fontWeight = FontWeight.Black)
         }
     }
 }
@@ -635,7 +635,7 @@ private fun MicronutrientDashboard(today: TodayNutrition) {
             Spacer(Modifier.height(5.dp))
             Text(
                 "This is stored as a daily time-series metric, so the future correlation engine can compare it with sleep, recovery and other outcomes.",
-                color = NutritionMuted, fontSize = 9.sp, lineHeight = 13.sp
+                color = NutritionMuted, fontSize = 11.sp, lineHeight = 13.sp
             )
         }
 
@@ -678,7 +678,7 @@ private fun MicronutrientDashboard(today: TodayNutrition) {
             Text("Helpful compounds", color = NutritionPurple, fontSize = 16.sp, fontWeight = FontWeight.Black)
             Text(
                 "The native pipeline is ready for compounds such as caffeine, omega-3s and choline, but Project Superhuman won't invent values when a source doesn't provide them. Choline is already captured when Open Food Facts has it.",
-                color = NutritionMuted, fontSize = 9.sp, lineHeight = 14.sp
+                color = NutritionMuted, fontSize = 11.sp, lineHeight = 14.sp
             )
         }
     }
@@ -688,19 +688,19 @@ private fun MicronutrientDashboard(today: TodayNutrition) {
 private fun MicroSummary(label: String, value: String, modifier: Modifier) {
     Column(modifier.background(Color.White.copy(alpha = .72f), RoundedCornerShape(13.dp)).padding(10.dp)) {
         Text(value, color = NutritionGreen, fontSize = 15.sp, fontWeight = FontWeight.Black)
-        Text(label, color = NutritionMuted, fontSize = 7.sp)
+        Text(label, color = NutritionMuted, fontSize = 10.sp)
     }
 }
 
 @Composable
 private fun NutritionMetric(title: String, value: String, unit: String, modifier: Modifier) {
     Column(modifier.background(Color.White, RoundedCornerShape(18.dp)).border(1.dp, NutritionBorder, RoundedCornerShape(18.dp)).padding(13.dp)) {
-        Text(title.uppercase(), color = NutritionMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+        Text(title.uppercase(), color = NutritionMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(5.dp))
         Row(verticalAlignment = Alignment.Bottom) {
             Text(value, color = NutritionInk, fontSize = 18.sp, fontWeight = FontWeight.Black)
             Spacer(Modifier.width(3.dp))
-            Text(unit, color = NutritionMuted, fontSize = 9.sp)
+            Text(unit, color = NutritionMuted, fontSize = 11.sp)
         }
     }
 }
@@ -720,7 +720,7 @@ private fun ActionButton(
     ) {
         Column(Modifier.weight(1f)) {
             Text(title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
-            Text(subtitle, color = Color.White.copy(alpha = .8f), fontSize = 9.sp)
+            Text(subtitle, color = Color.White.copy(alpha = .8f), fontSize = 11.sp)
         }
         Text("→", color = Color.White, fontSize = 22.sp)
     }

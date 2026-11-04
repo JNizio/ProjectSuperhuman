@@ -120,9 +120,9 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text("Your profile", color = DashInk, fontSize = 16.sp, fontWeight = FontWeight.Black)
-                Text("Used for body-composition estimates and goals", color = DashMuted, fontSize = 9.sp)
+                Text("Used for body-composition estimates and goals", color = DashMuted, fontSize = 11.sp)
             }
-            Text(if (editing) "CLOSE" else "EDIT", color = DashBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable { editing = !editing })
+            Text(if (editing) "CLOSE" else "EDIT", color = DashBlue, fontSize = 11.sp, fontWeight = FontWeight.Black, modifier = Modifier.superhumanClickable { editing = !editing })
         }
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -140,7 +140,7 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
             if (editing) {
                 Box(Modifier.weight(1f).height(80.dp).background(DashSoft, RoundedCornerShape(13.dp)).padding(6.dp)) {
                     Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                        Text("SEX", color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                        Text("SEX", color = DashMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             SexChoice("Male", profile.male == true, Modifier.weight(1f)) { profile = profile.copy(male = true) }
                             SexChoice("Female", profile.male == false, Modifier.weight(1f)) { profile = profile.copy(male = false) }
@@ -153,7 +153,7 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
                         verticalArrangement = Arrangement.SpaceBetween,
                         horizontalAlignment = Alignment.Start
                     ) {
-                        Text("ACTIVITY", color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                        Text("ACTIVITY", color = DashMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         Text(activityLabels[profile.activity] + "  ▾", color = DashInk, fontSize = 10.sp, fontWeight = FontWeight.Black)
                     }
                     DropdownMenu(expanded = activityOpen, onDismissRequest = { activityOpen = false }) {
@@ -183,7 +183,7 @@ internal fun BodyProfileSetupCard(onSaved: () -> Unit) {
             }.padding(14.dp), contentAlignment = Alignment.Center) {
                 Text("SAVE PROFILE", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Black)
             }
-            if (status.isNotBlank()) Text(status, color = DashMuted, fontSize = 8.sp)
+            if (status.isNotBlank()) Text(status, color = DashMuted, fontSize = 10.sp)
         }
     }
 }
@@ -220,7 +220,7 @@ internal fun BodyOverTimeSection() {
     Column(Modifier.fillMaxWidth().background(DashSurface, RoundedCornerShape(22.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column {
             Text("Change over time", color = DashInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("Switch metrics and tap any date to inspect that reading", color = DashMuted, fontSize = 9.sp)
+            Text("Switch metrics and tap any date to inspect that reading", color = DashMuted, fontSize = 11.sp)
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
@@ -229,7 +229,7 @@ internal fun BodyOverTimeSection() {
                     rowMetrics.forEach { metric ->
                         val active = metric.metric == selected.metric
                         Box(Modifier.weight(1f).background(if (active) DashBlue else DashSoft, RoundedCornerShape(12.dp)).superhumanClickable { selected = metric }.padding(vertical = 9.dp), contentAlignment = Alignment.Center) {
-                            Text(metric.title, color = if (active) Color.White else DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                            Text(metric.title, color = if (active) Color.White else DashMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                         }
                     }
                     repeat(4 - rowMetrics.size) { Spacer(Modifier.weight(1f)) }
@@ -247,7 +247,7 @@ internal fun BodyOverTimeSection() {
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(item.title, color = if (active) DashBlue else DashMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                    Text(item.title, color = if (active) DashBlue else DashMuted, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -266,11 +266,11 @@ internal fun BodyOverTimeSection() {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                 Column {
                     Text(formatMetric(values.last(), selected), color = DashInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                    Text("Latest", color = DashMuted, fontSize = 8.sp)
+                    Text("Latest", color = DashMuted, fontSize = 10.sp)
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(changeText(change, selected), color = if (abs(change) < .01) DashMuted else DashBlue, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                    Text("${range.title} change", color = DashMuted, fontSize = 7.sp)
+                    Text("${range.title} change", color = DashMuted, fontSize = 10.sp)
                 }
             }
 
@@ -294,7 +294,7 @@ internal fun BodyOverTimeSection() {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
-                    Text("Selected day", color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+                    Text("Selected day", color = DashMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Text(selectedDateFormat.format(Date(selectedPoint.timestampEpochMs)), color = DashInk, fontSize = 10.sp, fontWeight = FontWeight.Black)
                 }
                 Text(formatMetric(selectedPoint.value, selected), color = DashBlue, fontSize = 14.sp, fontWeight = FontWeight.Black)
@@ -367,7 +367,7 @@ internal fun BodyOverTimeSection() {
                         axisDateFormat.format(Date(history[index].timestampEpochMs)),
                         modifier = Modifier.weight(1f),
                         color = DashMuted,
-                        fontSize = 7.sp,
+                        fontSize = 10.sp,
                         textAlign = when (tickPosition) {
                             0 -> TextAlign.Start
                             tickIndices.lastIndex -> TextAlign.End
@@ -376,7 +376,7 @@ internal fun BodyOverTimeSection() {
                     )
                 }
             }
-            Text("Tap anywhere on the chart — the nearest recorded day will be selected", color = DashMuted, fontSize = 8.sp)
+            Text("Tap anywhere on the chart — the nearest recorded day will be selected", color = DashMuted, fontSize = 10.sp)
         }
     }
 }
@@ -384,7 +384,7 @@ internal fun BodyOverTimeSection() {
 @Composable
 private fun ProfileEditMini(label: String, value: String, unit: String, modifier: Modifier, onValue: (String) -> Unit) {
     Column(modifier.background(DashSoft, RoundedCornerShape(13.dp)).padding(10.dp)) {
-        Text(label, color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = DashMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             BasicTextField(
@@ -395,7 +395,7 @@ private fun ProfileEditMini(label: String, value: String, unit: String, modifier
                 textStyle = androidx.compose.ui.text.TextStyle(color = DashInk, fontSize = 10.sp, fontWeight = FontWeight.Black),
                 decorationBox = { inner -> if (value.isBlank()) Text("—", color = DashMuted, fontSize = 10.sp) else inner() }
             )
-            if (unit.isNotBlank()) Text(" $unit", color = DashMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+            if (unit.isNotBlank()) Text(" $unit", color = DashMuted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -403,7 +403,7 @@ private fun ProfileEditMini(label: String, value: String, unit: String, modifier
 @Composable
 private fun ProfileMini(label: String, value: String, modifier: Modifier) {
     Column(modifier.background(DashSoft, RoundedCornerShape(13.dp)).padding(10.dp)) {
-        Text(label, color = DashMuted, fontSize = 7.sp, fontWeight = FontWeight.Bold)
+        Text(label, color = DashMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(3.dp))
         Text(value, color = DashInk, fontSize = 10.sp, fontWeight = FontWeight.Black)
     }
@@ -412,7 +412,7 @@ private fun ProfileMini(label: String, value: String, modifier: Modifier) {
 @Composable
 private fun SexChoice(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(modifier.background(if (selected) DashBlue else Color.Transparent, RoundedCornerShape(11.dp)).superhumanClickable(onClick = onClick).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-        Text(label, color = if (selected) Color.White else DashMuted, fontSize = 9.sp, fontWeight = FontWeight.Black)
+        Text(label, color = if (selected) Color.White else DashMuted, fontSize = 11.sp, fontWeight = FontWeight.Black)
     }
 }
 
