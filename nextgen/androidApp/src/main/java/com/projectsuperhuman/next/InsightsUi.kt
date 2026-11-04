@@ -48,7 +48,7 @@ private val InsightsBlue get() = superhumanBlue
 private val InsightsCyan get() = superhumanAccent
 private val InsightsInk get() = superhumanTextPrimary
 private val InsightsMuted get() = superhumanTextMuted
-private val InsightsBorder get() = superhumanBorder
+private val InsightsBorder get() = softModuleOutline(superhumanBorder)
 private val InsightsCard get() = superhumanSurfaceElevated
 
 @Composable
