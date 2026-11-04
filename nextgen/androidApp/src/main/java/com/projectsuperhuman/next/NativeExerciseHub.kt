@@ -310,7 +310,7 @@ private fun NativeExerciseLandingPage(
         Text(
             "THIS WEEK",
             color = muted,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Black,
             modifier = Modifier.padding(top = 2.dp)
         )
@@ -350,7 +350,7 @@ private fun NativeExerciseLandingPage(
         Text(
             "RECENT",
             color = muted,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Black,
             modifier = Modifier.padding(top = 2.dp)
         )
@@ -373,7 +373,7 @@ private fun NativeExerciseLandingPage(
                 Text(
                     "Your completed strength and cardio sessions will appear here.",
                     color = muted,
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     lineHeight = 13.sp
                 )
             }
@@ -447,13 +447,13 @@ private fun ExerciseActiveCardioCard(
             Text(
                 exerciseDuration(elapsedSeconds),
                 color = muted,
-                fontSize = 9.sp
+                fontSize = 11.sp
             )
         }
         Text(
             "RESUME  →",
             color = accent,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Black
         )
     }
@@ -590,7 +590,7 @@ private fun ExerciseModuleCard(
                 Text(
                     secondary,
                     color = Color.White.copy(alpha = .72f),
-                    fontSize = 9.sp,
+                    fontSize = 11.sp,
                     lineHeight = 12.sp,
                     maxLines = 1
                 )
@@ -666,7 +666,7 @@ private fun ExerciseCompactMetric(
         Text(
             label,
             color = muted,
-            fontSize = 7.sp,
+            fontSize = 10.sp,
             lineHeight = 9.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
@@ -730,7 +730,7 @@ private fun ExerciseRecentRow(
             Text(
                 "${exerciseRelativeDate(item.timestamp)} · ${item.detail}",
                 color = muted,
-                fontSize = 8.sp
+                fontSize = 10.sp
             )
         }
         Text(
