@@ -64,6 +64,7 @@ internal fun StrengthInlineExerciseLogger(
     var setKind by rememberSaveable(startedAt, exercise.id) { mutableStateOf("Work") }
     var rirText by rememberSaveable(startedAt, exercise.id) { mutableStateOf("") }
     var rpeText by rememberSaveable(startedAt, exercise.id) { mutableStateOf("") }
+    var lastSubmittedAt by rememberSaveable(startedAt, exercise.id) { mutableStateOf(0L) }
     val previousLabel = if (priorReps != null && priorKg != null) {
         strengthInlineNumber(priorKg) + " kg × " + priorReps
     } else "—"
@@ -202,7 +203,11 @@ internal fun StrengthInlineExerciseLogger(
                             if ((rirText.isNotBlank() && rir == null) || (rpeText.isNotBlank() && rpe == null)) {
                                 inputError = true
                             } else {
-                                onLog(reps, kg, setKind, rir, rpe)
+                                val now = System.currentTimeMillis()
+                                if (now - lastSubmittedAt >= 350L) {
+                                    lastSubmittedAt = now
+                                    onLog(reps, kg, setKind, rir, rpe)
+                                }
                                 inputError = false
                             }
                         } else inputError = true

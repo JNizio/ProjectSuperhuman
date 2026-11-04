@@ -51,6 +51,12 @@ internal data class StrengthMuscleVolume(
     val estimatedWorkingSets: Double
 )
 
+/** Unique timestamps prevent fast consecutive set taps from merging storage keys. */
+internal fun nextStrengthSetTimestamp(now: Long, existingTimestamps: List<Long>): Long {
+    val last = existingTimestamps.maxOrNull() ?: return now
+    return if (last >= now && last < Long.MAX_VALUE) last + 1L else now
+}
+
 internal fun strengthEstimated1Rm(loadKg: Double, reps: Int): Double {
     if (loadKg <= 0.0 || reps <= 0) return 0.0
     // Epley formula: estimated 1RM = load × (1 + reps / 30).

@@ -443,6 +443,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var workoutExerciseQuery by remember { mutableStateOf("") }
     var showWorkoutRoutinePicker by remember { mutableStateOf(false) }
     var savingWorkout by remember { mutableStateOf(false) }
+    var confirmStrengthDiscard by remember { mutableStateOf(false) }
     var setSaveFailed by remember { mutableStateOf(false) }
     val pendingSetJobs = remember { mutableListOf<Job>() }
 
@@ -503,9 +504,12 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
 
     fun addSet(set: NativeWorkoutSet, startRest: Boolean = true) {
         session.add(set)
-        if (startRest) {
+        if (startRest && restTarget > 0) {
             restSeconds = restTarget
             restEndsAt = System.currentTimeMillis() + restTarget * 1000L
+        } else if (startRest) {
+            restSeconds = 0
+            restEndsAt = 0L
         }
         writeActiveDraft()
         val job = scope.launch {
@@ -666,6 +670,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         workoutExerciseQuery = ""
         showWorkoutRoutinePicker = false
         savingWorkout = false
+        confirmStrengthDiscard = false
         setSaveFailed = false
         pendingSetJobs.clear()
         mode = "workout"
@@ -800,6 +805,57 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
         removeLoggedSet(set)
     }
 
+
+    fun discardStrengthWorkout() {
+        if (startedAt <= 0L || savingWorkout) return
+        if (session.isNotEmpty() && !confirmStrengthDiscard) {
+            confirmStrengthDiscard = true
+            feedbackMessage = "Tap trash again to discard the workout and its saved sets"
+            return
+        }
+        savingWorkout = true
+        val discardingStart = startedAt
+        val discardingId = activeSessionId
+        scope.launch {
+            try {
+                pendingSetJobs.toList().forEach { it.join() }
+                val savedRows = recent.filter { it.metadata["sessionId"] == discardingId }
+                if (savedRows.isNotEmpty()) NativeDataHub.deleteValues(savedRows)
+                clearActiveWorkoutDraft(context)
+                clearStrengthActiveMeta(context, discardingStart)
+                session.clear()
+                workoutExercises.clear()
+                selected = null
+                startedAt = 0L
+                activeSessionId = ""
+                workoutName = ""
+                workoutNotes = ""
+                sessionRpeText = ""
+                restSeconds = 0
+                restEndsAt = 0L
+                workoutPaused = false
+                workoutPausedAt = 0L
+                workoutPausedTotalMs = 0L
+                pendingSetJobs.clear()
+                refresh()
+                mode = "home"
+                feedbackMessage = "Workout discarded"
+            } catch (e: Exception) {
+                feedbackMessage = "Could not discard workout; the saved draft is retained"
+            } finally {
+                savingWorkout = false
+                confirmStrengthDiscard = false
+            }
+        }
+    }
+
+    LaunchedEffect(confirmStrengthDiscard) {
+        if (confirmStrengthDiscard) {
+            delay(5_000L)
+            confirmStrengthDiscard = false
+        }
+    }
+
     val completedSessions = remember(sessionRows, recent) { buildStrengthSessions(sessionRows, recent) }
     val strengthPrs = remember(recent, completedSessions) { calculateStrengthPrs(recent, completedSessions) }
     val strengthProgress = remember(recent, completedSessions) { calculateStrengthProgress(recent, completedSessions) }
@@ -839,22 +895,7 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     volumeKg = session.filter { it.type != "Warmup" }.sumOf { it.volume }.roundToInt(),
                     lastWorkout = lastSession?.name ?: "No completed workout yet",
                     onAction = { if (startedAt > 0L) resumeWorkout() else startWorkout() },
-                    onDelete = {
-                        if (startedAt > 0L) {
-                            clearActiveWorkoutDraft(context)
-                            clearStrengthActiveMeta(context, startedAt)
-                        }
-                        session.clear()
-                        workoutExercises.clear()
-                        selected = null
-                        startedAt = 0L
-                        activeSessionId = ""
-                        workoutName = ""
-                        workoutNotes = ""
-                        sessionRpeText = ""
-                        restSeconds = 0
-                        restEndsAt = 0L
-                    }
+                    onDelete = { discardStrengthWorkout() }
                 )
 
                 StrengthQuickActions(
@@ -912,6 +953,19 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             historyEditRpe = session.sessionRpe?.let(::exerciseNumber) ?: ""
                             pendingWorkoutDelete = null
                             mode = "session_detail"
+                        },
+                        onRepeat = {
+                            if (startedAt > 0L) {
+                                feedbackMessage = "Finish or discard your active session before repeating"
+                            } else {
+                                val repeatedExercises = session.sets.mapNotNull { row ->
+                                    row.metadata["exerciseId"]?.let(exerciseIndex::get)
+                                }.distinctBy { it.id }
+                                if (repeatedExercises.isNotEmpty()) {
+                                    startWorkout(repeatedExercises)
+                                    workoutName = session.name
+                                } else feedbackMessage = "No recorded exercises to repeat"
+                            }
                         }
                     )
                 }
@@ -1409,32 +1463,32 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             workoutPaused = true
                         }
                     },
-                    onDelete = {
-                        if (startedAt > 0L) {
-                            clearActiveWorkoutDraft(context)
-                            clearStrengthActiveMeta(context, startedAt)
-                        }
-                        session.clear()
-                        workoutExercises.clear()
-                        selected = null
-                        startedAt = 0L
-                        activeSessionId = ""
-                        workoutName = ""
-                        workoutNotes = ""
-                        sessionRpeText = ""
-                        restSeconds = 0
-                        restEndsAt = 0L
-                        workoutPaused = false
-                        workoutPausedAt = 0L
-                        workoutPausedTotalMs = 0L
-                        showWorkoutExercisePicker = false
-                        workoutExerciseQuery = ""
-                        showWorkoutRoutinePicker = false
-                        mode = "home"
-                    },
+                    onDelete = { discardStrengthWorkout() },
                     onFinish = { if (!savingWorkout) finishWorkout() },
                     saving = savingWorkout
                 )
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("REST", color = ExerciseMuted, fontSize = 10.sp, modifier = Modifier.weight(1f))
+                    listOf(0, 60, 90, 120, 180).forEach { duration ->
+                        val label = if (duration == 0) "Off" else (duration / 60).toString() +
+                            if (duration % 60 == 30) ":30" else ":00"
+                        Text(
+                            label,
+                            color = if (restTarget == duration) ExerciseBlue else ExerciseMuted,
+                            fontSize = 10.sp,
+                            modifier = Modifier
+                                .background(if (restTarget == duration) ExerciseBlue.copy(alpha = .12f)
+                                else ExerciseSurface, RoundedCornerShape(10.dp))
+                                .superhumanClickable { restTarget = duration }
+                                .padding(horizontal = 9.dp, vertical = 10.dp)
+                        )
+                    }
+                }
 
                 if (restSeconds > 0) {
                     StrengthCompactRestTimer(
@@ -1481,7 +1535,9 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                             deletePendingTimestamp = pendingSetDeleteTimestamp,
                             onLog = { reps, kg, type, rir, rpe ->
                                 if (!savingWorkout) {
-                                    addSet(NativeWorkoutSet(exercise, reps, kg, System.currentTimeMillis(), type, rir, rpe))
+                                    addSet(NativeWorkoutSet(exercise, reps, kg,
+                                        nextStrengthSetTimestamp(System.currentTimeMillis(), session.map { it.timestamp }),
+                                        type, rir, rpe))
                                 }
                             },
                             onEdit = { set, reps, kg -> if (!savingWorkout) updateLoggedSet(set, reps, kg) },
@@ -2752,26 +2808,27 @@ private fun StrengthRecordsCard(prs: List<StrengthExercisePr>, onOpenProgress: (
 }
 
 @Composable
-private fun StrengthRecentWorkoutCard(session: StrengthWorkoutSession, onClick: () -> Unit) {
+private fun StrengthRecentWorkoutCard(
+    session: StrengthWorkoutSession,
+    onClick: () -> Unit,
+    onRepeat: () -> Unit
+) {
     Row(
-        Modifier.fillMaxWidth()
-            .background(ExerciseSurface, RoundedCornerShape(18.dp))
-            .border(1.dp, ExerciseCardBorder, RoundedCornerShape(18.dp))
-            .superhumanClickable(onClick = onClick)
+        Modifier.fillMaxWidth().background(ExerciseSurface, RoundedCornerShape(18.dp))
             .padding(15.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(Modifier.weight(1f)) {
-            Text("RECENT WORKOUT", color = ExerciseMuted, fontSize = 8.sp, fontWeight = FontWeight.Black)
-            Spacer(Modifier.height(3.dp))
-            Text(session.name, color = ExerciseInk, fontSize = 13.sp, fontWeight = FontWeight.Black)
-            Text(
-                session.workingSets.toString() + " sets · " + session.totalVolumeKg.roundToInt() + " kg · " + session.durationMin + " min",
-                color = ExerciseMuted,
-                fontSize = 9.sp
-            )
+        Column(Modifier.weight(1f).superhumanClickable(onClick = onClick).padding(end = 12.dp)) {
+            Text("RECENT WORKOUT", color = ExerciseMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            Text(session.name, color = ExerciseInk, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(session.workingSets.toString() + " sets · " +
+                    session.totalVolumeKg.roundToInt() + " kg · " + session.durationMin + " min",
+                color = ExerciseMuted, fontSize = 10.sp)
         }
-        Text("→", color = ExerciseBlue, fontSize = 18.sp)
+        Text("REPEAT", color = ExerciseBlue, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+            modifier = Modifier.background(ExerciseBlue.copy(alpha = .12f), RoundedCornerShape(12.dp))
+                .superhumanClickable(onClick = onRepeat).padding(12.dp))
     }
 }
 
