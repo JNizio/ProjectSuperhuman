@@ -47,7 +47,7 @@ internal val ExperimentViolet get() = if (SuperhumanAppearance.darkMode) Color(0
 internal val ExperimentTeal get() = if (SuperhumanAppearance.darkMode) Color(0xFF59C8AF) else Color(0xFF20A7A5)
 internal val ExperimentAmber get() = if (SuperhumanAppearance.darkMode) Color(0xFFFFB85F) else Color(0xFFD58A32)
 internal val ExperimentMuted get() = superhumanTextMuted
-internal val ExperimentBorder get() = superhumanBorder
+internal val ExperimentBorder get() = softModuleOutline(superhumanBorder)
 internal val ExperimentCard get() = superhumanSurfaceElevated
 internal val ExperimentBackground get() = superhumanBackground
 
