@@ -25,7 +25,7 @@ class CardioHubPreferencesTest {
             CardioActivityType.ROWING,
             CardioActivityType.WALKING
         )
-        val ordered = (recent + CardioHubPreferences.DEFAULT_QUICK_ACTIVITIES).distinct().take(4)
+        val ordered = prioritizeCardioQuickActivities(recent)
         assertEquals(
             listOf(CardioActivityType.SWIMMING, CardioActivityType.ROWING,
                 CardioActivityType.WALKING, CardioActivityType.RUNNING),

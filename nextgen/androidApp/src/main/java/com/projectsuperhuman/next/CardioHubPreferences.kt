@@ -19,7 +19,7 @@ internal class CardioHubPreferences(context: Context) {
             ?.distinct()
             .orEmpty()
         return if (parsed.size == QUICK_SLOT_COUNT) parsed
-        else (recentActivities + DEFAULT_QUICK_ACTIVITIES).distinct().take(QUICK_SLOT_COUNT)
+        else prioritizeCardioQuickActivities(recentActivities)
     }
 
     fun saveQuickActivities(activities: List<CardioActivityType>) {
@@ -92,3 +92,10 @@ internal fun replaceCardioQuickActivity(
     }
     return result.take(CardioHubPreferences.QUICK_SLOT_COUNT)
 }
+
+
+/** Returns only real activities, latest use first, without overriding saved slots. */
+internal fun prioritizeCardioQuickActivities(recent: List<CardioActivityType>): List<CardioActivityType> =
+    (recent + CardioHubPreferences.DEFAULT_QUICK_ACTIVITIES)
+        .distinct()
+        .take(CardioHubPreferences.QUICK_SLOT_COUNT)

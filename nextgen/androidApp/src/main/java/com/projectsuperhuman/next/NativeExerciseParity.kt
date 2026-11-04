@@ -395,6 +395,8 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
     var favorites by remember { mutableStateOf(loadStrengthFavorites(context)) }
     var selectedHistorySessionId by remember { mutableStateOf<String?>(null) }
     var historySelectedDate by remember { mutableStateOf(java.time.LocalDate.now()) }
+    var historySearch by remember { mutableStateOf("") }
+    var historyRange by remember { mutableStateOf("All") }
     var historyVisibleMonth by remember { mutableStateOf(java.time.YearMonth.now()) }
     var historyEditName by remember { mutableStateOf("") }
     var historyEditNotes by remember { mutableStateOf("") }
@@ -1698,6 +1700,66 @@ internal fun NativeExerciseParityScreen(onBack: () -> Unit, openLegacy: () -> Un
                     StrengthHistoryEmptyDay()
                 } else {
                     selectedSessions.forEach { workout ->
+                        StrengthHistoryDayCard(workout) {
+                            selectedHistorySessionId = workout.sessionId
+                            historyEditName = workout.name
+                            historyEditNotes = workout.notes
+                            historyEditRpe = workout.sessionRpe?.let(::exerciseNumber) ?: ""
+                            pendingWorkoutDelete = null
+                            mode = "session_detail"
+                        }
+                    }
+                }
+
+                Text("ALL WORKOUTS", color = ExerciseInk, fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+                OutlinedTextField(
+                    historySearch,
+                    { historySearch = it.take(80) },
+                    Modifier.fillMaxWidth(),
+                    label = { Text("Search workout or exercise") },
+                    singleLine = true
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    listOf("7d", "30d", "90d", "Year", "All").forEach { range ->
+                        Text(
+                            range,
+                            color = if (historyRange == range) ExerciseBlue else ExerciseMuted,
+                            fontSize = 11.sp,
+                            modifier = Modifier.background(
+                                if (historyRange == range) ExerciseBlue.copy(alpha = .14f)
+                                else ExerciseSurface,
+                                RoundedCornerShape(10.dp)
+                            ).superhumanClickable { historyRange = range }
+                                .padding(horizontal = 10.dp, vertical = 11.dp)
+                        )
+                    }
+                }
+                val historyNow = System.currentTimeMillis()
+                val rangeStart = when (historyRange) {
+                    "7d" -> historyNow - 7L * 86_400_000L
+                    "30d" -> historyNow - 30L * 86_400_000L
+                    "90d" -> historyNow - 90L * 86_400_000L
+                    "Year" -> historyNow - 365L * 86_400_000L
+                    else -> 0L
+                }
+                val searchedSessions = remember(completedSessions, historySearch, historyRange) {
+                    completedSessions.asSequence()
+                        .filter { it.endTime >= rangeStart }
+                        .filter { workout ->
+                            historySearch.isBlank() || workout.name.contains(historySearch, ignoreCase = true) ||
+                                workout.sets.any { set ->
+                                    set.metadata["exerciseName"].orEmpty().contains(historySearch, ignoreCase = true)
+                                }
+                        }
+                        .sortedByDescending { it.endTime }
+                        .take(75)
+                        .toList()
+                }
+                if (searchedSessions.isEmpty()) {
+                    EmptyState("No matching workouts", "Try another search or date range.")
+                } else {
+                    searchedSessions.forEach { workout ->
                         StrengthHistoryDayCard(workout) {
                             selectedHistorySessionId = workout.sessionId
                             historyEditName = workout.name
