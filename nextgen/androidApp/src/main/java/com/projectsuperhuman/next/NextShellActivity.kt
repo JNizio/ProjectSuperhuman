@@ -105,7 +105,7 @@ class NextShellActivity : ComponentActivity() {
 }
 
 private enum class ShellPage {
-    HOME, TRENDS, EXPERIMENTS, SETTINGS, SMART_DEVICES, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, SUPPLEMENTS, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
+    HOME, TRENDS, EXPERIMENTS, MENTAL_HEALTH, SETTINGS, SMART_DEVICES, TRUDY, CLINICAL, BODY, SLEEP, EMOTIONAL, ENVIRONMENT, VITALS, HYDRATION, NUTRITION, SUPPLEMENTS, EXERCISE, MINDFULNESS, BREATHWORK, HEART_RATE, STEPS, BLOOD_OXYGEN, CALORIES
 }
 
 @Composable
@@ -117,13 +117,23 @@ private fun SuperhumanShell(
     var page by remember { mutableStateOf(ShellPage.HOME) }
     var modulePickerOpen by remember { mutableStateOf(false) }
     var returnToTrends by remember { mutableStateOf(false) }
+    var returnToMentalHealth by remember { mutableStateOf(false) }
     fun backFromTrendDetail() {
         page = if (returnToTrends) ShellPage.TRENDS else ShellPage.HOME
         returnToTrends = false
     }
     fun openFromTrends(target: ShellPage) {
         returnToTrends = true
+        returnToMentalHealth = false
         page = target
+    }
+    fun backFromMentalHealth() {
+        if (returnToMentalHealth) {
+            returnToMentalHealth = false
+            page = ShellPage.MENTAL_HEALTH
+        } else {
+            backFromTrendDetail()
+        }
     }
     val noCompatibility: () -> Unit = {}
     val hasPersistentTopBar = page == ShellPage.SETTINGS
@@ -133,7 +143,7 @@ private fun SuperhumanShell(
     val reserveFloatingBar = page != ShellPage.HOME && page != ShellPage.TRUDY && !keyboardVisible
     val trudyState = remember { TrudyConversationState() }
 
-    HomeNavigationBridge.openBreathwork = { page = ShellPage.BREATHWORK }
+    HomeNavigationBridge.openBreathwork = { returnToMentalHealth = false; page = ShellPage.BREATHWORK }
     SmartDevicesNavigationBridge.open = { page = ShellPage.SMART_DEVICES }
 
     Surface(color = ShellBg, modifier = Modifier.fillMaxSize()) {
@@ -155,10 +165,12 @@ private fun SuperhumanShell(
                         openNutrition = { page = ShellPage.NUTRITION },
                         openExercise = { page = ShellPage.EXERCISE },
                         openEnvironment = { page = ShellPage.ENVIRONMENT },
-                        openEmotional = { page = ShellPage.EMOTIONAL },
+                        openEmotional = {
+                            returnToTrends = false
+                            returnToMentalHealth = false
+                            page = ShellPage.MENTAL_HEALTH
+                        },
                         openExperiments = { page = ShellPage.EXPERIMENTS },
-                        openTrends = { returnToTrends = false; page = ShellPage.TRENDS },
-                        openMindfulness = { page = ShellPage.MINDFULNESS },
                         openSupplements = { page = ShellPage.SUPPLEMENTS },
                         openMiniMetric = { metric ->
                             page = when (metric) {
@@ -184,6 +196,24 @@ private fun SuperhumanShell(
                         onEmotional = { openFromTrends(ShellPage.EMOTIONAL) }
                     )
                     ShellPage.EXPERIMENTS -> NativeExperimentsPage { page = ShellPage.HOME }
+                    ShellPage.MENTAL_HEALTH -> NativeMentalHealthPage(
+                        onBack = { page = ShellPage.HOME },
+                        onMood = {
+                            returnToTrends = false
+                            returnToMentalHealth = true
+                            page = ShellPage.EMOTIONAL
+                        },
+                        onMindfulness = {
+                            returnToTrends = false
+                            returnToMentalHealth = true
+                            page = ShellPage.MINDFULNESS
+                        },
+                        onBreathwork = {
+                            returnToTrends = false
+                            returnToMentalHealth = true
+                            page = ShellPage.BREATHWORK
+                        }
+                    )
                     ShellPage.SETTINGS -> NativeSettingsWithUsage(noCompatibility) { page = ShellPage.SMART_DEVICES }
                     ShellPage.SMART_DEVICES -> SmartDevicesHub(onBack = { page = ShellPage.SETTINGS })
                     ShellPage.TRUDY -> NativeTrudy(
@@ -195,15 +225,15 @@ private fun SuperhumanShell(
                     ShellPage.CLINICAL -> NativeClinicalPage({ page = ShellPage.HOME }, openCompatibility)
                     ShellPage.BODY -> NativeBodyPage({ backFromTrendDetail() }, openCompatibility)
                     ShellPage.SLEEP -> UnifiedSleepPage({ backFromTrendDetail() }, openCompatibility)
-                    ShellPage.EMOTIONAL -> NativeEmotionalPage { backFromTrendDetail() }
+                    ShellPage.EMOTIONAL -> NativeEmotionalPage { backFromMentalHealth() }
                     ShellPage.ENVIRONMENT -> NativeEnvironmentalPage { page = ShellPage.HOME }
                     ShellPage.VITALS -> NativeVitalsPage { backFromTrendDetail() }
                     ShellPage.HYDRATION -> NativeHydrationScreen { page = ShellPage.HOME }
                     ShellPage.NUTRITION -> NativeNutritionWithFoodEditorPage { page = ShellPage.HOME }
                     ShellPage.SUPPLEMENTS -> NativeSupplementsPage { page = ShellPage.HOME }
                     ShellPage.EXERCISE -> NativeExercisePage({ backFromTrendDetail() }, openCompatibility)
-                    ShellPage.MINDFULNESS -> NativeMindfulnessPage({ page = ShellPage.HOME }, openCompatibility)
-                    ShellPage.BREATHWORK -> GuidedDeepBreathRoutine { page = ShellPage.HOME }
+                    ShellPage.MINDFULNESS -> NativeMindfulnessPage({ backFromMentalHealth() }, openCompatibility)
+                    ShellPage.BREATHWORK -> GuidedDeepBreathRoutine { backFromMentalHealth() }
                     ShellPage.HEART_RATE -> UnifiedMiniMetricPage(HomeMiniMetric.HEART_RATE) { page = ShellPage.HOME }
                     ShellPage.STEPS -> UnifiedMiniMetricPage(HomeMiniMetric.STEPS) { page = ShellPage.HOME }
                     ShellPage.BLOOD_OXYGEN -> UnifiedMiniMetricPage(HomeMiniMetric.BLOOD_OXYGEN) { page = ShellPage.HOME }
@@ -222,15 +252,15 @@ private fun SuperhumanShell(
             if (!keyboardVisible) ShellBottomNavigation(
                 selectedPage = page,
                 onHome = {
-                    returnToTrends = false
+                    returnToTrends = false; returnToMentalHealth = false
                     modulePickerOpen = false; page = ShellPage.HOME
                 },
                 onBody = {
-                    returnToTrends = false
+                    returnToTrends = false; returnToMentalHealth = false
                     modulePickerOpen = false; page = ShellPage.BODY
                 },
-                onTrudy = { returnToTrends = false; page = ShellPage.TRUDY },
-                onSettings = { returnToTrends = false; page = ShellPage.SETTINGS },
+                onTrudy = { returnToTrends = false; returnToMentalHealth = false; page = ShellPage.TRUDY },
+                onSettings = { returnToTrends = false; returnToMentalHealth = false; page = ShellPage.SETTINGS },
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
