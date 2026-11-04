@@ -95,7 +95,7 @@ internal fun EmotionalModuleScreen(
             ) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
                     Column {
-                        Text("QUICK CHECK-IN", color = EmotionalMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
+                        Text("QUICK CHECK-IN", color = EmotionalMuted, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.15.sp)
                         Spacer(Modifier.height(4.dp))
                         Text("Adjust what feels relevant", color = EmotionalInk, fontSize = 17.sp, fontWeight = FontWeight.Black)
                     }
@@ -130,7 +130,7 @@ internal fun EmotionalModuleScreen(
             }
             Text(
                 "The middle is neutral. Every check-in can be updated later.",
-                color = EmotionalMuted, fontSize = 9.sp, lineHeight = 14.sp,
+                color = EmotionalMuted, fontSize = 11.sp, lineHeight = 14.sp,
                 modifier = Modifier.padding(horizontal = 4.dp, bottom = 18.dp)
             )
         }
@@ -143,7 +143,7 @@ private fun EmotionalHeader(onBack: () -> Unit) {
         SuperhumanModuleBackButton(onBack)
         Column(Modifier.padding(start = 12.dp)) {
             Text("Emotional", color = EmotionalNavy, fontSize = 17.sp, fontWeight = FontWeight.Black)
-            Text("A quick read on right now", color = EmotionalMuted, fontSize = 9.sp)
+            Text("A quick read on right now", color = EmotionalMuted, fontSize = 11.sp)
         }
     }
 }
@@ -157,7 +157,7 @@ private fun EmotionalHero() {
         Modifier.fillMaxWidth().background(Brush.linearGradient(gradient), RoundedCornerShape(26.dp))
             .border(1.dp, EmotionalBorder, RoundedCornerShape(26.dp)).padding(19.dp)
     ) {
-        Text("RIGHT NOW", color = EmotionalBlue, fontSize = 9.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
+        Text("RIGHT NOW", color = EmotionalBlue, fontSize = 11.sp, fontWeight = FontWeight.Black, letterSpacing = 1.2.sp)
         Spacer(Modifier.height(7.dp)); Text("How are you feeling right now?", color = EmotionalInk, fontSize = 24.sp, fontWeight = FontWeight.Black)
         Spacer(Modifier.height(6.dp))
         Text("Move each slider toward the feeling that fits. Leave it in the middle if neither applies.", color = EmotionalMuted, fontSize = 12.sp, lineHeight = 17.sp)
@@ -170,16 +170,16 @@ private fun EmotionalCurrentStateCard(current: EmotionalPresentationSnapshot?) {
         .border(1.dp, EmotionalBorder, RoundedCornerShape(20.dp)).padding(15.dp)
     if (current == null) {
         Column(modifier.testTag("emotional_empty_state")) {
-            Text("NO CHECK-IN YET", color = EmotionalMuted, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+            Text("NO CHECK-IN YET", color = EmotionalMuted, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
             Spacer(Modifier.height(5.dp)); Text("Start with what feels most obvious", color = EmotionalInk, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(3.dp)); Text("The middle means neither feeling is stronger.", color = EmotionalMuted, fontSize = 9.sp)
+            Spacer(Modifier.height(3.dp)); Text("The middle means neither feeling is stronger.", color = EmotionalMuted, fontSize = 11.sp)
         }
     } else {
         val normalized = current.normalizedValues
         Column(modifier.testTag("emotional_current_state")) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("CURRENT", color = EmotionalBlue, fontSize = 8.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
-                current.recordedAtLabel?.let { Text(it, color = EmotionalMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold) }
+                Text("CURRENT", color = EmotionalBlue, fontSize = 10.sp, fontWeight = FontWeight.Black, letterSpacing = 1.sp)
+                current.recordedAtLabel?.let { Text(it, color = EmotionalMuted, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
             }
             Spacer(Modifier.height(5.dp)); Text(emotionalHeadline(normalized), color = EmotionalInk, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(9.dp))
@@ -193,7 +193,7 @@ private fun EmotionalCurrentStateCard(current: EmotionalPresentationSnapshot?) {
 @Composable
 private fun EmotionalSignalChip(label: String, modifier: Modifier = Modifier) {
     Box(modifier.background(superhumanSurfaceSoft, RoundedCornerShape(13.dp)).padding(horizontal = 8.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
-        Text(label, color = EmotionalNavy, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(label, color = EmotionalNavy, fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
